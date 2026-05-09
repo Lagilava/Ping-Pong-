@@ -1,0 +1,650 @@
+        class SpriteFireRenderer {
+            constructor(options = {}) {
+                this.fps = options.fps || 60;
+                this.particles = [];
+                // Further reduced count (20 is plenty with tails and sprites)
+                this.maxParticles = 18; 
+                this.lastSpawn = 0;
+                this.particlePool = [];
+                this.emissionPoints = [];
+                this.emissionPointCount = 0;
+
+                this.usePixi = false; // Force disabled for maximum performance 
+                this.fallbackSprite = null;
+                this.heatHazeSprite = null;
+
+                // Heat haze - very few for performance
+                this.heatHazeParticles = [];
+                this.maxHazeParticles = 2; 
+                this.hazeTime = 0;
+            }
+
+            isReady() { return true; }
+
+            reset() {
+                this.particles.length = 0;
+                this.heatHazeParticles.length = 0;
+                this.emissionPointCount = 0;
+            }
+
+            getEmissionPointSlot(index) {
+                let point = this.emissionPoints[index];
+                if (!point) {
+                    point = { x: 0, y: 0, strength: 1, flow: 0 };
+                    this.emissionPoints[index] = point;
+                }
+                return point;
+            }
+
+            getEmissionPoints(paddle, rageLevel) {
+                const x = paddle.pos.x, y = paddle.pos.y, w = paddle.w, h = paddle.h;
+                let count = 0;
+                const write = (px, py, str, flow) => {
+                    const p = this.getEmissionPointSlot(count++);
+                    p.x = px; p.y = py; p.strength = str; p.flow = flow;
+                };
+
+                const rodW = w * 0.35;
+                const rodX = x + (w - rodW) / 2;
+                const rodTop = y - h * 1.32;
+
+                // Main body points
+                write(x + w * 0.5, y - 5, 1.2, 1);
+                write(x + w * 0.5, y + h + 5, 1.0, -1);
+                
+                // Rod tip
+                write(rodX + rodW * 0.5, rodTop, 1.0, 1);
+                
+                // Sparse rod climbing points
+                const segments = 2 + Math.floor(rageLevel * 2);
+                for (let i = 0; i < segments; i++) {
+                    const py = rodTop + (y - rodTop) * (i / segments);
+                    write(rodX, py, 0.7, 1);
+                    write(rodX + rodW, py, 0.7, -1);
+                }
+
+                this.emissionPointCount = count;
+                return count;
+            }
+
+            update(now, paddle, rageLevel) {
+                if (!areParticleEffectsEnabled()) { this.reset(); return; }
+
+                // Optimized Spawn Logic
+                const spawnRate = 6 + rageLevel * 10;
+                if (now - this.lastSpawn > 1000 / spawnRate) {
+                    const pc = this.getEmissionPoints(paddle, rageLevel);
+                    if (pc > 0) this.spawnParticle(this.emissionPoints[(Math.random() * pc) | 0], rageLevel);
+                    this.lastSpawn = now;
+                }
+
+                const drag = 0.97;
+                let wIdx = 0;
+                for (let i = 0; i < this.particles.length; i++) {
+                    const p = this.particles[i];
+                    p.life -= 0.018;
+                    
+                    // Simple sine drift instead of complex noise
+                    p.vx += Math.sin(now * 0.005 + p.seed) * 0.15;
+                    p.vy += p.flowDir * 0.2;
+                    p.vx *= drag; p.vy *= drag;
+                    p.x += p.vx; p.y += p.vy;
+                    p.size *= 0.985;
+
+                    // Small history for trail
+                    if (!p.h) p.h = [];
+                    p.h.push({x: p.x, y: p.y});
+                    if (p.h.length > 3) p.h.shift();
+
+                    if (p.life > 0 && p.size > 1.5) {
+                        this.particles[wIdx++] = p;
+                    } else if (this.particlePool.length < this.maxParticles) {
+                        this.particlePool.push(p);
+                    }
+                }
+                this.particles.length = wIdx;
+                this.updateHeatHaze(now, paddle, rageLevel);
+            }
+
+            spawnParticle(em, rageLevel) {
+                let p = this.particlePool.length ? this.particlePool.pop() : (this.particles.length < this.maxParticles ? {} : null);
+                if (!p) return;
+                p.x = em.x + (Math.random() - 0.5) * 10;
+                p.y = em.y;
+                p.vx = (Math.random() - 0.5) * 1.5;
+                p.vy = em.flow * (1.2 + Math.random());
+                p.size = 6 + Math.random() * 8 + rageLevel * 10;
+                p.life = 0.6 + Math.random() * 0.8;
+                p.seed = Math.random() * 100;
+                p.flowDir = em.flow;
+                p.strength = em.strength;
+                p.h = [];
+                this.particles.push(p);
+            }
+
+            updateHeatHaze(now, paddle, rageLevel) {
+                if (rageLevel < 0.2 || Math.random() > 0.1) return;
+                if (this.heatHazeParticles.length < this.maxHazeParticles) {
+                    this.heatHazeParticles.push({
+                        x: paddle.pos.x + Math.random() * paddle.w,
+                        y: paddle.pos.y + (Math.random() - 0.5) * paddle.h,
+                        size: 40 + Math.random() * 40,
+                        life: 1.0
+                    });
+                }
+                let wIdx = 0;
+                for (let h of this.heatHazeParticles) {
+                    h.life -= 0.02; h.y -= 0.5;
+                    if (h.life > 0) this.heatHazeParticles[wIdx++] = h;
+                }
+                this.heatHazeParticles.length = wIdx;
+            }
+
+            render(ctx, paddle, rageLevel, now) {
+                if (!areParticleEffectsEnabled()) return false;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                
+                this.renderHeatHaze(ctx, rageLevel);
+                this.renderFullAura(ctx, paddle, rageLevel);
+                this.renderWrappingCore(ctx, paddle, rageLevel, now);
+                this.renderRodClimbingFlames(ctx, paddle, rageLevel, now);
+                this.renderCanvasParticles(ctx, now);
+
+                ctx.restore();
+                return true;
+            }
+
+            renderHeatHaze(ctx, rageLevel) {
+                if (!this.heatHazeParticles.length) return;
+                this.ensureHeatHazeSprite();
+                ctx.globalAlpha = 0.12 * rageLevel;
+                for (const h of this.heatHazeParticles) {
+                    const s = h.size * (0.8 + h.life * 0.2);
+                    ctx.drawImage(this.heatHazeSprite, h.x - s/2, h.y - s/2, s, s);
+                }
+            }
+
+            renderFullAura(ctx, paddle, rageLevel) {
+                if (rageLevel < 0.3) return;
+                const cx = paddle.pos.x + paddle.w/2, cy = paddle.pos.y + paddle.h/2;
+                const r = 80 + rageLevel * 60;
+                const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+                g.addColorStop(0, `rgba(255, 120, 0, ${0.2 * rageLevel})`);
+                g.addColorStop(1, 'rgba(255, 40, 0, 0)');
+                ctx.fillStyle = g;
+                ctx.fillRect(cx - r, cy - r, r*2, r*2);
+            }
+
+            renderWrappingCore(ctx, paddle, rageLevel, now) {
+                const cx = paddle.pos.x + paddle.w/2, by = paddle.pos.y;
+                const h = 40 + rageLevel * 100, w = paddle.w * (1.1 + rageLevel);
+                const g = ctx.createRadialGradient(cx, by - h*0.3, 0, cx, by - h*0.3, w*0.8);
+                g.addColorStop(0, 'rgba(255, 230, 150, 0.7)');
+                g.addColorStop(0.6, 'rgba(255, 80, 0, 0.3)');
+                g.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                ctx.fillStyle = g;
+                ctx.beginPath(); ctx.ellipse(cx, by - h*0.3, w*0.5, h*0.8, 0, 0, Math.PI*2); ctx.fill();
+            }
+
+            renderRodClimbingFlames(ctx, paddle, rageLevel, now) {
+                const rodW = paddle.w * 0.35, rodX = paddle.pos.x + (paddle.w - rodW)/2;
+                const rodTop = paddle.pos.y - paddle.h * 1.32, rodBottom = paddle.pos.y;
+                ctx.strokeStyle = 'rgba(255, 200, 50, 0.5)';
+                ctx.lineWidth = 3 + rageLevel * 3;
+                ctx.beginPath(); ctx.moveTo(rodX + rodW/2, rodBottom); ctx.lineTo(rodX + rodW/2, rodTop); ctx.stroke();
+                
+                ctx.fillStyle = 'rgba(255, 100, 0, 0.4)';
+                for (let i = 0; i < 3; i++) {
+                    const th = 30 + Math.sin(now * 0.01 + i) * 15;
+                    ctx.fillRect(rodX + rodW * (i/2) - 2, rodTop - th/2, 4, th);
+                }
+            }
+
+            ensureFallbackSprite() {
+                if (this.fallbackSprite) return;
+                const c = document.createElement('canvas'); c.width = 32; c.height = 32;
+                const g = c.getContext('2d');
+                const gra = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+                gra.addColorStop(0, '#fff'); gra.addColorStop(0.4, 'rgba(255, 210, 50, 0.9)'); gra.addColorStop(1, 'rgba(255, 40, 0, 0)');
+                g.fillStyle = gra; g.fillRect(0, 0, 32, 32);
+                this.fallbackSprite = c;
+            }
+
+            ensureHeatHazeSprite() {
+                if (this.heatHazeSprite) return;
+                const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+                const g = c.getContext('2d');
+                const gra = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+                gra.addColorStop(0, 'rgba(255, 140, 40, 0.4)'); gra.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                g.fillStyle = gra; g.fillRect(0, 0, 64, 64);
+                this.heatHazeSprite = c;
+            }
+
+            renderCanvasParticles(ctx, now) {
+                this.ensureFallbackSprite();
+                for (let i = 0; i < this.particles.length; i++) {
+                    const p = this.particles[i];
+                    const a = p.life * 0.8; ctx.globalAlpha = a;
+                    if (p.h && p.h.length > 1) {
+                        ctx.strokeStyle = `rgba(255, 180, 50, ${a * 0.4})`;
+                        ctx.lineWidth = p.size * 0.4;
+                        ctx.beginPath(); ctx.moveTo(p.h[0].x, p.h[0].y);
+                        for (let j = 1; j < p.h.length; j++) ctx.lineTo(p.h[j].x, p.h[j].y);
+                        ctx.stroke();
+                    }
+                    ctx.drawImage(this.fallbackSprite, p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+                }
+            }
+
+            renderWrappingParticles(ctx, rageLevel, now) {
+                this.renderCanvasParticles(ctx, now);
+            }
+
+            initPixi() {}
+            resizePixiIfNeeded() {}
+            renderPixiParticles() {}
+        }
+
+
+                    p.vx *= drag;
+                    p.vy *= drag;
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.size *= 0.98;
+
+                    if (p.life <= 0 || p.size < 1.1) {
+                        // recycle to pool
+                        if (this.particlePool.length < this.maxParticles) {
+                            this.particlePool.push(p);
+                        }
+                    } else {
+                        this.particles[writeIndex++] = p;
+                    }
+                }
+                this.particles.length = writeIndex;
+
+                this.updateHeatHaze(now, paddle, rageLevel);
+
+                if (this.particles.length > this.maxParticles) {
+                    const overflow = this.particles.length - this.maxParticles;
+                    for (let i = 0; i < overflow; i++) {
+                        const p = this.particles[i];
+                        if (this.particlePool.length < this.maxParticles) {
+                            this.particlePool.push(p);
+                        }
+                    }
+                    this.particles.copyWithin(0, overflow, this.particles.length);
+                    this.particles.length = this.maxParticles;
+                }
+            }
+
+            spawnParticle(emission, paddle, rageLevel) {
+                const spread = paddle.w * 0.4;
+                const centerX = paddle.pos.x + paddle.w * 0.5;
+                const centerY = paddle.pos.y + paddle.h * 0.5;
+                const spawnX = emission.x + (Math.random() - 0.5) * spread;
+                const spawnY = emission.y;
+
+                let baseAngle = Math.atan2(spawnY - centerY, spawnX - centerX);
+
+                const flowDir = emission.flow;
+                if (flowDir === 1) {
+                    baseAngle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+                } else if (flowDir === -1) {
+                    baseAngle = Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+                } else {
+                    baseAngle += (Math.random() - 0.5) * 1.4;
+                }
+
+                const speed = 1.3 + Math.random() * (2.0 + rageLevel * 3.0);
+
+                // reuse from pool if available
+                let particle;
+                if (this.particlePool.length) {
+                    particle = this.particlePool.pop();
+                } else if (this.particles.length < this.maxParticles) {
+                    particle = {};
+                }
+                if (!particle) return; // reached capacity
+
+                particle.x = spawnX;
+                particle.y = spawnY;
+                particle.size = 6 + Math.random() * 12 + rageLevel * 10;
+                particle.vx = Math.cos(baseAngle) * speed;
+                particle.vy = Math.sin(baseAngle) * speed;
+                particle.life = 0.7 + Math.random() * 0.9;
+                particle.seed = Math.random() * 1600;
+                particle.rand = Math.random();
+                particle.strength = emission.strength || 1;
+                particle.radialBias = 0.7 + Math.random() * 0.6;
+                particle.spinDir = Math.random() < 0.5 ? -1 : 1;
+                particle.flowDir = flowDir;
+                this.particles.push(particle);
+            }
+
+            updateHeatHaze(now, paddle, rageLevel) {
+                this.hazeTime += 0.016;
+                const spawnRate = 4 + rageLevel * 6; // drastically reduced
+                if (now % (1000 / spawnRate) < 12) {
+                    this.spawnHeatHaze(paddle, rageLevel);
+                }
+
+                let writeIndex = 0;
+                for (let readIndex = 0; readIndex < this.heatHazeParticles.length; readIndex++) {
+                    const h = this.heatHazeParticles[readIndex];
+                    h.life -= 0.012;
+                    h.x += Math.sin(this.hazeTime * 2.3 + h.seed) * 0.8;
+                    h.y += Math.sin(this.hazeTime * 1.7 + h.seed * 1.3) * 0.6;
+                    h.distort += (Math.random() - 0.5) * 0.15;
+                    h.size *= 1.008;
+
+                    if (h.life > 0) {
+                        this.heatHazeParticles[writeIndex++] = h;
+                    }
+                }
+                this.heatHazeParticles.length = writeIndex;
+
+                if (this.heatHazeParticles.length > this.maxHazeParticles) {
+                    const removeCount = Math.min(4, this.heatHazeParticles.length);
+                    this.heatHazeParticles.copyWithin(0, removeCount, this.heatHazeParticles.length);
+                    this.heatHazeParticles.length -= removeCount;
+                }
+            }
+
+            spawnHeatHaze(paddle, rageLevel) {
+                const cx = paddle.pos.x + paddle.w * 0.5;
+                const cy = paddle.pos.y + paddle.h * 0.5;
+                this.heatHazeParticles.push({
+                    x: cx + (Math.random() - 0.5) * paddle.w * 1.6,
+                    y: cy + (Math.random() - 0.5) * paddle.h * 1.4,
+                    size: 24 + Math.random() * 32,
+                    life: 1.2 + Math.random() * 0.8,
+                    seed: Math.random() * 2000,
+                    distort: 0,
+                    intensity: 0.4 + rageLevel * 0.6
+                });
+            }
+
+            render(ctx, paddle, rageLevel, now) {
+                if (!areParticleEffectsEnabled()) {
+                    return false;
+                }
+
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+
+                this.renderHeatHaze(ctx, paddle, rageLevel, now);
+                this.renderFullAura(ctx, paddle, rageLevel, now);
+                this.renderWrappingCore(ctx, paddle, rageLevel, now);
+                this.renderRodClimbingFlames(ctx, paddle, rageLevel, now);
+                this.renderWrappingParticles(ctx, rageLevel, now);
+
+                ctx.restore();
+                return true;
+            }
+
+            renderHeatHaze(ctx, paddle, rageLevel, now) {
+                if (rageLevel < 0.1) return;
+
+                ctx.save();
+                ctx.globalCompositeOperation = 'screen';
+                ctx.globalAlpha = 0.10 + rageLevel * 0.18;
+                ctx.filter = 'blur(1px) brightness(1.3)';
+                this.ensureHeatHazeSprite();
+                const hazeSprite = this.heatHazeSprite;
+
+                for (const h of this.heatHazeParticles) {
+                    const alpha = h.life * h.intensity * (0.7 + Math.sin(now * 0.023 + h.seed) * 0.3);
+                    const drawAlpha = alpha * 0.7;
+                    if (drawAlpha <= 0.001) continue;
+                    ctx.globalAlpha = drawAlpha;
+
+                    const distortX = Math.sin(now * 0.009 + h.seed) * h.distort * 2;
+                    const distortY = Math.cos(now * 0.007 + h.seed * 1.4) * h.distort * 1.5;
+                    const drawX = h.x + distortX;
+                    const drawY = h.y + distortY;
+                    const radius = h.size * 0.9;
+                    const diameter = radius * 2;
+
+                    if (hazeSprite) {
+                        ctx.drawImage(hazeSprite, drawX - radius, drawY - radius, diameter, diameter);
+                        continue;
+                    }
+
+                    const grad = ctx.createRadialGradient(
+                        drawX, drawY, 0,
+                        drawX, drawY, h.size
+                    );
+                    grad.addColorStop(0, 'rgba(255, 140, 40, 0.9)');
+                    grad.addColorStop(0.4, 'rgba(255, 80, 20, 0.6)');
+                    grad.addColorStop(1, 'rgba(255, 20, 0, 0)');
+
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(drawX, drawY, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.filter = 'none';
+                ctx.restore();
+            }
+
+            renderFullAura(ctx, paddle, rageLevel, now) {
+                if (rageLevel < 0.15) return;
+                ctx.save();
+                ctx.globalCompositeOperation = 'screen';
+                ctx.globalAlpha = Math.max(0.12, rageLevel * 0.28);
+
+                const cx = paddle.pos.x + paddle.w / 2;
+                const cy = paddle.pos.y + paddle.h / 2;
+                const radius = Math.max(paddle.w, paddle.h) * 1.15 + rageLevel * 50;
+
+                const aura = ctx.createRadialGradient(cx, cy, paddle.w * 0.35, cx, cy - 20, radius);
+                aura.addColorStop(0, 'rgba(255, 210, 90, 0.5)');
+                aura.addColorStop(0.45, 'rgba(255, 95, 25, 0.32)');
+                aura.addColorStop(1, 'rgba(255, 30, 0, 0)');
+
+                ctx.fillStyle = aura;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy - 10, radius * 0.85, radius * 0.72, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            renderWrappingCore(ctx, paddle, rageLevel, now) {
+                const cx = paddle.pos.x + paddle.w / 2;
+                const by = paddle.pos.y;
+                const flicker = Math.sin(now * 0.009) * 4.5 + Math.sin(now * 0.021) * 6.5;
+                const h = 52 + rageLevel * 135;
+                const w = paddle.w * (1.08 + rageLevel * 1.35);
+
+                // Cache gradient to avoid reallocating every frame when size doesn't change significantly.
+                const cacheKey = `${Math.round(w)}|${Math.round(h)}|${Math.round(rageLevel*100)}`;
+                if (!this._wrapGradientCache || this._wrapGradientCache.key !== cacheKey) {
+                    this._wrapGradientCache = { key: cacheKey };
+                    const grad = ctx.createRadialGradient(cx, by - h * 0.28, 15, cx, by - h * 0.22, w * 1.1);
+                    grad.addColorStop(0, 'rgba(255,255,235,0.99)');
+                    grad.addColorStop(0.2, 'rgba(255,215,85,0.94)');
+                    grad.addColorStop(0.48, 'rgba(255,125,25,0.85)');
+                    grad.addColorStop(0.78, 'rgba(255,40,0,0.38)');
+                    grad.addColorStop(1, 'rgba(200,0,0,0)');
+                    this._wrapGradientCache.grad = grad;
+                }
+
+                ctx.fillStyle = this._wrapGradientCache.grad;
+                ctx.beginPath();
+                ctx.ellipse(cx, by - h * 0.35 + flicker * 0.4, w * 0.48, h * 0.82, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            renderRodClimbingFlames(ctx, paddle, rageLevel, now) {
+                const rodW = paddle.w * 0.35;
+                const rodX = paddle.pos.x + (paddle.w - rodW) / 2;
+                const rodTop = paddle.pos.y - paddle.h * 1.32;
+
+                ctx.shadowBlur = 36 + rageLevel * 28;
+                ctx.shadowColor = '#ff7700';
+                ctx.lineWidth = 10.5 + rageLevel * 9;
+                ctx.lineCap = 'round';
+
+                // Use a single stroke style instead of creating a gradient every iteration
+                ctx.strokeStyle = 'rgba(255, 140, 30, 0.82)';
+
+                const flameCount = 4 + Math.floor(rageLevel * 2.5);
+                const baseY = paddle.pos.y;
+
+                for (let side = -1; side <= 1; side += 2) {
+                    const startX = rodX + (side > 0 ? rodW : 0) + side * 2;
+                    for (let i = 0; i < flameCount; i++) {
+                        const sway = Math.sin(now * 0.008 + i * 1.9) * (13 + rageLevel * 22);
+                        const height = 42 + rageLevel * 75 + i * 15;
+
+                        ctx.beginPath();
+                        ctx.moveTo(startX, baseY - 6);
+                        ctx.quadraticCurveTo(startX + sway * 0.3, baseY - height * 0.45, startX + sway, rodTop + i * 20);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            ensureFallbackParticleSprite() {
+                if (this.fallbackSprite) return;
+                const size = 64;
+                const c = document.createElement('canvas');
+                c.width = size;
+                c.height = size;
+                const g = c.getContext('2d');
+                const grad = g.createRadialGradient(size * 0.5, size * 0.5, 1, size * 0.5, size * 0.5, size * 0.5);
+                grad.addColorStop(0, 'rgba(255,248,190,1)');
+                grad.addColorStop(0.45, 'rgba(255,155,35,0.8)');
+                grad.addColorStop(1, 'rgba(255,15,0,0)');
+                g.fillStyle = grad;
+                g.beginPath();
+                g.arc(size * 0.5, size * 0.5, size * 0.5, 0, Math.PI * 2);
+                g.fill();
+                this.fallbackSprite = c;
+            }
+
+            ensureHeatHazeSprite() {
+                if (this.heatHazeSprite) return;
+                const size = this.heatHazeSpriteSize;
+                const c = document.createElement('canvas');
+                c.width = size;
+                c.height = size;
+                const g = c.getContext('2d');
+                const half = size * 0.5;
+                const grad = g.createRadialGradient(half, half, 0, half, half, half);
+                // Keep the exact heat-haze palette used by the original per-particle gradient path.
+                grad.addColorStop(0, 'rgba(255, 140, 40, 0.9)');
+                grad.addColorStop(0.4, 'rgba(255, 80, 20, 0.6)');
+                grad.addColorStop(1, 'rgba(255, 20, 0, 0)');
+                g.fillStyle = grad;
+                g.beginPath();
+                g.arc(half, half, half, 0, Math.PI * 2);
+                g.fill();
+                this.heatHazeSprite = c;
+            }
+
+            initPixi(ctx) {
+                if (!this.usePixi || this.pixiApp || this.pixiInitFailed) return;
+
+                try {
+                    const PIXI = window.PIXI;
+                    this.pixiApp = new PIXI.Application({
+                        width: ctx.canvas.width,
+                        height: ctx.canvas.height,
+                        antialias: false,
+                        autoStart: false,
+                        backgroundAlpha: 0,
+                        clearBeforeRender: true,
+                        preserveDrawingBuffer: false,
+                        powerPreference: 'high-performance',
+                        resolution: 1
+                    });
+
+                    this.pixiCanvas = this.pixiApp.view;
+                    this.pixiContainer = new PIXI.ParticleContainer(this.maxParticles, {
+                        position: true,
+                        scale: true,
+                        alpha: true,
+                        tint: true
+                    });
+                    this.pixiApp.stage.addChild(this.pixiContainer);
+
+                    const texCanvas = document.createElement('canvas');
+                    texCanvas.width = 64;
+                    texCanvas.height = 64;
+                    const tctx = texCanvas.getContext('2d');
+                    const grad = tctx.createRadialGradient(32, 32, 1, 32, 32, 32);
+                    grad.addColorStop(0, 'rgba(255,255,255,1)');
+                    grad.addColorStop(0.5, 'rgba(255,185,80,0.82)');
+                    grad.addColorStop(1, 'rgba(255,40,0,0)');
+                    tctx.fillStyle = grad;
+                    tctx.beginPath();
+                    tctx.arc(32, 32, 32, 0, Math.PI * 2);
+                    tctx.fill();
+
+                    this.particleTexture = PIXI.Texture.from(texCanvas);
+
+                    for (let i = 0; i < this.maxParticles; i++) {
+                        const s = new PIXI.Sprite(this.particleTexture);
+                        s.anchor.set(0.5);
+                        s.visible = false;
+                        this.pixiContainer.addChild(s);
+                        this.pixiSprites.push(s);
+                    }
+                } catch (e) {
+                    this.pixiInitFailed = true;
+                    this.usePixi = false;
+                    this.pixiApp = null;
+                    this.pixiCanvas = null;
+                    this.pixiContainer = null;
+                    this.pixiSprites.length = 0;
+                }
+            }
+
+            resizePixiIfNeeded(ctx) {
+                if (!this.pixiApp) return;
+                if (this.pixiApp.renderer.width !== ctx.canvas.width || this.pixiApp.renderer.height !== ctx.canvas.height) {
+                    this.pixiApp.renderer.resize(ctx.canvas.width, ctx.canvas.height);
+                }
+            }
+
+            renderPixiParticles(ctx, rageLevel, now) {
+                const flicker = 0.7 + Math.sin(now * 0.042) * 0.3;
+                const tint = rageLevel > 0.55 ? 0xff6a00 : 0xffdc6d;
+
+                for (let i = 0; i < this.maxParticles; i++) {
+                    const sprite = this.pixiSprites[i];
+                    const p = this.particles[i];
+                    if (!p) {
+                        sprite.visible = false;
+                        continue;
+                    }
+
+                    const alpha = Math.max(0, Math.min(1, p.life * p.strength * flicker * 0.95));
+                    const scale = Math.max(0.02, (p.size * 2) / 64);
+
+                    sprite.visible = true;
+                    sprite.x = p.x;
+                    sprite.y = p.y;
+                    sprite.scale.set(scale);
+                    sprite.alpha = alpha;
+                    sprite.tint = tint;
+                }
+
+                this.pixiApp.renderer.render(this.pixiApp.stage);
+                ctx.drawImage(this.pixiCanvas, 0, 0);
+            }
+
+            renderCanvasParticles(ctx, now) {
+                this.ensureFallbackParticleSprite();
+                const t = now * 0.012;
+                const flicker = 0.7 + Math.sin(t * 3.5) * 0.3;
+
+                for (let i = 0; i < this.particles.length; i++) {
+                    const p = this.particles[i];
+                    const alpha = p.life * p.strength * flicker * 0.95;
+                    const drawSize = p.size * 2;
+                    ctx.globalAlpha = alpha;

@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Ring of Fire</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+        
+        // --------------------------------------------------------------
+        // SCENE — Sunset Horizon, Infinite Particle Rise
+        // --------------------------------------------------------------
+        const scene = new THREE.Scene();
+        // Sunset gradient sky color
+        scene.background = new THREE.Color(0x1a1428);
+        scene.fog = new THREE.FogExp2(0x2a1a2a, 0.0028);
+        
+        const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 150);
+        camera.position.set(0, 1.75, 6.9);
+        camera.lookAt(0, 0.95, 0);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.physicallyCorrectLights = true;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        renderer.toneMappingExposure = 1.08;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+        
+        // --------------------------------------------------------------
+        // CINEMATIC COLOR GRADE — Sunset Warmth, Zack Snyder Style
+        // --------------------------------------------------------------
+        const colorGradeShader = {
+            uniforms: {
+                tDiffuse: { value: null },
+                uTime: { value: 0 },
+                uContrast: { value: 1.12 },
+                uSaturation: { value: 0.82 },
+                uWarmth: { value: 0.38 },
+                uVignette: { value: 0.58 }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform sampler2D tDiffuse;
+                uniform float uTime;
+                uniform float uContrast;
+                uniform float uSaturation;
+                uniform float uWarmth;
+                uniform float uVignette;
+                varying vec2 vUv;
+                
+                void main() {
+                    vec4 color = texture2D(tDiffuse, vUv);
+                    vec3 c = color.rgb;
+                    
+                    float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+                    vec3 desat = vec3(lum);
+                    c = mix(desat, c, uSaturation);
+                    c = (c - 0.5) * uContrast + 0.5;
+                    
+                    // Warm sunset tint
+                    vec3 warmTint = vec3(0.42, 0.28, 0.12);
+                    float warmFactor = smoothstep(0.2, 0.7, lum);
+                    c += warmTint * uWarmth * (1.0 - warmFactor * 0.6);
+                    
+                    // Slight orange highlights
+                    c = max(c, vec3(0.03));
+                    
+                    // Vignette
+                    float dist = length(vUv - 0.5);
+                    float vignette = 1.0 - dist * uVignette;
+                    vignette = clamp(vignette, 0.62, 1.0);
+                    c *= vignette;
+                    
+                    // Fine film grain
+                    float grain = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453 + uTime) * 0.02;
+                    c += grain * 0.1;
+                    
+                    gl_FragColor = vec4(c, color.a);
+                }
+            `
+        };
+        
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.85, 0.38, 0.65);
+        bloomPass.threshold = 0.18;
+        bloomPass.strength = 0.62;
+        bloomPass.radius = 0.68;
+        
+        const colorGradePass = new ShaderPass(colorGradeShader);
+        colorGradePass.renderToScreen = true;
+        
+        const effectComposer = new EffectComposer(renderer);
+        effectComposer.addPass(renderScene);
+        effectComposer.addPass(bloomPass);
+        effectComposer.addPass(colorGradePass);
+        
+        // --------------------------------------------------------------
+        // SUNSET SKY — Dramatic Gradient with Cloud Silhouettes
+        // --------------------------------------------------------------
+        // Large gradient sphere for atmospheric glow
+        const skyMat = new THREE.MeshStandardMaterial({ color: 0x331a2a, emissive: 0x441a2a, emissiveIntensity: 0.28, transparent: true, opacity: 0.35, side: THREE.BackSide });
+        const skyDome = new THREE.Mesh(new THREE.SphereGeometry(45, 64, 64), skyMat);
+        scene.add(skyDome);
+        
+        // Sun disc (setting sun)
+        const sunMat = new THREE.MeshStandardMaterial({ color: 0xff8866, emissive: 0xff6644, emissiveIntensity: 1.2, transparent: true });
+        const sunDisc = new THREE.Mesh(new THREE.SphereGeometry(0.68, 48, 48), sunMat);
+        sunDisc.position.set(12, 5.5, -18);
+        scene.add(sunDisc);
+        
+        // Sun glow (volumetric)
+        const sunGlowMat = new THREE.MeshStandardMaterial({ color: 0xff8866, emissive: 0xff5533, emissiveIntensity: 0.85, transparent: true, opacity: 0.4 });
+        const sunGlow = new THREE.Mesh(new THREE.SphereGeometry(1.25, 32, 32), sunGlowMat);
+        sunGlow.position.set(12, 5.5, -18);
+        scene.add(sunGlow);
+        
+        // Distant mountain silhouettes (dark against sunset)
+        const mountainMat = new THREE.MeshStandardMaterial({ color: 0x181a2a, roughness: 0.85, metalness: 0.02, emissive: 0x080a12 });
+        for (let i = 0; i < 24; i++) {
+            const angle = (i / 24) * Math.PI * 2;
+            const dist = 14 + Math.random() * 4;
+            const mountain = new THREE.Mesh(new THREE.ConeGeometry(0.85 + Math.random() * 0.7, 1.4 + Math.random() * 1.2, 12), mountainMat);
+            mountain.position.x = Math.cos(angle) * dist;
+            mountain.position.z = Math.sin(angle) * dist;
+            mountain.position.y = -0.92;
+            mountain.castShadow = false;
+            scene.add(mountain);
+        }
+        
+        // --------------------------------------------------------------
+        // INFINITE WATER — Seamless Horizon
+        // --------------------------------------------------------------
+        const waterUniforms = {
+            uTime: { value: 0 },
+            uCameraPosition: { value: camera.position.clone() }
+        };
+        
+        const waterVS = `
+            varying vec3 vWorldPosition;
+            varying vec2 vUv;
+            uniform float uTime;
+            void main() {
+                vUv = uv;
+                vec3 pos = position;
+                float wave1 = sin(pos.x * 0.9 + uTime * 0.7) * 0.012;
+                float wave2 = cos(pos.z * 1.1 + uTime * 0.6) * 0.01;
+                pos.y += wave1 + wave2;
+                vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                vWorldPosition = (modelMatrix * vec4(pos, 1.0)).xyz;
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+        
+        const waterFS = `
+            uniform vec3 uCameraPosition;
+            uniform float uTime;
+            varying vec3 vWorldPosition;
+            varying vec2 vUv;
+            
+            void main() {
+                vec3 viewDir = normalize(uCameraPosition - vWorldPosition);
+                vec3 normal = vec3(0.0, 1.0, 0.0);
+                normal.x += sin(vWorldPosition.x * 1.8 + uTime) * 0.05;
+                normal.z += cos(vWorldPosition.z * 2.0 + uTime * 0.6) * 0.045;
+                normal = normalize(normal);
+                
+                float fresnel = pow(1.0 - max(0.0, dot(viewDir, normal)), 2.8);
+                
+                // Sunset water colors — warm reflections
+                vec3 deepColor = vec3(0.08, 0.05, 0.12);
+                vec3 midColor = vec3(0.18, 0.12, 0.22);
+                vec3 shallowColor = vec3(0.32, 0.22, 0.28);
+                float depthFactor = clamp(length(vWorldPosition.xz) * 0.018, 0.0, 0.7);
+                vec3 waterColor = mix(deepColor, midColor, depthFactor);
+                waterColor = mix(waterColor, shallowColor, fresnel * 0.5);
+                
+                // Fire reflection (orange glow)
+                vec3 fireReflect = vec3(1.0, 0.48, 0.22) * fresnel * 0.52;
+                // Sunset reflection
+                vec3 sunsetReflect = vec3(0.95, 0.55, 0.32) * fresnel * 0.38;
+                vec3 finalColor = waterColor + fireReflect + sunsetReflect;
+                
+                // Ripple highlights
+                float ripple = sin(vWorldPosition.x * 7.0 + uTime) * cos(vWorldPosition.z * 6.5 - uTime);
+                ripple = max(0.0, ripple * 0.1);
+                finalColor += vec3(0.85, 0.55, 0.35) * ripple;
+                
+                gl_FragColor = vec4(finalColor, 0.95);
+            }
+        `;
+        
+        const waterPlaneGeo = new THREE.PlaneGeometry(95, 95, 480, 480);
+        const waterMaterial = new THREE.ShaderMaterial({
+            uniforms: waterUniforms,
+            vertexShader: waterVS,
+            fragmentShader: waterFS,
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+        const waterPlane = new THREE.Mesh(waterPlaneGeo, waterMaterial);
+        waterPlane.rotation.x = -Math.PI / 2;
+        waterPlane.position.y = -0.74;
+        scene.add(waterPlane);
+        
+        // Soft horizon fade ring
+        const horizonFade = new THREE.Mesh(new THREE.RingGeometry(28, 55, 96), new THREE.MeshStandardMaterial({ color: 0x2a1a2a, roughness: 0.95, transparent: true, opacity: 0.22, side: THREE.DoubleSide }));
+        horizonFade.rotation.x = -Math.PI / 2;
+        horizonFade.position.y = -0.8;
+        scene.add(horizonFade);
+        
+        // --------------------------------------------------------------
+        // DETAILED ALTAR — Ancient Stone with Volcanic Texture
+        // --------------------------------------------------------------
+        const darkStone = new THREE.MeshStandardMaterial({ color: 0x282018, roughness: 0.62, metalness: 0.06, emissive: 0x080402, emissiveIntensity: 0.02 });
+        const darkStoneRough = new THREE.MeshStandardMaterial({ color: 0x32261e, roughness: 0.74, metalness: 0.04 });
+        const agedMetal = new THREE.MeshStandardMaterial({ color: 0x7a553a, roughness: 0.45, metalness: 0.58, emissive: 0x2a1a0a, emissiveIntensity: 0.06 });
+        
+        // Base
+        const baseMain = new THREE.Mesh(new THREE.CylinderGeometry(2.28, 2.58, 0.62, 88), darkStone);
+        baseMain.position.y = -0.67;
+        baseMain.castShadow = true;
+        baseMain.receiveShadow = true;
+        scene.add(baseMain);
+        
+        // Middle
+        const middleTier = new THREE.Mesh(new THREE.CylinderGeometry(1.98, 2.18, 0.48, 88), darkStone);
+        middleTier.position.y = -0.31;
+        middleTier.castShadow = true;
+        middleTier.receiveShadow = true;
+        scene.add(middleTier);
+        
+        // Upper
+        const upperTier = new THREE.Mesh(new THREE.CylinderGeometry(1.72, 1.88, 0.36, 88), darkStoneRough);
+        upperTier.position.y = -0.02;
+        upperTier.castShadow = true;
+        upperTier.receiveShadow = true;
+        scene.add(upperTier);
+        
+        // Altar crown
+        const altarCrown = new THREE.Mesh(new THREE.CylinderGeometry(1.58, 1.64, 0.18, 88), new THREE.MeshStandardMaterial({ color: 0x32261c, roughness: 0.48, metalness: 0.1 }));
+        altarCrown.position.y = 0.19;
+        altarCrown.castShadow = true;
+        scene.add(altarCrown);
+        
+        // Bronze rings
+        const bronzeRing = new THREE.Mesh(new THREE.TorusGeometry(1.52, 0.055, 180, 360), agedMetal);
+        bronzeRing.position.y = 0.27;
+        bronzeRing.rotation.x = Math.PI / 2;
+        scene.add(bronzeRing);
+        
+        const innerRing = new THREE.Mesh(new THREE.TorusGeometry(1.36, 0.042, 160, 320), new THREE.MeshStandardMaterial({ color: 0xaa6a42, metalness: 0.65, roughness: 0.38 }));
+        innerRing.position.y = 0.25;
+        innerRing.rotation.x = Math.PI / 2;
+        scene.add(innerRing);
+        
+        // Stone pillars
+        const pillarMat = new THREE.MeshStandardMaterial({ color: 0x3e3228, roughness: 0.7 });
+        const pillarPos = [
+            [-1.72, -0.55, -1.72], [1.72, -0.55, -1.72], [1.72, -0.55, 1.72], [-1.72, -0.55, 1.72],
+            [-1.58, -0.55, 1.58], [1.58, -0.55, 1.58], [1.58, -0.55, -1.58], [-1.58, -0.55, -1.58]
+        ];
+        pillarPos.forEach(pos => {
+            const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.6, 0.34), pillarMat);
+            pillar.position.set(pos[0], pos[1], pos[2]);
+            pillar.castShadow = true;
+            pillar.receiveShadow = true;
+            scene.add(pillar);
+        });
+        
+        // Scattered stones
+        const debrisMat = new THREE.MeshStandardMaterial({ color: 0x4e3e32, roughness: 0.82 });
+        for (let i = 0; i < 95; i++) {
+            const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.04 + Math.random() * 0.062), debrisMat);
+            const angle = Math.random() * Math.PI * 2;
+            const rad = 2.2 + Math.random() * 1.25;
+            rock.position.x = Math.cos(angle) * rad;
+            rock.position.z = Math.sin(angle) * rad;
+            rock.position.y = -0.58 + Math.random() * 0.15;
+            rock.scale.set(1, Math.random() * 0.5 + 0.4, 1);
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            scene.add(rock);
+        }
+        
+        // Crack details
+        const crackMat = new THREE.MeshStandardMaterial({ color: 0x1a120c });
+        for (let i = 0; i < 48; i++) {
+            const crack = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.012, 0.08 + Math.random() * 0.14), crackMat);
+            const angle = Math.random() * Math.PI * 2;
+            const rad = 0.72 + Math.random() * 1.02;
+            crack.position.x = Math.cos(angle) * rad;
+            crack.position.z = Math.sin(angle) * rad;
+            crack.position.y = 0.248;
+            crack.rotation.z = Math.random() * Math.PI;
+            crack.rotation.x = Math.random() * Math.PI;
+            scene.add(crack);
+        }
+        
+        // --------------------------------------------------------------
+        // RING OF FIRE — Volumetric Flames
+        // --------------------------------------------------------------
+        const fireUniforms = {
+            uTime: { value: 0 },
+            uIntensity: { value: 1.12 },
+            uColorCore: { value: new THREE.Color(0xc54a1a) },
+            uColorMid: { value: new THREE.Color(0xda6232) },
+            uColorTip: { value: new THREE.Color(0xec824a) }
+        };
+        
+        const fireVS = `
+            varying vec3 vPosition;
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                vPosition = mvPosition.xyz;
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        `;
+        
+        const fireFS = `
+            uniform float uTime;
+            uniform vec3 uColorCore;
+            uniform vec3 uColorMid;
+            uniform vec3 uColorTip;
+            uniform float uIntensity;
+            varying vec3 vPosition;
+            varying vec2 vUv;
+            
+            float hash(vec3 p) {
+                return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+            }
+            
+            float noise3D(vec3 p) {
+                vec3 i = floor(p);
+                vec3 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float n = mix(
+                    mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x),
+                        mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                    mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                        mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y),
+                    f.z);
+                return n * 2.0 - 1.0;
+            }
+            
+            void main() {
+                vec3 pos = vPosition;
+                float majorR = 1.02;
+                float minorR = 0.172;
+                float rho = length(pos.xz);
+                float torusDist = abs(rho - majorR) - minorR;
+                float distToSurface = abs(torusDist);
+                float core = 1.0 - smoothstep(0.0, 0.26, distToSurface);
+                
+                float angle = atan(pos.z, pos.x);
+                float flicker = 0.6 + 0.45 * sin(uTime * 10.2) + 0.2 * sin(uTime * 23.5);
+                float turbulence = sin(angle * 6.0 + uTime * 7.5) * 0.2;
+                float flow = noise3D(vec3(angle * 2.0, pos.y * 3.5, uTime * 1.6)) * 0.5;
+                
+                float density = core * (0.55 + flow * 0.55) * flicker + turbulence;
+                float edgeGlow = 1.0 - smoothstep(0.02, 0.36, distToSurface);
+                density *= (edgeGlow + 0.2);
+                density = clamp(density * uIntensity, 0.0, 1.08);
+                
+                vec3 col = mix(uColorCore, uColorMid, density * 1.2);
+                col = mix(col, uColorTip, pow(density, 1.3));
+                float hotness = pow(core, 1.45) * (0.6 + flicker * 0.5);
+                col += vec3(0.95, 0.45, 0.2) * hotness * 0.45;
+                
+                float alpha = density * (0.75 + flicker * 0.25);
+                alpha = clamp(alpha, 0.0, 0.94);
+                gl_FragColor = vec4(col, alpha);
+            }
+        `;
+        
+        const fireRingGeo = new THREE.TorusGeometry(1.02, 0.172, 280, 500);
+        const fireMaterialShader = new THREE.ShaderMaterial({
+            uniforms: fireUniforms,
+            vertexShader: fireVS,
+            fragmentShader: fireFS,
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide,
+            depthWrite: false
+        });
+        const fireRing = new THREE.Mesh(fireRingGeo, fireMaterialShader);
+        fireRing.position.y = 0.285;
+        scene.add(fireRing);
+        
+        // Inner core
+        const coreMat = new THREE.MeshStandardMaterial({ color: 0xc9522a, emissive: 0xb5421a, emissiveIntensity: 0.78, metalness: 0.16, roughness: 0.26 });
+        const innerCore = new THREE.Mesh(new THREE.TorusGeometry(0.93, 0.088, 200, 420), coreMat);
+        innerCore.position.y = 0.285;
+        scene.add(innerCore);
+        
+        // --------------------------------------------------------------
+        // INFINITE RISING PARTICLES — No Cutoff, Fade to Sky
+        // --------------------------------------------------------------
+        // Embers that rise endlessly and fade at top
+        const emberCount = 4500;
+        const emberGeo = new THREE.BufferGeometry();
+        const emberPositions = new Float32Array(emberCount * 3);
+        const emberVel = [];
+        for (let i = 0; i < emberCount; i++) {
+            const rad = 0.6 + Math.random() * 1.75;
+            const ang = Math.random() * Math.PI * 2;
+            emberPositions[i*3] = Math.cos(ang) * rad;
+            emberPositions[i*3+2] = Math.sin(ang) * rad;
+            emberPositions[i*3+1] = 0.1 + Math.random() * 4.5;
+            emberVel.push({ 
+                speed: 0.28 + Math.random() * 0.95,
+                rad: rad,
+                ang: ang,
+                maxHeight: 7.5 + Math.random() * 2.5
+            });
+        }
+        emberGeo.setAttribute('position', new THREE.BufferAttribute(emberPositions, 3));
+        const emberMat = new THREE.PointsMaterial({ color: 0xec7a3a, size: 0.021, blending: THREE.AdditiveBlending, transparent: true });
+        const embers = new THREE.Points(emberGeo, emberMat);
+        scene.add(embers);
+        
+        // Spark particles (tiny, fast, infinite rise)
+        const sparkCount = 6800;
+        const sparkGeo = new THREE.BufferGeometry();
+        const sparkPositions = new Float32Array(sparkCount * 3);
+        const sparkVel = [];
+        for (let i = 0; i < sparkCount; i++) {
+            const rad = 0.55 + Math.random() * 1.85;
+            const ang = Math.random() * Math.PI * 2;
+            sparkPositions[i*3] = Math.cos(ang) * rad;
+            sparkPositions[i*3+2] = Math.sin(ang) * rad;
+            sparkPositions[i*3+1] = 0.15 + Math.random() * 5.0;
+            sparkVel.push({ 
+                speed: 0.45 + Math.random() * 1.2,
+                rad: rad,
+                ang: ang,
+                maxHeight: 8.5 + Math.random() * 2.0
+            });
+        }
+        sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+        const sparkMat = new THREE.PointsMaterial({ color: 0xff9a5a, size: 0.009, blending: THREE.AdditiveBlending });
+        const sparks = new THREE.Points(sparkGeo, sparkMat);
+        scene.add(sparks);
+        
+        // Ash particles (drifting, rising)
+        const ashCount = 3800;
+        const ashGeo = new THREE.BufferGeometry();
+        const ashPositions = new Float32Array(ashCount * 3);
+        const ashVel = [];
+        for (let i = 0; i < ashCount; i++) {
+            const rad = 0.7 + Math.random() * 2.2;
+            const ang = Math.random() * Math.PI * 2;
+            ashPositions[i*3] = Math.cos(ang) * rad;
+            ashPositions[i*3+2] = Math.sin(ang) * rad;
+            ashPositions[i*3+1] = 0.2 + Math.random() * 4.2;
+            ashVel.push({ 
+                speed: 0.18 + Math.random() * 0.6,
+                rad: rad,
+                ang: ang,
+                maxHeight: 7.0 + Math.random() * 2.8,
+                drift: 0.02 + Math.random() * 0.045
+            });
+        }
+        ashGeo.setAttribute('position', new THREE.BufferAttribute(ashPositions, 3));
+        const ashMat = new THREE.PointsMaterial({ color: 0x9a785a, size: 0.024, transparent: true, opacity: 0.4 });
+        const ashSys = new THREE.Points(ashGeo, ashMat);
+        scene.add(ashSys);
+        
+        // Glowing orbs (larger, slow rise)
+        const orbCount = 1200;
+        const orbGeo = new THREE.BufferGeometry();
+        const orbPositions = new Float32Array(orbCount * 3);
+        const orbVel = [];
+        for (let i = 0; i < orbCount; i++) {
+            const rad = 0.8 + Math.random() * 1.45;
+            const ang = Math.random() * Math.PI * 2;
+            orbPositions[i*3] = Math.cos(ang) * rad;
+            orbPositions[i*3+2] = Math.sin(ang) * rad;
+            orbPositions[i*3+1] = 0.3 + Math.random() * 3.5;
+            orbVel.push({ 
+                speed: 0.12 + Math.random() * 0.4,
+                rad: rad,
+                ang: ang,
+                maxHeight: 7.8 + Math.random() * 2.2
+            });
+        }
+        orbGeo.setAttribute('position', new THREE.BufferAttribute(orbPositions, 3));
+        const orbMat = new THREE.PointsMaterial({ color: 0xff8855, size: 0.035, blending: THREE.AdditiveBlending, transparent: true, opacity: 0.7 });
+        const orbs = new THREE.Points(orbGeo, orbMat);
+        scene.add(orbs);
+        
+        // --------------------------------------------------------------
+        // LIGHTING — Sunset + Fire Drama
+        // --------------------------------------------------------------
+        const ambientLight = new THREE.AmbientLight(0x221c2a, 0.45);
+        scene.add(ambientLight);
+        
+        // Sunset directional light
+        const sunsetLight = new THREE.DirectionalLight(0xffaa77, 0.85);
+        sunsetLight.position.set(8, 5, -6);
+        sunsetLight.castShadow = true;
+        sunsetLight.shadow.mapSize.width = 1024;
+        sunsetLight.shadow.mapSize.height = 1024;
+        scene.add(sunsetLight);
+        
+        // Fill from below
+        const fillLight = new THREE.PointLight(0xaa6644, 0.42);
+        fillLight.position.set(0, -0.4, 0);
+        scene.add(fillLight);
+        
+        // Main fire light
+        const fireLight = new THREE.PointLight(0xc5522a, 3.6, 13, 1.35);
+        fireLight.position.set(0, 0.78, 0);
+        fireLight.castShadow = true;
+        fireLight.shadow.mapSize.width = 1024;
+        fireLight.shadow.mapSize.height = 1024;
+        scene.add(fireLight);
+        
+        // Flicker light
+        const flickerLight = new THREE.PointLight(0xda6a32, 1.75, 10);
+        flickerLight.position.set(0.26, 0.98, 0.35);
+        scene.add(flickerLight);
+        
+        // Rim light
+        const rimLight = new THREE.PointLight(0xaa4a22, 0.92);
+        rimLight.position.set(-0.6, 0.88, -1.2);
+        scene.add(rimLight);
+        
+        // Heat haze sphere
+        const hazeSphere = new THREE.Mesh(new THREE.SphereGeometry(2.18, 64, 64), new THREE.MeshStandardMaterial({ color: 0xc5522a, emissive: 0xa53a1a, emissiveIntensity: 0.14, transparent: true, opacity: 0.05 }));
+        hazeSphere.position.y = 0.72;
+        scene.add(hazeSphere);
+        
+        // Star field (distant, subtle)
+        const starFieldGeo = new THREE.BufferGeometry();
+        const starPositionsArr = new Float32Array(2200 * 3);
+        for (let i = 0; i < 2200; i++) {
+            starPositionsArr[i*3] = (Math.random() - 0.5) * 200;
+            starPositionsArr[i*3+1] = (Math.random() - 0.5) * 70 + 12;
+            starPositionsArr[i*3+2] = (Math.random() - 0.5) * 100 - 60;
+        }
+        starFieldGeo.setAttribute('position', new THREE.BufferAttribute(starPositionsArr, 3));
+        const starFieldMat = new THREE.PointsMaterial({ color: 0xffdd99, size: 0.08, transparent: true, opacity: 0.4 });
+        const starField = new THREE.Points(starFieldGeo, starFieldMat);
+        scene.add(starField);
+        
+        // --------------------------------------------------------------
+        // ANIMATION — Infinite Particle Rise
+        // --------------------------------------------------------------
+        function animate() {
+            const elapsed = performance.now() / 1000;
+            
+            // Fire shader
+            fireUniforms.uTime.value = elapsed;
+            fireUniforms.uIntensity.value = 1.08 + Math.sin(elapsed * 5.5) * 0.18;
+            
+            // Light flicker
+            fireLight.intensity = 3.4 + Math.sin(elapsed * 10.2) * 1.05;
+            flickerLight.intensity = 1.62 + Math.sin(elapsed * 12.5) * 0.72;
+            rimLight.intensity = 0.85 + Math.sin(elapsed * 7.2) * 0.35;
+            fillLight.intensity = 0.42 + Math.sin(elapsed * 1.5) * 0.08;
+            
+            // Inner core pulse
+            innerCore.material.emissiveIntensity = 0.72 + Math.sin(elapsed * 7.5) * 0.48;
+            
+            // Sun pulse
+            sunMat.emissiveIntensity = 1.15 + Math.sin(elapsed * 0.5) * 0.12;
+            sunGlowMat.emissiveIntensity = 0.82 + Math.sin(elapsed * 0.6) * 0.1;
+            
+            // --- INFINITE RISING PARTICLES (No Cutoff, Loop to Bottom) ---
+            // Embers
+            const emberPosAttr = embers.geometry.attributes.position.array;
+            for (let i = 0; i < emberCount; i++) {
+                let y = emberPosAttr[i*3+1];
+                y += 0.009 * emberVel[i].speed;
+                if (y > 7.8) {
+                    y = 0.08;
+                    const newRad = 0.6 + Math.random() * 1.75;
+                    const newAng = Math.random() * Math.PI * 2;
+                    emberPosAttr[i*3] = Math.cos(newAng) * newRad;
+                    emberPosAttr[i*3+2] = Math.sin(newAng) * newRad;
+                    emberVel[i].rad = newRad;
+                    emberVel[i].ang = newAng;
+                }
+                emberPosAttr[i*3+1] = y;
+            }
+            embers.geometry.attributes.position.needsUpdate = true;
+            
+            // Sparks (faster)
+            const sparkPosAttr = sparks.geometry.attributes.position.array;
+            for (let i = 0; i < sparkCount; i++) {
+                let y = sparkPosAttr[i*3+1];
+                y += 0.014 * sparkVel[i].speed;
+                if (y > 8.2) {
+                    y = 0.1;
+                    const newRad = 0.55 + Math.random() * 1.85;
+                    const newAng = Math.random() * Math.PI * 2;
+                    sparkPosAttr[i*3] = Math.cos(newAng) * newRad;
+                    sparkPosAttr[i*3+2] = Math.sin(newAng) * newRad;
+                }
+                sparkPosAttr[i*3+1] = y;
+            }
+            sparks.geometry.attributes.position.needsUpdate = true;
+            
+            // Ash (with outward drift)
+            const ashPosAttr = ashSys.geometry.attributes.position.array;
+            for (let i = 0; i < ashCount; i++) {
+                let y = ashPosAttr[i*3+1];
+                let rad = Math.sqrt(ashPosAttr[i*3]*ashPosAttr[i*3] + ashPosAttr[i*3+2]*ashPosAttr[i*3+2]);
+                y += 0.006 * ashVel[i].speed;
+                rad += 0.008 * ashVel[i].drift;
+                if (y > 7.5 || rad > 3.8) {
+                    y = 0.15;
+                    rad = 0.7 + Math.random() * 1.6;
+                    const newAng = Math.random() * Math.PI * 2;
+                    ashPosAttr[i*3] = Math.cos(newAng) * rad;
+                    ashPosAttr[i*3+2] = Math.sin(newAng) * rad;
+                } else {
+                    const ang = Math.atan2(ashPosAttr[i*3+2], ashPosAttr[i*3]);
+                    ashPosAttr[i*3] = Math.cos(ang) * rad;
+                    ashPosAttr[i*3+2] = Math.sin(ang) * rad;
+                }
+                ashPosAttr[i*3+1] = y;
+            }
+            ashSys.geometry.attributes.position.needsUpdate = true;
+            
+            // Orbs (slow, majestic)
+            const orbPosAttr = orbs.geometry.attributes.position.array;
+            for (let i = 0; i < orbCount; i++) {
+                let y = orbPosAttr[i*3+1];
+                y += 0.0055 * orbVel[i].speed;
+                if (y > 7.2) {
+                    y = 0.22;
+                    const newRad = 0.8 + Math.random() * 1.45;
+                    const newAng = Math.random() * Math.PI * 2;
+                    orbPosAttr[i*3] = Math.cos(newAng) * newRad;
+                    orbPosAttr[i*3+2] = Math.sin(newAng) * newRad;
+                }
+                orbPosAttr[i*3+1] = y;
+            }
+            orbs.geometry.attributes.position.needsUpdate = true;
+            
+            // Rotating elements
+            starField.rotation.y = elapsed * 0.003;
+            
+            // Water uniforms
+            waterUniforms.uTime.value = elapsed;
+            waterUniforms.uCameraPosition.value.copy(camera.position);
+            
+            // Color grade time
+            colorGradePass.uniforms.uTime.value = elapsed;
+            
+            // Gentle camera drift
+            camera.position.x = Math.sin(elapsed * 0.04) * 0.03;
+            camera.position.y = 1.73 + Math.sin(elapsed * 0.08) * 0.008;
+            camera.lookAt(0, 0.95, 0);
+            
+            effectComposer.render();
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            effectComposer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

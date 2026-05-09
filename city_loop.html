@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PADDLE SKY FLIGHT - NEON LEGACY</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        background: #000;
+        overflow: hidden;
+        font-family: 'Courier New', monospace;
+        width: 100vw; height: 100vh;
+        color: #0ff;
+    }
+    canvas { display: block; }
+    .title {
+        position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+        font-size: clamp(16px, 2.4vw, 36px);
+        font-weight: bold; letter-spacing: 10px;
+        text-shadow: 0 0 20px #0ff, 0 0 50px #0ff, 0 0 90px #0ff4;
+        white-space: nowrap; z-index: 10; pointer-events: none;
+    }
+    .subtitle {
+        position: fixed; top: 62px; left: 50%; transform: translateX(-50%);
+        font-size: clamp(9px, 1vw, 13px);
+        letter-spacing: 6px; color: #ff00ff88;
+        text-shadow: 0 0 12px #ff00ff;
+        white-space: nowrap; z-index: 10; pointer-events: none;
+    }
+</style>
+</head>
+<body>
+<div class="title">PADDLE SKY FLIGHT</div>
+<div class="subtitle">— NEON LEGACY —</div>
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+// Rendering settings and performance monitor (declare before resize to avoid TDZ)
+const settings = { lowPerf: false, bloom: false, maxTrailLength: 12 };
+let perfAvgDt = 0;
+let bloomCanvas = null, bloomCtx = null;
+// Bloom is disabled so we keep canvas placeholders but skip usage.
+
+// Day/night factor: 0 = day, 1 = night. Smooth 10s each direction (20s full cycle).
+let dayNightFactor = 0;
+
+function hexToRgb(hex) {
+    hex = hex.replace('#','');
+    return {
+        r: parseInt(hex.substring(0,2),16),
+        g: parseInt(hex.substring(2,4),16),
+        b: parseInt(hex.substring(4,6),16)
+    };
+}
+function rgbToHex(r,g,b){
+    const toHex = (v)=> Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');
+    return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+function lerpColor(a,b,t){
+    const A = hexToRgb(a); const B = hexToRgb(b);
+    return rgbToHex(A.r + (B.r-A.r)*t, A.g + (B.g-A.g)*t, A.b + (B.b-A.b)*t);
+}
+
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function clampMap(v, a, b) { if (v <= a) return 0; if (v >= b) return 1; return (v - a) / (b - a); }
+
+function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    // (re)create bloom buffer scaled down for fast blur pass
+    if (!bloomCanvas) bloomCanvas = document.createElement('canvas');
+    bloomCanvas.width = Math.max(2, Math.floor(W * settings.bloomScale));
+    bloomCanvas.height = Math.max(2, Math.floor(H * settings.bloomScale));
+    bloomCtx = bloomCanvas.getContext('2d');
+}
+resize();
+window.addEventListener('resize', () => { resize(); updateSkyCaches(); });
+
+let time = 0;
+let lastTimestamp = null;
+const FOV   = 500;
+const SPEED = 11;
+
+// Performance tuning
+const BUILDING_COUNT = 45; // lower building count for performance
+const STARS_COUNT    = 16;  // fewer stars
+const TARGET_GRID_LINES = 20;
+let frameCount = 0;
+let lastParticleSpawn = 0;
+const PARTICLE_SPAWN_INTERVAL = 90; // frames
+const LOW_PERF_FRAME_SKIP = 2; // drop every other draw in low perf mode
+
+// Cached visual resources (updated on resize)
+let skyCaches = {};
+let needsResort = true;
+
+// Horizon at 68% — lots of visible ground
+const HORIZON_RATIO = 0.68;
+function hy() { return H * HORIZON_RATIO; }
+
+// Camera altitude: objects at wy=CAM_H appear at the horizon line
+const CAM_H = 320;
+
+function project(wx, wy, wz) {
+    if (wz <= 0.5) wz = 0.5;
+    const scale = FOV / wz;
+    return {
+        x: W / 2 + wx * scale,
+        y: hy() - (wy - CAM_H) * scale,
+        scale
+    };
+}
+
+// ── BUILDINGS ────────────────────────────────────────────────────────────────
+const BCOLORS = ['#ffb54b', '#e69a41', '#293d6f', '#1f3b88']; // Snyder blue/orange palette
+function randomBuilding() {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const lane = Math.floor(Math.random() * 8); // more lanes
+    const laneWidth = 260;
+    const baseOffset = 280;
+    const xNoise = Math.random() * 320;
+    return {
+        x:        side * (baseOffset + lane * laneWidth + xNoise),
+        z:        Math.random() * 4200 + 800, // farther and more spread into horizon
+        width:    55 + Math.random() * 120,
+        height:   260 + Math.random() * 720,
+        color:    BCOLORS[Math.floor(Math.random() * BCOLORS.length)],
+        phase:    Math.random() * Math.PI * 2,
+        antennaH: Math.random() < 0.4 ? 20 + Math.random() * 80 : 0
+    };
+}
+const buildings = [];
+for (let i = 0; i < BUILDING_COUNT; i++) buildings.push(randomBuilding());
+
+// ── GRID ─────────────────────────────────────────────────────────────────────
+const GRID_SPACING = 90;
+const GRID_LINES   = TARGET_GRID_LINES;
+const GRID_HALF_W  = 3000;
+const GRID_V_COUNT = 32;
+const gridH = [];
+for (let i = 0; i < GRID_LINES; i++) gridH.push({ z: i * GRID_SPACING + 40 });
+
+// Ground dots / tiles
+const groundDots = [];
+for (let row = 0; row < 20; row++) {
+    for (let col = -14; col <= 14; col++) {
+        groundDots.push({
+            wx:      col * 220 + (Math.random() - 0.5) * 80,
+            wz_base: row * 240 + 120,
+            wz:      0,
+            r:       2 + Math.random() * 3,
+            color:   Math.random() < 0.5 ? '#00ffff' : '#ff00ff',
+            phase:   Math.random() * Math.PI * 2
+        });
+    }
+}
+let dotOffset = 0;
+
+// ── STARS ────────────────────────────────────────────────────────────────────
+const stars = Array.from({length: STARS_COUNT}, () => ({
+    wx:     (Math.random() - 0.5) * 14000,
+    wy:     CAM_H + 300 + Math.random() * 1200,
+    wz:     Math.random() * 2200 + 300,
+    r:      Math.random() * 1.8 + 0.4,
+    twinkle: Math.random() * Math.PI * 2,
+    palette: Math.random() < 0.7 ? '#e7f8ff' : '#d6ecff' // cooler star tint
+}));
+
+// Prepare cached sky resources (moon image + light gradient)
+function updateSkyCaches() {
+    // choose moon radius relative to viewport
+    const moonRadius = Math.max(36, Math.min(120, Math.floor(Math.min(W, H) * 0.06)));
+    const size = Math.ceil(moonRadius * 6);
+    const moonCanvas = document.createElement('canvas');
+    moonCanvas.width = size; moonCanvas.height = size;
+    const mc = moonCanvas.getContext('2d');
+    const cx = size / 2, cy = size / 2;
+    const rFactor = size / (moonRadius * 6);
+    const discR = moonRadius * rFactor;
+    const glowR = moonRadius * 2.8 * rFactor;
+
+    // Glow
+    const mg = mc.createRadialGradient(cx, cy, discR * 0.25, cx, cy, glowR);
+    mg.addColorStop(0, 'rgba(255, 255, 245, 0.95)');
+    mg.addColorStop(0.2, 'rgba(210, 228, 255, 0.60)');
+    mg.addColorStop(0.55, 'rgba(140, 170, 210, 0.28)');
+    mg.addColorStop(1, 'rgba(24, 36, 60, 0)');
+    mc.fillStyle = mg; mc.beginPath(); mc.arc(cx, cy, glowR, 0, Math.PI*2); mc.fill();
+
+    // Disc
+    const md = mc.createRadialGradient(cx - discR*0.18, cy - discR*0.12, discR*0.02, cx, cy, discR);
+    md.addColorStop(0, '#ffffff'); md.addColorStop(0.36, '#e9f3ff'); md.addColorStop(0.78, '#c8d8ee'); md.addColorStop(1, '#7f95b8');
+    mc.fillStyle = md; mc.beginPath(); mc.arc(cx, cy, discR, 0, Math.PI*2); mc.fill();
+
+    // Few soft craters
+    const craterData = [
+        {x:-0.16,y:-0.08,s:0.10}, {x:0.18,y:0.05,s:0.12}, {x:-0.04,y:0.20,s:0.08}, {x:0.08,y:-0.22,s:0.09}
+    ];
+    for (const c of craterData) {
+        const cx2 = cx + c.x * discR / (rFactor || 1);
+        const cy2 = cy + c.y * discR / (rFactor || 1);
+        const cr = discR * c.s;
+        const crater = mc.createRadialGradient(cx2, cy2, 0, cx2, cy2, cr);
+        crater.addColorStop(0, 'rgba(145, 167, 210, 0.36)');
+        crater.addColorStop(0.85, 'rgba(98, 118, 152, 0.08)');
+        crater.addColorStop(1, 'rgba(55, 75, 100, 0)');
+        mc.fillStyle = crater; mc.beginPath(); mc.arc(cx2, cy2, cr, 0, Math.PI*2); mc.fill();
+    }
+
+    // Edge highlight
+    mc.globalAlpha = 0.28;
+    mc.strokeStyle = 'rgba(245, 250, 255, 0.56)'; mc.lineWidth = Math.max(1, discR*0.02);
+    mc.beginPath(); mc.arc(cx, cy, discR, 0, Math.PI*2); mc.stroke(); mc.globalAlpha = 1;
+
+    // Moon position in screen space
+    const moonX = W*0.82;
+    const moonY = H*0.22;
+
+    // Moon light gradient (kept as a gradient on the main ctx because it covers a large area)
+    const moonLight = ctx.createRadialGradient(moonX, moonY, moonRadius*0.8, moonX, moonY, moonRadius*9);
+    moonLight.addColorStop(0, 'rgba(200, 230, 255, 0.30)');
+    moonLight.addColorStop(0.6, 'rgba(120, 150, 190, 0.12)');
+    moonLight.addColorStop(1, 'rgba(12, 18, 30, 0)');
+
+    skyCaches.moon = { x: moonX, y: moonY, r: moonRadius, image: moonCanvas, light: moonLight };
+    try { window.moonState = skyCaches.moon; } catch (e) {}
+}
+
+// Initialize caches
+updateSkyCaches();
+
+// ── PADDLES + PARTICLES ───────────────────────────────────────────────────────
+const player = { x:0, y:0, angle:0, trail:[], wx:0, wy:0, wz:800 };
+const ai      = { x:0, y:0, angle:0, trail:[], wx:0, wy:0, wz:800 };
+const particles = [];
+
+function spawnParticle(x, y, color) {
+    // Throttle particle creation: emit small bursts
+    particles.push({ x, y, vx: (Math.random()-0.5)*2, vy: Math.random()*0.9 + 0.2, life: 1, color, r: Math.random()*2+0.5 });
+}
+
+// ── SKY ───────────────────────────────────────────────────────────────────────
+function drawSky() {
+    const horizon = hy();
+
+    // Simple bright day / dark night transition
+    const skyDay = { top: '#6fc7ff', mid: '#9ad9ff', bot: '#d9f0ff' };
+    const skyNight = { top: '#02030a', mid: '#050c1f', bot: '#081c35' };
+    const top = lerpColor(skyDay.top, skyNight.top, dayNightFactor);
+    const mid = lerpColor(skyDay.mid, skyNight.mid, dayNightFactor);
+    const bot = lerpColor(skyDay.bot, skyNight.bot, dayNightFactor);
+
+    const g = ctx.createLinearGradient(0, 0, 0, horizon);
+    g.addColorStop(0, top);
+    g.addColorStop(0.5, mid);
+    g.addColorStop(1, bot);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, horizon);
+
+    // Sun and moon are simple bright/dark cues with direct composite
+    const cycle = 20.0;
+    const phase = (time % cycle) / cycle;
+    const sunAngle = Math.PI/2 - phase * 2 * Math.PI;
+    const moonAngle = sunAngle + Math.PI;
+    const sunX = W/2 + Math.cos(sunAngle) * W * 0.55;
+    const sunY = hy() - Math.sin(sunAngle) * H * 0.58;
+    const moonX = W/2 + Math.cos(moonAngle) * W * 0.55;
+    const moonY = hy() - Math.sin(moonAngle) * H * 0.58;
+
+    const sunStrength = clamp((Math.sin(sunAngle) + 0.1) / 1.1, 0, 1);
+    const moonStrength = clamp((Math.sin(moonAngle) + 0.1) / 1.1, 0, 1);
+
+    const sunOpacity = Math.max(0, 1 - dayNightFactor * 1.15) * sunStrength;
+    if (sunOpacity > 0.02) {
+        const sunR = Math.max(20, Math.min(60, Math.floor(W * 0.06)));
+        ctx.globalAlpha = sunOpacity * 0.8;
+        ctx.fillStyle = 'rgba(255, 200, 100, 0.85)';
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, sunR, 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        if (!settings.lowPerf) {
+            const r2 = sunR * 1.6;
+            ctx.globalAlpha = sunOpacity * 0.35;
+            ctx.fillStyle = 'rgba(255, 210, 130, 0.55)';
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, r2, 0, Math.PI*2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    const moonOpacity = clamp(dayNightFactor * 1.2 - 0.15, 0, 1) * moonStrength;
+    const moonCache = skyCaches.moon;
+    if (moonCache && moonCache.image && moonOpacity > 0.02) {
+        const drawSize = moonCache.r * 6;
+        ctx.globalAlpha = moonOpacity;
+        ctx.drawImage(moonCache.image, moonX - drawSize/2, moonY - drawSize/2, drawSize, drawSize);
+        ctx.globalAlpha = 1;
+
+        ctx.globalAlpha = moonOpacity * 0.35;
+        ctx.fillStyle = 'rgba(188, 220, 255, 0.28)';
+        ctx.beginPath();
+        ctx.arc(moonX, moonY, moonCache.r * 3, 0, Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+
+        window.moonState = { x: moonX, y: moonY, r: moonCache.r };
+    }
+
+    // soft horizon glow, no color-graded filters
+    const twilight = clampMap(Math.abs(dayNightFactor - 0.5) * 2, 0, 1);
+    const horizonGlow = ctx.createLinearGradient(0, horizon - 80, 0, horizon + 80);
+    const glowA = lerpColor('#ffe9aa', '#1d2a5a', dayNightFactor);
+    const glowB = lerpColor('#ffc48e', '#0f2b66', dayNightFactor);
+    horizonGlow.addColorStop(0, 'transparent');
+    horizonGlow.addColorStop(0.4, `rgba(${hexToRgb(glowA).r}, ${hexToRgb(glowA).g}, ${hexToRgb(glowA).b}, ${0.24 * twilight})`);
+    horizonGlow.addColorStop(1, 'transparent');
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = horizonGlow;
+    ctx.fillRect(0, horizon - 80, W, 160);
+    ctx.globalAlpha = 1;
+}
+
+
+// ── STARS ─────────────────────────────────────────────────────────────────────
+function drawStars() {
+    const horizon = hy();
+
+    // Smooth star visibility transition to avoid abrupt flicker
+    const starVis = clamp(1 - dayNightFactor * 1.4, 0, 1);
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, starVis * 1.1); // subtle dimming at twilight
+
+    const limit = Math.min(stars.length, settings.lowPerf ? 24 : stars.length);
+    for (let i = 0; i < limit; i++) {
+        const s = stars[i];
+        if (!s) continue;
+        const p = project(s.wx, s.wy, s.wz);
+        if (p.y > horizon || p.x < -10 || p.x > W+10) continue;
+        const fade = Math.max(0, 1 - s.wz / 2500) * starVis;
+        if (fade < 0.01) continue;
+        ctx.fillStyle = s.palette;
+        const r = Math.max(0.4, s.r * p.scale * (settings.lowPerf ? 3.0 : 4.0));
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+// ── GROUND TEXTURE ────────────────────────────────────────────────────────────
+function drawGroundTexture() {
+    const horizon = hy();
+    ctx.save();
+
+    // Sea surface replaces ground (Zack Snyder mood: deep cold blue with moody highlights)
+    const seaDay = {top: '#274069', mid: '#283f61', bot: '#102945'};
+    const seaNight = {top: '#061128', mid: '#040a1c', bot: '#01060e'};
+    const topC = lerpColor(seaDay.top, seaNight.top, dayNightFactor);
+    const midC = lerpColor(seaDay.mid, seaNight.mid, dayNightFactor);
+    const botC = lerpColor(seaDay.bot, seaNight.bot, dayNightFactor);
+    const sea = ctx.createLinearGradient(0, horizon, 0, H);
+    sea.addColorStop(0, topC);
+    sea.addColorStop(0.4, midC);
+    sea.addColorStop(1, botC);
+    ctx.fillStyle = sea;
+    ctx.fillRect(0, horizon, W, H - horizon);
+
+    // simplified sea wave overlays (few lines for performance)
+    const waveCount = settings.lowPerf ? 5 : 10;
+    const waveAlpha = 0.22 * (1 - dayNightFactor) + 0.09 * dayNightFactor;
+    ctx.save();
+    ctx.globalAlpha = waveAlpha;
+    ctx.strokeStyle = 'rgba(190, 210, 255, 0.28)';
+    ctx.lineWidth = settings.lowPerf ? 0.85 : 1;
+    for (let i = 0; i < waveCount; i++) {
+        const y = horizon + (i + 1) * ((H - horizon) / (waveCount + 1));
+        const t = time * 0.3 + i * 0.5;
+        ctx.beginPath();
+        for (let x = 0; x <= W; x += 68) {
+            const offset = Math.sin((x * 0.018) + t) * 7 * (1 - dayNightFactor * 0.7);
+            if (x === 0) ctx.moveTo(x, y + offset);
+            else ctx.lineTo(x, y + offset);
+        }
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    // Long shimmering reflection bands (perf sensitive)
+    if (!settings.lowPerf) {
+        ctx.save();
+        ctx.globalAlpha = 0.08 + 0.06 * (1 - dayNightFactor);
+        ctx.fillStyle = 'rgba(255, 170, 98, 0.14)';
+        const bandY = horizon + (H - horizon) * 0.14;
+        ctx.fillRect(0, bandY, W, 12);
+        ctx.restore();
+    }
+
+    // Ground dots removed (flat neon grid style, no colored circle noise)
+    dotOffset = (dotOffset + SPEED) % (GRID_LINES * GRID_SPACING);
+
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+// ── NEON GRID ─────────────────────────────────────────────────────────────────
+function drawNeonGrid() {
+    // Grid disabled — replaced by sky/ground transitions in day/night cycle
+    return;
+}
+
+// ── BUILDINGS ─────────────────────────────────────────────────────────────────
+function drawBuilding(b) {
+    const horizon = hy();
+    const base = project(b.x, 0, b.z);
+    const top  = project(b.x, b.height, b.z);
+    if (base.y < horizon - 4 || top.y > H+10) return;
+    const w  = b.width * base.scale;
+    const bh = base.y - top.y;
+    if (bh < 2 || w < 1) return;
+
+    let depth = Math.max(0.35, 1 - b.z/2000); // improved fast opacity climb
+    depth = Math.min(1, depth + 0.15);
+    const pulse = 0.72 + 0.28*Math.sin(time*2.8 + b.phase);
+    ctx.save();
+
+    // Ground glow pool
+    ctx.globalAlpha = depth * 0.22;
+    const gp = ctx.createRadialGradient(base.x, base.y, 0, base.x, base.y, w*1.4);
+    gp.addColorStop(0, b.color); gp.addColorStop(1, 'transparent');
+    ctx.fillStyle = gp;
+    ctx.fillRect(base.x - w*1.5, base.y - 10, w*3, 20);
+
+    // Body (3D trapezoid
+    const baseLeft = project(b.x - b.width*0.5, 0, b.z);
+    const baseRight = project(b.x + b.width*0.5, 0, b.z);
+    const topLeft = project(b.x - b.width*0.5, b.height, b.z);
+    const topRight = project(b.x + b.width*0.5, b.height, b.z);
+
+    const depthShiftX = (base.x - W*0.5) * 0.06;
+    const depthShiftY = Math.max(0, (base.y - horizon)) * 0.06;
+    const sideTop = { x: topRight.x + depthShiftX, y: topRight.y + depthShiftY };
+    const sideBase = { x: baseRight.x + depthShiftX, y: baseRight.y + depthShiftY };
+
+    ctx.globalAlpha = depth;
+    const bg = ctx.createLinearGradient(topLeft.x, topLeft.y, baseLeft.x, baseLeft.y);
+    bg.addColorStop(0,   '#04040e');
+    bg.addColorStop(0.5, '#080815');
+    bg.addColorStop(1,   '#04040e');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(topLeft.x, topLeft.y);
+    ctx.lineTo(topRight.x, topRight.y);
+    ctx.lineTo(baseRight.x, baseRight.y);
+    ctx.lineTo(baseLeft.x, baseLeft.y);
+    ctx.closePath();
+    ctx.fill();
+
+    // Side face (depth)
+    ctx.globalAlpha = depth * 0.85;
+    const sideGrad = ctx.createLinearGradient(topRight.x, topRight.y, sideTop.x, sideTop.y);
+    sideGrad.addColorStop(0, b.color + '70');
+    sideGrad.addColorStop(1, 'rgba(0,0,0,0.0)');
+    ctx.fillStyle = sideGrad;
+    ctx.beginPath();
+    ctx.moveTo(topRight.x, topRight.y);
+    ctx.lineTo(sideTop.x, sideTop.y);
+    ctx.lineTo(sideBase.x, sideBase.y);
+    ctx.lineTo(baseRight.x, baseRight.y);
+    ctx.closePath();
+    ctx.fill();
+
+    // Neon outline
+    ctx.strokeStyle = b.color;
+    ctx.lineWidth   = settings.lowPerf ? Math.max(0.9, 1.4*depth) : Math.max(1, 2.5*depth);
+    if (!settings.lowPerf) {
+        ctx.shadowColor = b.color;
+        ctx.shadowBlur  = 16*pulse*depth;
+    } else {
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+    }
+    ctx.beginPath();
+    ctx.moveTo(topLeft.x, topLeft.y);
+    ctx.lineTo(topRight.x, topRight.y);
+    ctx.lineTo(baseRight.x, baseRight.y);
+    ctx.lineTo(baseLeft.x, baseLeft.y);
+    ctx.closePath();
+    ctx.stroke();
+    // Roof glow
+    ctx.lineWidth  = Math.max(1, 3.5*depth);
+    ctx.shadowBlur = settings.lowPerf ? 0 : 28*pulse;
+    ctx.beginPath();
+    ctx.moveTo(base.x-w/2, top.y); ctx.lineTo(base.x+w/2, top.y);
+    ctx.stroke();
+
+    // Subtle moon rim-light (directional wash on roof and side)
+    if (window.moonState) {
+        const dx = base.x - window.moonState.x;
+        const dy = top.y - window.moonState.y;
+        const dist = Math.hypot(dx, dy);
+        const rim = Math.max(0, 1 - dist / (window.moonState.r * 12));
+        if (rim > 0.01) {
+            const roofAlpha = rim * 0.12 * depth;
+            const rl = ctx.createLinearGradient(base.x - w/2, top.y - 2, base.x + w/2, top.y - 2);
+            rl.addColorStop(0, 'rgba(190,210,245,' + (roofAlpha * 0.6) + ')');
+            rl.addColorStop(0.5, 'rgba(220,235,255,' + roofAlpha + ')');
+            rl.addColorStop(1, 'rgba(190,210,245,' + (roofAlpha * 0.6) + ')');
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = rl;
+            ctx.fillRect(base.x - w/2, top.y - Math.max(1, bh*0.02), w, Math.max(2, bh*0.04));
+            ctx.restore();
+        }
+
+        // subtle side wash to suggest directional moonlight
+        const sideRim = rim * 0.12 * depth;
+        if (sideRim > 0.005) {
+            ctx.save();
+            ctx.globalAlpha = sideRim;
+            ctx.fillStyle = 'rgba(180,200,230,0.6)';
+            ctx.beginPath();
+            ctx.moveTo(topRight.x, topRight.y);
+            ctx.lineTo(sideTop.x, sideTop.y);
+            ctx.lineTo(sideBase.x, sideBase.y);
+            ctx.lineTo(baseRight.x, baseRight.y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    // Antenna
+    if (b.antennaH > 0) {
+        const ah = b.antennaH * base.scale;
+        ctx.lineWidth = Math.max(0.5, 1.5*depth);
+        ctx.shadowBlur = 10*depth;
+        ctx.strokeStyle = b.color;
+        ctx.beginPath();
+        ctx.moveTo(base.x, top.y); ctx.lineTo(base.x, top.y - ah);
+        ctx.stroke();
+        if (Math.sin(time*4 + b.phase) > 0.6) {
+            ctx.fillStyle = '#ff4444'; ctx.shadowColor = '#ff4444'; ctx.shadowBlur = 12;
+            ctx.globalAlpha = depth;
+            ctx.beginPath();
+            ctx.arc(base.x, top.y - ah, Math.max(1, 2.5*depth), 0, Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    // Windows
+    ctx.shadowBlur = 0;
+    ctx.fillStyle  = b.color;
+    const winW = Math.max(2, w/5.5), winH = Math.max(2, bh/16);
+    const cols = [base.x - w*0.28, base.x + w*0.28 - winW];
+    for (let wy = top.y + winH*1.8; wy < base.y - winH*2; wy += winH*2.6) {
+        // stabilized lighting for windows (no rapid sin flicker)
+        ctx.globalAlpha = depth * 0.62;
+        for (const cx of cols) ctx.fillRect(cx, wy, winW, winH);
+    }
+
+    // Back face (depth) for enhanced 3D silhouette
+    const sideDepthFactor = 0.2 + (1 - depth) * 0.7;
+    const backOffsetX = w * 0.12 * sideDepthFactor;
+    const backOffsetY = bh * 0.05 * sideDepthFactor;
+
+    const backColor = 'rgba(10, 10, 20, ' + Math.min(0.6, depth * 0.6) + ')';
+    ctx.fillStyle = backColor;
+    ctx.beginPath();
+    ctx.moveTo(base.x-w/2 + backOffsetX, top.y + backOffsetY);
+    ctx.lineTo(base.x+w/2 + backOffsetX, top.y + backOffsetY);
+    ctx.lineTo(base.x+w/2 + backOffsetX, base.y + backOffsetY);
+    ctx.lineTo(base.x-w/2 + backOffsetX, base.y + backOffsetY);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ground reflection
+    ctx.globalAlpha = depth * 0.1;
+    ctx.save();
+    ctx.translate(base.x, base.y);
+    ctx.scale(1, -0.12);
+    ctx.fillStyle = '#04040e';
+    ctx.fillRect(-w/2, 0, w, bh*0.5);
+    ctx.strokeStyle = b.color; ctx.lineWidth = 1.5; ctx.shadowBlur = 0;
+    ctx.strokeRect(-w/2, 0, w, bh*0.5);
+    ctx.restore();
+
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+// ── PADDLES ───────────────────────────────────────────────────────────────────
+class CityLoopPaddle {
+    constructor(isAI = false) {
+        this.isAI = isAI;
+        this.primaryColor = isAI ? '#ff00d4' : '#00ffea';
+        this.secondaryColor = isAI ? '#ff44ff' : '#00ffff';
+        this.energyPulse = 0;
+        this.alivePhase = 0;
+        this.lastHitTime = 0;
+    }
+
+    _adjustColor(color, factor) {
+        if (color.startsWith('#')) {
+            const hex = color.replace('#', '');
+            const r = parseInt(hex.substr(0, 2), 16);
+            const g = parseInt(hex.substr(2, 2), 16);
+            const b = parseInt(hex.substr(4, 2), 16);
+            const clamp = (v) => Math.min(255, Math.max(0, Math.floor(v * factor)));
+            return `rgb(${clamp(r)}, ${clamp(g)}, ${clamp(b)})`;
+        }
+        return color;
+    }
+
+    _roundRect(ctx, x, y, width, height, radius) {
+        if (width < 0) { x += width; width = Math.abs(width); }
+        if (height < 0) { y += height; height = Math.abs(height); }
+        radius = Math.max(0, radius || 0);
+        radius = Math.min(radius, width / 2, height / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.arcTo(x + width, y, x + width, y + radius, radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+        ctx.lineTo(x + radius, y + height);
+        ctx.arcTo(x, y + height, x, y + height - radius, radius);
+        ctx.lineTo(x, y + radius);
+        ctx.arcTo(x, y, x + radius, y, radius);
+        ctx.closePath();
+    }
+
+    _colorWithAlpha(color, alpha) {
+        if (color.startsWith('#')) {
+            const hex = color.slice(1);
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        return color;
+    }
+
+    render(ctx, x, y, angle, now) {
+        const hitGlow = Math.max(0, 1 - (Date.now() - this.lastHitTime) / 250);
+        const pulse = Math.sin(now * 6) * 0.5 + 0.5;
+        const pulseIntensity = Math.sin(now * 10) * 0.3 + 0.7;
+        const transformPulse = this.energyPulse + hitGlow;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+
+        if (this.isAI) {
+            this.renderAI(ctx, pulse, pulseIntensity, transformPulse, hitGlow);
+        } else {
+            this.renderPlayer(ctx, pulse, pulseIntensity, transformPulse, hitGlow);
+        }
+
+        ctx.restore();
+
+        this.alivePhase += 0.01;
+    }
+
+    renderPlayer(ctx, pulse, pulseIntensity, transformPulse, hitGlow) {
+        const pw = W * 0.028;
+        const ph = H * 0.13;
+
+        ctx.fillStyle = '#0D0D14';
+        this._roundRect(ctx, -pw/2, -ph/2, pw, ph, 4);
+        ctx.fill();
+
+        ctx.fillStyle = '#1C1C26';
+        ctx.beginPath();
+        ctx.moveTo(-pw/2, -ph/2);
+        ctx.lineTo(pw/2*0.9, -ph/2 + ph*0.25);
+        ctx.lineTo(pw/2*0.9, ph/2 - ph*0.25);
+        ctx.lineTo(-pw/2, ph/2);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(pw/2, -ph/2);
+        ctx.lineTo(-pw/2*0.9, -ph/2 + ph*0.25);
+        ctx.lineTo(-pw/2*0.9, ph/2 - ph*0.25);
+        ctx.lineTo(pw/2, ph/2);
+        ctx.closePath();
+        ctx.fill();
+
+        const topLight = ctx.createLinearGradient(0, -ph/2, 0, -ph/2 + 28);
+        topLight.addColorStop(0, this._colorWithAlpha(this.secondaryColor, 1));
+        topLight.addColorStop(1, this._colorWithAlpha(this.secondaryColor, 0));
+        ctx.fillStyle = topLight;
+        ctx.fillRect(-pw/2, -ph/2, pw, 28);
+
+        const bottomLight = ctx.createLinearGradient(0, ph/2, 0, ph/2 - 28);
+        bottomLight.addColorStop(0, this._colorWithAlpha(this.secondaryColor, 1));
+        bottomLight.addColorStop(1, this._colorWithAlpha(this.secondaryColor, 0));
+        ctx.fillStyle = bottomLight;
+        ctx.fillRect(-pw/2, ph/2 - 28, pw, 28);
+
+        ctx.strokeStyle = this.primaryColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-pw/2, -ph/2, pw, ph);
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = this._colorWithAlpha(this.primaryColor, 0.16 + pulse*0.12);
+        this._roundRect(ctx, -pw/2 - 3, -ph/2 - 3, pw+6, ph+6, 6);
+        ctx.fill();
+        ctx.restore();
+
+        this.energyPulse = Math.max(0, this.energyPulse - 0.015);
+    }
+
+    renderAI(ctx, pulse, pulseIntensity, transformPulse, hitGlow) {
+        const pw = W * 0.028;
+        const ph = H * 0.13;
+        const halfW = pw / 2;
+        const halfH = ph / 2;
+
+        ctx.fillStyle = '#050507';
+        this._roundRect(ctx, -halfW, -halfH, pw, ph, 5);
+        ctx.fill();
+
+        const hullGradient = ctx.createLinearGradient(-halfW, -halfH, halfW, halfH);
+        hullGradient.addColorStop(0, '#050507');
+        hullGradient.addColorStop(0.45, '#15161d');
+        hullGradient.addColorStop(1, '#020203');
+        ctx.fillStyle = hullGradient;
+        this._roundRect(ctx, -halfW+2, -halfH+2, pw-4, ph-4, 4);
+        ctx.fill();
+
+        ctx.save();
+        ctx.strokeStyle = '#ff2a84';
+        ctx.lineWidth = 2.2;
+        ctx.shadowColor = '#ff2a84';
+        ctx.shadowBlur = 12;
+        this._roundRect(ctx, -halfW, -halfH, pw, ph, 6);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-halfW + 4, -halfH + 2);
+        ctx.lineTo(halfW - 4, -halfH + 2);
+        ctx.moveTo(-halfW + 4, halfH - 2);
+        ctx.lineTo(halfW - 4, halfH - 2);
+        ctx.stroke();
+
+        this.energyPulse = Math.max(0, this.energyPulse - 0.015);
+    }
+}
+
+const playerVisual = new CityLoopPaddle(false);
+const aiVisual = new CityLoopPaddle(true);
+
+function updatePaddlePositions() {
+    // Desired screen positions (keep visual placement similar) and compute
+    // corresponding world coordinates so paddles project into the scene.
+    const desiredPX = W * 0.25;
+    const desiredPY = H * 0.28 + Math.sin(time*2.1) * H*0.09;
+    const desiredAX = W * 0.75;
+    const desiredAY = H * 0.28 + Math.cos(time*2.3) * H*0.09;
+
+    // choose a reasonable world depth for paddles (closer than most buildings)
+    player.wz = 520; ai.wz = 520;
+
+    // convert desired screen -> world coordinates using current wz
+    const pScale = FOV / player.wz;
+    player.wx = (desiredPX - W/2) / pScale;
+    player.wy = CAM_H - (desiredPY - hy()) / pScale;
+    player.x = desiredPX; player.y = desiredPY;
+    player.angle = Math.sin(time*3.7) * 0.18;
+
+    const aScale = FOV / ai.wz;
+    ai.wx = (desiredAX - W/2) / aScale;
+    ai.wy = CAM_H - (desiredAY - hy()) / aScale;
+    ai.x = desiredAX; ai.y = desiredAY;
+    ai.angle = Math.cos(time*3.5) * 0.18;
+}
+
+function updateTrail(p) {
+    // store world-space samples so trails can be projected with perspective
+    p.trail.push({ wx:p.wx, wy:p.wy, wz:p.wz, life:1, angle:p.angle });
+    const maxTrail = settings.lowPerf ? Math.floor(settings.maxTrailLength * 0.7) : settings.maxTrailLength;
+    while (p.trail.length > maxTrail) p.trail.shift();
+    for (let i = p.trail.length-1; i >= 0; i--) {
+        p.trail[i].life -= 0.065;
+        if (p.trail[i].life <= 0) p.trail.splice(i,1);
+    }
+}
+
+function drawTrail(p, color) {
+    // Project trail samples from world-space and draw scaled quads
+    if (!p.trail.length) return;
+    const baseProj = project(p.wx, p.wy, p.wz);
+    const baseProjW = W * 0.028;
+    const baseProjH = H * 0.13;
+    const baseWorldW = baseProjW / baseProj.scale;
+    const baseWorldH = baseProjH / baseProj.scale;
+
+    ctx.save();
+    for (const t of p.trail) {
+        const sp = project(t.wx, t.wy, t.wz);
+        if (sp.y > hy() + 200 || sp.x < -50 || sp.x > W+50) continue;
+        const tw = baseWorldW * sp.scale * t.life;
+        const th = baseWorldH * sp.scale * t.life;
+        ctx.save();
+        ctx.translate(sp.x, sp.y);
+        ctx.rotate(t.angle);
+        ctx.globalAlpha = t.life * 0.32;
+        ctx.fillStyle = color;
+        ctx.shadowColor = color; ctx.shadowBlur = 10;
+        ctx.fillRect(-tw/2, -th/2, tw, th);
+        ctx.restore();
+    }
+    ctx.restore();
+}
+
+function drawPaddle(p, isPlayer) {
+    const now = time;
+    if (isPlayer) {
+        playerVisual.render(ctx, p.x, p.y, p.angle, now);
+    } else {
+        aiVisual.render(ctx, p.x, p.y, p.angle, now);
+    }
+}
+
+// ── PARTICLES ─────────────────────────────────────────────────────────────────
+function updateParticles() {
+    for (let i = particles.length-1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.life -= 0.04;
+        if (p.life <= 0) particles.splice(i,1);
+    }
+}
+function drawParticles() {
+    if (settings.lowPerf) return; // disable particles in low perf mode
+    ctx.save();
+    for (const p of particles) {
+        ctx.globalAlpha = p.life * 0.85;
+        ctx.fillStyle  = p.color;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur  = 4;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r*p.life, 0, Math.PI*2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    ctx.restore();
+}
+
+// ── SPEED STREAKS ────────────────────────────────────────────────────────────
+function drawSpeedStreaks() {
+    // disabled to remove rain effect and improve performance
+    return;
+}
+
+// ── SCANLINES ─────────────────────────────────────────────────────────────────
+function drawScanlines() {
+    if (settings.lowPerf) return; // disable scanlines in low perf mode
+    ctx.save();
+    for (let y = 0; y < H; y += 8) {
+        ctx.globalAlpha = 0.01;
+        ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+    ctx.restore();
+}
+
+// ── VIGNETTE ─────────────────────────────────────────────────────────────────
+function drawVignette() {
+    ctx.save();
+    const vg = ctx.createRadialGradient(W/2,H/2,H*0.25,W/2,H/2,H*0.95);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(0.5, 'rgba(0,0,0,0.25)');
+    vg.addColorStop(0.88, 'rgba(0,0,0,0.55)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.85)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+}
+
+
+// ── LABELS ────────────────────────────────────────────────────────────────────
+function drawLabels() {
+    ctx.save();
+    const fs = Math.max(13, W*0.019);
+    const ph = H*0.13;
+    ctx.font = `bold ${fs}px Courier New`;
+    ctx.textAlign = 'center';
+
+    ctx.fillStyle = '#00ffff'; ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 20;
+    ctx.fillText('PLAYER', player.x, player.y - ph/2 - 14);
+
+    ctx.fillStyle = '#ff88ff'; ctx.shadowColor = '#ff88ff'; ctx.shadowBlur = 20;
+    ctx.fillText('ENEMY', ai.x, ai.y - ph/2 - 14);
+
+    ctx.restore();
+}
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────────────────
+function animate(ts) {
+    if (lastTimestamp === null) lastTimestamp = ts;
+    let dt = (ts - lastTimestamp) / 1000; // seconds
+    // clamp dt to avoid teleporting after tab throttling or huge frame gaps
+    dt = Math.min(dt, 0.1);
+    const frameScale = dt * 60; // convert to equivalent "frames" at 60 FPS
+    lastTimestamp = ts;
+    ctx.clearRect(0,0,W,H);
+    time += dt;
+    frameCount++;
+
+    // performance smoothing: detect low-performance and reduce visual cost
+    perfAvgDt = perfAvgDt * 0.92 + dt * 0.08;
+    settings.lowPerf = perfAvgDt > (1/52); // ~52 FPS threshold to trigger low-perf path early
+
+    // If in low-perf, skip every other frame draw to keep effective responsiveness
+    if (settings.lowPerf && (frameCount % LOW_PERF_FRAME_SKIP !== 0)) {
+        requestAnimationFrame(animate);
+        return;
+    }
+
+    // Day/Night cycle: 20s loop, 10s day->night, 10s night->day
+    const cycle = 20.0;
+    const phase = (time % cycle) / cycle; // 0..1
+    // base sine phase (natural osc) and ease for softer transition edges
+    const raw = 0.5 * (1 + Math.sin(phase * 2 * Math.PI - Math.PI/2));
+    const eased = raw < 0.5 ? 0.5 * (1 - Math.cos(raw * Math.PI)) : 0.5 + 0.5 * (1 - Math.cos((raw - 0.5) * Math.PI));
+    dayNightFactor = eased;
+
+    for (const b of buildings) {
+        b.z -= SPEED * frameScale;
+        if (b.z < 30) { Object.assign(b, randomBuilding()); b.z = 5200; needsResort = true; }
+    }
+    for (const g of gridH) {
+        g.z -= SPEED * frameScale;
+        if (g.z < 30) g.z += GRID_LINES*GRID_SPACING;
+    }
+    for (const s of stars) {
+        s.wz -= SPEED*0.35 * frameScale;
+        if (s.wz < 80) {
+            s.wz = 2200;
+            s.wx = (Math.random()-0.5)*14000;
+            s.wy = CAM_H + 300 + Math.random()*1200;
+        }
+    }
+
+    updatePaddlePositions();
+    // Throttle particle spawning to every N frames
+    if (frameCount - lastParticleSpawn > PARTICLE_SPAWN_INTERVAL) {
+        spawnParticle(player.x, player.y + H*0.065, '#00ffea');
+        spawnParticle(ai.x,     ai.y     + H*0.065, '#ff00d4');
+        lastParticleSpawn = frameCount;
+    }
+    updateParticles();
+
+    drawSky();
+    drawStars();
+
+    drawGroundTexture();
+    drawNeonGrid();
+
+    if (needsResort) { buildings.sort((a,b) => b.z - a.z); needsResort = false; }
+    buildings.forEach(drawBuilding);
+
+    // rain/speed streaks disabled for cleaner vaporwave and better perf
+    // drawSpeedStreaks();
+    drawParticles();
+
+    updateTrail(player); updateTrail(ai);
+    drawTrail(player,'#00ffea');
+    drawTrail(ai,    '#ff00d4');
+    drawPaddle(player, true);
+    drawPaddle(ai,     false);
+
+    drawLabels();
+    drawScanlines();
+    drawVignette();
+
+    // Bloom is disabled in settings (removed for performance and stability).
+    requestAnimationFrame(animate);
+}
+
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

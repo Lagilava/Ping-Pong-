@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>The Risen</title>
+<style>
+  :root {
+    --app-width: 100vw;
+    --app-height: 100dvh;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html, body { width:100%; height:var(--app-height); min-height:var(--app-height) }
+  body{background:#000;overflow:hidden;width:100%;height:var(--app-height)}
+  canvas{display:block;position:absolute;top:0;left:0}
+  #post{z-index:10;pointer-events:none}
+</style>
+</head>
+<body>
+<!-- Scene canvas (hand + world) -->
+<canvas id="scene"></canvas>
+<!-- Post-process canvas (composited on top) -->
+<canvas id="post"></canvas>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════
+//  THE RISEN — Final Zombie Hand
+//  Rendering pipeline:
+//   1. Offscreen: ground + atmosphere
+//   2. Offscreen: hand (layered skin shader)
+//   3. Composite: hand → scene with drop shadow
+//   4. Post: vignette + chromatic aberration + film grain
+// ═══════════════════════════════════════════════════
+
+const scene = document.getElementById('scene');
+const sc    = scene.getContext('2d');
+const post  = document.getElementById('post');
+const pc    = post.getContext('2d');
+
+function getViewportSize(){
+  const viewport = window.visualViewport;
+  return {
+    width: Math.max(320, Math.round(viewport?.width || window.innerWidth || document.documentElement.clientWidth || 1280)),
+    height: Math.max(240, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight || 720))
+  };
+}
+
+function syncViewportMetrics(){
+  const { width, height } = getViewportSize();
+  document.documentElement.style.setProperty('--app-width', `${width}px`);
+  document.documentElement.style.setProperty('--app-height', `${height}px`);
+  return { width, height };
+}
+
+let W, H;
+function resize(){
+  const viewport = syncViewportMetrics();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = viewport.width;
+  H = viewport.height;
+  scene.width = Math.round(W * dpr);
+  scene.height = Math.round(H * dpr);
+  post.width = Math.round(W * dpr);
+  post.height = Math.round(H * dpr);
+  sc.setTransform(dpr, 0, 0, dpr, 0, 0);
+  pc.setTransform(dpr, 0, 0, dpr, 0, 0);
+  buildGround();
+}
+window.addEventListener('resize', resize, { passive: true });
+window.addEventListener('orientationchange', resize, { passive: true });
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resize, { passive: true });
+}
+
+// ── OFFSCREEN BUFFERS ────────────────────────
+const handBuf = document.createElement('canvas');
+handBuf.width = 340; handBuf.height = 520;
+const hc = handBuf.getContext('2d');
+
+// ── TIME / STATE ─────────────────────────────
+let T=0, lastTS=0, riseT=0;
+const RISE_DUR = 3.2;
+
+// ── MATH UTILS ──────────────────────────────
+const PI  = Math.PI;
+const TAU = PI*2;
+function lerp(a,b,t){return a+(b-a)*t}
+function clamp(v,a,b){return v<a?a:v>b?b:v}
+function smoothstep(a,b,x){const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)}
+function easeOutElastic(x){
+  if(!x||x===1)return x;
+  return Math.pow(2,-10*x)*Math.sin((x*10-0.75)*TAU/3)+1;
+}
+function easeOutCubic(x){return 1-Math.pow(1-x,3)}
+function easeInOutSine(x){return -(Math.cos(PI*x)-1)/2}
+function deg(d){return d*PI/180}
+function rand(a,b){return a+(b-a)*Math.random()}
+function randInt(a,b){return Math.floor(rand(a,b+1))}
+
+// ── GRAIN TEXTURE ───────────────────────────
+const grainC = document.createElement('canvas');
+grainC.width = grainC.height = 512;
+const grainX = grainC.getContext('2d');
+// Multi-scale noise: fine grain + coarse blotches + micro-cracks
+const gid = grainX.createImageData(512,512);
+for(let i=0;i<gid.data.length;i+=4){
+  const v = Math.random()*255|0;
+  gid.data[i]=v; gid.data[i+1]=v+8; gid.data[i+2]=v-10;
+  gid.data[i+3] = Math.random()*40|0;
+}
+grainX.putImageData(gid,0,0);
+// Coarse blotches (rot patches)
+for(let i=0;i<80;i++){
+  const x=rand(0,512),y=rand(0,512),r=rand(3,18);
+  const g=grainX.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,`rgba(${randInt(10,30)},${randInt(20,40)},${randInt(5,15)},${rand(0.05,0.22)})`);
+  g.addColorStop(1,'rgba(0,0,0,0)');
+  grainX.fillStyle=g;
+  grainX.beginPath();grainX.arc(x,y,r,0,TAU);grainX.fill();
+}
+// Micro-cracks
+for(let i=0;i<60;i++){
+  const x=rand(0,512),y=rand(0,512);
+  grainX.beginPath();grainX.moveTo(x,y);
+  grainX.lineTo(x+rand(-15,15),y+rand(-15,15));
+  grainX.strokeStyle=`rgba(5,8,2,${rand(0.08,0.2)})`;
+  grainX.lineWidth=0.4;grainX.stroke();
+}
+const GRAIN = sc.createPattern(grainC,'repeat');
+const GRAIN_H = hc.createPattern(grainC,'repeat');
+
+// ── SUBSURFACE SCATTER TEXTURE ───────────────
+// Warm orange-red glow simulating light through flesh
+const sssC = document.createElement('canvas');
+sssC.width = sssC.height = 64;
+const sssX = sssC.getContext('2d');
+const sssg = sssX.createRadialGradient(32,32,0,32,32,32);
+sssg.addColorStop(0,'rgba(180,90,40,0.35)');
+sssg.addColorStop(0.5,'rgba(120,50,20,0.15)');
+sssg.addColorStop(1,'rgba(0,0,0,0)');
+sssX.fillStyle=sssg;sssX.fillRect(0,0,64,64);
+
+// ── GROUND SYSTEM ───────────────────────────
+let groundCracks=[], groundPuddles=[];
+function buildGround(){
+  groundCracks=[];
+  const cx=W/2;
+  // Radial cracks emanating from hand breach point
+  for(let i=0;i<14;i++){
+    const ang = (i/14)*TAU + rand(-0.15,0.15);
+    const len = rand(30,120);
+    const pts=[{x:cx,y:H*0.72}];
+    let x=cx,y=H*0.72,a=ang;
+    for(let j=0;j<randInt(3,7);j++){
+      a+=rand(-0.4,0.4);
+      x+=Math.cos(a)*rand(10,25);
+      y+=Math.sin(a)*rand(4,12);
+      pts.push({x,y});
+    }
+    groundCracks.push({pts, alpha:0, w:rand(0.4,1.2)});
+  }
+}
+buildGround();
+
+function drawGround(rise){
+  const groundY = H*0.72;
+  const cx = W/2;
+  // Soil base — gradient earth
+  const eg = sc.createLinearGradient(0,groundY-20,0,H);
+  eg.addColorStop(0,'rgba(0,0,0,0)');
+  eg.addColorStop(0.05,'#100e08');
+  eg.addColorStop(0.3,'#1a1508');
+  eg.addColorStop(1,'#0d0b05');
+  sc.fillStyle=eg; sc.fillRect(0,groundY-20,W,H-groundY+20);
+
+  // Dirt texture overlay
+  sc.save();
+  sc.globalAlpha=0.35;
+  sc.globalCompositeOperation='multiply';
+  sc.fillStyle=GRAIN;
+  sc.fillRect(0,groundY,W,H-groundY);
+  sc.globalCompositeOperation='source-over';
+  sc.globalAlpha=1;
+  sc.restore();
+
+  // Ground surface edge (uneven)
+  sc.beginPath();
+  sc.moveTo(0,groundY);
+  const steps=24;
+  for(let i=0;i<=steps;i++){
+    const x=(i/steps)*W;
+    const y=groundY+Math.sin(i*0.8+1.2)*3+Math.sin(i*2.1)*1.5;
+    i===0?sc.moveTo(x,y):sc.lineTo(x,y);
+  }
+  sc.lineTo(W,H);sc.lineTo(0,H);sc.closePath();
+  sc.fillStyle='#0d0b05';sc.fill();
+
+  // Cracks
+  groundCracks.forEach(cr=>{
+    cr.alpha=Math.min(cr.alpha+0.008, rise);
+    if(cr.alpha<0.01)return;
+    sc.beginPath();
+    cr.pts.forEach((p,i)=>i===0?sc.moveTo(p.x,p.y):sc.lineTo(p.x,p.y));
+    sc.strokeStyle=`rgba(5,4,2,${cr.alpha*0.7})`;
+    sc.lineWidth=cr.w; sc.stroke();
+  });
+
+  // Blood puddles (accumulate from drips)
+  groundPuddles.forEach(p=>{
+    p.r=Math.min(p.r+0.05, p.maxR);
+    const pg=sc.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r);
+    pg.addColorStop(0,'rgba(55,3,3,0.7)');
+    pg.addColorStop(0.6,'rgba(35,2,2,0.5)');
+    pg.addColorStop(1,'rgba(0,0,0,0)');
+    sc.beginPath();sc.ellipse(p.x,p.y,p.r,p.r*0.35,0,0,TAU);
+    sc.fillStyle=pg;sc.fill();
+  });
+
+  // Breach hole (dark void where hand emerged)
+  const bhole = sc.createRadialGradient(cx,groundY+2,0,cx,groundY+2,55*rise);
+  bhole.addColorStop(0,`rgba(0,0,0,${0.9*rise})`);
+  bhole.addColorStop(0.5,`rgba(5,3,1,${0.5*rise})`);
+  bhole.addColorStop(1,'rgba(0,0,0,0)');
+  sc.beginPath();sc.ellipse(cx,groundY+3,55*rise,18*rise,0,0,TAU);
+  sc.fillStyle=bhole;sc.fill();
+}
+
+// ── FOG / ATMOSPHERE ────────────────────────
+const fogLayers=[
+  {phase:0,   speed:0.032, y:0.68, h:0.22, alpha:0.18},
+  {phase:2.1, speed:0.021, y:0.62, h:0.30, alpha:0.12},
+  {phase:4.5, speed:0.015, y:0.58, h:0.38, alpha:0.08},
+];
+function drawAtmosphere(rise){
+  // Sky darkness gradient
+  const sky=sc.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.7);
+  sky.addColorStop(0,'rgba(8,20,4,0.6)');
+  sky.addColorStop(1,'rgba(0,0,0,0)');
+  sc.fillStyle=sky;sc.fillRect(0,0,W,H);
+
+  // Ground glow (necromantic green)
+  const glow=sc.createRadialGradient(W/2,H*0.72,0,W/2,H*0.72,320);
+  glow.addColorStop(0,`rgba(35,85,15,${0.28*rise})`);
+  glow.addColorStop(0.4,`rgba(20,55,8,${0.14*rise})`);
+  glow.addColorStop(1,'rgba(0,0,0,0)');
+  sc.fillStyle=glow;sc.fillRect(0,0,W,H);
+
+  // Fog layers
+  fogLayers.forEach(fl=>{
+    const x=-W*0.3+Math.sin(T*fl.speed+fl.phase)*W*0.15;
+    const y=H*fl.y;
+    const fg=sc.createLinearGradient(0,y,0,y+H*fl.h);
+    fg.addColorStop(0,'rgba(0,0,0,0)');
+    fg.addColorStop(0.3,`rgba(22,45,10,${fl.alpha*rise})`);
+    fg.addColorStop(0.7,`rgba(18,38,8,${fl.alpha*rise*0.7})`);
+    fg.addColorStop(1,'rgba(0,0,0,0)');
+    sc.save();
+    sc.translate(x,0);
+    sc.fillStyle=fg;
+    sc.fillRect(-W*0.1,y,W*1.2,H*fl.h);
+    sc.restore();
+  });
+}
+
+// ── WILL-O-WISP ─────────────────────────────
+const wisps=[
+  {ox:0,  oy:0,  r:160, speed:0.38, phase:0,    size:5,  hue:140, sat:90},
+  {ox:40, oy:-20,r:220, speed:0.26, phase:2.4,  size:3.5,hue:168, sat:80},
+  {ox:-30,oy:10, r:180, speed:0.31, phase:4.8,  size:4,  hue:120, sat:85},
+];
+let wispPositions=[{x:0,y:0},{x:0,y:0},{x:0,y:0}];
+
+function updateWisps(handCX,handCY){
+  wisps.forEach((w,i)=>{
+    const tx=handCX+w.ox+Math.cos(T*w.speed+w.phase)*w.r;
+    const ty=handCY+w.oy+Math.sin(T*w.speed*0.7+w.phase)*w.r*0.55;
+    wispPositions[i].x=lerp(wispPositions[i].x,tx,0.025);
+    wispPositions[i].y=lerp(wispPositions[i].y,ty,0.025);
+  });
+}
+
+function drawWisps(rise){
+  const fade=smoothstep(0.5,0.85,riseT);
+  wisps.forEach((w,i)=>{
+    const p=wispPositions[i];
+    const flicker=0.65+Math.sin(T*9.3+i*3.1)*0.18+Math.sin(T*17.7+i*1.4)*0.08;
+    const a=fade*flicker*0.88;
+
+    // Outer corona
+    const og=sc.createRadialGradient(p.x,p.y,0,p.x,p.y,w.size*9);
+    og.addColorStop(0,`hsla(${w.hue},${w.sat}%,75%,${a*0.3})`);
+    og.addColorStop(0.4,`hsla(${w.hue},${w.sat}%,55%,${a*0.15})`);
+    og.addColorStop(1,'rgba(0,0,0,0)');
+    sc.beginPath();sc.arc(p.x,p.y,w.size*9,0,TAU);
+    sc.fillStyle=og;sc.fill();
+
+    // Mid glow
+    const mg=sc.createRadialGradient(p.x,p.y,0,p.x,p.y,w.size*3.5);
+    mg.addColorStop(0,`hsla(${w.hue},${w.sat}%,90%,${a*0.7})`);
+    mg.addColorStop(1,'rgba(0,0,0,0)');
+    sc.beginPath();sc.arc(p.x,p.y,w.size*3.5,0,TAU);
+    sc.fillStyle=mg;sc.fill();
+
+    // Core
+    sc.beginPath();sc.arc(p.x,p.y,w.size*flicker*0.9,0,TAU);
+    sc.fillStyle=`hsla(${w.hue+20},95%,96%,${a})`;sc.fill();
+
+    // Light trail
+    sc.beginPath();sc.moveTo(p.x,p.y);
+    const tx2=wisps[i].ox+W/2+Math.cos(T*w.speed+w.phase+0.4)*w.r;
+    const ty2=H*0.5+wisps[i].oy+Math.sin((T-0.4)*w.speed*0.7+w.phase)*w.r*0.55;
+    sc.lineTo(lerp(p.x,tx2,0.3),lerp(p.y,ty2,0.3));
+    sc.strokeStyle=`hsla(${w.hue},${w.sat}%,80%,${a*0.25})`;
+    sc.lineWidth=w.size*0.4;sc.stroke();
+  });
+}
+
+// Compute aggregate wisp lighting at a point (world space)
+function wispLightAt(wx,wy){
+  let total=0;
+  wisps.forEach((w,i)=>{
+    const p=wispPositions[i];
+    const dx=wx-p.x, dy=wy-p.y;
+    const d=Math.sqrt(dx*dx+dy*dy);
+    const flicker=0.65+Math.sin(T*9.3+i*3.1)*0.18+Math.sin(T*17.7+i*1.4)*0.08;
+    total+=clamp(1-d/250,0,1)*flicker*smoothstep(0.5,0.85,riseT);
+  });
+  return clamp(total,0,1.2);
+}
+
+// ── PARTICLE SYSTEM ──────────────────────────
+const parts=[];
+function P_ember(cx,cy){
+  const a=rand(0,TAU),sp=rand(0.3,1.4);
+  parts.push({k:'e',
+    x:cx+rand(-90,90),y:cy+rand(-60,40),
+    vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-0.5,
+    life:1,decay:rand(0.004,0.008),r:rand(0.6,2.4),
+    hue:rand(100,175),wob:rand(0,TAU),wobS:rand(2,5)
+  });
+}
+function P_soil(cx,groundY){
+  const a=-PI*0.5+rand(-0.7,0.7),sp=rand(1.5,5.5);
+  parts.push({k:'s',
+    x:cx+rand(-50,50),y:groundY-4,
+    vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,
+    life:1,decay:rand(0.01,0.018),r:rand(1,3.5),
+    gray:randInt(18,40),rot:rand(0,TAU),rotV:rand(-0.2,0.2)
+  });
+}
+function P_drip(x,y,blood){
+  parts.push({k:'d',x,y,vy:0,life:1,blood,len:0,decay:rand(0.005,0.009),x0:x});
+}
+function P_puddle(x,groundY){
+  groundPuddles.push({x,y:groundY+2,r:0,maxR:rand(8,22)});
+}
+
+let dripT=0;
+
+function updateParts(groundY){
+  dripT+=1/60;
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];
+    p.life-=p.decay;
+    if(p.life<=0){parts.splice(i,1);continue;}
+    if(p.k==='e'){
+      p.wob+=p.wobS/60;
+      p.x+=p.vx+Math.sin(p.wob)*0.4; p.y+=p.vy; p.vy-=0.012;
+      const pg=sc.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*2.2);
+      pg.addColorStop(0,`hsla(${p.hue},82%,72%,${p.life*0.8})`);
+      pg.addColorStop(1,'rgba(0,0,0,0)');
+      sc.beginPath();sc.arc(p.x,p.y,p.r*2.2,0,TAU);
+      sc.fillStyle=pg;sc.fill();
+    } else if(p.k==='s'){
+      p.x+=p.vx;p.y+=p.vy;p.vy+=0.18;p.vx*=0.97;p.rot+=p.rotV;
+      sc.save();sc.translate(p.x,p.y);sc.rotate(p.rot);
+      sc.fillStyle=`rgba(${p.gray},${p.gray-3},${Math.max(0,p.gray-8)},${p.life*0.9})`;
+      sc.fillRect(-p.r,-p.r*0.6,p.r*2,p.r*1.2);
+      sc.restore();
+    } else if(p.k==='d'){
+      p.vy+=0.16;p.y+=p.vy*0.4;
+      p.len=Math.min(p.len+1.5,18);
+      if(p.y>groundY-8){
+        P_puddle(p.x0,groundY);
+        p.life=0;continue;
+      }
+      sc.beginPath();sc.moveTo(p.x,p.y-p.len);sc.lineTo(p.x,p.y);
+      sc.strokeStyle=p.blood?`rgba(88,4,4,${p.life*0.82})`:`rgba(42,82,12,${p.life*0.72})`;
+      sc.lineWidth=1.6;sc.stroke();
+      const dr=sc.createRadialGradient(p.x,p.y,0,p.x,p.y,2.8);
+      dr.addColorStop(0,p.blood?`rgba(70,3,3,${p.life*0.78})`:`rgba(32,68,10,${p.life*0.7})`);
+      dr.addColorStop(1,'rgba(0,0,0,0)');
+      sc.beginPath();sc.arc(p.x,p.y,2.8,0,TAU);sc.fillStyle=dr;sc.fill();
+    }
+  }
+}
+
+// ── ANATOMY ─────────────────────────────────
+const PW=114, PH=102; // palm width/height
+const FD=[
+  {ox:-37,oy:2, ang:-8,  pl:60,ml:40,dl:30, pw:14,mw:12,dw:10,nw:9},
+  {ox:-12,oy:-4,ang:-1,  pl:67,ml:44,dl:33, pw:16,mw:14,dw:12,nw:10},
+  {ox: 13,oy:-2,ang: 5,  pl:62,ml:41,dl:31, pw:14,mw:12,dw:10,nw:9},
+  {ox: 36,oy: 9,ang:13,  pl:44,ml:29,dl:22, pw:11,mw: 9,dw:7.5,nw:7},
+];
+const THD={pl:50,dl:42,pw:17,mw:15,dw:13,nw:11};
+
+// ── GESTURE SYSTEM ───────────────────────────
+// Poses: each is [mcp,pip,dip] per finger + [cmc,mcp] thumb
+// Interpolates between keyframes over time
+const POSES=[
+  // 0: RISE — fingers spread, slightly extended
+  {name:'rise',  fi:[[0,0,0],[0,0,0],[0,0,0],[0,0,0]],    th:[-5,8],  dur:3},
+  // 1: REACH — fingers extending upward, spread wide
+  {name:'reach', fi:[[-5,0,0],[-3,0,0],[-3,0,0],[-2,0,0]],th:[-10,5], dur:2.5},
+  // 2: CURL — slow menacing curl inward
+  {name:'curl',  fi:[[8,30,18],[6,25,15],[7,28,16],[9,22,14]],th:[5,25],  dur:2.8},
+  // 3: BECKON — index extends, others curled, beckoning motion
+  {name:'beckon',fi:[[2,2,2],[8,55,34],[9,52,32],[10,50,30]], th:[6,20],  dur:2.2},
+  // 4: GRASP — all fingers curl as if grabbing
+  {name:'grasp', fi:[[10,45,28],[8,50,30],[9,48,30],[11,44,28]],th:[10,30], dur:2.0},
+  // 5: IDLE — gentle relaxed float
+  {name:'idle',  fi:[[4,12,8],[2,8,5],[3,10,6],[5,14,9]],  th:[-2,14], dur:3.5},
+];
+
+let poseIdx=0, poseFrac=0, poseDir=1;
+const POSE_SEQ=[0,1,2,3,2,4,5,1,2,3,4,5]; // sequence after rise
+let seqIdx=0;
+
+function getJointAngles(fi,t){
+  // Get current pose blend
+  const posA=POSES[poseIdx];
+  const nextIdx=(poseIdx+1)%POSES.length;
+  const posB=POSES[nextIdx];
+  const ef=easeInOutSine(poseFrac);
+  const fA=posA.fi[fi], fB=posB.fi[fi];
+  // Per-finger organic micro-wobble on top of pose
+  const freqs=[0.17,0.185,0.20,0.215];
+  const phases=[0,0.55,1.05,1.70];
+  const f=freqs[fi],p=phases[fi];
+  const w1=Math.sin(TAU*f*T+p)*0.5;
+  const mcp=lerp(fA[0],fB[0],ef)+w1*2.5;
+  const pip=lerp(fA[1],fB[1],ef)+w1*3;
+  const dip=lerp(fA[2],fB[2],ef)+w1*2;
+  return [clamp(mcp,-8,32),clamp(pip,0,58),clamp(dip,0,40)];
+}
+function getThumbAngles(){
+  const posA=POSES[poseIdx];
+  const posB=POSES[(poseIdx+1)%POSES.length];
+  const ef=easeInOutSine(poseFrac);
+  const w=Math.sin(TAU*0.13*T+0.25)*0.5;
+  return [
+    clamp(lerp(posA.th[0],posB.th[0],ef)+w*2,-20,12),
+    clamp(lerp(posA.th[1],posB.th[1],ef)+w*3,0,32)
+  ];
+}
+
+function advancePose(dt){
+  if(riseT<0.95)return; // wait for rise
+  const curPose=POSES[poseIdx];
+  poseFrac=Math.min(poseFrac+dt/curPose.dur,1);
+  if(poseFrac>=1){
+    poseFrac=0;
+    seqIdx=(seqIdx+1)%POSE_SEQ.length;
+    // After rise, use sequence
+    poseIdx=seqIdx===0?0:POSE_SEQ[seqIdx];
+  }
+}
+
+// ── SKIN SHADER (on hand buffer hc) ──────────
+// Each surface has 5 rendering layers:
+//  1. Base dermis gradient (directional)
+//  2. Wisp dynamic highlight (directional, coloured)
+//  3. Subsurface scatter (radial warm glow)
+//  4. Grain/rot texture (multiply)
+//  5. Specular micro-highlight (Blinn-Phong approx)
+
+function skinPath(ctx2d, wb, wt, len){
+  ctx2d.beginPath();
+  ctx2d.moveTo(-wb/2,0);
+  ctx2d.bezierCurveTo(-wb/2-1.8,-len*0.27,-wt/2-0.6,-len*0.62,-wt/2,-len);
+  ctx2d.lineTo(wt/2,-len);
+  ctx2d.bezierCurveTo(wt/2+0.6,-len*0.62,wb/2+1.8,-len*0.27,wb/2,0);
+  ctx2d.closePath();
+}
+
+function drawPhalanx(ctx2d, len, wb, wt, opt){
+  const {
+    knuckleBase=false, knuckleTip=false,
+    nail=false,nailW=8,bone=false,wound=-1,
+    wispAmt=0, wispAngle=0,  // wispAngle: direction from wisp to surface
+    sssAmt=0,                 // subsurface scatter amount (thinner = more)
+  }=opt||{};
+  const wb2=wb/2,wt2=wt/2;
+
+  ctx2d.save();
+
+  // ── 1. BASE DERMIS ──
+  skinPath(ctx2d,wb,wt,len);
+  const sg=ctx2d.createLinearGradient(-wb2,0,wb2,0);
+  sg.addColorStop(0,'#6e8245');
+  sg.addColorStop(0.28,'#566630');
+  sg.addColorStop(0.62,'#3d4e1e');
+  sg.addColorStop(1,'#252f12');
+  ctx2d.fillStyle=sg;ctx2d.fill();
+
+  // Longitudinal depth
+  skinPath(ctx2d,wb,wt,len);
+  const yg=ctx2d.createLinearGradient(0,0,0,-len);
+  yg.addColorStop(0,'rgba(0,0,0,0.25)');
+  yg.addColorStop(0.35,'rgba(0,0,0,0)');
+  yg.addColorStop(0.75,'rgba(130,165,75,0.07)');
+  yg.addColorStop(1,'rgba(0,0,0,0.15)');
+  ctx2d.fillStyle=yg;ctx2d.fill();
+
+  // ── 2. WISP DYNAMIC HIGHLIGHT ──
+  if(wispAmt>0.04){
+    skinPath(ctx2d,wb,wt,len);
+    // Directional: light comes from wispAngle
+    const lx=Math.cos(wispAngle)*wb2*1.2, ly=Math.sin(wispAngle)*len*0.5;
+    const wg=ctx2d.createLinearGradient(lx,ly,-lx,-ly);
+    wg.addColorStop(0,`rgba(115,235,165,${wispAmt*0.28})`);
+    wg.addColorStop(0.5,`rgba(80,180,120,${wispAmt*0.10})`);
+    wg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx2d.fillStyle=wg;ctx2d.fill();
+
+    // Specular (Blinn-Phong-ish: sharp highlight at surface facing wisp)
+    const sx=-wb2*0.3+lx*0.2, sy=-len*0.55+ly*0.2;
+    const spec=ctx2d.createRadialGradient(sx,sy,0,sx,sy,wb*0.55);
+    spec.addColorStop(0,`rgba(200,255,210,${wispAmt*0.22})`);
+    spec.addColorStop(0.4,`rgba(140,220,165,${wispAmt*0.08})`);
+    spec.addColorStop(1,'rgba(0,0,0,0)');
+    skinPath(ctx2d,wb,wt,len);
+    ctx2d.save();ctx2d.clip();
+    ctx2d.fillStyle=spec;
+    ctx2d.fillRect(-wb2-4,-len-4,wb+8,len+8);
+    ctx2d.restore();
+  }
+
+  // ── 3. SUBSURFACE SCATTER ──
+  if(sssAmt>0.05){
+    // Warm red-orange glow from inside, strongest at edges and tip
+    skinPath(ctx2d,wb,wt,len);
+    ctx2d.save();ctx2d.clip();
+    const sssg=ctx2d.createLinearGradient(-wb2,0,wb2,0);
+    sssg.addColorStop(0,`rgba(160,60,20,${sssAmt*0.20})`);
+    sssg.addColorStop(0.5,'rgba(0,0,0,0)');
+    sssg.addColorStop(1,`rgba(140,50,15,${sssAmt*0.18})`);
+    ctx2d.fillStyle=sssg;
+    ctx2d.fillRect(-wb2-2,-len-2,wb+4,len+4);
+    // Tip glow
+    const tipg=ctx2d.createRadialGradient(0,-len,0,0,-len,wt*1.4);
+    tipg.addColorStop(0,`rgba(180,80,30,${sssAmt*0.25})`);
+    tipg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx2d.fillStyle=tipg;
+    ctx2d.fillRect(-wt,-len-wt,wt*2,wt*2.5);
+    ctx2d.restore();
+  }
+
+  // ── 4. GRAIN / ROT TEXTURE ──
+  skinPath(ctx2d,wb,wt,len);
+  ctx2d.save();ctx2d.clip();
+  ctx2d.globalCompositeOperation='multiply';
+  ctx2d.fillStyle=GRAIN_H;
+  ctx2d.fillRect(-wb2-4,-len-4,wb+8,len+8);
+  ctx2d.globalCompositeOperation='source-over';
+  ctx2d.restore();
+
+  // ── Edge outline ──
+  skinPath(ctx2d,wb,wt,len);
+  ctx2d.strokeStyle='rgba(10,14,5,0.6)';ctx2d.lineWidth=0.7;ctx2d.stroke();
+
+  // ── KNUCKLE BASE ──
+  if(knuckleBase){
+    const kw=wb*0.55,kh=wb*0.23;
+    ctx2d.beginPath();ctx2d.ellipse(0,-kh*0.25,kw*0.88,kh*0.65,0,0,TAU);
+    ctx2d.fillStyle='rgba(8,12,4,0.45)';ctx2d.fill();
+    const kg=ctx2d.createRadialGradient(-kw*0.18,-kh*0.35,0,0,0,kw);
+    kg.addColorStop(0,'#909e56');kg.addColorStop(0.35,'#728244');kg.addColorStop(1,'rgba(40,52,18,0)');
+    ctx2d.beginPath();ctx2d.ellipse(0,0,kw,kh,0,0,TAU);ctx2d.fillStyle=kg;ctx2d.fill();
+    for(let i=0;i<3;i++){
+      const ky=-kh*0.15+i*kh*0.25;
+      ctx2d.beginPath();
+      ctx2d.moveTo(-kw*0.78,ky);
+      ctx2d.quadraticCurveTo(0,ky-kh*0.16,kw*0.78,ky);
+      ctx2d.strokeStyle=`rgba(16,22,7,${0.5-i*0.1})`;ctx2d.lineWidth=0.8;ctx2d.stroke();
+    }
+  }
+  // ── KNUCKLE TIP ──
+  if(knuckleTip){
+    const kw=wt*0.56,kh=wt*0.21;
+    const kg=ctx2d.createRadialGradient(-kw*0.12,-len-kh*0.12,0,0,-len,kw);
+    kg.addColorStop(0,'#808e4e');kg.addColorStop(0.5,'#607038');kg.addColorStop(1,'rgba(40,52,18,0)');
+    ctx2d.beginPath();ctx2d.ellipse(0,-len,kw,kh,0,0,TAU);ctx2d.fillStyle=kg;ctx2d.fill();
+    for(let i=0;i<2;i++){
+      ctx2d.beginPath();
+      ctx2d.moveTo(-kw*0.72,-len+kh*0.18+i*kh*0.32);
+      ctx2d.quadraticCurveTo(0,-len+kh*0.04+i*kh*0.32,kw*0.72,-len+kh*0.18+i*kh*0.32);
+      ctx2d.strokeStyle=`rgba(16,22,7,${0.42-i*0.1})`;ctx2d.lineWidth=0.72;ctx2d.stroke();
+    }
+  }
+  // ── WOUND ──
+  if(wound>=0){
+    const wy=-len*wound;
+    const wg=ctx2d.createRadialGradient(-2,wy,0,-2,wy,wb*0.34);
+    wg.addColorStop(0,'#380303');wg.addColorStop(0.45,'#6a0808');wg.addColorStop(1,'rgba(80,5,5,0)');
+    ctx2d.beginPath();ctx2d.ellipse(-2,wy,wb*0.3,wb*0.21,0.3,0,TAU);ctx2d.fillStyle=wg;ctx2d.fill();
+    // Fresh edge glint
+    ctx2d.beginPath();ctx2d.ellipse(-2,wy,wb*0.18,wb*0.1,0.3,0,TAU);
+    ctx2d.fillStyle='rgba(100,8,8,0.5)';ctx2d.fill();
+  }
+  // ── EXPOSED BONE ──
+  if(bone){
+    ctx2d.beginPath();ctx2d.ellipse(0,-len+2,wt*0.7,5.5,0,0,TAU);ctx2d.fillStyle='#380303';ctx2d.fill();
+    ctx2d.beginPath();ctx2d.ellipse(0,-len,wt*0.55,4,0,0,TAU);ctx2d.fillStyle='rgba(50,5,5,0.6)';ctx2d.fill();
+    const bg=ctx2d.createLinearGradient(-wt*0.4,-len,wt*0.4,-len);
+    bg.addColorStop(0,'#ece2bc');bg.addColorStop(0.45,'#d4c898');bg.addColorStop(1,'#a89060');
+    ctx2d.beginPath();ctx2d.roundRect(-wt*0.38,-len-11,wt*0.76,14,3);
+    ctx2d.fillStyle=bg;ctx2d.fill();
+    ctx2d.strokeStyle='rgba(120,105,62,0.7)';ctx2d.lineWidth=0.65;ctx2d.stroke();
+    ctx2d.beginPath();ctx2d.arc(0,-len-4,2.4,0,TAU);ctx2d.fillStyle='#7c6d42';ctx2d.fill();
+    // Bone specular
+    ctx2d.beginPath();ctx2d.ellipse(-wt*0.1,-len-7,wt*0.12,2,0.3,0,TAU);
+    ctx2d.fillStyle='rgba(255,248,220,0.4)';ctx2d.fill();
+  }
+  // ── NAIL ──
+  if(nail){
+    const nw2=nailW/2,nh=nailW*0.63,ny=-len+0.5;
+    ctx2d.beginPath();ctx2d.roundRect(-nw2-0.5,ny-nh-1.5,nailW+1,nh+3,[3,3,0,0]);
+    ctx2d.fillStyle='#263012';ctx2d.fill();
+    const ng=ctx2d.createLinearGradient(-nw2,ny-nh,nw2*0.4,ny);
+    ng.addColorStop(0,'#151a07');ng.addColorStop(0.45,'#1c280c');ng.addColorStop(1,'#0b1003');
+    ctx2d.beginPath();ctx2d.roundRect(-nw2,ny-nh,nailW,nh,[2.5,2.5,0,0]);
+    ctx2d.fillStyle=ng;ctx2d.fill();
+    // Specular gleam
+    ctx2d.beginPath();ctx2d.ellipse(-nw2*0.28,ny-nh*0.65,nw2*0.3,nh*0.19,-0.2,0,TAU);
+    ctx2d.fillStyle='rgba(195,220,145,0.14)';ctx2d.fill();
+    // Grime line
+    ctx2d.beginPath();ctx2d.rect(-nw2,ny-2.8,nailW,2.8);
+    ctx2d.fillStyle='rgba(6,5,2,0.72)';ctx2d.fill();
+    // Cracked nail detail
+    if(nailW>8){
+      ctx2d.beginPath();
+      ctx2d.moveTo(-nw2*0.1,ny-nh*0.9);ctx2d.lineTo(nw2*0.3,ny-nh*0.3);
+      ctx2d.strokeStyle='rgba(8,10,4,0.35)';ctx2d.lineWidth=0.5;ctx2d.stroke();
+    }
+  }
+
+  ctx2d.restore();
+}
+
+// ── FINGER DRAW ──────────────────────────────
+function drawFinger(ctx2d, sx,sy, baseAng,mcpA,pipA,dipA, d, expBone, worldX,worldY){
+  const wa=wispLightAt(worldX,worldY);
+  // Wisp angle in local space (rough: from left = -PI, from right = 0)
+  const wAng=Math.atan2(wispPositions[0].y-worldY, wispPositions[0].x-worldX);
+  const sss=clamp(1-(d.pw/18),0.2,0.7); // thinner fingers = more SSS
+
+  ctx2d.save();
+  ctx2d.translate(sx,sy);
+  ctx2d.rotate(deg(baseAng+mcpA));
+  drawPhalanx(ctx2d,d.pl,d.pw,d.mw,{knuckleBase:true,wound:expBone?-1:0.48,wispAmt:wa,wispAngle:wAng,sssAmt:sss*0.5});
+  ctx2d.translate(0,-d.pl);ctx2d.rotate(deg(pipA));
+  drawPhalanx(ctx2d,d.ml,d.mw,d.dw,{knuckleTip:true,wispAmt:wa*0.9,wispAngle:wAng,sssAmt:sss*0.65});
+  ctx2d.translate(0,-d.ml);ctx2d.rotate(deg(dipA));
+  drawPhalanx(ctx2d,d.dl,d.dw,d.dw*0.52,{nail:true,nailW:d.nw,bone:expBone,wispAmt:wa*0.85,wispAngle:wAng,sssAmt:sss*0.8});
+  ctx2d.restore();
+}
+
+// ── THUMB ────────────────────────────────────
+function drawThumb(ctx2d, palmTopY,cmcA,mcpA, worldX,worldY){
+  const wa=wispLightAt(worldX,worldY);
+  const wAng=Math.atan2(wispPositions[0].y-worldY,wispPositions[0].x-worldX);
+  ctx2d.save();
+  ctx2d.translate(-PW/2+6, palmTopY+PH*0.28);
+  ctx2d.rotate(deg(-52+cmcA));
+  drawPhalanx(ctx2d,THD.pl,THD.pw,THD.mw,{knuckleBase:true,wispAmt:wa,wispAngle:wAng,sssAmt:0.3});
+  ctx2d.translate(0,-THD.pl);ctx2d.rotate(deg(mcpA));
+  drawPhalanx(ctx2d,THD.dl,THD.mw,THD.dw*0.6,{nail:true,nailW:THD.nw,wispAmt:wa*0.88,wispAngle:wAng,sssAmt:0.4});
+  ctx2d.restore();
+}
+
+// ── PALM ─────────────────────────────────────
+function drawPalm(ctx2d, topY,splay, worldX,worldY){
+  const ph=PH,pw=PW,hw=pw/2,hwb=pw*0.42,botY=topY+ph,sOff=splay*5;
+  const wa=wispLightAt(worldX,worldY);
+  const wAng=Math.atan2(wispPositions[0].y-worldY,wispPositions[0].x-worldX);
+
+  function palmPath(){
+    ctx2d.beginPath();
+    ctx2d.moveTo(-hwb,botY);
+    ctx2d.bezierCurveTo(-hwb-5,botY-ph*0.22,-hw-sOff,topY+ph*0.28,-hw-sOff,topY);
+    ctx2d.bezierCurveTo(-hw*0.28-sOff,topY-4,hw*0.28+sOff,topY-4,hw+sOff,topY);
+    ctx2d.bezierCurveTo(hw+sOff,topY+ph*0.28,hwb+3,botY-ph*0.22,hwb,botY);
+    ctx2d.closePath();
+  }
+
+  ctx2d.save();
+  // Base
+  palmPath();
+  const sg=ctx2d.createLinearGradient(-hw,botY,hw,botY);
+  sg.addColorStop(0,'#687e42');sg.addColorStop(0.35,'#536030');
+  sg.addColorStop(0.7,'#3d4e1e');sg.addColorStop(1,'#272e12');
+  ctx2d.fillStyle=sg;ctx2d.fill();
+
+  // Y gradient
+  palmPath();
+  const yg=ctx2d.createLinearGradient(0,topY,0,botY);
+  yg.addColorStop(0,'rgba(115,155,65,0.09)');yg.addColorStop(0.4,'rgba(0,0,0,0)');yg.addColorStop(1,'rgba(0,0,0,0.22)');
+  ctx2d.fillStyle=yg;ctx2d.fill();
+
+  // Wisp highlight
+  if(wa>0.04){
+    palmPath();
+    const lx=Math.cos(wAng)*hw*0.8,ly=Math.sin(wAng)*ph*0.4;
+    const wg=ctx2d.createLinearGradient(lx+(-hw),ly+topY,-lx+hw,-ly+botY);
+    wg.addColorStop(0,`rgba(115,235,165,${wa*0.22})`);
+    wg.addColorStop(0.5,`rgba(75,175,115,${wa*0.09})`);
+    wg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx2d.fillStyle=wg;ctx2d.fill();
+    // Specular on knuckle row
+    const specX=-hw*0.1,specY=topY+8;
+    const spec=ctx2d.createRadialGradient(specX,specY,0,specX,specY,pw*0.35);
+    spec.addColorStop(0,`rgba(200,255,210,${wa*0.18})`);
+    spec.addColorStop(1,'rgba(0,0,0,0)');
+    palmPath();ctx2d.save();ctx2d.clip();
+    ctx2d.fillStyle=spec;ctx2d.fillRect(-hw-5,topY-5,pw+10,ph+10);
+    ctx2d.restore();
+  }
+
+  // SSS on palm edges
+  palmPath();ctx2d.save();ctx2d.clip();
+  const sssEdge=ctx2d.createLinearGradient(-hw,0,hw,0);
+  sssEdge.addColorStop(0,'rgba(155,55,18,0.16)');
+  sssEdge.addColorStop(0.4,'rgba(0,0,0,0)');
+  sssEdge.addColorStop(1,'rgba(135,45,14,0.14)');
+  ctx2d.fillStyle=sssEdge;ctx2d.fillRect(-hw-5,topY-2,pw+10,ph+4);
+  ctx2d.restore();
+
+  // Grain
+  palmPath();ctx2d.save();ctx2d.clip();
+  ctx2d.globalCompositeOperation='multiply';
+  ctx2d.fillStyle=GRAIN_H;ctx2d.fillRect(-hw-5,topY-5,pw+10,ph+10);
+  ctx2d.globalCompositeOperation='source-over';ctx2d.restore();
+
+  ctx2d.strokeStyle='rgba(10,14,5,0.52)';ctx2d.lineWidth=0.8;ctx2d.stroke();
+
+  // Palm creases (3 main lines)
+  [
+    [[-hw*0.58,topY+ph*0.31],[hw*0.08,topY+ph*0.27],[hw*0.66,topY+ph*0.34],1.1,0.44],
+    [[-hw*0.52,topY+ph*0.50],[hw*0.06,topY+ph*0.47],[hw*0.60,topY+ph*0.55],0.95,0.36],
+    [[-hw*0.64,topY+ph*0.17],[-hw*0.26,topY+ph*0.55],[-hw*0.08,botY-5],1.0,0.4],
+  ].forEach(([p0,p1,p2,lw,op])=>{
+    ctx2d.beginPath();ctx2d.moveTo(p0[0],p0[1]);
+    ctx2d.quadraticCurveTo(p1[0],p1[1],p2[0],p2[1]);
+    ctx2d.strokeStyle=`rgba(18,26,7,${op})`;ctx2d.lineWidth=lw;ctx2d.stroke();
+  });
+
+  // Dorsal veins (3 metacarpals)
+  [[-hw*0.33,topY+2],[-0.01*hw,topY],[hw*0.29,topY+2]].forEach(v=>{
+    ctx2d.beginPath();ctx2d.moveTo(v[0],botY-10);ctx2d.quadraticCurveTo(v[0]+2,(topY+botY)*0.5,v[1],v[2]);
+    ctx2d.strokeStyle='#2a3e16';ctx2d.lineWidth=1.1;ctx2d.globalAlpha=0.44;ctx2d.stroke();ctx2d.globalAlpha=1;
+  });
+
+  // Dorsal veins branch
+  ctx2d.beginPath();ctx2d.moveTo(-hw*0.33+2,(topY+botY)*0.5-10);
+  ctx2d.lineTo(-hw*0.55,(topY+botY)*0.5-25);
+  ctx2d.strokeStyle='#2a3e16';ctx2d.lineWidth=0.75;ctx2d.globalAlpha=0.3;ctx2d.stroke();ctx2d.globalAlpha=1;
+
+  // Wound/rot
+  const wx=14,wy=topY+ph*0.45;
+  const wgr=ctx2d.createRadialGradient(wx,wy,0,wx,wy,16);
+  wgr.addColorStop(0,'#360303');wgr.addColorStop(0.5,'#680808');wgr.addColorStop(1,'rgba(85,6,6,0)');
+  ctx2d.beginPath();ctx2d.ellipse(wx,wy,16,11,0.35,0,TAU);ctx2d.fillStyle=wgr;ctx2d.fill();
+
+  // Wrist styloid bones
+  [[-hwb+2,botY-8,-0.2],[hwb-2,botY-8,0.2]].forEach(([bx,by,ba])=>{
+    const bg=ctx2d.createRadialGradient(bx,by-3,0,bx,by,9.5);
+    bg.addColorStop(0,'#849252');bg.addColorStop(1,'rgba(42,55,18,0)');
+    ctx2d.beginPath();ctx2d.ellipse(bx,by,7.5,9.5,ba,0,TAU);ctx2d.fillStyle=bg;ctx2d.fill();
+  });
+
+  ctx2d.restore();
+}
+
+// ── WRIST/FOREARM ────────────────────────────
+function drawWrist(ctx2d, palmBotY, worldX,worldY){
+  const ww=PW*0.68,hw=ww/2,h=125;
+  const wa=wispLightAt(worldX,worldY);
+
+  ctx2d.save();
+  function wristPath(){
+    ctx2d.beginPath();
+    ctx2d.moveTo(-hw,palmBotY);
+    ctx2d.bezierCurveTo(-hw-2,palmBotY+h*0.35,-hw*0.93,palmBotY+h*0.75,-hw*0.88,palmBotY+h);
+    ctx2d.lineTo(hw*0.88,palmBotY+h);
+    ctx2d.bezierCurveTo(hw*0.93,palmBotY+h*0.75,hw+2,palmBotY+h*0.35,hw,palmBotY);
+    ctx2d.closePath();
+  }
+  wristPath();
+  const fg=ctx2d.createLinearGradient(-hw,palmBotY,hw,palmBotY);
+  fg.addColorStop(0,'#5c7238');fg.addColorStop(0.4,'#4a5828');
+  fg.addColorStop(0.76,'#35401a');fg.addColorStop(1,'#222a10');
+  ctx2d.fillStyle=fg;ctx2d.fill();
+
+  if(wa>0.04){
+    wristPath();
+    const wg=ctx2d.createLinearGradient(-hw,0,hw,0);
+    wg.addColorStop(0,`rgba(115,235,165,${wa*0.17})`);wg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx2d.fillStyle=wg;ctx2d.fill();
+  }
+
+  // Grain
+  wristPath();ctx2d.save();ctx2d.clip();
+  ctx2d.globalCompositeOperation='multiply';
+  ctx2d.fillStyle=GRAIN_H;ctx2d.fillRect(-hw-3,palmBotY,ww+6,h+4);
+  ctx2d.globalCompositeOperation='source-over';ctx2d.restore();
+
+  ctx2d.strokeStyle='rgba(8,12,4,0.48)';ctx2d.lineWidth=0.7;ctx2d.stroke();
+
+  // Tendons
+  [-ww*0.14,0,ww*0.14].forEach(tx=>{
+    ctx2d.beginPath();ctx2d.moveTo(tx,palmBotY);ctx2d.lineTo(tx+(tx)*0.03,palmBotY+h);
+    ctx2d.strokeStyle='rgba(22,34,9,0.3)';ctx2d.lineWidth=0.9;ctx2d.stroke();
+  });
+
+  // Wrist crease
+  ctx2d.beginPath();
+  ctx2d.moveTo(-hw,palmBotY+11);ctx2d.quadraticCurveTo(0,palmBotY+7,hw,palmBotY+11);
+  ctx2d.strokeStyle='rgba(16,24,6,0.52)';ctx2d.lineWidth=1.25;ctx2d.stroke();
+
+  // Ragged torn flesh at bottom
+  ctx2d.beginPath();ctx2d.moveTo(-hw*0.88,palmBotY+h);
+  const ragPts=[-0.88,-0.58,-0.24,0.12,0.44,0.76,0.88];
+  ragPts.forEach((f,i)=>ctx2d.lineTo(f*hw,palmBotY+h+(i%2===0?-5:6)));
+  ctx2d.lineTo(hw*0.88,palmBotY+h+22);ctx2d.lineTo(-hw*0.88,palmBotY+h+22);ctx2d.closePath();
+  // Dark earth fill
+  const df=ctx2d.createLinearGradient(0,palmBotY+h,0,palmBotY+h+22);
+  df.addColorStop(0,'#1a1508');df.addColorStop(1,'#0a0905');
+  ctx2d.fillStyle=df;ctx2d.fill();
+
+  ctx2d.restore();
+}
+
+// ── RENDER HAND TO BUFFER ────────────────────
+function renderHandToBuffer(handCX,handCY,bobR){
+  // Clear buffer
+  hc.clearRect(0,0,handBuf.width,handBuf.height);
+
+  const ox=handBuf.width/2, oy=handBuf.height*0.62;
+  hc.save();
+  hc.translate(ox,oy);
+  hc.rotate(deg(bobR));
+
+  const palmTopY=-PH, palmBotY=0;
+  const thA=getThumbAngles();
+  const fiA=FD.map((_,i)=>getJointAngles(i,T));
+  const splay=Math.sin(T*0.48)*0.14;
+
+  // World coords of hand centre (for wisp light queries)
+  const WCX=handCX,WCY=handCY;
+
+  // Render back-to-front
+  drawWrist(hc, palmBotY, WCX, WCY+60);
+  drawThumb(hc, palmTopY, thA[0], thA[1], WCX-PW/2, WCY-PH*0.3);
+  drawPalm(hc, palmTopY, splay, WCX, WCY-PH*0.5);
+  FD.forEach((d,i)=>{
+    const wx=WCX+d.ox, wy=WCY+(-PH+d.oy)-d.pl*0.5;
+    drawFinger(hc,d.ox,palmTopY+d.oy,d.ang,fiA[i][0],fiA[i][1],fiA[i][2],d,i===1,wx,wy);
+  });
+
+  hc.restore();
+}
+
+// ── POST-PROCESSING ──────────────────────────
+function postProcess(){
+  pc.clearRect(0,0,W,H);
+
+  // ── Chromatic aberration ──
+  // Sample scene canvas with R/G/B offset for edge fringing
+  const aberr=0.0018;
+  pc.save();
+  pc.globalCompositeOperation='screen';
+  pc.globalAlpha=0.08;
+  pc.drawImage(scene,-W*aberr,0,W*(1+aberr),H);  // R channel shift right
+  pc.drawImage(scene, W*aberr,0,W*(1-aberr),H);  // B channel shift left
+  pc.restore();
+
+  // ── Vignette ──
+  const vg=pc.createRadialGradient(W/2,H/2,Math.min(W,H)*0.28,W/2,H/2,Math.min(W,H)*0.78);
+  vg.addColorStop(0,'rgba(0,0,0,0)');
+  vg.addColorStop(0.7,'rgba(0,0,0,0.15)');
+  vg.addColorStop(1,'rgba(0,0,0,0.72)');
+  pc.fillStyle=vg;pc.fillRect(0,0,W,H);
+
+  // ── Film grain (per-frame dynamic) ──
+  const fgData=pc.createImageData(W,H);
+  for(let i=0;i<fgData.data.length;i+=4){
+    const g=Math.random()*28-14|0;
+    fgData.data[i]=128+g;fgData.data[i+1]=128+g;fgData.data[i+2]=128+g;
+    fgData.data[i+3]=18;
+  }
+  pc.putImageData(fgData,0,0);
+  pc.globalCompositeOperation='overlay';
+  pc.putImageData(fgData,0,0);
+  pc.globalCompositeOperation='source-over';
+
+  // ── Subtle green scan-line texture ──
+  pc.save();
+  pc.globalAlpha=0.025;
+  for(let y=0;y<H;y+=2){
+    pc.fillStyle='rgba(0,0,0,1)';
+    pc.fillRect(0,y,W,1);
+  }
+  pc.restore();
+}
+
+// ── MAIN LOOP ─────────────────────────────────
+function frame(ts){
+  const dt=Math.min((ts-lastTS)/1000,0.05);
+  lastTS=ts; T+=dt;
+  riseT=Math.min(riseT+dt/RISE_DUR,1);
+  advancePose(dt);
+
+  const rise=easeOutElastic(riseT);
+  const handCY=lerp(H+220,H*0.5,easeOutCubic(riseT));
+  const bob=smoothstep(0.7,1.0,riseT);
+  const bobY=Math.sin(T*0.86)*12*bob;
+  const bobR=Math.sin(T*0.56)*3.2*bob;
+  const handCX=W/2;
+  const cx=handCX, cy=handCY+bobY;
+
+  updateWisps(cx,cy);
+
+  // ── SCENE ──
+  sc.clearRect(0,0,W,H);
+  sc.fillStyle='#020304';sc.fillRect(0,0,W,H);
+
+  drawAtmosphere(rise);
+  drawGround(rise);
+  drawWisps(rise);
+
+  // Particle spawning
+  if(riseT>0.22 && riseT<0.88 && Math.random()<0.55) P_soil(cx,H*0.72);
+  if(riseT>0.5  && Math.random()<0.25) P_ember(cx,cy+15);
+  dripT+=dt;
+  if(riseT>0.85 && dripT>2.2){
+    dripT=0;
+    const xo=[-37,-12,13,36][randInt(0,3)];
+    P_drip(cx+xo+rand(-5,5), cy-168+rand(0,38), Math.random()<0.3);
+  }
+
+  updateParts(H*0.72);
+
+  // ── Hand buffer ──
+  renderHandToBuffer(cx,cy,bobR);
+
+  // ── Composite hand onto scene ──
+  sc.save();
+  sc.globalAlpha=Math.min(1,rise*1.35);
+
+  // Multi-layer drop shadow (3 passes for softness)
+  [[60,0.55],[38,0.35],[22,0.2]].forEach(([blur,a])=>{
+    sc.save();
+    sc.shadowColor=`rgba(0,0,0,${a})`;
+    sc.shadowBlur=blur;
+    sc.shadowOffsetY=8;
+    sc.drawImage(handBuf, cx-handBuf.width/2, cy-handBuf.height*0.62);
+    sc.restore();
+  });
+
+  // Hand itself
+  sc.drawImage(handBuf, cx-handBuf.width/2, cy-handBuf.height*0.62);
+  sc.restore();
+
+  // ── Post-process ──
+  postProcess();
+
+  requestAnimationFrame(frame);
+}
+
+requestAnimationFrame(ts=>{lastTS=ts;requestAnimationFrame(frame);});
+</script>
+</body>
+</html>

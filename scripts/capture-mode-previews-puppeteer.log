@@ -1,0 +1,60 @@
+2026-03-20T07:40:54.981Z [1/6] Launching Puppeteer...
+2026-03-20T07:40:56.198Z [2/6] Attempting HTTP first: http://127.0.0.1:4173/ping_pong.html?from_intro=1
+2026-03-20T07:40:58.267Z [requestfailed] http://127.0.0.1:4173/ping_pong.html?from_intro=1 :: net::ERR_ABORTED
+2026-03-20T07:40:59.305Z [requestfailed] about:blank :: net::ERR_UNKNOWN_URL_SCHEME
+2026-03-20T07:40:59.307Z [page:error] Failed to load resource: net::ERR_UNKNOWN_URL_SCHEME
+2026-03-20T07:40:59.356Z [page:log] %cPING PONG ULTIMATE v6.0 â€” FULL GOD AI + ORIGINAL UI + TAUNTS color:#ff00c8;font-weight:bold;font-size:42px;background:black;padding:30px;border:8px double #ff00c8;text-shadow:0 0 30px #ff00c8;
+2026-03-20T07:40:59.365Z [page:log] %cPING PONG ULTIMATE v6.0 â€” ENHANCED UI WITH SVG ICONS + GOD AI color:#00ffea;font-weight:bold;font-size:38px;background:linear-gradient(135deg,#000,#1a0033);padding:30px;border:5px solid #00ffea;
+2026-03-20T07:40:59.366Z [page:log] %cGOD AI READY â€” SVG ICONS + FULL UI + FULL AIController = PERFECTION color:#ff00c8;font-size:20px;font-weight:bold;
+2026-03-20T07:40:59.409Z [page:log] [Sponsor Rotation] Found 4 slides
+2026-03-20T07:40:59.415Z [page:log] [Sponsor Rotation] ✓ First ad visible
+2026-03-20T07:40:59.432Z [page:log] 🎵 Bass-Enhanced Audio System v2.1 loaded - Ready to enhance!
+2026-03-20T07:40:59.464Z [page:info] [WasmPhysics] Ready. physics.wasm loaded successfully.
+2026-03-20T07:40:59.551Z [3/6] Loaded target: http://127.0.0.1:4173/ping_pong.html?from_intro=1
+2026-03-20T07:40:59.552Z [3/6] Waiting for Game constructor...
+2026-03-20T07:40:59.669Z [3/6] Game binding state: {"hasGameBinding":true,"hasWindowGame":true,"hasGameObject":false}
+2026-03-20T07:40:59.670Z [3/6] Waiting for window.game and bgRenderer...
+2026-03-20T07:40:59.837Z [page:log] %c🏓 Ping Pong Replay v14 installed color:#00eeff;font-weight:bold
+2026-03-20T07:40:59.839Z [page:info] [WasmPhysics] Ball instance patched — physics running in WebAssembly.
+2026-03-20T07:40:59.840Z [page:log] Game detected, applying enhancements...
+2026-03-20T07:40:59.841Z [page:log] Enhanced Score HUD created successfully
+2026-03-20T07:40:59.841Z [page:log] AI difficulty updated â†’ level 2 (50%)
+2026-03-20T07:40:59.842Z [page:log] %cPING PONG ULTIMATE v6.0 â€” ENHANCED UI WITH SVG ICONS APPLIED color:#00ffea;font-size:24px;background:#000;padding:20px;border:4px solid #00ffea;
+2026-03-20T07:40:59.843Z [page:log] Game state detected, initializing HUD...
+2026-03-20T07:40:59.913Z [page:log] 🎵 Enhancing game audio with bass-heavy professional engine...
+2026-03-20T07:41:00.235Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:00.236Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:00.237Z [page:log] 🎵 Enhanced Audio Engine initialized with bass-heavy professional audio chain
+2026-03-20T07:41:00.238Z [page:log] 🎮 Game methods enhanced for bass-heavy audio
+2026-03-20T07:41:00.238Z [page:log] ✅ Game audio enhanced with bass-heavy effects!
+2026-03-20T07:41:00.373Z [page:log] Bass-enhanced audio controls integrated with cyber bar
+2026-03-20T07:41:00.591Z [3/6] Capturing backgrounds from isolated renderer...
+2026-03-20T07:41:00.695Z [4/6] Capturing modes...
+2026-03-20T07:41:00.696Z   -> Switching to mode: classic
+2026-03-20T07:41:02.598Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:02.599Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:02.600Z [page:log] 🔊 Bass-enhanced audio auto-enabled
+2026-03-20T07:41:02.601Z [page:log] HUD State: [object Object]
+2026-03-20T07:41:02.735Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:03.250Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:03.483Z      Saved: classic.png (1124871 bytes)
+2026-03-20T07:41:03.484Z   -> Switching to mode: zombie
+2026-03-20T07:41:03.781Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:04.245Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:04.369Z [page:log] [Sponsor Rotation] ➜ Ad 2/4 now visible
+2026-03-20T07:41:04.707Z      Saved: zombie.png (1031360 bytes)
+2026-03-20T07:41:04.708Z   -> Switching to mode: gravity
+2026-03-20T07:41:04.872Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:05.235Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:05.751Z      Saved: gravity.png (1264921 bytes)
+2026-03-20T07:41:05.752Z   -> Switching to mode: speed
+2026-03-20T07:41:05.752Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:06.235Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:06.747Z      Saved: speed.png (979949 bytes)
+2026-03-20T07:41:06.747Z   -> Switching to mode: obstacle
+2026-03-20T07:41:06.748Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:07.245Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:07.744Z [page:log] [Audio] Attached 1 media element(s) to visualizer for full track coverage
+2026-03-20T07:41:07.870Z      Saved: obstacle.png (1831789 bytes)
+2026-03-20T07:41:07.871Z [5/6] All screenshots captured successfully!
+2026-03-20T07:41:07.871Z Output directory: C:\Users\emi\Desktop\101\PingPong\assets\customise-previews

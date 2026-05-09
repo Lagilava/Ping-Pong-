@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Ping Pong Ball Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050812;
+      --bg-2: #09101f;
+      --panel: rgba(10, 16, 32, 0.78);
+      --panel-strong: rgba(8, 13, 26, 0.94);
+      --line: rgba(146, 214, 255, 0.16);
+      --line-strong: rgba(146, 214, 255, 0.34);
+      --text: #e8f5ff;
+      --muted: rgba(232, 245, 255, 0.68);
+      --accent: #52f0ff;
+      --accent-2: #ff8b5d;
+      --accent-3: #89ff9d;
+      --danger: #ff6d84;
+      --shadow: 0 20px 80px rgba(0, 0, 0, 0.42);
+      --radius: 22px;
+      --radius-sm: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(82, 240, 255, 0.15), transparent 28%),
+        radial-gradient(circle at 80% 15%, rgba(255, 139, 93, 0.14), transparent 24%),
+        radial-gradient(circle at 50% 90%, rgba(137, 255, 157, 0.08), transparent 24%),
+        linear-gradient(180deg, #04070e 0%, #050812 40%, #090d18 100%);
+      color: var(--text);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 54px 54px;
+      -webkit-mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.9), transparent 88%);
+      mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.9), transparent 88%);
+      opacity: 0.5;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: -10%;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 25% 20%, rgba(82, 240, 255, 0.16), transparent 22%),
+        radial-gradient(circle at 70% 75%, rgba(255, 139, 93, 0.12), transparent 24%),
+        radial-gradient(circle at 85% 30%, rgba(137, 255, 157, 0.08), transparent 18%);
+      filter: blur(32px);
+      opacity: 0.75;
+      animation: drift 18s ease-in-out infinite alternate;
+      z-index: -1;
+    }
+
+    @keyframes drift {
+      from { transform: translate3d(-1.5%, -1.2%, 0) scale(1); }
+      to { transform: translate3d(1.5%, 1.2%, 0) scale(1.04); }
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      width: min(1600px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 22px 0 28px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      padding: 20px 18px 24px;
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: calc(var(--radius) + 6px);
+      background: linear-gradient(180deg, rgba(13, 20, 40, 0.74), rgba(7, 11, 24, 0.52));
+      backdrop-filter: blur(18px) saturate(140%);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-actions {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      min-width: 180px;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 0%, rgba(82, 240, 255, 0.08) 30%, transparent 55%, rgba(255, 139, 93, 0.06) 80%, transparent 100%);
+      opacity: 0.75;
+      pointer-events: none;
+    }
+
+    .hero-copy {
+      position: relative;
+      max-width: 820px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .eyebrow::before {
+      content: '';
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 6px rgba(82, 240, 255, 0.14);
+    }
+
+    h1 {
+      margin: 0;
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(2rem, 5vw, 4.2rem);
+      line-height: 0.94;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #dffeff 0%, #7cefff 22%, #92ffae 58%, #ffb28d 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero p {
+      margin: 14px 0 0;
+      color: var(--muted);
+      max-width: 74ch;
+      line-height: 1.6;
+      font-size: 1rem;
+    }
+
+    .hero-stats {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(156px, 1fr));
+      gap: 10px;
+      min-width: 330px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      background: rgba(6, 11, 24, 0.56);
+      backdrop-filter: blur(12px);
+    }
+
+    .stat-label {
+      display: block;
+      font-size: 0.73rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(232, 245, 255, 0.5);
+      margin-bottom: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .stat-value {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.98rem;
+      letter-spacing: 0.08em;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) minmax(320px, 1fr) minmax(320px, 420px);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(11, 17, 31, 0.8), rgba(6, 10, 22, 0.88));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px) saturate(140%);
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.98rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+
+    .panel-head .hint {
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-family: 'IBM Plex Mono', monospace;
+    }
+
+    .panel-body {
+      padding: 16px 18px 18px;
+    }
+
+    .panel-body.preview-pad {
+      padding: 16px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .group {
+      border: 1px solid rgba(146, 214, 255, 0.12);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(7, 12, 24, 0.68);
+    }
+
+    .group-title {
+      margin: 0 0 12px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.74rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(232, 245, 255, 0.72);
+    }
+
+    label.control {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+      color: var(--text);
+      font-size: 0.92rem;
+    }
+
+    label.control:last-child {
+      margin-bottom: 0;
+    }
+
+    .control span {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      font-size: 0.9rem;
+    }
+
+    .control small {
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: 0.04em;
+    }
+
+    input[type="color"],
+    input[type="range"],
+    input[type="file"],
+    select,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    input[type="color"],
+    select,
+    input[type="text"],
+    textarea {
+      width: 100%;
+      border: 1px solid rgba(146, 214, 255, 0.22);
+      background: rgba(3, 7, 16, 0.86);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 12px 12px;
+      outline: none;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+    }
+
+    input[type="color"] {
+      min-height: 48px;
+      padding: 6px;
+      cursor: pointer;
+    }
+
+    textarea {
+      min-height: 330px;
+      resize: vertical;
+      line-height: 1.5;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.88rem;
+      white-space: pre;
+    }
+
+    input[type="color"]:focus,
+    select:focus,
+    input[type="text"]:focus,
+    textarea:focus {
+      border-color: rgba(82, 240, 255, 0.58);
+      box-shadow: 0 0 0 4px rgba(82, 240, 255, 0.12);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .range-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      font-family: 'IBM Plex Mono', monospace;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .range-row strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .dropzone {
+      border: 1px dashed rgba(146, 214, 255, 0.28);
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(7, 12, 24, 0.48);
+      color: var(--muted);
+      min-height: 92px;
+      display: grid;
+      align-content: center;
+      gap: 8px;
+      transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+      cursor: pointer;
+    }
+
+    .dropzone:hover,
+    .dropzone.is-dragover {
+      border-color: rgba(82, 240, 255, 0.66);
+      background: rgba(10, 18, 34, 0.72);
+      transform: translateY(-1px);
+    }
+
+    .dropzone strong {
+      color: var(--text);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.8rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .preview-shell {
+      display: grid;
+      gap: 14px;
+    }
+
+    .preview-frame {
+      position: relative;
+      border-radius: 26px;
+      overflow: hidden;
+      border: 1px solid rgba(146, 214, 255, 0.16);
+      min-height: 620px;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(82, 240, 255, 0.08), transparent 26%),
+        linear-gradient(180deg, rgba(5, 10, 21, 0.84), rgba(5, 9, 18, 0.98));
+    }
+
+    .preview-frame::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 620px;
+    }
+
+    .preview-overlay {
+      position: absolute;
+      inset: 16px 16px auto auto;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      pointer-events: none;
+    }
+
+    .chip {
+      pointer-events: none;
+      border: 1px solid rgba(146, 214, 255, 0.2);
+      background: rgba(4, 8, 17, 0.84);
+      backdrop-filter: blur(10px);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.76rem;
+      font-family: 'IBM Plex Mono', monospace;
+      letter-spacing: 0.04em;
+    }
+
+    .code-actions,
+    .footer-actions,
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .footer-actions.spaced,
+    .preview-meta.spaced {
+      margin-top: 12px;
+    }
+
+    .control.tight {
+      margin-bottom: 0;
+    }
+
+    .btn {
+      border: 1px solid rgba(146, 214, 255, 0.22);
+      border-radius: 14px;
+      background: rgba(8, 13, 24, 0.88);
+      color: var(--text);
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+      font-weight: 600;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(82, 240, 255, 0.42);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, rgba(82, 240, 255, 0.16), rgba(137, 255, 157, 0.12));
+      border-color: rgba(82, 240, 255, 0.4);
+    }
+
+    .btn.warn {
+      border-color: rgba(255, 139, 93, 0.28);
+    }
+
+    .btn.danger {
+      border-color: rgba(255, 109, 132, 0.32);
+    }
+
+    .btn.back {
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      white-space: nowrap;
+    }
+
+    .status {
+      display: grid;
+      gap: 8px;
+      border: 1px solid rgba(146, 214, 255, 0.16);
+      border-radius: 18px;
+      padding: 14px 16px;
+      background: rgba(7, 12, 24, 0.72);
+      font-family: 'IBM Plex Mono', monospace;
+      line-height: 1.45;
+      color: var(--muted);
+      min-height: 86px;
+    }
+
+    .status strong {
+      color: var(--text);
+      font-family: 'Orbitron', sans-serif;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-size: 0.76rem;
+    }
+
+    .status.ok strong {
+      color: var(--accent-3);
+    }
+
+    .status.warn strong {
+      color: var(--accent-2);
+    }
+
+    .status.error strong {
+      color: var(--danger);
+    }
+
+    .json-box {
+      border: 1px solid rgba(146, 214, 255, 0.14);
+      border-radius: 18px;
+      background: rgba(3, 7, 16, 0.88);
+      padding: 14px;
+      min-height: 120px;
+      max-height: 220px;
+      overflow: auto;
+      color: rgba(232, 245, 255, 0.9);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .preview-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 0 4px;
+      color: var(--muted);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.76rem;
+    }
+
+    .preview-meta .pill {
+      border: 1px solid rgba(146, 214, 255, 0.16);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(7, 12, 24, 0.66);
+    }
+
+    .split {
+      display: grid;
+      gap: 14px;
+    }
+
+    .effects-toolbar {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .effects-toolbar .preset-row .btn {
+      padding-inline: 12px;
+      font-size: 0.86rem;
+    }
+
+    .textarea-wrap {
+      display: grid;
+      gap: 10px;
+    }
+
+    .footnote {
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .hidden-input {
+      display: none;
+    }
+
+    @media (max-width: 1200px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .hero-stats {
+        min-width: 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .preview-frame,
+      canvas {
+        min-height: 520px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app-shell {
+        width: min(100vw, calc(100vw - 16px));
+        padding-top: 10px;
+      }
+
+      .hero,
+      .panel-body {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .hero-stats {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-frame,
+      canvas {
+        min-height: 460px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">Developer Ball Studio</div>
+        <h1>Ball Forge</h1>
+        <p>Build a ball skin with color, image cover, and custom canvas effects. The preview renders your draft in real time, and you can save finished work as named presets or publish the active skin to the game.</p>
+      </div>
+      <div class="hero-actions">
+        <button class="btn primary back" id="backToMenuBtn" type="button">Back to Menu</button>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <span class="stat-label">Storage Key</span>
+          <div class="stat-value">pp-ball-studio-v1</div>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Live State</span>
+          <div class="stat-value" id="liveStateValue">Ready</div>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Image</span>
+          <div class="stat-value" id="imageStateValue">None</div>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Effect</span>
+          <div class="stat-value" id="effectStateValue">Compiled</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Visual Controls</h2>
+          <div class="hint">Color, image, blend</div>
+        </div>
+        <div class="panel-body stack">
+          <div class="group">
+            <div class="group-title">Base Look</div>
+            <label class="control">
+              <span><strong>Ball Color</strong><small id="ballColorValue"></small></span>
+              <input id="ballColor" type="color">
+            </label>
+            <label class="control">
+              <span><strong>Trail Color</strong><small id="trailColorValue"></small></span>
+              <input id="trailColor" type="color">
+            </label>
+            <label class="control">
+              <span><strong>Glow Tint</strong><small id="glowTintValue"></small></span>
+              <input id="glowTint" type="color">
+            </label>
+          </div>
+
+          <div class="group">
+            <div class="group-title">Surface Image</div>
+            <label class="control">
+              <span><strong>Image Opacity</strong><small id="imageOpacityValue"></small></span>
+              <input id="imageOpacity" type="range" min="0" max="1" step="0.01">
+            </label>
+            <label class="control">
+              <span><strong>Image Zoom</strong><small id="imageScaleValue"></small></span>
+              <input id="imageScale" type="range" min="0.75" max="2.5" step="0.01">
+            </label>
+            <label class="control">
+              <span><strong>Blend Mode</strong><small>draw mode</small></span>
+              <select id="imageBlendMode">
+                <option value="source-over">source-over</option>
+                <option value="multiply">multiply</option>
+                <option value="screen">screen</option>
+                <option value="overlay">overlay</option>
+                <option value="soft-light">soft-light</option>
+                <option value="hard-light">hard-light</option>
+                <option value="lighter">lighter</option>
+              </select>
+            </label>
+            <label class="control">
+              <span><strong>Fit</strong><small>cover or contain</small></span>
+              <select id="imageFit">
+                <option value="cover">cover</option>
+                <option value="contain">contain</option>
+              </select>
+            </label>
+            <div class="dropzone" id="imageDropzone" role="button" tabindex="0" aria-label="Import ball image">
+              <strong>Import Image</strong>
+              <div>Drop a PNG, JPG, WEBP, or click to browse. The file is stored as a data URL and sent to the game.</div>
+            </div>
+            <input class="hidden-input" id="imageInput" type="file" accept="image/*">
+            <div class="footer-actions spaced">
+              <button class="btn warn" id="clearImageBtn">Clear Image</button>
+            </div>
+          </div>
+
+          <div class="group">
+            <div class="group-title">Preview Health</div>
+            <div class="status" id="statusBox">
+              <strong>Ready</strong>
+              <div>All controls are active. Change a field to recompile the effect or refresh the preview.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel preview-shell">
+        <div class="panel-head">
+          <h2>Live Preview</h2>
+          <div class="hint">Canvas updates on every valid edit</div>
+        </div>
+        <div class="panel-body preview-pad">
+          <div class="preview-frame">
+            <canvas id="previewCanvas" width="1280" height="900" aria-label="Ball live preview"></canvas>
+            <div class="preview-overlay">
+              <div class="chip" id="previewChipOne">Ball skin</div>
+              <div class="chip" id="previewChipTwo">No syntax errors</div>
+            </div>
+          </div>
+          <div class="preview-meta spaced">
+            <span class="pill" id="previewMetaLeft">Radius 18px</span>
+            <span class="pill" id="previewMetaRight">FPS live</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Effect Code</h2>
+          <div class="hint">Raw canvas code body</div>
+        </div>
+        <div class="panel-body split">
+          <div class="effects-toolbar">
+            <div class="preset-row">
+              <button class="btn primary" id="addEffectBtn">Custom Effect</button>
+            </div>
+          </div>
+          <div class="group">
+            <div class="group-title">Saved Presets</div>
+            <label class="control tight">
+              <span><strong>Preset Name</strong><small>used when saving</small></span>
+              <input id="presetName" type="text" maxlength="48" placeholder="Neon Orbit">
+            </label>
+            <label class="control">
+              <span><strong>Saved Effects</strong><small id="presetCountValue">0 saved</small></span>
+              <select id="presetSelect">
+                <option value="">No saved presets</option>
+              </select>
+            </label>
+            <div class="preset-row">
+              <button class="btn primary" id="savePresetBtn">Save Preset</button>
+              <button class="btn danger" id="deletePresetBtn">Delete Selected</button>
+            </div>
+          </div>
+          <div class="textarea-wrap">
+            <textarea id="effectCode" spellcheck="false" placeholder="Paste raw canvas code here. The variables ctx, ball, time, and api are available."></textarea>
+            <div class="code-actions">
+              <button class="btn primary" id="applyBtn">Apply</button>
+              <button class="btn" id="saveBtn">Save to Game</button>
+              <button class="btn" id="copyJsonBtn">Copy JSON</button>
+              <button class="btn danger" id="resetBtn">Reset Defaults</button>
+            </div>
+          </div>
+          <div class="group">
+            <div class="group-title">Config Snapshot</div>
+            <div class="json-box" id="jsonBox"></div>
+          </div>
+          <p class="footnote">Tip: the code is compiled with <code>new Function</code> for local preview only. Keep the body focused on drawing commands and helper calls like <code>api.drawImageCover()</code>, <code>api.drawImageContain()</code>, or your own canvas paths.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const STORAGE_KEY = 'pp-ball-studio-v1';
+      const PRESET_LIBRARY_KEY = 'pp-ball-studio-presets-v1';
+      const ACTIVE_PRESET_KEY = 'pp-ball-studio-active-preset-v1';
+      const DEFAULT_CONFIG = {
+        version: 1,
+        ballColor: '#ffffff',
+        trailColor: '#a8ddff',
+        glowTint: '#c4f6ff',
+        imageSrc: '',
+        imageOpacity: 0.85,
+        imageBlendMode: 'screen',
+        imageFit: 'cover',
+        imageScale: 1,
+        effectCode: [
+          'ctx.save();',
+          'ctx.globalCompositeOperation = "screen";',
+          'ctx.shadowColor = api.color || "#ffffff";',
+          'ctx.shadowBlur = 18 + Math.sin(time * 6) * 8;',
+          'ctx.strokeStyle = `rgba(255, 255, 255, ${0.22 + Math.sin(time * 5) * 0.12})`;',
+          'ctx.lineWidth = 1.5 + Math.sin(time * 4) * 0.5;',
+          'ctx.beginPath();',
+          'ctx.arc(0, 0, ball.r * (1.08 + Math.sin(time * 2.4) * 0.04), 0, Math.PI * 2);',
+          'ctx.stroke();',
+          'ctx.restore();'
+        ].join('\n')
+      };
+
+      const els = {
+        ballColor: document.getElementById('ballColor'),
+        trailColor: document.getElementById('trailColor'),
+        glowTint: document.getElementById('glowTint'),
+        imageOpacity: document.getElementById('imageOpacity'),
+        imageScale: document.getElementById('imageScale'),
+        imageBlendMode: document.getElementById('imageBlendMode'),
+        imageFit: document.getElementById('imageFit'),
+        imageInput: document.getElementById('imageInput'),
+        imageDropzone: document.getElementById('imageDropzone'),
+        clearImageBtn: document.getElementById('clearImageBtn'),
+        addEffectBtn: document.getElementById('addEffectBtn'),
+        presetName: document.getElementById('presetName'),
+        presetSelect: document.getElementById('presetSelect'),
+        savePresetBtn: document.getElementById('savePresetBtn'),
+        deletePresetBtn: document.getElementById('deletePresetBtn'),
+        presetCountValue: document.getElementById('presetCountValue'),
+        effectCode: document.getElementById('effectCode'),
+        applyBtn: document.getElementById('applyBtn'),
+        saveBtn: document.getElementById('saveBtn'),
+        resetBtn: document.getElementById('resetBtn'),
+        copyJsonBtn: document.getElementById('copyJsonBtn'),
+        jsonBox: document.getElementById('jsonBox'),
+        statusBox: document.getElementById('statusBox'),
+        liveStateValue: document.getElementById('liveStateValue'),
+        imageStateValue: document.getElementById('imageStateValue'),
+        effectStateValue: document.getElementById('effectStateValue'),
+        ballColorValue: document.getElementById('ballColorValue'),
+        trailColorValue: document.getElementById('trailColorValue'),
+        glowTintValue: document.getElementById('glowTintValue'),
+        imageOpacityValue: document.getElementById('imageOpacityValue'),
+        imageScaleValue: document.getElementById('imageScaleValue'),
+        previewCanvas: document.getElementById('previewCanvas'),
+        previewChipOne: document.getElementById('previewChipOne'),
+        previewChipTwo: document.getElementById('previewChipTwo'),
+        previewMetaLeft: document.getElementById('previewMetaLeft'),
+        previewMetaRight: document.getElementById('previewMetaRight'),
+      };
+
+      const state = {
+        config: loadConfig(),
+        presets: loadPresetLibrary(),
+        selectedPresetName: loadSelectedPresetName(),
+        compileError: '',
+        runtimeError: '',
+        effectFn: null,
+        image: null,
+        imageSource: '',
+        imageReady: false,
+        imageLoadToken: 0,
+        canvas: els.previewCanvas,
+        ctx: els.previewCanvas.getContext('2d'),
+        rafId: 0,
+        lastFrameTime: performance.now(),
+        lastPersistTimer: 0,
+        fps: 0,
+        fpsFrames: 0,
+        fpsLast: performance.now(),
+        ball: {
+          x: 0,
+          y: 0,
+          vx: 0,
+          vy: 0,
+          radius: 18,
+          trail: [],
+          trailMax: 14,
+          rotation: 0,
+          wobble: 0,
+          spinRate: 2.4,
+          wobbleAmount: 0.18,
+        }
+      };
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function numberOr(value, fallback) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+      }
+
+      function sanitizePresetName(value) {
+        return String(value || '')
+          .trim()
+          .replace(/\s+/g, ' ')
+          .slice(0, 48);
+      }
+
+      const fromCustomise = new URLSearchParams(window.location.search).get('from_customise') === '1';
+
+      function returnToMenu() {
+        try {
+          sessionStorage.setItem('pp-return-to-menu', '1');
+          sessionStorage.setItem('pp-skip-intro', '1');
+        } catch (_) {
+          // ignore storage failures
+        }
+        window.location.href = fromCustomise
+          ? 'ping_pong.html?return_to_menu=1&open_customise=1'
+          : 'ping_pong.html?return_to_menu=1';
+      }
+
+      function normalizeConfig(input) {
+        const source = input && typeof input === 'object' ? input : {};
+        return {
+          ...DEFAULT_CONFIG,
+          ...source,
+          version: 1,
+          ballColor: typeof source.ballColor === 'string' && source.ballColor ? source.ballColor : DEFAULT_CONFIG.ballColor,
+          trailColor: typeof source.trailColor === 'string' && source.trailColor ? source.trailColor : DEFAULT_CONFIG.trailColor,
+          glowTint: typeof source.glowTint === 'string' && source.glowTint ? source.glowTint : DEFAULT_CONFIG.glowTint,
+          imageSrc: typeof source.imageSrc === 'string' ? source.imageSrc : '',
+          imageOpacity: clamp(numberOr(source.imageOpacity, DEFAULT_CONFIG.imageOpacity), 0, 1),
+          imageBlendMode: typeof source.imageBlendMode === 'string' && source.imageBlendMode ? source.imageBlendMode : DEFAULT_CONFIG.imageBlendMode,
+          imageFit: source.imageFit === 'contain' ? 'contain' : 'cover',
+          imageScale: clamp(numberOr(source.imageScale, DEFAULT_CONFIG.imageScale), 0.75, 2.5),
+          effectCode: typeof source.effectCode === 'string' ? source.effectCode : DEFAULT_CONFIG.effectCode,
+        };
+      }
+
+      function syncBallRuntimeFromConfig() {
+        const maxRadius = Math.max(10, Math.min(42, Math.min(els.previewCanvas.clientWidth || 1280, els.previewCanvas.clientHeight || 900) * 0.14));
+        state.ball.radius = clamp(18, 10, maxRadius);
+        state.ball.trailMax = 14;
+        state.ball.spinRate = 2.4;
+        state.ball.wobbleAmount = 0.18;
+
+        state.ball.vx = 220;
+        state.ball.vy = 0;
+      }
+
+      function loadConfig() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return normalizeConfig(DEFAULT_CONFIG);
+          return normalizeConfig(JSON.parse(raw));
+        } catch (_) {
+          return normalizeConfig(DEFAULT_CONFIG);
+        }
+      }
+
+      function loadSelectedPresetName() {
+        try {
+          return sanitizePresetName(localStorage.getItem(ACTIVE_PRESET_KEY));
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function persistSelectedPresetName(name) {
+        try {
+          if (name) {
+            localStorage.setItem(ACTIVE_PRESET_KEY, name);
+          } else {
+            localStorage.removeItem(ACTIVE_PRESET_KEY);
+          }
+        } catch (_) {
+          // ignore storage failures
+        }
+      }
+
+      function normalizePresetLibrary(input) {
+        const source = input && typeof input === 'object' ? input : {};
+        const rawItems = Array.isArray(source.items)
+          ? source.items
+          : Array.isArray(source.presets)
+            ? source.presets
+            : [];
+        const items = [];
+        const seenNames = new Set();
+
+        for (const entry of rawItems) {
+          const name = sanitizePresetName(entry?.name);
+          if (!name) continue;
+          const key = name.toLowerCase();
+          if (seenNames.has(key)) continue;
+          seenNames.add(key);
+          items.push({
+            name,
+            updatedAt: typeof entry?.updatedAt === 'string' ? entry.updatedAt : new Date().toISOString(),
+            config: normalizeConfig(entry?.config || entry),
+          });
+        }
+
+        return {
+          version: 1,
+          items,
+        };
+      }
+
+      function loadPresetLibrary() {
+        try {
+          const raw = localStorage.getItem(PRESET_LIBRARY_KEY);
+          if (!raw) return normalizePresetLibrary({ items: [] });
+          return normalizePresetLibrary(JSON.parse(raw));
+        } catch (_) {
+          return normalizePresetLibrary({ items: [] });
+        }
+      }
+
+      function persistPresetLibrary() {
+        const payload = normalizePresetLibrary(state.presets);
+        try {
+          localStorage.setItem(PRESET_LIBRARY_KEY, JSON.stringify(payload));
+          window.dispatchEvent(new CustomEvent('pp-ball-studio-presets-updated', { detail: payload }));
+          return true;
+        } catch (error) {
+          setStatus('error', 'Preset save failed', error?.message || String(error));
+          return false;
+        }
+      }
+
+      function findPreset(name) {
+        const target = sanitizePresetName(name).toLowerCase();
+        if (!target) return null;
+        return state.presets.items.find(entry => entry.name.toLowerCase() === target) || null;
+      }
+
+      function syncPresetSelection(name, { persist = true } = {}) {
+        const presetName = sanitizePresetName(name);
+        state.selectedPresetName = presetName;
+        els.presetName.value = presetName;
+        if (persist) {
+          persistSelectedPresetName(presetName);
+        }
+      }
+
+      function renderPresetLibrary() {
+        const previousSelection = findPreset(state.selectedPresetName)?.name || '';
+        els.presetSelect.innerHTML = '';
+
+        if (!state.presets.items.length) {
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'No saved presets';
+          els.presetSelect.appendChild(placeholder);
+          els.presetSelect.disabled = true;
+        } else {
+          els.presetSelect.disabled = false;
+
+          const placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Select a saved preset';
+          els.presetSelect.appendChild(placeholder);
+
+          for (const entry of state.presets.items) {
+            const option = document.createElement('option');
+            option.value = entry.name;
+            option.textContent = entry.name;
+            els.presetSelect.appendChild(option);
+          }
+        }
+
+        els.presetSelect.value = previousSelection;
+        els.presetCountValue.textContent = `${state.presets.items.length} saved`;
+      }
+
+      function saveCurrentPreset() {
+        if (!applyConfig({ persist: false })) return;
+
+        const typedName = sanitizePresetName(els.presetName.value) || state.selectedPresetName;
+        if (!typedName) {
+          setStatus('warn', 'Name required', 'Enter a preset name before saving it.');
+          els.presetName.focus();
+          return;
+        }
+
+        const config = normalizeConfig(state.config);
+        const existingIndex = state.presets.items.findIndex(entry => entry.name.toLowerCase() === typedName.toLowerCase());
+        const record = {
+          name: typedName,
+          updatedAt: new Date().toISOString(),
+          config,
+        };
+
+        if (existingIndex >= 0) {
+          state.presets.items.splice(existingIndex, 1, record);
+        } else {
+          state.presets.items.unshift(record);
+        }
+
+        syncPresetSelection(typedName);
+        renderPresetLibrary();
+        if (!persistPresetLibrary()) return;
+        setStatus('ok', 'Preset saved', `${typedName} is now available in the saved effects list.`);
+      }
+
+      function loadSelectedPreset() {
+        const selectedName = sanitizePresetName(els.presetSelect.value);
+        if (!selectedName) {
+          syncPresetSelection('', { persist: true });
+          updateFieldLabels();
+          return;
+        }
+        const preset = findPreset(selectedName);
+        if (!preset) {
+          setStatus('warn', 'Preset missing', 'That preset is no longer available.');
+          renderPresetLibrary();
+          return;
+        }
+
+        state.config = normalizeConfig(preset.config);
+        syncPresetSelection(preset.name);
+        syncControlsFromConfig();
+        applyConfig({ persist: false });
+        setStatus('ok', 'Preset loaded', `${preset.name} is now being rendered in the live preview.`);
+      }
+
+      function deleteSelectedPreset() {
+        const targetName = sanitizePresetName(els.presetSelect.value || els.presetName.value || state.selectedPresetName);
+        if (!targetName) {
+          setStatus('warn', 'Nothing selected', 'Choose a saved preset to delete.');
+          return;
+        }
+
+        const index = state.presets.items.findIndex(entry => entry.name.toLowerCase() === targetName.toLowerCase());
+        if (index < 0) {
+          setStatus('warn', 'Preset missing', 'That preset could not be found.');
+          renderPresetLibrary();
+          return;
+        }
+
+        state.presets.items.splice(index, 1);
+        syncPresetSelection('', { persist: true });
+        renderPresetLibrary();
+        persistPresetLibrary();
+        setStatus('ok', 'Preset deleted', `${targetName} was removed from saved effects.`);
+      }
+
+      function persistConfig(force = false) {
+        const payload = normalizeConfig(state.config);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          window.dispatchEvent(new CustomEvent('pp-ball-studio-updated', { detail: payload }));
+          setStatus('ok', 'Saved and broadcast', 'The main game can pick up this config immediately if it is open in another tab.');
+          if (force) {
+            updateSnapshot();
+          }
+        } catch (error) {
+          setStatus('error', 'Save failed', error?.message || String(error));
+        }
+      }
+
+      function setStatus(kind, title, message) {
+        els.statusBox.className = `status ${kind}`;
+        els.statusBox.innerHTML = `<strong>${title}</strong><div>${message}</div>`;
+        els.liveStateValue.textContent = title;
+        els.liveStateValue.style.color = kind === 'error' ? 'var(--danger)' : kind === 'warn' ? 'var(--accent-2)' : 'var(--accent-3)';
+      }
+
+      function updateFieldLabels() {
+        els.ballColorValue.textContent = state.config.ballColor.toUpperCase();
+        els.trailColorValue.textContent = state.config.trailColor.toUpperCase();
+        els.glowTintValue.textContent = state.config.glowTint.toUpperCase();
+        els.imageOpacityValue.textContent = state.config.imageOpacity.toFixed(2);
+        els.imageScaleValue.textContent = state.config.imageScale.toFixed(2) + 'x';
+        els.imageStateValue.textContent = state.config.imageSrc ? 'Loaded' : 'None';
+        els.effectStateValue.textContent = state.compileError ? 'Syntax error' : state.runtimeError ? 'Runtime issue' : 'Compiled';
+        els.previewChipOne.textContent = findPreset(state.selectedPresetName) ? `Preset: ${state.selectedPresetName}` : 'Draft preview';
+        els.previewChipTwo.textContent = state.compileError ? 'Fix code' : 'Live render';
+        els.effectCode.placeholder = 'Paste raw canvas code here. The variables ctx, ball, time, and api are available.';
+      }
+
+      function syncControlsFromConfig() {
+        els.ballColor.value = state.config.ballColor;
+        els.trailColor.value = state.config.trailColor;
+        els.glowTint.value = state.config.glowTint;
+        els.imageOpacity.value = String(state.config.imageOpacity);
+        els.imageScale.value = String(state.config.imageScale);
+        els.imageBlendMode.value = state.config.imageBlendMode;
+        els.imageFit.value = state.config.imageFit;
+        els.effectCode.value = state.config.effectCode;
+        updateFieldLabels();
+      }
+
+      function readControlsIntoConfig() {
+        state.config = normalizeConfig({
+          ...state.config,
+          ballColor: els.ballColor.value,
+          trailColor: els.trailColor.value,
+          glowTint: els.glowTint.value,
+          imageOpacity: Number(els.imageOpacity.value),
+          imageScale: Number(els.imageScale.value),
+          imageBlendMode: els.imageBlendMode.value,
+          imageFit: els.imageFit.value,
+          effectCode: els.effectCode.value,
+        });
+        updateFieldLabels();
+        updateSnapshot();
+      }
+
+      function updateSnapshot() {
+        els.jsonBox.textContent = JSON.stringify(state.config, null, 2);
+        els.previewMetaLeft.textContent = `Radius ${Math.round(state.ball.radius)}px · Trail ${state.ball.trailMax}`;
+        els.previewMetaRight.textContent = state.imageReady ? 'Image ready' : 'Image not loaded';
+      }
+
+      function compileEffect() {
+        state.compileError = '';
+        state.runtimeError = '';
+        state.effectFn = null;
+        const code = (state.config.effectCode || '').trim();
+        if (!code) {
+          updateFieldLabels();
+          return true;
+        }
+
+        try {
+          state.effectFn = new Function('ctx', 'ball', 'time', 'api', code);
+          updateFieldLabels();
+          return true;
+        } catch (error) {
+          state.compileError = error?.message || String(error);
+          setStatus('error', 'Effect syntax error', state.compileError);
+          updateFieldLabels();
+          return false;
+        }
+      }
+
+      function applyConfig({ persist = true } = {}) {
+        readControlsIntoConfig();
+        syncBallRuntimeFromConfig();
+        const compiled = compileEffect();
+        updateImageSource(state.config.imageSrc);
+        updateSnapshot();
+
+        if (!compiled) {
+          els.saveBtn.disabled = true;
+          els.applyBtn.disabled = false;
+          return false;
+        }
+
+        els.saveBtn.disabled = false;
+        els.applyBtn.disabled = false;
+        setStatus('ok', 'Preview updated', persist ? 'Your edits are valid and ready to save.' : 'Preview is showing the current draft.');
+        if (persist) {
+          persistConfig(true);
+        }
+        return true;
+      }
+
+      function schedulePersist() {
+        window.clearTimeout(state.lastPersistTimer);
+        state.lastPersistTimer = window.setTimeout(() => {
+          if (!state.compileError) {
+            persistConfig(false);
+          }
+        }, 220);
+      }
+
+      function updateImageSource(source) {
+        const imageSource = (source || '').trim();
+        if (!imageSource) {
+          state.image = null;
+          state.imageSource = '';
+          state.imageReady = false;
+          updateFieldLabels();
+          return;
+        }
+
+        if (state.imageSource === imageSource && state.imageReady && state.image) {
+          updateFieldLabels();
+          return;
+        }
+
+        state.imageSource = imageSource;
+        const token = ++state.imageLoadToken;
+        const image = new Image();
+        image.decoding = 'async';
+        image.onload = () => {
+          if (token !== state.imageLoadToken) return;
+          state.image = image;
+          state.imageReady = true;
+          updateFieldLabels();
+          if (!state.compileError) {
+            schedulePersist();
+          }
+        };
+        image.onerror = () => {
+          if (token !== state.imageLoadToken) return;
+          state.image = null;
+          state.imageReady = false;
+          setStatus('warn', 'Image load issue', 'The image could not be decoded. The preview will fall back to vector rendering.');
+          updateFieldLabels();
+        };
+        image.src = imageSource;
+      }
+
+      function loadFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(reader.error || new Error('Could not read file.'));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function setImageFromFile(file) {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+          setStatus('warn', 'Unsupported file', 'Please choose an image file.');
+          return;
+        }
+
+        setStatus('warn', 'Importing image', file.name);
+        loadFileAsDataUrl(file)
+          .then(dataUrl => {
+            state.config.imageSrc = dataUrl;
+            syncControlsFromConfig();
+            applyConfig({ persist: false });
+            schedulePersist();
+          })
+          .catch(error => {
+            setStatus('error', 'Image import failed', error?.message || String(error));
+          });
+      }
+
+      function getEffectTemplate() {
+        return [
+          'ctx.save();',
+          'ctx.globalCompositeOperation = "screen";',
+          'ctx.strokeStyle = "rgba(255, 255, 255, 0.24)";',
+          'ctx.lineWidth = 1.5;',
+          'ctx.beginPath();',
+          'ctx.arc(0, 0, ball.r * 1.12, 0, Math.PI * 2);',
+          'ctx.stroke();',
+          'ctx.restore();'
+        ].join('\n');
+      }
+
+      function addEffectBlock() {
+        const template = getEffectTemplate();
+        const textarea = els.effectCode;
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        const before = textarea.value.slice(0, start);
+        const after = textarea.value.slice(end);
+        const needsSeparator = before && !before.endsWith('\n') ? '\n' : '';
+        textarea.value = `${before}${needsSeparator}${template}${after}`;
+        const caret = before.length + needsSeparator.length + template.length;
+        textarea.focus();
+        textarea.selectionStart = caret;
+        textarea.selectionEnd = caret;
+        applyConfig({ persist: false });
+        schedulePersist();
+      }
+
+      function drawBackground(ctx, width, height, time) {
+        const sky = ctx.createLinearGradient(0, 0, 0, height);
+        sky.addColorStop(0, '#020713');
+        sky.addColorStop(0.45, '#081124');
+        sky.addColorStop(1, '#02050c');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, width, height);
+
+        const core = ctx.createRadialGradient(width * 0.5, height * 0.46, 0, width * 0.5, height * 0.48, Math.max(width, height) * 0.68);
+        core.addColorStop(0, 'rgba(82, 240, 255, 0.11)');
+        core.addColorStop(0.4, 'rgba(255, 139, 93, 0.07)');
+        core.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = core;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.save();
+        ctx.globalAlpha = 0.25;
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        const step = 48;
+        const offset = (time * 18) % step;
+        for (let x = -step; x < width + step; x += step) {
+          ctx.beginPath();
+          ctx.moveTo(x + offset, 0);
+          ctx.lineTo(x + offset, height);
+          ctx.stroke();
+        }
+        for (let y = -step; y < height + step; y += step) {
+          ctx.beginPath();
+          ctx.moveTo(0, y + offset * 0.55);
+          ctx.lineTo(width, y + offset * 0.55);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawCircleImageCover(ctx, image, dx, dy, dw, dh) {
+        if (!image || !image.naturalWidth || !image.naturalHeight) return;
+        const sourceRatio = image.naturalWidth / image.naturalHeight;
+        const destRatio = dw / dh;
+        let sx = 0;
+        let sy = 0;
+        let sw = image.naturalWidth;
+        let sh = image.naturalHeight;
+
+        if (sourceRatio > destRatio) {
+          sw = image.naturalHeight * destRatio;
+          sx = (image.naturalWidth - sw) / 2;
+        } else {
+          sh = image.naturalWidth / destRatio;
+          sy = (image.naturalHeight - sh) / 2;
+        }
+
+        ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+      }
+
+      function runEffect(ctx, ball, time) {
+        if (typeof state.effectFn !== 'function') return;
+        const api = {
+          color: state.config.ballColor,
+          trailColor: state.config.trailColor,
+          image: state.image,
+          drawImageCover: (image = state.image, dx = -ball.radius, dy = -ball.radius, dw = ball.radius * 2, dh = ball.radius * 2) => {
+            drawCircleImageCover(ctx, image, dx, dy, dw, dh);
+          },
+          drawImageContain: (image = state.image, dx = -ball.radius, dy = -ball.radius, dw = ball.radius * 2, dh = ball.radius * 2) => {
+            if (!image || !image.naturalWidth || !image.naturalHeight) return;
+            const sourceAspect = image.naturalWidth / image.naturalHeight;
+            const destAspect = dw / dh;
+            let drawW = dw;
+            let drawH = dh;
+            if (sourceAspect > destAspect) {
+              drawH = dw / sourceAspect;
+            } else {
+              drawW = dh * sourceAspect;
+            }
+            ctx.drawImage(image, dx + (dw - drawW) / 2, dy + (dh - drawH) / 2, drawW, drawH);
+          },
+        };
+
+        try {
+          state.effectFn(ctx, ball, time, api);
+          state.runtimeError = '';
+        } catch (error) {
+          state.runtimeError = error?.message || String(error);
+          setStatus('warn', 'Effect runtime issue', state.runtimeError);
+        }
+      }
+
+      function drawBall(ctx, width, height, time, dt) {
+        const ball = state.ball;
+        const edge = 26;
+        const minX = edge + ball.radius;
+        const maxX = width - edge - ball.radius;
+        const minY = edge + ball.radius;
+        const maxY = height - edge - ball.radius;
+
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+        ball.rotation += dt * ball.spinRate;
+        ball.wobble = Math.sin(time * 6) * ball.wobbleAmount;
+
+        if (ball.x < minX) {
+          ball.x = minX;
+          ball.vx *= -1;
+        }
+        if (ball.x > maxX) {
+          ball.x = maxX;
+          ball.vx *= -1;
+        }
+        if (ball.y < minY) {
+          ball.y = minY;
+          ball.vy *= -1;
+        }
+        if (ball.y > maxY) {
+          ball.y = maxY;
+          ball.vy *= -1;
+        }
+
+        if (ball.trailMax > 0) {
+          ball.trail.unshift({ x: ball.x, y: ball.y, age: 0 });
+          ball.trail = ball.trail.slice(0, ball.trailMax);
+          for (const point of ball.trail) {
+            point.age += dt;
+          }
+        } else {
+          ball.trail.length = 0;
+        }
+
+        ctx.save();
+        drawBackground(ctx, width, height, time);
+
+        const trailBase = state.config.trailColor;
+        if (ball.trailMax > 0) {
+          ball.trail.forEach((point, index) => {
+            const alpha = Math.max(0, 1 - point.age * 1.7) * (1 - index / ball.trailMax);
+            if (alpha <= 0) return;
+            const radius = ball.radius * (0.55 + (1 - index / ball.trailMax) * 0.75);
+            const glow = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius * 2.8);
+            glow.addColorStop(0, `rgba(255,255,255,${alpha * 0.5})`);
+            glow.addColorStop(0.35, hexToRgba(trailBase, alpha * 0.45));
+            glow.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, radius * 2.6, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        }
+
+        ctx.save();
+        ctx.translate(ball.x, ball.y);
+
+        const ballColor = state.config.ballColor;
+        const glowTint = state.config.glowTint;
+
+        ctx.globalCompositeOperation = 'lighter';
+        const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, ball.radius * (2.1 + Math.sin(time * 2) * 0.08));
+        aura.addColorStop(0, hexToRgba(glowTint, 0.55));
+        aura.addColorStop(0.28, hexToRgba(ballColor, 0.3));
+        aura.addColorStop(0.72, hexToRgba(state.config.trailColor, 0.15));
+        aura.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = aura;
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.radius * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = ballColor;
+        ctx.shadowColor = glowTint;
+        ctx.shadowBlur = 26;
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.rotate(ball.rotation * 0.7 + ball.wobble * 0.22);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
+        ctx.clip();
+        if (state.imageReady && state.image) {
+          ctx.globalAlpha = state.config.imageOpacity;
+          ctx.globalCompositeOperation = state.config.imageBlendMode;
+          const scale = Math.max(0.75, state.config.imageScale);
+          const drawSize = ball.radius * 2 * scale;
+          if (state.config.imageFit === 'contain') {
+            const aspect = state.image.naturalWidth / state.image.naturalHeight;
+            let drawW = drawSize;
+            let drawH = drawSize;
+            if (aspect > 1) {
+              drawH = drawSize / aspect;
+            } else {
+              drawW = drawSize * aspect;
+            }
+            ctx.drawImage(state.image, -drawW / 2, -drawH / 2, drawW, drawH);
+          } else {
+            drawCircleImageCover(ctx, state.image, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+          }
+        }
+        ctx.restore();
+
+        const highlight = ctx.createRadialGradient(-ball.radius * 0.35, -ball.radius * 0.35, 0, 0, 0, ball.radius * 1.25);
+        highlight.addColorStop(0, 'rgba(255,255,255,0.92)');
+        highlight.addColorStop(0.45, 'rgba(255,255,255,0.18)');
+        highlight.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.globalCompositeOperation = 'screen';
+        ctx.fillStyle = highlight;
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.radius * 1.15, 0, Math.PI * 2);
+        ctx.fill();
+
+        const ring = ctx.createLinearGradient(-ball.radius, 0, ball.radius, 0);
+        ring.addColorStop(0, hexToRgba(state.config.trailColor, 0));
+        ring.addColorStop(0.5, hexToRgba(state.config.glowTint, 0.8));
+        ring.addColorStop(1, hexToRgba(state.config.trailColor, 0));
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = ring;
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.radius * 1.02, 0, Math.PI * 2);
+        ctx.stroke();
+
+        runEffect(ctx, { ...ball, r: ball.radius }, time);
+
+        ctx.restore();
+      }
+
+      function hexToRgba(hex, alpha) {
+        const clean = String(hex || '').replace('#', '').trim();
+        if (clean.length !== 6) return `rgba(255,255,255,${alpha})`;
+        const num = parseInt(clean, 16);
+        if (Number.isNaN(num)) return `rgba(255,255,255,${alpha})`;
+        const r = (num >> 16) & 255;
+        const g = (num >> 8) & 255;
+        const b = num & 255;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      function resizeCanvas() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const rect = els.previewCanvas.getBoundingClientRect();
+        const width = Math.max(1, Math.round(rect.width * dpr));
+        const height = Math.max(1, Math.round(rect.height * dpr));
+        if (els.previewCanvas.width !== width) els.previewCanvas.width = width;
+        if (els.previewCanvas.height !== height) els.previewCanvas.height = height;
+        state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        syncBallRuntimeFromConfig();
+        state.ball.x = Math.max(state.ball.radius + 24, Math.min(rect.width - state.ball.radius - 24, state.ball.x || rect.width * 0.5));
+        state.ball.y = Math.max(state.ball.radius + 24, Math.min(rect.height - state.ball.radius - 24, state.ball.y || rect.height * 0.52));
+        if (!state.ball.vx && !state.ball.vy) {
+          syncBallRuntimeFromConfig();
+        }
+        updateSnapshot();
+      }
+
+      function tick(now) {
+        const width = els.previewCanvas.clientWidth || 900;
+        const height = els.previewCanvas.clientHeight || 620;
+        const dt = Math.min(0.033, (now - state.lastFrameTime) / 1000 || 0.016);
+        state.lastFrameTime = now;
+        state.fpsFrames += 1;
+        if (now - state.fpsLast >= 1000) {
+          state.fps = state.fpsFrames;
+          state.fpsFrames = 0;
+          state.fpsLast = now;
+          els.previewMetaRight.textContent = `${state.imageReady ? 'Image ready' : 'Image not loaded'} · ${state.fps} fps`;
+        }
+
+        drawBall(state.ctx, width, height, now / 1000, dt);
+        state.rafId = requestAnimationFrame(tick);
+      }
+
+      function resetDefaults() {
+        state.config = normalizeConfig(DEFAULT_CONFIG);
+        state.image = null;
+        state.imageSource = '';
+        state.imageReady = false;
+        state.imageLoadToken += 1;
+        syncPresetSelection('', { persist: true });
+        syncControlsFromConfig();
+        renderPresetLibrary();
+        setStatus('ok', 'Defaults restored', 'The studio has been reset to the built-in baseline skin.');
+        applyConfig({ persist: false });
+        persistConfig(true);
+      }
+
+      function copyJson() {
+        const text = JSON.stringify(state.config, null, 2);
+        navigator.clipboard?.writeText(text).then(() => {
+          setStatus('ok', 'JSON copied', 'The full config is now in your clipboard.');
+        }).catch(error => {
+          setStatus('warn', 'Copy blocked', error?.message || String(error));
+        });
+      }
+
+      function bindControls() {
+        const liveInputs = [
+          els.ballColor,
+          els.trailColor,
+          els.glowTint,
+          els.imageOpacity,
+          els.imageScale,
+          els.imageBlendMode,
+          els.imageFit,
+          els.effectCode,
+        ];
+
+        liveInputs.forEach(control => {
+          control.addEventListener('input', () => {
+            applyConfig({ persist: false });
+            schedulePersist();
+          });
+          control.addEventListener('change', () => {
+            applyConfig({ persist: false });
+            schedulePersist();
+          });
+        });
+
+        els.presetName.addEventListener('input', () => {
+          syncPresetSelection(els.presetName.value, { persist: false });
+          updateFieldLabels();
+        });
+
+        els.presetSelect.addEventListener('change', () => {
+          loadSelectedPreset();
+        });
+
+        els.savePresetBtn.addEventListener('click', saveCurrentPreset);
+        els.deletePresetBtn.addEventListener('click', deleteSelectedPreset);
+
+        els.applyBtn.addEventListener('click', () => {
+          if (applyConfig({ persist: false })) {
+            persistConfig(true);
+          }
+        });
+
+        els.saveBtn.addEventListener('click', () => {
+          if (applyConfig({ persist: false })) {
+            persistConfig(true);
+          }
+        });
+
+        els.resetBtn.addEventListener('click', resetDefaults);
+        els.copyJsonBtn.addEventListener('click', copyJson);
+        els.addEffectBtn.addEventListener('click', addEffectBlock);
+
+        els.clearImageBtn.addEventListener('click', () => {
+          els.imageInput.value = '';
+          state.config.imageSrc = '';
+          applyConfig({ persist: false });
+          persistConfig(true);
+        });
+
+        els.imageInput.addEventListener('change', event => {
+          const file = event.target.files?.[0];
+          if (file) setImageFromFile(file);
+        });
+
+        const openPicker = () => els.imageInput.click();
+        els.imageDropzone.addEventListener('click', openPicker);
+        els.imageDropzone.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openPicker();
+          }
+        });
+
+        els.imageDropzone.addEventListener('dragover', event => {
+          event.preventDefault();
+          els.imageDropzone.classList.add('is-dragover');
+        });
+
+        els.imageDropzone.addEventListener('dragleave', () => {
+          els.imageDropzone.classList.remove('is-dragover');
+        });
+
+        els.imageDropzone.addEventListener('drop', async event => {
+          event.preventDefault();
+          els.imageDropzone.classList.remove('is-dragover');
+          const file = event.dataTransfer?.files?.[0];
+          if (file) setImageFromFile(file);
+        });
+
+      }
+
+      function init() {
+        syncControlsFromConfig();
+        renderPresetLibrary();
+        syncPresetSelection(findPreset(state.selectedPresetName)?.name || state.selectedPresetName, { persist: false });
+        syncBallRuntimeFromConfig();
+        resizeCanvas();
+        compileEffect();
+        updateImageSource(state.config.imageSrc);
+        updateSnapshot();
+        bindControls();
+
+        if (state.compileError) {
+          setStatus('error', 'Effect syntax error', state.compileError);
+        } else {
+          setStatus('ok', 'Ready', 'The ball skin is live in the preview and synced to localStorage.');
+        }
+
+        window.addEventListener('resize', resizeCanvas, { passive: true });
+        window.addEventListener('storage', event => {
+          if (event.key === STORAGE_KEY) {
+            state.config = loadConfig();
+            syncControlsFromConfig();
+            syncBallRuntimeFromConfig();
+            compileEffect();
+            updateImageSource(state.config.imageSrc);
+            updateSnapshot();
+            setStatus('ok', 'Synced from storage', 'The studio picked up an external config change.');
+          }
+
+          if (event.key === PRESET_LIBRARY_KEY || event.key === ACTIVE_PRESET_KEY) {
+            state.presets = loadPresetLibrary();
+            state.selectedPresetName = loadSelectedPresetName();
+            renderPresetLibrary();
+            syncPresetSelection(findPreset(state.selectedPresetName)?.name || state.selectedPresetName, { persist: false });
+            updateFieldLabels();
+          }
+        });
+
+        window.addEventListener('pp-ball-studio-updated', () => {
+          state.config = loadConfig();
+          syncControlsFromConfig();
+          syncBallRuntimeFromConfig();
+          compileEffect();
+          updateImageSource(state.config.imageSrc);
+          updateSnapshot();
+        });
+
+        window.addEventListener('pp-ball-studio-presets-updated', () => {
+          state.presets = loadPresetLibrary();
+          state.selectedPresetName = loadSelectedPresetName();
+          renderPresetLibrary();
+          syncPresetSelection(findPreset(state.selectedPresetName)?.name || state.selectedPresetName, { persist: false });
+          updateFieldLabels();
+        });
+
+        const backButton = document.getElementById('backToMenuBtn');
+        if (backButton) {
+          backButton.textContent = fromCustomise ? 'Back to Customise' : 'Back to Menu';
+          backButton.setAttribute('aria-label', fromCustomise ? 'Back to customise' : 'Back to menu');
+          backButton.addEventListener('click', returnToMenu);
+        }
+
+        els.ballColor.focus();
+        state.ball.x = (els.previewCanvas.clientWidth || 900) * 0.5;
+        state.ball.y = (els.previewCanvas.clientHeight || 620) * 0.52;
+        syncBallRuntimeFromConfig();
+        state.rafId = requestAnimationFrame(tick);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>

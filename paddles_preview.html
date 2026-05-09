@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Ping Pong – Neon Edition · Paddle Preview</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap">
+  <style>
+    :root {
+      --app-height: 100dvh;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: var(--app-height);
+    }
+
+    body {
+      background: #0a0015;
+      color: #e0f7ff;
+      min-height: var(--app-height);
+      font-family: 'Share Tech Mono', monospace;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(0, 212, 255, 0.07) 0%, transparent 25%),
+        radial-gradient(circle at 80% 70%, rgba(255, 68, 34, 0.06) 0%, transparent 30%);
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(40, 0, 80, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(40, 0, 80, 0.08) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: -2;
+    }
+
+    /* ── Title ── */
+    .title-block {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: clamp(40px, 8vh, 90px) 20px 40px;
+    }
+
+    .title-main {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: clamp(2.1rem, 6vw, 5.2rem);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #00f0ff, #a78bfa, #ff5e9e, #ff6b40);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 40px rgba(100, 200, 255, 0.4);
+      line-height: 0.95;
+    }
+
+    .title-sub {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 500;
+      font-size: clamp(0.95rem, 2.2vw, 1.4rem);
+      letter-spacing: 0.8em;
+      color: rgba(160, 220, 255, 0.35);
+      margin-top: 12px;
+      text-transform: uppercase;
+    }
+
+    /* ── Main container ── */
+    .paddle-showcase {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: clamp(40px, 6vw, 100px);
+      padding: 20px 5vw 80px;
+      max-width: 1600px;
+      width: 100%;
+    }
+
+    .paddle-card {
+      position: relative;
+      width: 320px;
+      max-width: 90vw;
+      transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .paddle-card:hover {
+      transform: translateY(-12px) scale(1.03);
+    }
+
+    /* Ensure active card and its description stack above siblings */
+    .paddle-card.active {
+      z-index: 1000 !important;
+      transform: translateY(-12px) scale(1.03);
+    }
+    .paddle-card .desc-panel {
+      z-index: 1001; /* sit above the card */
+    }
+
+    .paddle-card::before {
+      content: '';
+      position: absolute;
+      inset: -12px;
+      background: linear-gradient(135deg, transparent, rgba(255,255,255,0.03), transparent);
+      border-radius: 20px;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+      z-index: -1;
+    }
+
+    .paddle-card:hover::before {
+      opacity: 1;
+    }
+
+    .label {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 16px;
+      opacity: 0.7;
+      transition: all 0.4s ease;
+    }
+
+    .paddle-card:hover .label {
+      opacity: 1;
+      letter-spacing: 0.5em;
+    }
+
+    .player .label { color: #00f0ff; text-shadow: 0 0 12px #00f0ff88; }
+    .ai     .label { color: #ff4d33; text-shadow: 0 0 12px #ff4d3388; }
+    .zombie .label { color: #88ff00; text-shadow: 0 0 12px #88ff0088; }
+
+    .player .bullet { color: #80ffff; }
+    .ai     .bullet     { color: #ffaa99; }
+    .zombie .bullet { color: #aaff66; }
+
+    .player .desc-title { color: #80ffff; }
+    .ai     .desc-title { color: #ffaa99; }
+    .zombie .desc-title { color: #aaff66; }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #0f001a;
+      box-shadow:
+        0 20px 60px -15px rgba(0,0,0,0.7),
+        inset 0 0 80px rgba(20,20,60,0.4);
+      backdrop-filter: blur(2px);
+      border: 1px solid rgba(120,120,160,0.08);
+      transition: all 0.5s ease;
+    }
+
+    .paddle-card:hover canvas {
+      box-shadow:
+        0 30px 90px -20px rgba(0,0,0,0.8),
+        0 0 60px -10px var(--glow-color, #444);
+    }
+
+    .player canvas { --glow-color: #00f0ff44; }
+    .ai     canvas { --glow-color: #ff4d3344; }
+    .zombie canvas { --glow-color: #88ff0044; }
+
+    /* ── Glassmorphic description panel ── */
+    .desc-panel {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(24px);
+      width: 280px;
+      min-height: 140px;
+      margin-top: 20px;
+      padding: 20px 22px;
+      border-radius: 16px;
+      background: rgba(18, 18, 38, 0.58);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.07);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.48s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 20;
+    }
+
+    .paddle-card:hover .desc-panel {
+      opacity: 1;
+      transform: translateX(-50%) translateY(12px);
+    }
+
+    .desc-title {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      text-shadow: 0 0 10px currentColor;
+    }
+
+    .player .desc-title { color: #80ffff; }
+    .ai     .desc-title { color: #ffaa99; }
+
+    .desc-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.92rem;
+      color: #d0e0ff;
+      line-height: 1.6;
+      margin-bottom: 10px;
+      word-break: break-word;
+    }
+
+    .desc-item:last-child { margin-bottom: 0; }
+
+    .bullet {
+      flex-shrink: 0;
+      font-size: 1.1rem;
+      line-height: 1.4;
+      margin-top: 2px;
+    }
+
+    .player .bullet { color: #80ffff; }
+    .ai     .bullet     { color: #ffaa99; }
+
+    @media (max-width: 800px) {
+      .paddle-showcase { flex-direction: column; align-items: center; gap: 80px; }
+      .desc-panel { width: 90vw; max-width: 320px; }
+      .title-main { letter-spacing: 0.25em; }
+    }
+
+    /* Smaller phones and tablets: make description static under card */
+    @media (max-width: 600px) {
+      .paddle-card {
+        width: 90vw;
+        max-width: 320px;
+      }
+      .desc-panel {
+        position: static;
+        transform: none;
+        width: 100%;
+        margin-top: 14px;
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .paddle-card:hover .desc-panel {
+        opacity: 1;
+        transform: none;
+      }
+      .label { font-size: 0.85rem; letter-spacing: 0.3em; }
+      .desc-item { font-size: 0.88rem; }
+    }
+
+    /* Strong mobile overrides to ensure consistent behaviour across devices */
+    @media (max-width: 600px) {
+      .paddle-showcase {
+        gap: 24px;
+        padding-bottom: 40px;
+      }
+      .paddle-card {
+        width: 90vw !important;
+        max-width: 360px !important;
+        transform: none !important;
+      }
+      /* Disable hover effects that can cause layout jumps on touch devices */
+      .paddle-card:hover { transform: none !important; }
+
+      .desc-panel {
+        position: static !important;
+        transform: none !important;
+        width: 100% !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        margin-top: 12px !important;
+        box-shadow: none !important;
+        background: rgba(18,18,38,0.78) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+        backdrop-filter: blur(8px) !important;
+      }
+
+      .desc-title { font-size: 1rem !important; letter-spacing: 0.18em !important; }
+      .desc-item { font-size: 0.96rem !important; line-height: 1.45 !important; }
+      .label { letter-spacing: 0.18em !important; font-size: 0.92rem !important; }
+      canvas { border-radius: 12px !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="title-block">
+    <div class="title-main">Ping Pong<span style="opacity:0.4; margin:0 0.2em;">—</span>Neon Edition</div>
+    <div class="title-sub">Paddle Preview</div>
+  </div>
+
+  <div class="paddle-showcase">
+
+    <!-- Player -->
+    <div class="paddle-card player">
+      <div class="label player">Player</div>
+      <canvas id="playerCanvas" width="300" height="400"></canvas>
+      <div class="desc-panel">
+        <div class="desc-title">Player Paddle</div>
+        <div class="desc-item"><span class="bullet">→</span>Hexagonal energy grid hull with pulsing teal core</div>
+        <div class="desc-item"><span class="bullet">→</span>Equipped with 3 laser charges when laser shot is activated — fires on command (Space bar)</div>
+        <div class="desc-item"><span class="bullet">→</span>All-spark burst on impact amplifies ball velocity</div>
+        <div class="desc-item"><span class="bullet">→</span>Edge gradient bars signal charge readiness</div>
+      </div>
+    </div>
+
+    <!-- AI -->
+    <div class="paddle-card ai">
+      <div class="label ai">AI Opponent</div>
+      <canvas id="aiCanvas" width="300" height="400"></canvas>
+      <div class="desc-panel">
+        <div class="desc-title">AI Paddle</div>
+        <div class="desc-item"><span class="bullet">→</span>Biomechanical hull with living pulse and breathing scale</div>
+        <div class="desc-item"><span class="bullet">→</span>Plasma core erupts with fire and arc lightning</div>
+        <div class="desc-item"><span class="bullet">→</span>Circuit tendrils track every ball approach</div>
+        <div class="desc-item"><span class="bullet">→</span>Aura flares on hit — grows more volatile over time</div>
+      </div>
+    </div>
+
+    <!-- Zombie Boss (Fiery Rod theme) -->
+    <div class="paddle-card zombie">
+      <div class="label zombie">Fiery Rod</div>
+      <canvas id="zombieCanvas" width="300" height="400"></canvas>
+      <div class="desc-panel">
+        <div class="desc-title">Zombie Boss – Fiery Rod</div>
+        <div class="desc-item"><span class="bullet">→</span>Dark wooden paddle with a prominent central fiery rod</div>
+        <div class="desc-item"><span class="bullet">→</span>Greenish core with orange climbing flames along the rod</div>
+        <div class="desc-item"><span class="bullet">→</span>Small bone-like spikes near the top edge</div>
+        <div class="desc-item"><span class="bullet">→</span>Subtle toxic-green drips and glowing eyes</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+const syncPreviewViewport = () => {
+  const viewport = window.visualViewport;
+  const height = Math.max(240, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight || 720));
+  document.documentElement.style.setProperty('--app-height', `${height}px`);
+};
+
+syncPreviewViewport();
+window.addEventListener('resize', syncPreviewViewport, { passive: true });
+window.addEventListener('orientationchange', syncPreviewViewport, { passive: true });
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncPreviewViewport, { passive: true });
+}
+
+// shared helpers
+function areParticleEffectsEnabled(){ return true; }
+
+// vector helper
+class Vector2 {
+    constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+    }
+    add(other) {
+        return new Vector2(this.x + other.x, this.y + other.y);
+    }
+    subtract(other) {
+        return new Vector2(this.x - other.x, this.y - other.y);
+    }
+    multiply(scalar) {
+        return new Vector2(this.x * scalar, this.y * scalar);
+    }
+    magnitude() {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
+    normalize() {
+        const mag = this.magnitude();
+        return mag > 0 ? this.multiply(1 / mag) : new Vector2();
+    }
+    copy() {
+        return new Vector2(this.x, this.y);
+    }
+}
+
+// lightweight particle system stub
+class ParticleSystem {
+    constructor() { }
+    update(dt) {}
+    render(ctx) {}
+    spawnSparkleWave() {}
+    spawnSparkle() {}
+    spawnGodTierHit() {}
+}
+
+// ───────────────────────────────────────────────────────────────
+// SpriteFireRenderer – toned-down version (reduced intensity)
+// ───────────────────────────────────────────────────────────────
+class SpriteFireRenderer {
+    constructor(options = {}) {
+        this.fps = options.fps || 60;
+        this.particles = [];
+        this.maxParticles = 140;
+        this.lastSpawn = 0;
+
+        this.usePixi = typeof window !== 'undefined' && !!window.PIXI;
+        this.pixiInitFailed = false;
+        this.pixiApp = null;
+        this.pixiCanvas = null;
+        this.pixiContainer = null;
+        this.pixiSprites = [];
+        this.particleTexture = null;
+        this.fallbackSprite = null;
+
+        this.heatHazeParticles = [];
+        this.maxHazeParticles = 24;
+        this.hazeTime = 0;
+    }
+
+    isReady() { return true; }
+
+    reset() {
+        this.particles.length = 0;
+        this.heatHazeParticles.length = 0;
+        if (this.pixiSprites.length) {
+            for (let i = 0; i < this.pixiSprites.length; i++) {
+                this.pixiSprites[i].visible = false;
+            }
+        }
+    }
+
+    getEmissionPoints(paddle, rageLevel) {
+        const points = [];
+        const x = paddle.pos.x;
+        const y = paddle.pos.y;
+        const w = paddle.w;
+        const h = paddle.h;
+
+        const rodW = w * 0.35;
+        const rodX = x + (w - rodW) / 2;
+        const rodTop = y - h * 1.32;
+
+        points.push({ x: x + w * 0.5,  y: y - 8,  strength: 1.1, flow:  1 });
+        points.push({ x: x + w * 0.3,  y: y - 6,  strength: 0.8, flow:  1 });
+        points.push({ x: x + w * 0.7,  y: y - 6,  strength: 0.8, flow:  1 });
+
+        points.push({ x: x + w * 0.5,  y: y + h + 4, strength: 0.95, flow: -1 });
+        points.push({ x: x + w * 0.25, y: y + h + 2, strength: 0.7, flow: -1 });
+        points.push({ x: x + w * 0.75, y: y + h + 2, strength: 0.7, flow: -1 });
+
+        points.push({ x: x + 8,         y: y + h * 0.5, strength: 0.65, flow: 0 });
+        points.push({ x: x + w - 8,     y: y + h * 0.5, strength: 0.65, flow: 0 });
+
+        const rodSegments = 4 + Math.floor(rageLevel * 5);
+        for (let i = 0; i < rodSegments; i++) {
+            const progress = i / rodSegments;
+            const py = rodTop + (y - rodTop) * progress;
+            const strength = 0.6 * (1 - progress * 0.5);
+            points.push({ x: rodX - 5,           y: py, strength, flow:  1 });
+            points.push({ x: rodX + rodW + 5,    y: py, strength, flow: -1 });
+        }
+
+        return points;
+    }
+
+    update(now, paddle, rageLevel) {
+        const spawnRate = 12 + rageLevel * 32;
+        if (now - this.lastSpawn > 1000 / spawnRate) {
+            const points = this.getEmissionPoints(paddle, rageLevel);
+            const spawnsThisFrame = 1 + Math.floor(rageLevel * 2.2);
+            for (let i = 0; i < spawnsThisFrame; i++) {
+                const pt = points[Math.floor(Math.random() * points.length)];
+                this.spawnParticle(pt, paddle, rageLevel);
+            }
+            this.lastSpawn = now;
+        }
+
+        const centerX = paddle.pos.x + paddle.w * 0.5;
+        const centerY = paddle.pos.y + paddle.h * 0.5;
+        const radialForce   = 0.05 + rageLevel * 0.09;
+        const tangentialForce = 0.018 + rageLevel * 0.032;
+        const drag = 0.986 - rageLevel * 0.008;
+
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= 0.022;
+
+            const dx = p.x - centerX;
+            const dy = p.y - centerY;
+            const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            const nx = dx / dist;
+            const ny = dy / dist;
+            const tx = -ny;
+            const ty = nx;
+
+            const flowBias = p.flowDir * (0.85 + Math.random() * 0.25);
+            const noise = Math.sin(now * 0.004 + p.seed) * (0.22 + rageLevel * 0.32);
+
+            p.vx += nx * radialForce * flowBias + tx * tangentialForce * p.spinDir + noise * 0.10;
+            p.vy += ny * radialForce * flowBias + ty * tangentialForce * p.spinDir + noise * 0.06;
+
+            p.vy += p.flowDir * (0.014 + rageLevel * 0.020);
+
+            p.vx *= drag;
+            p.vy *= drag;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.size *= 0.982;
+
+            if (p.life <= 0 || p.size < 1.2) {
+                this.particles.splice(i, 1);
+            }
+        }
+
+        this.updateHeatHaze(now, paddle, rageLevel);
+
+        if (this.particles.length > this.maxParticles) {
+            this.particles.splice(0, this.particles.length - this.maxParticles);
+        }
+    }
+
+    spawnParticle(emission, paddle, rageLevel) {
+        const spread = paddle.w * 0.35;
+        const centerX = paddle.pos.x + paddle.w * 0.5;
+        const centerY = paddle.pos.y + paddle.h * 0.5;
+        const spawnX = emission.x + (Math.random() - 0.5) * spread;
+        const spawnY = emission.y;
+
+        let baseAngle = Math.atan2(spawnY - centerY, spawnX - centerX);
+
+        const flowDir = emission.flow;
+        if (flowDir === 1) {
+            baseAngle = -Math.PI / 2 + (Math.random() - 0.5) * 0.7;
+        } else if (flowDir === -1) {
+            baseAngle = Math.PI / 2 + (Math.random() - 0.5) * 0.7;
+        } else {
+            baseAngle += (Math.random() - 0.5) * 1.1;
+        }
+
+        const speed = 1.4 + Math.random() * (2.4 + rageLevel * 3.0);
+
+        this.particles.push({
+            x: spawnX,
+            y: spawnY,
+            size: 7 + Math.random() * 14 + rageLevel * 10,
+            vx: Math.cos(baseAngle) * speed,
+            vy: Math.sin(baseAngle) * speed,
+            life: 0.7 + Math.random() * 0.8,
+            seed: Math.random() * 1600,
+            strength: emission.strength * 0.8 || 0.8,
+            radialBias: 0.6 + Math.random() * 0.5,
+            spinDir: Math.random() < 0.5 ? -1 : 1,
+            flowDir: flowDir
+        });
+    }
+
+    updateHeatHaze(now, paddle, rageLevel) {
+        this.hazeTime += 0.016;
+        const spawnRate = 18 + rageLevel * 24;
+        if (now % (1000 / spawnRate) < 16) {
+            this.spawnHeatHaze(paddle, rageLevel);
+        }
+
+        for (let i = this.heatHazeParticles.length - 1; i >= 0; i--) {
+            const h = this.heatHazeParticles[i];
+            h.life -= 0.014;
+            h.x += Math.sin(this.hazeTime * 2.1 + h.seed) * 0.6;
+            h.y += Math.sin(this.hazeTime * 1.5 + h.seed * 1.3) * 0.45;
+            h.distort += (Math.random() - 0.5) * 0.10;
+            h.size *= 1.008;
+
+            if (h.life <= 0) {
+                this.heatHazeParticles.splice(i, 1);
+            }
+        }
+
+        if (this.heatHazeParticles.length > this.maxHazeParticles) {
+            this.heatHazeParticles.splice(0, 4);
+        }
+    }
+
+    spawnHeatHaze(paddle, rageLevel) {
+        const cx = paddle.pos.x + paddle.w * 0.5;
+        const cy = paddle.pos.y + paddle.h * 0.5;
+        this.heatHazeParticles.push({
+            x: cx + (Math.random() - 0.5) * paddle.w * 1.3,
+            y: cy + (Math.random() - 0.5) * paddle.h * 1.1,
+            size: 18 + Math.random() * 24,
+            life: 1.0 + Math.random() * 0.7,
+            seed: Math.random() * 2000,
+            distort: 0,
+            intensity: 0.3 + rageLevel * 0.45
+        });
+    }
+
+    renderHeatHaze(ctx, paddle, rageLevel, now) {
+        if (!this.heatHazeParticles.length) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.10 + rageLevel * 0.14;
+
+        for (const h of this.heatHazeParticles) {
+            const alpha = h.life * (0.4 + rageLevel * 0.25);
+            const distort = h.distort * 8;
+
+            ctx.beginPath();
+            ctx.ellipse(
+                h.x,
+                h.y,
+                h.size * (1 + Math.sin(now * 0.003 + h.seed) * 0.10),
+                h.size * 0.65 * (1 + Math.cos(now * 0.004 + h.seed * 1.4) * 0.08),
+                Math.sin(now * 0.001 + h.seed) * 0.3,
+                0,
+                Math.PI * 2
+            );
+
+            const grad = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.size * 1.1);
+            grad.addColorStop(0,   `rgba(255, 160, 50, ${alpha * 0.7})`);
+            grad.addColorStop(0.5, `rgba(220, 100, 30, ${alpha * 0.4})`);
+            grad.addColorStop(0.8, `rgba(160,  50, 15, ${alpha * 0.12})`);
+            grad.addColorStop(1,   'rgba(100,  20, 10, 0)');
+
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            ctx.globalAlpha *= 0.4;
+            ctx.fillStyle = `rgba(255, 200, 120, ${alpha * 0.3})`;
+            ctx.fill();
+            ctx.globalAlpha = 0.10 + rageLevel * 0.14;
+        }
+        ctx.restore();
+    }
+
+    renderFullAura(ctx, paddle, rageLevel, now) {
+        if (!paddle) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.03 + rageLevel * 0.07;
+
+        const cx = paddle.pos.x + paddle.w * 0.5;
+        const cy = paddle.pos.y + paddle.h * 0.5;
+        const radius = Math.max(paddle.w, paddle.h) * 0.65;
+
+        const grad = ctx.createRadialGradient(cx, cy, paddle.w * 0.15, cx, cy, radius);
+        grad.addColorStop(0, 'rgba(255,100,50,0.45)');
+        grad.addColorStop(1, 'rgba(255,100,50,0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    renderWrappingCore(ctx, paddle, rageLevel, now) {
+        const cx = paddle.pos.x + paddle.w / 2;
+        const by = paddle.pos.y;
+        const flicker = Math.sin(now * 0.008) * 3 + Math.sin(now * 0.018) * 4.5;
+        const h = 38 + rageLevel * 90;
+        const w = paddle.w * (1.05 + rageLevel * 0.9);
+
+        const grad = ctx.createRadialGradient(cx, by - h * 0.28, 12, cx, by - h * 0.22, w * 1.0);
+        grad.addColorStop(0, 'rgba(255,240,210,0.85)');
+        grad.addColorStop(0.25, 'rgba(255,190,70,0.75)');
+        grad.addColorStop(0.55, 'rgba(240,100,20,0.55)');
+        grad.addColorStop(0.85, 'rgba(200,30,0,0.25)');
+        grad.addColorStop(1, 'rgba(160,0,0,0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(cx, by - h * 0.38 + flicker * 0.3, w * 0.45, h * 0.78, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    renderRodClimbingFlames(ctx, paddle, rageLevel, now) {
+        const rodW = paddle.w * 0.35;
+        const rodX = paddle.pos.x + (paddle.w - rodW) / 2;
+        const rodTop = paddle.pos.y - paddle.h * 1.32;
+
+        ctx.shadowBlur = 24 + rageLevel * 18;
+        ctx.shadowColor = '#ff8800';
+
+        for (let side = -1; side <= 1; side += 2) {
+            for (let i = 0; i < 3 + Math.floor(rageLevel * 1.8); i++) {
+                const sway = Math.sin(now * 0.007 + i * 2.1) * (9 + rageLevel * 15);
+                const startX = rodX + (side > 0 ? rodW : 0) + side * 1.5;
+                const height = 32 + rageLevel * 55 + i * 12;
+
+                const g = ctx.createLinearGradient(startX, paddle.pos.y, startX + sway * 0.6, rodTop + i * 18);
+                g.addColorStop(0, '#ffeecc');
+                g.addColorStop(0.6, '#ff9944');
+                g.addColorStop(1, 'rgba(240,50,0,0)');
+
+                ctx.strokeStyle = g;
+                ctx.lineWidth = 8 + rageLevel * 6;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(startX, paddle.pos.y - 5);
+                ctx.quadraticCurveTo(startX + sway * 0.25, paddle.pos.y - height * 0.42, startX + sway, rodTop + i * 15);
+                ctx.stroke();
+            }
+        }
+    }
+
+    ensureFallbackParticleSprite() {
+        if (this.fallbackSprite) return;
+        const size = 48;
+        const c = document.createElement('canvas');
+        c.width = size;
+        c.height = size;
+        const g = c.getContext('2d');
+        const grad = g.createRadialGradient(size*0.5, size*0.5, 1, size*0.5, size*0.5, size*0.5);
+        grad.addColorStop(0, 'rgba(255,240,200,0.95)');
+        grad.addColorStop(0.5, 'rgba(255,140,40,0.75)');
+        grad.addColorStop(1, 'rgba(240,30,0,0)');
+        g.fillStyle = grad;
+        g.beginPath();
+        g.arc(size*0.5, size*0.5, size*0.5, 0, Math.PI*2);
+        g.fill();
+        this.fallbackSprite = c;
+    }
+
+    // Minimal stubs for PIXI-related methods (not changing behavior)
+    initPixi(ctx) { /* skipped for preview */ }
+    resizePixiIfNeeded(ctx) { /* skipped */ }
+    renderPixiParticles(ctx, rageLevel, now) { /* fallback to canvas */ this.renderCanvasParticles(ctx, now); }
+    renderCanvasParticles(ctx, now) {
+        this.ensureFallbackParticleSprite();
+        const t = now * 0.012;
+        const flicker = 0.7 + Math.sin(t * 3.5) * 0.3;
+
+        for (let i = 0; i < this.particles.length; i++) {
+            const p = this.particles[i];
+            const alpha = p.life * p.strength * flicker * 0.95;
+            const drawSize = p.size * 2;
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(this.fallbackSprite, p.x - drawSize * 0.5, p.y - drawSize * 0.5, drawSize, drawSize);
+        }
+    }
+
+    renderWrappingParticles(ctx, rageLevel, now) {
+        this.renderCanvasParticles(ctx, now);
+    }
+
+    render(ctx, paddle, rageLevel, now) {
+        if (!areParticleEffectsEnabled()) return false;
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+
+        this.renderHeatHaze(ctx, paddle, rageLevel, now);
+        this.renderFullAura(ctx, paddle, rageLevel, now);
+        this.renderWrappingCore(ctx, paddle, rageLevel, now);
+        this.renderRodClimbingFlames(ctx, paddle, rageLevel, now);
+        this.renderWrappingParticles(ctx, rageLevel, now);
+
+        ctx.restore();
+        return true;
+    }
+}
+
+// minimal stub
+class AIController {
+    constructor(paddle, ball, width, height, difficulty) {
+        this.paddle = paddle;
+    }
+    update(dt) {}
+    reset() {}
+}
+
+// ZombieBoss – using toned-down renderer
+class ZombieBoss {
+    constructor(paddle, ball, game) {
+        this.paddle = paddle;
+        this.ball = ball;
+        this.game = game;
+
+        if (this.paddle && typeof this.paddle.setZombieBossSkin === 'function') {
+            this.paddle.setZombieBossSkin(true);
+        } else if (this.paddle) {
+            this.paddle.isZombieBoss = true;
+            this.paddle.primaryColor = '#66ff66';
+            this.paddle.secondaryColor = this.paddle._adjustColor('#66ff66', 1.5);
+            this.paddle.accentColor = this.paddle._adjustColor('#66ff66', 0.7);
+            this.paddle.color = this.paddle.primaryColor;
+        }
+
+        this.originalPaddleWidth = paddle.w;
+        this.originalPaddleHeight = paddle.h;
+        this.targetPaddleWidth = this.originalPaddleWidth;
+        this.paddleRecoverySpeed = 80;
+        this.paddleRecoveryDelay = 1.2;
+        this.recoveryTimer = 0;
+
+        this.aiController = new AIController(paddle, ball, game.width, game.height, 3);
+        this.aiController.voice = null;
+
+        this.rageLevel = 0;
+        this.phase = 1;
+
+        this.spriteFire = new SpriteFireRenderer({ fps: 48 });
+    }
+
+    getPaddleCenter() {
+        return new Vector2(this.paddle.pos.x + this.paddle.w / 2, this.paddle.pos.y + this.paddle.h / 2);
+    }
+
+    update(dt) {
+        if (!dt || dt > 0.1) dt = 0.016;
+        this.aiController.update(dt);
+        if (this.paddle && typeof this.paddle.update === 'function') {
+            this.paddle.update(dt);
+        }
+        if (this.spriteFire && typeof this.spriteFire.update === 'function') {
+            this.spriteFire.update(performance.now(), this.paddle, this.rageLevel);
+        }
+    }
+
+    render(ctx, paddle, rageLevel, now) {
+        if (!ctx) return;
+        if (paddle && typeof paddle.render === 'function') {
+            paddle.render(ctx);
+        }
+        if (this.spriteFire && typeof this.spriteFire.render === 'function') {
+            this.spriteFire.render(ctx, paddle, rageLevel, now || performance.now());
+        }
+        // simple rod glow
+        const p = paddle;
+        const rodWidth = p.w * 0.35;
+        const rodHeight = p.h * 1.3;
+        const rodX = p.pos.x + (p.w - rodWidth) / 2;
+        const rodY = p.pos.y - (rodHeight - p.h) / 2;
+        const grad = ctx.createLinearGradient(rodX, rodY, rodX + rodWidth, rodY);
+        grad.addColorStop(0, '#ff3300');
+        grad.addColorStop(0.5, '#ffaa00');
+        grad.addColorStop(1, '#ff3300');
+        ctx.fillStyle = grad;
+        ctx.fillRect(rodX, rodY, rodWidth, rodHeight);
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = '#ffaa00';
+        ctx.strokeStyle = '#ffaa00';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(rodX, rodY, rodWidth, rodHeight);
+    }
+}
+
+class Paddle {
+  constructor(x,y,w,h,color='#00ffd6',isAI=false){
+    this.baseColor=color;
+    this.pos=new Vector2(x,y);
+    this.w=w;this.h=h;this.isAI=isAI;
+    this.vel=new Vector2(0,0);this.maxSpeed=850;
+    this.primaryColor=color;
+    this.secondaryColor=this._adjustColor(color,1.5);
+    this.accentColor=this._adjustColor(color,0.7);
+    this.color=color;
+    this.isZombieBoss=false;
+    this.particleSystem=new ParticleSystem();
+    this.lastHitTime=0;
+    this.originalHeight=h;this.originalSpeed=850;this.friction=0.9;
+    this.hasLaser=false;this.laserCharges=0;this.lasers=[];
+    this.laserCooldown=0;this.laserStunned=false;this.laserStunTime=0;
+    this.laserChargeIndicator=0;this.laserReadyGlow=0;
+    this.stripeOffset=0;this.glowIntensity=0;this.hitEffectRadius=0;this.powerUpPulse=0;
+    this.energyPulse=0;this.pulseDirection=1;this.lastUpdateTime=Date.now();
+    this.circuitNodes=[];this.circuitSparkTimer=0;this.alivePhase=0;
+    this._initCircuitNodes();
+  }
+  _adjustColor(color,factor){
+    if(color.startsWith('#')){
+      const hex=color.replace('#','');
+      const r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
+      const a=(c)=>Math.min(255,Math.max(0,Math.floor(c*factor)));
+      return `rgb(${a(r)},${a(g)},${a(b)})`;
+    }
+    return color;
+  }
+  _roundRect(ctx,x,y,w,h,r){
+    if(r<0)r=0;if(r>w/2)r=w/2;if(r>h/2)r=h/2;
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+    ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+    ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+    ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+  }
+  _initCircuitNodes(){
+    this.circuitNodes=[];
+    const num=Math.max(3,Math.floor(this.h/24));
+    for(let i=0;i<num;i++){
+      const t=num===1?0.5:i/(num-1);
+      this.circuitNodes.push({x:this.w/2-14,y:-this.h/2+12+t*(this.h-24)});
+    }
+  }
+  update(dt){
+    this.particleSystem.update(dt);
+    if(this.isAI)this.alivePhase+=dt;
+  }
+  render(ctx){
+    const time=Date.now()*0.001;
+    const hitGlow=Math.max(0,1-(Date.now()-this.lastHitTime)/250);
+    const pulse=Math.sin(time*6)*0.5+0.5;
+    const pulseIntensity=Math.sin(time*10)*0.3+0.7;
+    const transformPulse=this.energyPulse+hitGlow;
+    ctx.save();
+    ctx.translate(this.pos.x+this.w/2,this.pos.y+this.h/2);
+    if(this.isAI){
+      const aliveScale=1+Math.sin(this.alivePhase*1.8)*0.015;
+      ctx.scale(aliveScale,aliveScale);
+      this.renderAI(ctx,time,hitGlow,pulse,pulseIntensity,transformPulse);
+    } else {
+      this.renderPlayer(ctx,time,hitGlow,pulse,pulseIntensity,transformPulse);
+    }
+    ctx.restore();
+    this.particleSystem.render(ctx);
+  }
+
+  renderAI(ctx,time,hitGlow,pulse,pulseIntensity,transformPulse){
+    if (this.isZombieBoss) {
+      this.renderZombieBossAI(ctx, time, hitGlow, pulse, pulseIntensity, transformPulse);
+      return;
+    }
+    const halfW=this.w/2,halfH=this.h/2;
+    const shoulder=Math.max(3,Math.min(7,this.w*0.22));
+    const crown=Math.max(10,Math.min(18,this.h*0.12));
+    const waist=Math.max(2,Math.min(6,this.w*0.18));
+    const traceHull=(w=this.w,h=this.h,wm=1)=>{
+      const hw=w/2,hh=h/2;
+      const ls=Math.max(2,Math.min(hw-1,shoulder*(w/this.w)));
+      const lc=Math.max(6,Math.min(hh-6,crown*(h/this.h)));
+      const lw=Math.max(1.5,Math.min(hw-1.5,waist*wm*(w/this.w)));
+      ctx.beginPath();
+      ctx.moveTo(-hw+ls,-hh);ctx.lineTo(hw-ls,-hh);
+      ctx.lineTo(hw,-hh+lc);ctx.lineTo(hw-lw,-hh*0.18);
+      ctx.lineTo(hw-lw*0.7,hh*0.18);ctx.lineTo(hw,hh-lc);
+      ctx.lineTo(hw-ls,hh);ctx.lineTo(-hw+ls,hh);
+      ctx.lineTo(-hw,hh-lc);ctx.lineTo(-hw+lw*0.7,hh*0.18);
+      ctx.lineTo(-hw+lw,-hh*0.18);ctx.lineTo(-hw,-hh+lc);
+      ctx.closePath();
+    };
+    if(transformPulse>0.08){
+      ctx.save();ctx.globalAlpha=Math.min(0.6,transformPulse*0.6);
+      ctx.strokeStyle='rgba(255,120,60,0.16)';ctx.lineWidth=6*transformPulse;
+      ctx.beginPath();ctx.ellipse(0,0,this.w*(0.95+transformPulse*0.2),this.h*(0.9+transformPulse*0.15),0,0,Math.PI*2);ctx.stroke();
+      ctx.restore();
+    }
+    ctx.save();traceHull(this.w+10+transformPulse*8,this.h+12+transformPulse*14,0.9);
+    const sg=ctx.createLinearGradient(0,-halfH,0,halfH);
+    sg.addColorStop(0,'rgba(255,70,40,0.20)');
+    sg.addColorStop(0.5,`rgba(255,40,40,${(0.32+transformPulse*0.16).toFixed(2)})`);
+    sg.addColorStop(1,'rgba(120,10,10,0.10)');
+    ctx.fillStyle=sg;ctx.fill();ctx.restore();
+    traceHull();
+    const hg=ctx.createLinearGradient(-halfW,-halfH,halfW,halfH);
+    hg.addColorStop(0,'#050507');hg.addColorStop(0.45,'#15161d');
+    hg.addColorStop(0.7,'#0b0c10');hg.addColorStop(1,'#020203');
+    ctx.fillStyle=hg;ctx.fill();
+    ctx.save();traceHull();
+    ctx.lineWidth=3;ctx.strokeStyle='rgba(220,30,30,0.95)';
+    ctx.shadowColor='rgba(255,60,40,0.9)';ctx.shadowBlur=12+transformPulse*30;
+    ctx.stroke();ctx.restore();
+    traceHull(this.w*0.7,this.h*0.82,1.25);
+    const ag=ctx.createLinearGradient(0,-halfH*0.82,0,halfH*0.82);
+    ag.addColorStop(0,'#242730');ag.addColorStop(0.48,'#0e1015');
+    ag.addColorStop(0.52,'#1c0e10');ag.addColorStop(1,'#050608');
+    ctx.fillStyle=ag;ctx.fill();
+    const sg2=ctx.createLinearGradient(0,-halfH*0.42,0,halfH*0.42);
+    sg2.addColorStop(0,'rgba(255,150,90,0.9)');sg2.addColorStop(0.2,'rgba(255,60,60,0.95)');
+    sg2.addColorStop(0.5,'rgba(255,220,120,1)');sg2.addColorStop(0.8,'rgba(255,60,60,0.95)');
+    sg2.addColorStop(1,'rgba(255,150,90,0.9)');
+    ctx.fillStyle=sg2;
+    ctx.beginPath();
+    ctx.moveTo(-this.w*0.10,-this.h*0.40);ctx.lineTo(this.w*0.08,-this.h*0.46);
+    ctx.lineTo(this.w*0.14,0);ctx.lineTo(this.w*0.08,this.h*0.46);
+    ctx.lineTo(-this.w*0.10,this.h*0.40);ctx.lineTo(-this.w*0.02,0);
+    ctx.closePath();ctx.fill();
+    const coreScale=1+transformPulse*0.6+Math.sin(time*10)*0.07;
+    const coreR=this.w*0.26*coreScale;
+    const core=ctx.createRadialGradient(0,0,0,0,0,coreR*1.6);
+    core.addColorStop(0,'rgba(255,255,255,1)');core.addColorStop(0.15,'rgba(255,220,80,1)');
+    core.addColorStop(0.4,'rgba(255,40,40,0.95)');core.addColorStop(0.75,'rgba(140,20,20,0.25)');
+    core.addColorStop(1,'transparent');
+    ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,coreR,0,Math.PI*2);ctx.fill();
+    ctx.lineWidth=1.6;
+    const ca=0.45+Math.sin(time*6)*0.25;
+    ctx.strokeStyle=`rgba(0,255,120,${ca.toFixed(2)})`;
+    const nb=Math.max(3,Math.floor(this.h/24));
+    for(let i=0;i<nb;i++){
+      const t=i/(nb-1);
+      const y=-this.h/2+12+t*(this.h-24);
+      const xo=this.w/2-Math.max(3,shoulder*0.9);
+      ctx.beginPath();ctx.moveTo(xo,y);
+      ctx.quadraticCurveTo(xo-this.w*0.35,y+Math.sin(time*2+i)*6,Math.cos(i+time)*4,Math.sin(i*1.2+time)*3);
+      ctx.stroke();
+      ctx.fillStyle=`rgba(255,255,120,${(0.35+Math.abs(Math.sin(time*6+i))*0.6).toFixed(2)})`;
+      ctx.beginPath();ctx.arc(xo-6,y+Math.sin(time*3+i)*2,2.2,0,Math.PI*2);ctx.fill();
+    }
+    ctx.lineWidth=2;
+    for(let a=0;a<3;a++){
+      const ph=time*(3+a)+a*1.37;
+      const ax=Math.cos(ph)*(this.w*0.55),ay=Math.sin(ph*0.9)*(this.h*0.35);
+      const bx=Math.cos(ph+1.2)*(this.w*0.2),by=Math.sin(ph+0.8)*(this.h*0.15);
+      ctx.beginPath();ctx.strokeStyle=`rgba(255,220,90,${(0.6+Math.sin(ph*4)*0.2).toFixed(2)})`;
+      ctx.moveTo(ax,ay);ctx.bezierCurveTo(ax*0.6,ay*0.4,bx*1.2,by*1.4,bx,by);ctx.stroke();
+      ctx.beginPath();ctx.strokeStyle=`rgba(255,80,40,${(0.18+Math.abs(Math.sin(ph*2))*0.1).toFixed(2)})`;
+      ctx.lineWidth=6;ctx.stroke();ctx.lineWidth=2;
+    }
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    traceHull(this.w+14+transformPulse*10,this.h+18+transformPulse*16,0.85);
+    const aura=ctx.createRadialGradient(0,0,coreR*0.1,0,0,Math.max(this.w,this.h)*0.7);
+    aura.addColorStop(0,`rgba(255,60,40,${(0.22+transformPulse*0.18).toFixed(2)})`);
+    aura.addColorStop(0.5,`rgba(255,40,20,${(0.12+transformPulse*0.08).toFixed(2)})`);
+    aura.addColorStop(1,'transparent');
+    ctx.fillStyle=aura;ctx.fill();ctx.restore();
+  }
+
+  renderZombieBossAI(ctx, time, hitGlow, pulse, pulseIntensity, transformPulse) {
+    const halfW = this.w / 2;
+    const halfH = this.h / 2;
+    const jitter = Math.sin(time * 3) * 4;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(-halfW + jitter, -halfH);
+    ctx.lineTo(halfW + Math.sin(time * 2) * 3, -halfH + jitter);
+    ctx.lineTo(halfW - jitter, halfH + Math.cos(time * 2) * 3);
+    ctx.lineTo(-halfW - Math.sin(time * 2) * 3, halfH - jitter);
+    ctx.closePath();
+    const hullGradient = ctx.createLinearGradient(-halfW, -halfH, halfW, halfH);
+    hullGradient.addColorStop(0, '#224422');
+    hullGradient.addColorStop(1, '#112211');
+    ctx.fillStyle = hullGradient;
+    ctx.fill();
+
+    ctx.fillStyle = '#dddddd';
+    for (let i = 0; i < 3; i++) {
+      const x = -halfW + (i + 0.5) * (this.w / 3);
+      ctx.beginPath();
+      ctx.moveTo(x, -halfH);
+      ctx.lineTo(x + 8, -halfH - 20);
+      ctx.lineTo(x - 8, -halfH - 20);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath(); ctx.arc(-this.w * 0.2, -halfH + 12, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(this.w * 0.2, -halfH + 12, 5, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = 'rgba(0,255,0,0.6)';
+    for (let i = 0; i < 3; i++) {
+      const dripX = -halfW + 20 + i * (this.w - 40) / 2 + Math.sin(time * 2 + i) * 10;
+      const dripLen = 20 + Math.sin(time * 3 + i) * 5;
+      ctx.beginPath();
+      ctx.moveTo(dripX, halfH);
+      ctx.bezierCurveTo(dripX + 3, halfH + dripLen / 2, dripX - 3, halfH + dripLen / 2, dripX, halfH + dripLen);
+      ctx.lineTo(dripX + 4, halfH + dripLen - 5);
+      ctx.bezierCurveTo(dripX + 5, halfH + dripLen / 2, dripX - 5, halfH + dripLen / 2, dripX, halfH);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  renderPlayer(ctx,time,hitGlow,pulse,pulseIntensity,transformPulse){
+    ctx.fillStyle='#0D0D14';
+    this._roundRect(ctx,-this.w/2,-this.h/2,this.w,this.h,3);ctx.fill();
+    ctx.fillStyle='#1C1C26';
+    ctx.beginPath();
+    ctx.moveTo(-this.w/2,-this.h/2);ctx.lineTo(this.w/2*0.9,-this.h/2+this.h*0.25);
+    ctx.lineTo(this.w/2*0.9,this.h/2-this.h*0.25);ctx.lineTo(-this.w/2,this.h/2);ctx.closePath();ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(this.w/2,-this.h/2);ctx.lineTo(-this.w/2*0.9,-this.h/2+this.h*0.25);
+    ctx.lineTo(-this.w/2*0.9,this.h/2-this.h*0.25);ctx.lineTo(this.w/2,this.h/2);ctx.closePath();ctx.fill();
+    const hexAlpha=Math.floor(pulse*128+64).toString(16).padStart(2,'0');
+    ctx.strokeStyle=this.primaryColor+hexAlpha;ctx.lineWidth=1.5;
+    const hexSize=16+Math.sin(time*3)*2;
+    for(let y=-this.h/2+hexSize;y<this.h/2;y+=hexSize*1.5){
+      for(let x=-this.w/2+hexSize;x<this.w/2;x+=hexSize*2){
+        const offset=(Math.floor((y+hexSize)/(hexSize*1.5))%2)*hexSize;
+        this._drawHex(ctx,x+offset,y,hexSize*0.85);
+      }
+    }
+    const cs=1+transformPulse*0.6+Math.sin(time*8)*0.1;
+    const core=ctx.createRadialGradient(0,0,0,0,0,this.w*0.4*cs);
+    core.addColorStop(0,'#FFFFFF');core.addColorStop(0.15,this.secondaryColor);
+    core.addColorStop(0.4,this.primaryColor);core.addColorStop(0.8,this.primaryColor+'44');
+    core.addColorStop(1,'#00000000');
+    ctx.fillStyle=core;
+    this._drawAllSpark(ctx,0,0,this.w*0.35*cs);
+    ctx.strokeStyle=this.secondaryColor;ctx.lineWidth=3+transformPulse*12;
+    ctx.globalAlpha=0.7+pulse*0.3;
+    ctx.strokeRect(-this.w/2+6,-this.h/2+6,this.w-12,this.h-12);ctx.globalAlpha=1;
+    const wa=(color,alpha)=>{
+      const rgb=color.replace(/[^\d,]/g,'').split(',').map(Number);
+      return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+    };
+    const tl=ctx.createLinearGradient(0,-this.h/2,0,-this.h/2+30);
+    tl.addColorStop(0,wa(this.secondaryColor,1));tl.addColorStop(1,wa(this.secondaryColor,0));
+    ctx.fillStyle=tl;ctx.fillRect(-this.w/2,-this.h/2,this.w,30);
+    const bl=ctx.createLinearGradient(0,this.h/2,0,this.h/2-30);
+    bl.addColorStop(0,wa(this.secondaryColor,1));bl.addColorStop(1,wa(this.secondaryColor,0));
+    ctx.fillStyle=bl;ctx.fillRect(-this.w/2,this.h/2-30,this.w,30);
+    if(this.powerUpPulse>0){
+      ctx.lineWidth=8;ctx.strokeStyle='#00FFFF';ctx.globalAlpha=this.powerUpPulse;
+      for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(0,0,this.w*0.7+i*30+this.powerUpPulse*100,0,Math.PI*2);ctx.stroke();}
+      ctx.globalAlpha=1;
+    }
+  }
+
+  _drawHex(ctx,x,y,size){
+    ctx.beginPath();
+    for(let i=0;i<6;i++){
+      const a=Math.PI/3*i+0.1;
+      const hx=x+Math.cos(a)*size,hy=y+Math.sin(a)*size*0.9;
+      if(i===0)ctx.moveTo(hx,hy);else ctx.lineTo(hx,hy);
+    }
+    ctx.closePath();ctx.stroke();
+  }
+
+  _drawAllSpark(ctx,x,y,size){
+    const time=Date.now()*0.001;
+    const points=8,pulsate=Math.sin(time*6)*0.5+0.5;
+    const as=size*(0.9+pulsate*0.1);
+    ctx.save();ctx.translate(x,y);ctx.rotate(time);
+    ctx.beginPath();
+    for(let i=0;i<points;i++){
+      const a1=(i*2)*Math.PI/points,a2=(i*2+1)*Math.PI/points;
+      const x1=Math.cos(a1)*as,y1=Math.sin(a1)*as*1.2;
+      const x2=Math.cos(a2)*as*0.6,y2=Math.sin(a2)*as*0.6*1.2;
+      ctx.lineTo(x1,y1);
+      const cx=Math.cos((a1+Math.PI/points))*as*0.8,cy=Math.sin((a1+Math.PI/points))*as*0.8*1.2;
+      ctx.quadraticCurveTo(cx,cy,x2,y2);
+    }
+    ctx.closePath();
+    const g=ctx.createRadialGradient(0,0,0,0,0,as);
+    g.addColorStop(0,'#FFFFFF');g.addColorStop(0.1,'#FFD700');
+    g.addColorStop(0.3,this.secondaryColor);g.addColorStop(0.6,this.primaryColor+'AA');
+    g.addColorStop(1,this.primaryColor+'00');
+    ctx.fillStyle=g;ctx.fill();
+    ctx.strokeStyle='#FFFFFF';ctx.lineWidth=2;ctx.globalAlpha=0.6;
+    for(let i=0;i<4;i++){
+      const sa=time*2+i*Math.PI/2,sl=as*(0.3+Math.random()*0.2);
+      ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(sa)*sl,Math.sin(sa)*sl);ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+// ─── Setup ───────────────────────────────────────────────────────────────────
+const pCtx = document.getElementById('playerCanvas').getContext('2d');
+const aCtx = document.getElementById('aiCanvas').getContext('2d');
+const zCtx = document.getElementById('zombieCanvas').getContext('2d');
+const PW=300,PH=400,PaddleW=28,PaddleH=160;
+
+const dummyBall = { pos: new Vector2(0,0) };
+const gameStub = { width: PW, height: PH, canvas: null };
+
+const playerPaddle = new Paddle(PW/2-PaddleW/2,PH/2-PaddleH/2,PaddleW,PaddleH,'#00ffd6',false);
+const aiPaddle     = new Paddle(PW/2-PaddleW/2,PH/2-PaddleH/2,PaddleW,PaddleH,'#ff4422',true);
+const zombiePaddle = new Paddle(PW/2-PaddleW/2,PH/2-PaddleH/2,PaddleW,PaddleH,'#66ff66',true);
+
+const zombieBoss = new ZombieBoss(zombiePaddle, dummyBall, gameStub);
+zombieBoss.rageLevel = 1;  // full effect for preview
+
+playerPaddle.hasLaser=true;
+playerPaddle.laserCharges=2;
+
+function drawBG(ctx,w,h,type){
+  ctx.clearRect(0,0,w,h);
+  const bg=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,w*0.8);
+  if(type==='ai'){
+     bg.addColorStop(0,'#120808');bg.addColorStop(1,'#050305');
+  } else if(type==='zombie'){
+     bg.addColorStop(0,'#102010');bg.addColorStop(1,'#050803');
+  } else {
+     bg.addColorStop(0,'#080c14');bg.addColorStop(1,'#030508');
+  }
+  ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+  const strokeCol = type==='ai' ? 'rgba(255,40,20,0.05)' : (type==='zombie' ? 'rgba(0,255,0,0.05)' : 'rgba(0,255,180,0.05)');
+  ctx.strokeStyle=strokeCol;
+  ctx.lineWidth=1;
+  for(let x=0;x<w;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for(let y=0;y<h;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+}
+
+let lastT=0;
+(function loop(t){
+  const dt=Math.min((t-lastT)/1000,0.05);lastT=t;
+  playerPaddle.update(dt);
+  aiPaddle.update(dt);
+  zombieBoss.update(dt);
+
+  drawBG(pCtx,PW,PH,'player'); playerPaddle.render(pCtx);
+  drawBG(aCtx,PW,PH,'ai');    aiPaddle.render(aCtx);
+  drawBG(zCtx,PW,PH,'zombie');
+  zombieBoss.render(zCtx, zombiePaddle, 1, t);
+
+  requestAnimationFrame(loop);
+})(0);
+  </script>
+
+  <script>
+    // Manage active stacking for hover/touch so descriptions are readable on mobile
+    (function(){
+      const cards = Array.from(document.querySelectorAll('.paddle-card'));
+      if (!cards.length) return;
+
+      function clearActive() {
+        cards.forEach(c => c.classList.remove('active'));
+      }
+
+      function setActive(card) {
+        clearActive();
+        card.classList.add('active');
+      }
+
+      cards.forEach(card => {
+        card.addEventListener('mouseenter', () => setActive(card));
+        card.addEventListener('mouseleave', () => { if (!('ontouchstart' in window)) clearActive(); });
+        card.addEventListener('focusin', () => setActive(card));
+        card.addEventListener('focusout', () => { if (!('ontouchstart' in window)) clearActive(); });
+
+        // Touch: first tap reveals description (and brings it to front). Second tap allows interact.
+        card.addEventListener('touchstart', (e) => {
+          if (card.classList.contains('active')) return; // allow native action next
+          e.preventDefault();
+          setActive(card);
+        }, { passive: false });
+      });
+
+      // Clear when tapping outside
+      document.addEventListener('touchstart', (e) => {
+        if (!e.target.closest('.paddle-card')) clearActive();
+      }, { passive: true });
+    })();
+  </script>
+
+</body>
+</html>
