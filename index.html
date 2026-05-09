@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting...</title>
+    <meta http-equiv="refresh" content="0; url=ping_pong.html" />
+    <script>
+      // Preserve query string and hash while redirecting.
+      window.location.replace("ping_pong.html" + window.location.search + window.location.hash);
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to the game...</p>
+    <p>
+      If you are not redirected, open
+      <a href="ping_pong.html">ping_pong.html</a>.
+    </p>
+  </body>
+</html>
