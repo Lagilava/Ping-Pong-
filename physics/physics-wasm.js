@@ -354,6 +354,9 @@
         };
 
         console.info('[WasmPhysics] Ready. physics.wasm loaded successfully.');
+        if (!_gravityWellApply) {
+            console.warn('[WasmPhysics] gravity_well_apply not available in WASM - gravity mode will use JS fallback.');
+        }
     }
 
     // Kick off — defer until after the game scripts are parsed
