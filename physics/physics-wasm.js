@@ -90,8 +90,13 @@
         const _integrate = module.cwrap('ball_integrate', 'number', ['number', 'number', 'number']);
         const _collide   = module.cwrap('ball_paddle_collide', 'number',
                                         ['number','number','number','number','number','number','number','number','number','number']);
-        const _gravityWellApply = module.cwrap('gravity_well_apply', 'number',
+        let _gravityWellApply = null;
+        try {
+            _gravityWellApply = module.cwrap('gravity_well_apply', 'number',
                                         ['number','number','number','number','number','number','number']);
+        } catch (_) {
+            _gravityWellApply = null;
+        }
         const _predict   = module.cwrap('predict_ball_y', 'number',
                                         ['number','number','number','number','number','number',
                                          'number','number','number','number','number']);
@@ -275,6 +280,10 @@
         }
 
         function applyGravityWell(ball, wellX, wellY, pullRadiusSq, strength, dt, minDistanceSq) {
+            // Gravity well function may not be available in all WASM builds
+            if (!_gravityWellApply) {
+                return false;
+            }
             writeState(ball);
             const affected = _gravityWellApply(
                 statePtr,
