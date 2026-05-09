@@ -2172,7 +2172,7 @@
     display: none;
     justify-content: center;
     align-items: center;
-    z-index: 100006;
+    z-index: 1000000;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
 }

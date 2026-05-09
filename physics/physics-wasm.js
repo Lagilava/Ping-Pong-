@@ -31,6 +31,12 @@
     const WASM_STATE_FLOATS = 11;   // number of floats in the state array
     const FLOAT_BYTES       = 4;
     const isFileProtocol    = window.location.protocol === 'file:';
+    const bridgeScriptUrl   = document.currentScript?.src || new URL('physics-wasm.js', document.baseURI).href;
+    const physicsBaseUrl    = new URL('.', bridgeScriptUrl);
+
+    function physicsAssetUrl(path) {
+        return new URL(path, physicsBaseUrl).href;
+    }
 
     // ── Lazy init: wait until the page is ready ─────────────────────────────
     window.WasmPhysics = {
@@ -40,7 +46,7 @@
 
     async function loadPhysicsModuleFactory() {
         try {
-            const namespace = await import('./physics.js');
+            const namespace = await import(physicsAssetUrl('physics.js'));
             const importedFactory = namespace?.default || namespace?.PhysicsModule;
             if (typeof importedFactory === 'function') {
                 return importedFactory;
@@ -55,10 +61,10 @@
 
         await new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'physics/physics.js';
+            script.src = physicsAssetUrl('physics.js');
             script.async = true;
             script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Failed to load physics/physics.js'));
+            script.onerror = () => reject(new Error(`Failed to load ${script.src}`));
             document.head.appendChild(script);
         });
 
@@ -80,7 +86,11 @@
         let module;
         try {
             const PhysicsModuleFactory = await loadPhysicsModuleFactory();
-            module = await PhysicsModuleFactory();
+            module = await PhysicsModuleFactory({
+                locateFile(path) {
+                    return physicsAssetUrl(path);
+                },
+            });
         } catch (err) {
             console.warn('[WasmPhysics] Failed to load physics.wasm — using JS fallback.', err);
             return;
@@ -97,6 +107,7 @@
         } catch (_) {
             _gravityWellApply = null;
         }
+        const hasGravityWellWasm = typeof _gravityWellApply === 'function';
         const _predict   = module.cwrap('predict_ball_y', 'number',
                                         ['number','number','number','number','number','number',
                                          'number','number','number','number','number']);
@@ -280,10 +291,43 @@
         }
 
         function applyGravityWell(ball, wellX, wellY, pullRadiusSq, strength, dt, minDistanceSq) {
-            // Gravity well function may not be available in all WASM builds
-            if (!_gravityWellApply) {
+            if (!ball?.pos || !ball?.vel || pullRadiusSq <= 0 || dt <= 0) {
                 return false;
             }
+
+            if (!hasGravityWellWasm) {
+                const dx = wellX - ball.pos.x;
+                const dy = wellY - ball.pos.y;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq >= pullRadiusSq || distSq <= minDistanceSq) {
+                    return false;
+                }
+
+                const invDist = 1 / Math.sqrt(distSq);
+                const pullRatio = Math.max(0, 1 - (distSq / pullRadiusSq));
+                const smooth = pullRatio * pullRatio;
+                const forceCap = Math.max(420, Math.min(1600, strength * 0.06));
+                const force = Math.min(strength * smooth, forceCap);
+                const accel = force * dt;
+
+                ball.vel.x += dx * invDist * accel;
+                ball.vel.y += dy * invDist * accel;
+
+                let speedSq = ball.vel.x * ball.vel.x + ball.vel.y * ball.vel.y;
+                const maxSpeed = ball.maxSpeed || 1400;
+                const maxSpeedSq = maxSpeed * maxSpeed;
+                if (speedSq > maxSpeedSq && speedSq > 1e-10) {
+                    const scale = maxSpeed / Math.sqrt(speedSq);
+                    ball.vel.x *= scale;
+                    ball.vel.y *= scale;
+                    speedSq = maxSpeedSq;
+                }
+
+                ball._speed = Math.sqrt(speedSq);
+                return true;
+            }
+
             writeState(ball);
             const affected = _gravityWellApply(
                 statePtr,
@@ -350,10 +394,16 @@
             resolvePaddleCollision,
             applyGravityWell,
             updateFireTongues,
+            features: {
+                gravityWellWasm:     hasGravityWellWasm,
+            },
             _module:                 module,  // raw Emscripten module (advanced use)
         };
 
         console.info('[WasmPhysics] Ready. physics.wasm loaded successfully.');
+        if (!hasGravityWellWasm) {
+            console.info('[WasmPhysics] gravity_well_apply export not found; gravity wells are using the JS bridge fallback until physics.wasm is rebuilt.');
+        }
     }
 
     // Kick off — defer until after the game scripts are parsed

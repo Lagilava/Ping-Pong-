@@ -5,7 +5,7 @@ class EnhancedAudioEngine {
         this.masterGain = null;
         this.masterVolume = 0.7;
         this.initialized = false;
-        this.enabled = false;
+        this.enabled = true; // Start enabled by default
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         this.activeGravityWells = new Map();
         this.gravitySyncInterval = null;
@@ -2608,14 +2608,12 @@ function enhanceGameAudio() {
 
         console.log('✅ Game audio enhanced with bass-heavy effects!');
 
-        // Auto-enable audio after a short delay
-        setTimeout(() => {
-            if (!enhancedAudio.enabled) {
-                enhancedAudio.enable().then(() => {
-                    console.log('🔊 Bass-enhanced audio auto-enabled');
-                }).catch(console.warn);
-            }
-        }, 1000);
+        // Ensure audio context is initialized
+        enhancedAudio.ensureContext?.().then(() => {
+            console.log('🔊 Bass-enhanced audio context initialized');
+        }).catch(err => {
+            console.warn('Audio context initialization note:', err?.message);
+        });
 
     } catch (error) {
         console.error('❌ Failed to enhance game audio:', error);
@@ -2868,13 +2866,22 @@ function addEnhancedAudioControlsToCyberBar() {
         handleSlider('music', value => audio.setMusicVolume?.(value / 100));
         handleSlider('voice', value => audio.setVoiceVolume?.(value / 100));
 
-        audioToggle.addEventListener('click', () => {
-            if (audio.enabled) {
-                audio.disable?.();
-            } else {
-                audio.enable?.().catch(console.warn);
+        audioToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                if (audio.enabled) {
+                    audio.disable?.();
+                } else {
+                    const enablePromise = audio.enable?.();
+                    if (enablePromise && typeof enablePromise.then === 'function') {
+                        enablePromise.catch(console.warn);
+                    }
+                }
+                setTimeout(syncValues, 80);
+            } catch (err) {
+                console.error('Audio toggle error:', err);
             }
-            setTimeout(syncValues, 80);
             showCyberBarTemporarily();
         });
 
@@ -2892,11 +2899,17 @@ function addEnhancedAudioControlsToCyberBar() {
             showCyberBarTemporarily();
         });
 
-        testButton.addEventListener('click', () => {
-            if (audio.enabled) {
-                audio.testAllSounds?.();
-                const voice = audio.getVoiceController?.();
-                if (voice && !audio.voiceMuted) voice.speak?.('Audio systems online.', true);
+        testButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+                if (audio.enabled) {
+                    audio.testAllSounds?.();
+                    const voice = audio.getVoiceController?.();
+                    if (voice && !audio.voiceMuted) voice.speak?.('Audio systems online.', true);
+                }
+            } catch (err) {
+                console.error('Test button error:', err);
             }
             showCyberBarTemporarily();
         });
@@ -2934,11 +2947,12 @@ function injectCyberAudioStyles() {
     style.textContent = `
         #cyber-audio-controls {
             --viz-glow: 0.3;
-            margin-left: 14px;
-            padding: 14px 0 14px 16px;
-            border-left: 1px solid rgba(255,255,255,0.18);
-            min-width: 320px;
-            max-width: 440px;
+            margin-left: 0;
+            padding: 16px;
+            border-left: none;
+            min-width: auto;
+            width: 100%;
+            max-width: 100%;
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -3102,16 +3116,42 @@ function injectCyberAudioStyles() {
             background: linear-gradient(135deg, rgba(56, 10, 10, 0.78), rgba(92, 16, 28, 0.72));
             box-shadow: 0 0 18px rgba(255, 66, 66, 0.16);
         }
+        #cyber-control-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0;
+            background: linear-gradient(135deg, rgba(12, 28, 48, 0.94), rgba(8, 18, 32, 0.96));
+            border: 1px solid rgba(80, 190, 255, 0.28);
+            border-radius: 18px;
+            box-shadow: 0 8px 40px rgba(0, 100, 200, 0.22), inset 0 1px 0 rgba(255,255,255,0.05);
+            backdrop-filter: blur(8px);
+            min-width: 360px;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 999998;
+            opacity: 0;
+            transform: translateX(-50%) scale(0.95);
+            pointer-events: none;
+            transition: opacity 300ms cubic-bezier(0.34, 1.56, 0.64, 1), transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
         @media (max-width: 900px) {
             #cyber-control-bar {
-                flex-wrap: wrap;
+                bottom: 10px;
+                left: 50%;
+                max-width: 90vw;
+                min-width: 280px;
             }
             #cyber-audio-controls {
                 width: 100%;
                 margin-left: 0;
-                padding: 12px 0 0;
+                padding: 12px;
                 border-left: none;
-                border-top: 1px solid rgba(255,255,255,0.18);
+                border-top: none;
                 min-width: 0;
                 max-width: none;
             }
@@ -3126,23 +3166,31 @@ function injectCyberAudioStyles() {
     document.head.appendChild(style);
 }
 
+let cyberBarHideTimeout = null;
+
 function showCyberBarTemporarily() {
     try {
         const cyberBar = document.getElementById('cyber-control-bar');
-        if (cyberBar) {
-            cyberBar.style.opacity = '1';
-            cyberBar.style.transform = 'translateX(-50%) scale(1)';
-            cyberBar.style.pointerEvents = 'auto';
-            setTimeout(() => {
-                if (cyberBar.style.opacity === '1') {
-                    cyberBar.style.opacity = '0';
-                    cyberBar.style.transform = 'translateX(-50%) scale(0.95)';
-                    cyberBar.style.pointerEvents = 'none';
-                }
-            }, 3000);
-        }
+        if (!cyberBar) return;
+        
+        // Clear any pending hide
+        if (cyberBarHideTimeout) clearTimeout(cyberBarHideTimeout);
+        
+        // Show immediately
+        cyberBar.style.opacity = '1';
+        cyberBar.style.transform = 'translateX(-50%) scale(1)';
+        cyberBar.style.pointerEvents = 'auto';
+        
+        // Hide after 3 seconds
+        cyberBarHideTimeout = setTimeout(() => {
+            if (cyberBar && cyberBar.style.opacity === '1') {
+                cyberBar.style.opacity = '0';
+                cyberBar.style.transform = 'translateX(-50%) scale(0.95)';
+                cyberBar.style.pointerEvents = 'none';
+            }
+        }, 3000);
     } catch (e) {
-        // Silently fail
+        console.debug('Cyberbar show error:', e?.message);
     }
 }
 

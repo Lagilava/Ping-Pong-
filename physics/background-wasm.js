@@ -9,6 +9,12 @@
     let disabledReason = null;
     let idCounter = 1;
     const pending = new Map();
+    const bridgeScriptUrl = document.currentScript?.src || new URL('background-wasm.js', document.baseURI).href;
+    const physicsBaseUrl = new URL('.', bridgeScriptUrl);
+
+    function physicsAssetUrl(path) {
+        return new URL(path, physicsBaseUrl).href;
+    }
 
     function ensureWorker() {
         if (disabledReason) {
@@ -18,7 +24,7 @@
 
         try {
             // Use a classic worker so we can reliably load UMD-style wasm glue.
-            worker = new Worker('./physics/background-worker.js');
+            worker = new Worker(physicsAssetUrl('background-worker.js'));
         } catch (error) {
             disabledReason = '[BackgroundWasm] Worker bridge unavailable; JS background renderer fallback active.';
             ready = false;
@@ -111,4 +117,7 @@
     }
 
     window.BackgroundWasmSim = BackgroundWasmSim;
+    window.dispatchEvent(new CustomEvent('backgroundWasmReady', {
+        detail: BackgroundWasmSim.getStatus(),
+    }));
 })();
