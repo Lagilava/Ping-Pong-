@@ -401,9 +401,6 @@
         };
 
         console.info('[WasmPhysics] Ready. physics.wasm loaded successfully.');
-        if (!hasGravityWellWasm) {
-            console.info('[WasmPhysics] gravity_well_apply export not found; gravity wells are using the JS bridge fallback until physics.wasm is rebuilt.');
-        }
     }
 
     // Kick off — defer until after the game scripts are parsed
