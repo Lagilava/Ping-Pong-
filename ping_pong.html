@@ -5617,6 +5617,45 @@
             touch-action: none;
         }
 
+        /* The neon UI shares a paint layer with the canvas, so Chrome re-rasterises
+           every text-shadow/box-shadow glow each time the game repaints underneath.
+           Promoting these panels to their own compositor layers keeps the look but
+           paints them once instead of every frame. */
+        .hud,
+        .cyber-bar,
+        .achievements,
+        .zombie-progress-overlay {
+            will-change: transform;
+            transform: translateZ(0);
+            contain: paint;
+        }
+
+        /* Last resort on weak hardware: PerfGovernor adds this class at the lower
+           quality tiers, dropping the DOM glow (the single most expensive UI effect)
+           while leaving the canvas untouched. */
+        body.pp-lowfx .hud,
+        body.pp-lowfx .hud *,
+        body.pp-lowfx .cyber-bar,
+        body.pp-lowfx .cyber-bar *,
+        body.pp-lowfx .achievements,
+        body.pp-lowfx .achievements * {
+            text-shadow: none !important;
+            box-shadow: none !important;
+        }
+
+        #c3d {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            z-index: 1;
+        }
+
+        #c3d[hidden] {
+            display: none;
+        }
+
 
         .hud {
             position: absolute;
@@ -8908,6 +8947,9 @@
 <body class="force-menu-bg-motion">
     <div class="game-container">
         <canvas id="c"></canvas>
+        <!-- 2.5D playfield. Sits over #c and is only shown when 3D mode is on, so the
+             2D renderer stays a working fallback. -->
+        <canvas id="c3d" hidden></canvas>
         <div class="speed-lines" id="speedLines"></div>
         <div class="zombie-progress-overlay" id="zombieProgressOverlay" aria-hidden="true">
             <div class="zombie-progress-pill" id="zombieProgressWave">Wave <strong>1/10</strong></div>
@@ -9307,6 +9349,10 @@
     <script>
         window.game = null;
         window.PP_RUNTIME_SETTINGS = window.PP_RUNTIME_SETTINGS || { disableParticles: false };
+        // ctx -> (geometry key -> CanvasGradient), for the zombie hand phalanx renderer.
+        const ZOMBIE_PHALANX_GRADS = new WeakMap();
+        // geometry key -> baked phalanx sprite, shared across contexts.
+        const ZOMBIE_PHALANX_SPRITES = new Map();
         window.__ppLastMatchAchievements = window.__ppLastMatchAchievements || [];
         window.__ppLastMatchAchievementIndex = window.__ppLastMatchAchievementIndex || 0;
         window.__ppMenuRecentAchievements = window.__ppMenuRecentAchievements || [];
@@ -9339,6 +9385,82 @@
         function areParticleEffectsEnabled() {
             return !window.PP_RUNTIME_SETTINGS?.disableParticles;
         }
+
+        // ===================================================================
+        // ADAPTIVE QUALITY
+        // Glow (ctx.shadowBlur) is the dominant per-frame cost: it forces a CPU-side
+        // blur of every shape drawn with it. Rather than gate ~130 call sites, we
+        // shadow the shadowBlur accessor on the game context and scale every write
+        // by the current tier. Tier 1 is the authored look; lower tiers shed glow
+        // first, then particles, when frames run long.
+        // ===================================================================
+        const PerfGovernor = {
+            TIERS: [
+                { name: 'high', glow: 1.0, particles: 1.0 },
+                { name: 'medium', glow: 0.5, particles: 0.6 },
+                { name: 'low', glow: 0.0, particles: 0.35 },
+            ],
+            tier: 0,
+            _samples: [],
+            _cooldown: 0,
+            _locked: false, // set true if the player picks a tier by hand
+
+            get glowScale() { return this.TIERS[this.tier].glow; },
+            get particleScale() { return this.TIERS[this.tier].particles; },
+            get tierName() { return this.TIERS[this.tier].name; },
+
+            setTier(i) {
+                this.tier = Math.max(0, Math.min(this.TIERS.length - 1, i));
+                this._locked = true;
+                this._applyTier();
+            },
+
+            // DOM glow is the most expensive UI effect, so shed it below the top tier.
+            _applyTier() {
+                document.body?.classList.toggle('pp-lowfx', this.tier > 0);
+            },
+
+            // Called once per rendered frame with the frame's duration in ms.
+            sample(dtMs) {
+                if (this._locked || !(dtMs > 0) || dtMs > 500) return; // ignore tab-out stalls
+                const s = this._samples;
+                s.push(dtMs);
+                if (s.length < 45) return;
+
+                const sorted = [...s].sort((a, b) => a - b);
+                const median = sorted[sorted.length >> 1];
+                s.length = 0;
+
+                if (this._cooldown > 0) { this._cooldown--; return; }
+
+                // Hysteresis: drop a tier well past 60fps budget, only climb back when
+                // there is real headroom, so the tier cannot oscillate frame to frame.
+                if (median > 22 && this.tier < this.TIERS.length - 1) {
+                    this.tier++;
+                    this._cooldown = 2;
+                    this._applyTier();
+                } else if (median < 13 && this.tier > 0) {
+                    this.tier--;
+                    this._cooldown = 2;
+                    this._applyTier();
+                }
+            },
+
+            // Shadow the accessor on this specific context instance.
+            attach(ctx) {
+                if (!ctx || ctx.__ppGlowGoverned) return;
+                const desc = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur');
+                if (!desc || !desc.set) return;
+                const gov = this;
+                Object.defineProperty(ctx, 'shadowBlur', {
+                    get() { return desc.get.call(this); },
+                    set(v) { desc.set.call(this, v > 0 ? v * gov.glowScale : v); },
+                    configurable: true,
+                });
+                ctx.__ppGlowGoverned = true;
+            },
+        };
+        window.PerfGovernor = PerfGovernor;
 
         //Vector class
         class Vec2 {
@@ -11664,7 +11786,71 @@
                 ctx.restore();
             }
 
+            // Phalanx gradients use only local coordinates and fixed colours, so for a
+            // given geometry they are identical every frame. Cache per context; a
+            // CanvasGradient is bound to the context that created it.
+            _phalanxGradient(ctx, key, build) {
+                let perCtx = ZOMBIE_PHALANX_GRADS.get(ctx);
+                if (!perCtx) {
+                    perCtx = new Map();
+                    ZOMBIE_PHALANX_GRADS.set(ctx, perCtx);
+                }
+                let grad = perCtx.get(key);
+                if (!grad) {
+                    grad = build();
+                    perCtx.set(key, grad);
+                }
+                return grad;
+            }
+
+            // A phalanx's own shading is fixed for a given geometry + light angle: the
+            // animation lives in the finger joint rotations, not inside the segment. So
+            // bake each distinct segment into a sprite once and blit it thereafter,
+            // instead of replaying ~6 layered fills/strokes per segment per frame.
             _drawZombiePhalanx(ctx, len, wb, wt, opt = {}) {
+                const {
+                    nailW = 8, lightAngle = 0, sssAmt = 0,
+                    knuckleBase = false, knuckleTip = false, nail = false,
+                    bone = false, wound = -1,
+                } = opt;
+
+                // Light angle and sss are continuous; quantise so the cache stays bounded.
+                const qAngle = Math.round(lightAngle / (Math.PI / 16)) * (Math.PI / 16);
+                const qSss = Math.round(sssAmt * 10) / 10;
+                const key = `${len}|${wb}|${wt}|${nailW}|${qAngle.toFixed(3)}|${qSss}|${knuckleBase ? 1 : 0}${knuckleTip ? 1 : 0}${nail ? 1 : 0}${bone ? 1 : 0}|${wound}`;
+
+                let sprite = ZOMBIE_PHALANX_SPRITES.get(key);
+                if (!sprite) {
+                    const wb2 = wb / 2;
+                    // Local drawing bounds: the widest fill is the base at ±wb2, the bone
+                    // stub reaches -len-11, and knuckle ellipses extend a little past y=0.
+                    const pad = 6;
+                    const minX = -(wb2 + pad);
+                    const minY = -len - 13 - pad;
+                    const maxX = wb2 + pad;
+                    const maxY = wb * 0.25 + pad;
+                    const cw = Math.max(1, Math.ceil(maxX - minX));
+                    const ch = Math.max(1, Math.ceil(maxY - minY));
+
+                    // Supersample: hands are scaled up on screen, so bake at 2x to keep edges crisp.
+                    const SS = 2;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = cw * SS;
+                    canvas.height = ch * SS;
+                    const sctx = canvas.getContext('2d');
+                    sctx.scale(SS, SS);
+                    sctx.translate(-minX, -minY);
+                    this._paintZombiePhalanx(sctx, len, wb, wt, { ...opt, lightAngle: qAngle, sssAmt: qSss });
+
+                    sprite = { canvas, minX, minY, cw, ch };
+                    if (ZOMBIE_PHALANX_SPRITES.size > 400) ZOMBIE_PHALANX_SPRITES.clear();
+                    ZOMBIE_PHALANX_SPRITES.set(key, sprite);
+                }
+
+                ctx.drawImage(sprite.canvas, sprite.minX, sprite.minY, sprite.cw, sprite.ch);
+            }
+
+            _paintZombiePhalanx(ctx, len, wb, wt, opt = {}) {
                 const {
                     knuckleBase = false,
                     knuckleTip = false,
@@ -11687,11 +11873,14 @@
 
                 // Base skin layer
                 skinPath();
-                const base = ctx.createLinearGradient(-wb2, 0, wb2, 0);
-                base.addColorStop(0, '#3a4a26');
-                base.addColorStop(0.28, '#253018');
-                base.addColorStop(0.62, '#18240f');
-                base.addColorStop(1, '#121a0a');
+                const base = this._phalanxGradient(ctx, `b${wb2}`, () => {
+                    const g = ctx.createLinearGradient(-wb2, 0, wb2, 0);
+                    g.addColorStop(0, '#3a4a26');
+                    g.addColorStop(0.28, '#253018');
+                    g.addColorStop(0.62, '#18240f');
+                    g.addColorStop(1, '#121a0a');
+                    return g;
+                });
                 ctx.fillStyle = base;
                 ctx.fill();
 
@@ -11701,19 +11890,28 @@
 
                 // Ambient occlusion and Depth shadow combined
                 skinPath();
-                const depthAO = ctx.createLinearGradient(0, 0, 0, -len);
-                depthAO.addColorStop(0, 'rgba(0,0,0,0.35)');
-                depthAO.addColorStop(0.5, 'rgba(0,0,0,0.05)');
-                depthAO.addColorStop(1, 'rgba(0,0,0,0.25)');
+                const depthAO = this._phalanxGradient(ctx, `d${len}`, () => {
+                    const g = ctx.createLinearGradient(0, 0, 0, -len);
+                    g.addColorStop(0, 'rgba(0,0,0,0.35)');
+                    g.addColorStop(0.5, 'rgba(0,0,0,0.05)');
+                    g.addColorStop(1, 'rgba(0,0,0,0.25)');
+                    return g;
+                });
                 ctx.fillStyle = depthAO;
                 ctx.fill();
 
-                // Moonlight glow (directional)
+                // Moonlight glow (directional). Light angle is continuous, so quantise the
+                // centre to keep the cache bounded — sub-pixel, so it is not visible.
                 skinPath();
-                const glow = ctx.createRadialGradient(lx, ly, 0, lx, ly, wb2 * 2.5);
-                glow.addColorStop(0, 'rgba(180,215,255,0.28)');
-                glow.addColorStop(0.5, 'rgba(60,110,180,0.08)');
-                glow.addColorStop(1, 'rgba(0,0,0,0)');
+                const glx = Math.round(lx * 4) / 4;
+                const gly = Math.round(ly * 4) / 4;
+                const glow = this._phalanxGradient(ctx, `g${glx},${gly},${wb2}`, () => {
+                    const g = ctx.createRadialGradient(glx, gly, 0, glx, gly, wb2 * 2.5);
+                    g.addColorStop(0, 'rgba(180,215,255,0.28)');
+                    g.addColorStop(0.5, 'rgba(60,110,180,0.08)');
+                    g.addColorStop(1, 'rgba(0,0,0,0)');
+                    return g;
+                });
                 ctx.fillStyle = glow;
                 ctx.fill();
 
@@ -13471,6 +13669,8 @@
             _spawnBurst(x, y, color, count, speedRange, life, size) {
                 if (!this.enabled || !areParticleEffectsEnabled()) return;
                 count = Math.min(count, 18);   // hard cap – performance
+                // Thin the burst on lower tiers; keep at least one so hits still read.
+                count = Math.max(1, Math.round(count * PerfGovernor.particleScale));
 
                 for (let i = 0; i < count; i++) {
                     const p = this._acquire();
@@ -20012,6 +20212,59 @@
         // ZombieBoss - Simplified with Leftward Burst Fire & Magma Paddle
         // ===================================================================
         class ZombieBoss {
+            // Bake one crack's blurred glow stroke into a sprite. Rage shifts the glow's
+            // hue, so bucket it instead of rebaking every frame; the caller applies the
+            // per-frame brightness pulse via globalAlpha.
+            _getCrackGlowSprite(index, crack) {
+                const bucket = Math.round(Math.max(0, Math.min(1, this.rageLevel)) * 5); // 6 steps
+                const key = `${index}|${bucket}`;
+                this._crackGlowCache = this._crackGlowCache || new Map();
+                let sprite = this._crackGlowCache.get(key);
+                if (sprite) return sprite;
+
+                const pts = crack.pts;
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const pt of pts) {
+                    if (pt.x < minX) minX = pt.x;
+                    if (pt.x > maxX) maxX = pt.x;
+                    if (pt.y < minY) minY = pt.y;
+                    if (pt.y > maxY) maxY = pt.y;
+                }
+                if (!isFinite(minX)) return null;
+
+                const blur = crack.main ? 8 : 4;
+                const lineWidth = crack.main ? 1.8 : 0.9;
+                const pad = Math.ceil(blur * 2 + lineWidth + 2);
+                minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+                const w = Math.max(1, Math.ceil(maxX - minX));
+                const h = Math.max(1, Math.ceil(maxY - minY));
+
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const c = canvas.getContext('2d');
+                c.translate(-minX, -minY);
+
+                const rageBoost = (bucket / 5) * 80;
+                // Bake at full brightness; the pulse is reapplied per frame as alpha.
+                c.strokeStyle = crack.main
+                    ? `rgba(255, ${Math.floor(140 + rageBoost)}, 20, 0.9)`
+                    : `rgba(255, ${Math.floor(80 + rageBoost)}, 0, 0.55)`;
+                c.lineWidth = lineWidth;
+                c.shadowBlur = blur;
+                c.shadowColor = crack.main ? 'rgba(255,120,0,0.9)' : 'rgba(255,60,0,0.6)';
+                c.lineCap = 'round';
+                c.lineJoin = 'round';
+                c.beginPath();
+                c.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y);
+                c.stroke();
+
+                sprite = { canvas, minX, minY, w, h };
+                this._crackGlowCache.set(key, sprite);
+                return sprite;
+            }
+
             constructor(paddle, ball, game) {
                 this.paddle = paddle;
                 this.ball = ball;
@@ -20815,27 +21068,25 @@
                 }
                 ctx.restore();
 
+                // (see _getCrackGlowSprite)
                 // === LAYER 5: Crack molten glow ===
+                // Crack geometry is fixed once generated; only brightness pulses. Baking
+                // each crack's blurred stroke into a sprite turns ~16 shadowBlur strokes
+                // per frame (the single most expensive thing zombie mode draws) into ~16
+                // cheap blits, while the per-crack alpha pulse below keeps the shimmer.
                 ctx.save();
                 ctx.translate(p.pos.x, p.pos.y);
                 ctx.globalCompositeOperation = 'screen';
-                for (const crack of this._cracks) {
+                for (let ci = 0; ci < this._cracks.length; ci++) {
+                    const crack = this._cracks[ci];
                     if (crack.pts.length < 2) continue;
                     const cf = 0.55 + Math.sin(t * 3.5 + crack.pts[0].x * 0.2 + this.rageLevel) * 0.3;
-                    const rageBoost = this.rageLevel * 80;
-                    ctx.strokeStyle = crack.main
-                        ? `rgba(255, ${Math.floor(140 + rageBoost + Math.sin(t * 2 + crack.pts[0].y) * 40)}, 20, ${0.9 * cf})`
-                        : `rgba(255, ${Math.floor(80 + rageBoost)}, 0, ${0.55 * cf})`;
-                    ctx.lineWidth = crack.main ? 1.8 : 0.9;
-                    ctx.shadowBlur = crack.main ? 8 : 4;
-                    ctx.shadowColor = crack.main ? 'rgba(255,120,0,0.9)' : 'rgba(255,60,0,0.6)';
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-                    ctx.beginPath();
-                    ctx.moveTo(crack.pts[0].x, crack.pts[0].y);
-                    for (let i = 1; i < crack.pts.length; i++) ctx.lineTo(crack.pts[i].x, crack.pts[i].y);
-                    ctx.stroke();
+                    const sprite = this._getCrackGlowSprite(ci, crack);
+                    if (!sprite) continue;
+                    ctx.globalAlpha = Math.max(0, Math.min(1, cf));
+                    ctx.drawImage(sprite.canvas, sprite.minX, sprite.minY, sprite.w, sprite.h);
                 }
+                ctx.globalAlpha = 1;
                 ctx.restore();
                 ctx.shadowBlur = 0;
                 ctx.globalCompositeOperation = 'source-over';
@@ -28596,6 +28847,7 @@
             constructor(canvas) {
                 this.canvas = canvas;
                 this.ctx = canvas.getContext('2d', { alpha: false });
+                PerfGovernor.attach(this.ctx);
                 const viewport = this.getViewportSize();
                 this.width = viewport.width;
                 this.height = viewport.height;
@@ -35702,10 +35954,44 @@
                 }
             }
 
+            // Bring up the WebGL playfield on demand. The module is loaded separately, so
+            // if it failed for any reason we silently stay on the 2D renderer.
+            ensure3D() {
+                if (this._r3d === undefined) this._r3d = null;
+                const want = !!window.PP_RUNTIME_SETTINGS?.render3d;
+                const canvas = document.getElementById('c3d');
+                if (!canvas || !window.Renderer3D) return this._r3d;
+
+                if (want && !this._r3d) {
+                    try {
+                        this._r3d = new window.Renderer3D(canvas, this.width, this.height);
+                    } catch (err) {
+                        console.warn('[3D] renderer unavailable, staying on 2D:', err);
+                        window.PP_RUNTIME_SETTINGS.render3d = false;
+                        this._r3d = null;
+                        return null;
+                    }
+                }
+                if (this._r3d) {
+                    this._r3d.enabled = want;
+                    canvas.hidden = !want;
+                    if (want && (this._r3d.width !== this.width || this._r3d.height !== this.height)) {
+                        this._r3d.resize(this.width, this.height);
+                    }
+                }
+                return this._r3d;
+            }
+
             render(interp) {
                 // Don't render game if intro is active
                 if (this.introActive) return;
                 if (this.paused) return;
+
+                const r3d = this.ensure3D();
+                if (r3d && r3d.enabled) {
+                    r3d.render(this);
+                    return; // 3D owns the playfield; HUD/score are DOM and keep working.
+                }
 
                 const ctx = this.ctx;
                 const W = this.width, H = this.height;
@@ -35961,6 +36247,9 @@
 
                 this.rafId = requestAnimationFrame(() => this.step());
                 const now = performance.now() / 1000;
+
+                if (this._govLast !== undefined) PerfGovernor.sample((now - this._govLast) * 1000);
+                this._govLast = now;
 
                 // Don't run game logic if intro is active
                 if (this.introActive) {
@@ -39026,6 +39315,27 @@
     </script>
 
 
+    <script type="module">
+        // Load the 2.5D renderer. Failure here is non-fatal: the game keeps using the
+        // 2D canvas renderer, which stays fully functional.
+        import { Renderer3D } from './renderer3d.js';
+        window.Renderer3D = Renderer3D;
+        window.PP_RUNTIME_SETTINGS = window.PP_RUNTIME_SETTINGS || {};
+
+        window.PP_set3D = (on) => {
+            window.PP_RUNTIME_SETTINGS.render3d = !!on;
+            const c2d = document.getElementById('c');
+            if (c2d) c2d.style.visibility = on ? 'hidden' : '';
+        };
+
+        // Press 3 to flip between the 2D and 2.5D renderers.
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '3' && !e.repeat) {
+                window.PP_set3D(!window.PP_RUNTIME_SETTINGS.render3d);
+                console.log('[3D]', window.PP_RUNTIME_SETTINGS.render3d ? 'on' : 'off');
+            }
+        });
+    </script>
 </body>
 
 </html>
