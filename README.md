@@ -1,4 +1,4 @@
-# 🏓 Ping Pong — Neon Edition
+#  Ping Pong — Neon Edition
 
 A browser ping pong game that outgrew "ping pong" a while ago: five arenas with genuinely different rulesets, a C++/WebAssembly physics core, an achievement and progression system, and — as of this build — an optional real-time 3D renderer that sits on top of the same simulation.
 
