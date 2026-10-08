@@ -181,11 +181,19 @@ $ConnectionHandler = {
             $ext = [System.IO.Path]::GetExtension($full).ToLowerInvariant()
             $type = $MimeTypes[$ext]
             if (-not $type) { $type = 'application/octet-stream' }
-            $size = (New-Object System.IO.FileInfo($full)).Length
+            $info = New-Object System.IO.FileInfo($full)
+            $size = $info.Length
+            # Revalidation: unchanged files answer 304 so reloads are near-instant.
+            $lastModified = $info.LastWriteTimeUtc.ToString('r')
+            if ($headers['if-modified-since'] -eq $lastModified) {
+                Send-Response $stream 304 'Not Modified' @{ 'Last-Modified' = $lastModified; 'Cache-Control' = 'no-cache' } $null 0 0 $null
+                return
+            }
             $respHeaders = @{
                 'Content-Type'  = $type
                 'Accept-Ranges' = 'bytes'
                 'Cache-Control' = 'no-cache'
+                'Last-Modified' = $lastModified
             }
 
             # Range requests: browsers stream and seek audio this way.

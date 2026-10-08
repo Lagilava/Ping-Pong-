@@ -18,6 +18,9 @@ Keep the small console window open while you play; close it to stop.
   the right paddle in local 1v1 · **Space** fires the laser power-up
 - **F2** shows a performance readout: FPS, detected display refresh rate,
   quality tier, render scale, shaders and physics backend.
+- Intros can be skipped: click or press any key during the boot cinematic,
+  and **Esc** / the **Skip intro** button during a match intro (after the first
+  match, match intros are short anyway).
 - Your progress (XP, achievements) is saved in the browser on this PC.
 
 **Other systems:** serve the `game/` folder with any static web server, e.g.

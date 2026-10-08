@@ -90,25 +90,10 @@
         window.__ppLoadingScreen = loadingScreen;
         loadingScreen.classList.remove('hidden');
 
-        // Poll briefly for enhancement AI hook; game can still start without it.
-        let pollAttempts = 0;
-        const maxPollAttempts = 24; // 1.2 seconds at 50ms intervals
-
-        const waitForAIController = () => {
-            pollAttempts++;
-
-            if (typeof AIController !== 'undefined' && typeof window.AIController !== 'undefined') {
-                initializeGameAfterLoad();
-            } else if (pollAttempts < maxPollAttempts) {
-                setTimeout(waitForAIController, 50);
-            } else {
-                console.warn('[Init] AIController enhancement hook not ready yet; continuing with base game init.');
-                initializeGameAfterLoad();
-            }
-        };
-
-        // Start polling after a small delay to let scripts parse
-        setTimeout(waitForAIController, 200);
+        // All game scripts (including the AI controller) are loaded synchronously
+        // before this file, so the game can be built right away. One frame of
+        // delay lets the browser paint the menu first.
+        requestAnimationFrame(initializeGameAfterLoad);
     }
 
     // Make startGame globally accessible for menu system
@@ -211,8 +196,7 @@
     })();
 
     function initializeGameAfterLoad() {
-        // Small delay to ensure everything is ready
-        setTimeout(() => {
+        {
             try {
                 const loadingScreen = window.__ppLoadingScreen || document.getElementById('game-loading');
                 const canvas = document.getElementById('c');
@@ -236,20 +220,11 @@
                 // Enhanced HUD initialization
                 initializeEnhancedHUD();
 
-                // Hide loading screen with fade out
-                setTimeout(() => {
-                    loadingScreen.classList.add('hidden');
-
-                    // Remove loading screen after fade out
-                    setTimeout(() => {
-                        if (loadingScreen.parentNode) {
-                            loadingScreen.parentNode.removeChild(loadingScreen);
-                        }
-                    }, 500);
-
-                    // Optional: Show game title briefly
-                    showBriefTitle();
-                }, 500);
+                // Fade the loading screen straight away.
+                loadingScreen.style.transition = 'opacity 0.2s';
+                loadingScreen.classList.add('hidden');
+                setTimeout(() => loadingScreen.remove(), 220);
+                window.dispatchEvent(new Event('pp-game-ready'));
 
             } catch (error) {
                 console.error('Game initialization failed:', error);
@@ -272,7 +247,7 @@
         </div>
     `;
             }
-        }, 100);
+        }
     }
 
     function initializeEnhancedHUD() {
@@ -382,46 +357,6 @@
                 hideHud();
             }
         }, 5000);
-    }
-
-    function showBriefTitle() {
-        // Create and show a brief game title/logo
-        const titleDiv = document.createElement('div');
-        titleDiv.innerHTML = `
-<style>
-    #game-title-brief {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        font-size: 2.5em;
-        font-weight: bold;
-        text-shadow: 0 0 10px rgba(0,0,0,0.5);
-        opacity: 0;
-        animation: fadeInOut 2s ease-in-out;
-        pointer-events: none;
-        z-index: 999;
-        text-align: center;
-    }
-    @keyframes fadeInOut {
-        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-        20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
-    }
-</style>
-<div>${document.title || 'GAME START'}</div>
-    `;
-        titleDiv.id = 'game-title-brief';
-        document.body.appendChild(titleDiv);
-
-        // Remove after animation
-        setTimeout(() => {
-            if (titleDiv.parentNode) {
-                titleDiv.parentNode.removeChild(titleDiv);
-            }
-        }, 2000);
     }
 
     // Optional: Add a restart function for easier debugging

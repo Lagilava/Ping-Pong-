@@ -65,6 +65,22 @@ class PostFX {
         this.height = 0;
         this.ok = true;
         this.setActive(true);
+        this.warmUp();
+    }
+
+    /**
+     * Allocate the render targets and run the whole pipeline once, so buffer
+     * allocation and the driver's deferred shader compilation happen now (in
+     * idle time) rather than on the first frame of a match.
+     */
+    warmUp() {
+        const W = Math.max(1, this.source.width), H = Math.max(1, this.source.height);
+        this._resize(W, H);
+        const wasQuality = this.quality;
+        this.quality = 0;
+        this.present(0);
+        this.quality = wasQuality;
+        this.gl.finish();
     }
 
     // ── Public API ──────────────────────────────────────────────────────────

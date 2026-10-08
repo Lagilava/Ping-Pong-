@@ -3228,9 +3228,9 @@ function showCyberBarTemporarily() {
 }
 
 // Enhanced initialization with multiple fallbacks
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(enhanceGameAudio, 1000);
-});
+// Upgrade the audio as soon as the game object exists (no fixed delay).
+window.addEventListener('pp-game-ready', () => enhanceGameAudio());
+if (window.game) enhanceGameAudio();
 
 // Robust game detection with multiple attempts
 let detectionAttempts = 0;

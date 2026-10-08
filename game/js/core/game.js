@@ -14,10 +14,13 @@ class Game {
         this.ctx = canvas.getContext('2d', { alpha: false });
         PerfGovernor.attach(this.ctx);
 
-        // GPU post-processing (bloom, ripples, grading). Null if WebGL is missing,
-        // in which case the 2D canvas is shown directly.
-        this.postFx = window.PostFX ? PostFX.create(canvas) : null;
-        PerfGovernor.fxActive = !!this.postFx;
+        // GPU post-processing (bloom, ripples, grading). Creating its WebGL
+        // context and compiling shaders is the most expensive part of startup
+        // and it isn't needed in the menu, so it's built in idle time after the
+        // menu appears (or on match start, whichever comes first).
+        this.postFx = null;
+        const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 600));
+        idle(() => this.ensurePostFx(), { timeout: 2500 });
         PerfGovernor.onChange((tier) => {
             this.postFx?.setQuality(tier.fx);
             const dpr = PerfGovernor.renderScale;
@@ -2074,6 +2077,18 @@ class Game {
     }
 
     startIntro() {
+        this.ensurePostFx();
+        // Full cinematic on the first match of a session; a short version after
+        // that so rematches get to the action quickly. Click/Esc/Skip skips it.
+        if (this.intro) {
+            this.intro.duration = this._introsPlayed ? 3.4 : Intro.DURATION;
+            this._introsPlayed = (this._introsPlayed || 0) + 1;
+        }
+        const skipButton = document.getElementById('skipIntro');
+        if (skipButton && !skipButton.__ppBound) {
+            skipButton.__ppBound = true;
+            skipButton.addEventListener('click', () => this.skipIntro());
+        }
         // If intro was already played or explicitly skipped via query/session flags, skip intro playback.
         if (this.introHasPlayed) {
             this.finalizeIntro();
@@ -6085,6 +6100,20 @@ class Game {
         this.ctx.lineTo(x, y + radius);
         this.ctx.quadraticCurveTo(x, y, x + radius, y);
         this.ctx.closePath();
+    }
+
+    ensurePostFx() {
+        if (this._postFxTried) return this.postFx;
+        this._postFxTried = true;
+        // Null if WebGL is missing: the 2D canvas is then shown directly.
+        this.postFx = window.PostFX ? PostFX.create(this.canvas) : null;
+        PerfGovernor.fxActive = !!this.postFx;
+        if (this.postFx) {
+            this.postFx.setQuality(PerfGovernor.current.fx);
+            const tint = Game.MODE_TINTS[this.gameMode] || Game.MODE_TINTS.classic;
+            this.postFx.setTint(tint[0], tint[1], tint[2]);
+        }
+        return this.postFx;
     }
 
     // F2: frame rate, detected refresh rate, quality tier and physics backend.

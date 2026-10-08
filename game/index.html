@@ -769,6 +769,16 @@
                 window.exitTimeoutId = setTimeout(()=>{
                     window.location.replace('play.html?from_intro=1');
                 }, INTRO_DURATION_MS);
+                // Any further click or key skips the rest of the cinematic.
+                const skipToGame = () => {
+                    clearTimeout(window.exitTimeoutId);
+                    window.location.replace('play.html?from_intro=1');
+                };
+                ['pointerdown','keydown'].forEach(evt => document.addEventListener(evt, skipToGame, { once: true }));
+                const hint = document.createElement('div');
+                hint.textContent = 'Click or press any key to skip';
+                hint.style.cssText = 'position:fixed;right:24px;bottom:20px;z-index:50;color:rgba(190,230,255,0.55);font:12px/1 "Share Tech Mono",monospace;letter-spacing:0.18em;text-transform:uppercase;pointer-events:none;';
+                document.body.appendChild(hint);
             }, 900);
 
             ['click','touchstart','keydown','mousedown'].forEach(e =>

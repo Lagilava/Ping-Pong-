@@ -259,6 +259,23 @@
         }
     `;
 
+    // Keep the court framed on any screen shape: wide screens just see more of
+    // the scene; on narrower-than-16:9 (4:3, 16:10, portrait) the vertical FOV
+    // widens so the horizontal view stays the same as on 16:9.
+    function fitMenuCamera() {
+        if (!menuCam) return;
+        const aspect = Math.max(0.3, innerWidth / Math.max(1, innerHeight));
+        const base = MENU_CONFIG.camera.fov;
+        let fov = base;
+        if (aspect < 16 / 9) {
+            const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(base) / 2) * (16 / 9) / aspect);
+            fov = Math.min(100, THREE.MathUtils.radToDeg(halfH * 2));
+        }
+        menuCam.fov = fov;
+        menuCam.aspect = aspect;
+        menuCam.updateProjectionMatrix();
+    }
+
     function createSoftDotTexture() {
         const c = document.createElement('canvas');
         c.width = c.height = 64;
@@ -727,6 +744,7 @@
                 MENU_CONFIG.camera.far
             );
             menuCam.position.set(...MENU_CONFIG.camera.pos);
+            fitMenuCamera();
             menuCam.lookAt(0, 0, 0);
             menuCam.userData.cinematicOrbit = {
                 center: new THREE.Vector3(0, 0.65, -0.8),
@@ -1419,8 +1437,7 @@
 
             // Resize handler
             window.addEventListener('resize', () => {
-                menuCam.aspect = innerWidth / innerHeight;
-                menuCam.updateProjectionMatrix();
+                fitMenuCamera();
                 menuRenderer.setPixelRatio(MENU_CONFIG.renderer.pixelRatio);
                 menuBloom?.setSize(innerWidth, innerHeight);
                 menuRenderer.setSize(innerWidth, innerHeight);
