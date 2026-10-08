@@ -428,6 +428,8 @@ class ProgressionSystem {
         this.achievementFilter = '';
 
         this.recentlyUnlocked = [];
+        // Persisted history of unlocks (ids, newest first) shown on the main menu.
+        this.recentUnlocks = [];
         this.allUnlockedShown = false;
         this.matchSnapshot = null;
         this.activeNotifications = new Set();
@@ -525,19 +527,11 @@ class ProgressionSystem {
         const { name: title, description: desc, icon } = this.achievements[id];
 
         this.recentlyUnlocked.push({ id, title, desc, icon });
-        window.__ppLastMatchAchievements = this.recentlyUnlocked.slice();
-        window.__ppLastMatchAchievementIndex = 0;
-        window.__ppMenuRecentAchievements = this.recentlyUnlocked.slice();
-        window.__ppMenuRecentAchievementIndex = 0;
-        window.__ppMenuLastNonEmptyAchievements = this.recentlyUnlocked.slice();
-        window.__ppMenuLastNonEmptyAchievementIndex = 0;
-        window.__ppMenuDisplayAchievements = this.recentlyUnlocked.slice();
-        window.__ppMenuDisplayAchievementIndex = 0;
-        try { window.__ppTraceMenuAchievements('unlockAchievement', { id, title }); } catch (_) { }
+        this.recentUnlocks = [id, ...this.recentUnlocks.filter((x) => x !== id)].slice(0, 8);
 
         // Update menu achievements display
-        if (typeof updateMenuAchievements === 'function' && document.getElementById('menuAchievementsList')) {
-            updateMenuAchievements();
+        if (typeof window.ppUpdateMenuAchievements === 'function') {
+            window.ppUpdateMenuAchievements();
         }
 
         this.queueNotification(title, desc);
@@ -593,6 +587,7 @@ class ProgressionSystem {
             zombieShieldBlocks: this.zombieShieldBlocks,
             zombiePowerChoices: this.zombiePowerChoices,
             specialModeWins: { ...this.specialModeWins },
+            recentUnlocks: this.recentUnlocks.slice(0, 8),
             achievements: {}
         };
         for (const k of Object.keys(this.achievements)) {
@@ -713,6 +708,14 @@ class ProgressionSystem {
                     if (typeof a.unlocked === 'boolean') this.achievements[k].unlocked = a.unlocked;
                     if (typeof a.progress === 'number') this.achievements[k].progress = a.progress;
                 }
+            }
+            // Menu history of unlocks. Saves from before it existed get seeded
+            // with whatever is already unlocked so the menu isn't empty.
+            if (Array.isArray(data.recentUnlocks)) {
+                this.recentUnlocks = data.recentUnlocks.filter((id) => this.achievements[id]?.unlocked).slice(0, 8);
+            }
+            if (!this.recentUnlocks.length) {
+                this.recentUnlocks = Object.keys(this.achievements).filter((id) => this.achievements[id].unlocked).slice(-8).reverse();
             }
             // ensure requiredXP matches level if not present
             if (!data.requiredXP) this.requiredXP = this.calculateRequiredXP(this.level);
@@ -974,27 +977,10 @@ class ProgressionSystem {
                 modal.remove();
                 this.clearRecentlyUnlocked();
                 try { window.__ppTraceMenuAchievements('showEndGameAchievementSummary:close:after-clear'); } catch (_) { }
-                const preservedMenuAchievements = Array.isArray(window.__ppMenuLastNonEmptyAchievements) && window.__ppMenuLastNonEmptyAchievements.length
-                    ? window.__ppMenuLastNonEmptyAchievements.slice()
-                    : [];
-                if (preservedMenuAchievements.length) {
-                    window.__ppMenuRecentAchievements = preservedMenuAchievements.slice();
-                    window.__ppMenuRecentAchievementIndex = 0;
-                    window.__ppLastMatchAchievements = preservedMenuAchievements.slice();
-                    window.__ppLastMatchAchievementIndex = 0;
-                    window.__ppMenuDisplayAchievements = preservedMenuAchievements.slice();
-                    window.__ppMenuDisplayAchievementIndex = 0;
-                    if (this.lastMatchUnlocked.length !== preservedMenuAchievements.length) {
-                        this.lastMatchUnlocked = preservedMenuAchievements.slice();
-                        this.lastMatchUnlockedIndex = 0;
-                    }
-                }
                 if (menuAchievementsStrip) {
                     menuAchievementsStrip.style.display = '';
                 }
-                if (typeof updateMenuAchievements === 'function') {
-                    try { updateMenuAchievements(); } catch (e) { /* ignore */ }
-                }
+                window.ppUpdateMenuAchievements?.();
                 try { window.__ppTraceMenuAchievements('showEndGameAchievementSummary:close:after-update'); } catch (_) { }
             }, 400);
         };
@@ -1010,6 +996,21 @@ class ProgressionSystem {
         document.addEventListener('keydown', escHandler);
     }
 
+    /**
+     * Latest unlocked achievements for the main menu, newest first.
+     * isNew marks the ones unlocked in the current / most recent match.
+     */
+    getRecentUnlocks(limit = 3) {
+        const fresh = new Set([...this.recentlyUnlocked, ...this.lastMatchUnlocked].map((a) => a.id));
+        return this.recentUnlocks
+            .filter((id) => this.achievements[id]?.unlocked)
+            .slice(0, limit)
+            .map((id) => {
+                const a = this.achievements[id];
+                return { id, title: a.name, desc: a.description, icon: a.icon, isNew: fresh.has(id) };
+            });
+    }
+
     getRecentlyUnlockedAchievements() {
         return [...this.recentlyUnlocked];
     }
@@ -1017,15 +1018,7 @@ class ProgressionSystem {
     captureMatchAchievements() {
         this.lastMatchUnlocked = this.getRecentlyUnlockedAchievements();
         this.lastMatchUnlockedIndex = 0;
-        window.__ppLastMatchAchievements = this.lastMatchUnlocked.slice();
-        window.__ppLastMatchAchievementIndex = 0;
-        window.__ppMenuRecentAchievements = this.lastMatchUnlocked.slice();
-        window.__ppMenuRecentAchievementIndex = 0;
-        window.__ppMenuLastNonEmptyAchievements = this.lastMatchUnlocked.slice();
-        window.__ppMenuLastNonEmptyAchievementIndex = 0;
-        window.__ppMenuDisplayAchievements = this.lastMatchUnlocked.slice();
-        window.__ppMenuDisplayAchievementIndex = 0;
-        try { window.__ppTraceMenuAchievements('captureMatchAchievements', { count: this.lastMatchUnlocked.length }); } catch (_) { }
+        window.ppUpdateMenuAchievements?.();
     }
 
     getLastMatchUnlockedAchievements() {
@@ -1041,28 +1034,8 @@ class ProgressionSystem {
     }
 
     clearLastMatchUnlockedAchievements() {
-        const stack = (new Error('[MatchSnapshotClear] clearLastMatchUnlockedAchievements')).stack || '';
-        const stackLine = stack.split('\n').slice(1, 5).map(line => line.trim());
-        const clearEvent = {
-            at: new Date().toISOString(),
-            reason: 'clearLastMatchUnlockedAchievements',
-            stack: stackLine,
-            before: {
-                lastMatchUnlockedCount: this.lastMatchUnlocked.length,
-                windowLastMatchCount: Array.isArray(window.__ppLastMatchAchievements) ? window.__ppLastMatchAchievements.length : null,
-                windowMenuRecentCount: Array.isArray(window.__ppMenuRecentAchievements) ? window.__ppMenuRecentAchievements.length : null
-            }
-        };
-        window.__ppSnapshotClearEvents.push(clearEvent);
-        window.__ppLastSnapshotClearEvent = clearEvent;
-        console.warn('[MatchSnapshotClear]', clearEvent);
-        try { window.__ppTraceMenuAchievements('clearLastMatchUnlockedAchievements', { clearEvent }); } catch (_) { }
         this.lastMatchUnlocked = [];
         this.lastMatchUnlockedIndex = 0;
-        window.__ppLastMatchAchievements = [];
-        window.__ppLastMatchAchievementIndex = 0;
-        window.__ppMenuRecentAchievements = [];
-        window.__ppMenuRecentAchievementIndex = 0;
     }
 
     clearRecentlyUnlocked() {
@@ -2306,8 +2279,8 @@ class ProgressionSystem {
             document.body.classList.add('red-theme-overhaul');
 
             // refresh menu/achievement UI if helpers exist
-            if (typeof updateMenuAchievements === 'function') {
-                try { updateMenuAchievements(); } catch (e) { /* ignore */ }
+            if (typeof window.ppUpdateMenuAchievements === 'function') {
+                try { window.ppUpdateMenuAchievements(); } catch (e) { /* ignore */ }
             }
             if (typeof this.updateAchievementSidebar === 'function') {
                 try { this.updateAchievementSidebar(); } catch (e) { /* ignore */ }

@@ -4,15 +4,6 @@ window.PP_RUNTIME_SETTINGS = window.PP_RUNTIME_SETTINGS || { disableParticles: f
 const ZOMBIE_PHALANX_GRADS = new WeakMap();
 // geometry key -> baked phalanx sprite, shared across contexts.
 const ZOMBIE_PHALANX_SPRITES = new Map();
-window.__ppLastMatchAchievements = window.__ppLastMatchAchievements || [];
-window.__ppLastMatchAchievementIndex = window.__ppLastMatchAchievementIndex || 0;
-window.__ppMenuRecentAchievements = window.__ppMenuRecentAchievements || [];
-window.__ppMenuRecentAchievementIndex = window.__ppMenuRecentAchievementIndex || 0;
-window.__ppMenuLastNonEmptyAchievements = window.__ppMenuLastNonEmptyAchievements || [];
-window.__ppMenuLastNonEmptyAchievementIndex = window.__ppMenuLastNonEmptyAchievementIndex || 0;
-window.__ppMenuDisplayAchievements = window.__ppMenuDisplayAchievements || [];
-window.__ppMenuDisplayAchievementIndex = window.__ppMenuDisplayAchievementIndex || 0;
-window.__ppSnapshotClearEvents = window.__ppSnapshotClearEvents || [];
 // Debug trace for the menu achievements panel. Silent unless PP_DEBUG is set,
 // so it no longer logs (and keeps every payload in memory) during normal play.
 window.__ppTraceMenuAchievements = function (stage, extra = {}) {
@@ -20,8 +11,6 @@ window.__ppTraceMenuAchievements = function (stage, extra = {}) {
     const payload = {
         stage,
         overlayClasses: Array.from(document.getElementById('overlay')?.classList || []),
-        windowLastMatch: Array.isArray(window.__ppLastMatchAchievements) ? window.__ppLastMatchAchievements.slice() : [],
-        windowMenuRecent: Array.isArray(window.__ppMenuRecentAchievements) ? window.__ppMenuRecentAchievements.slice() : [],
         ...extra
     };
     console.log('[MenuTrace]', payload);

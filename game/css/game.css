@@ -5480,6 +5480,20 @@ canvas {
     opacity: 0 !important;
 }
 
+/* Main menu recent achievements: NEW tag + clickable rows */
+#menuAchievementsList .menu-achievement-item { cursor: pointer; width: 100%; box-sizing: border-box; }
+.menu-achievement-new {
+    margin-left: auto;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(255, 214, 90, 0.18);
+    border: 1px solid rgba(255, 214, 90, 0.55);
+    color: #ffe58a;
+    font: 700 9px/1.2 'Orbitron', sans-serif;
+    letter-spacing: 0.12em;
+}
+.menu-achievements-empty span { display: block; margin-top: 6px; opacity: 0.6; font-size: 0.85em; }
+
 /* Pause menu */
 .pause-menu {
     position: fixed;

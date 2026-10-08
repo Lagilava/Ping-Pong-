@@ -7327,9 +7327,7 @@ class Game {
             const menuAchievements = document.getElementById('menuRecentAchievements');
             if (menuAchievements) {
                 menuAchievements.style.display = '';
-                if (typeof updateMenuAchievements === 'function') {
-                    updateMenuAchievements();
-                }
+                window.ppUpdateMenuAchievements?.();
             }
 
             if (typeof this.audio?.stopMusic === 'function') {

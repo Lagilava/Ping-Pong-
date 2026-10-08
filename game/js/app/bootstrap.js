@@ -102,96 +102,55 @@
     (function () {
         // ===== MENU RECENT ACHIEVEMENTS - SOLE DISPLAY SYSTEM =====
         // Function to update menu recent achievements (only one used for menu display)
+        // Main-menu "Recent Achievements" panel: the 3 latest unlocks (saved
+        // with your progress), NEW tags for the last match, and an unlocked
+        // count. Clicking an entry opens the full achievements sidebar.
+        let lastMenuHtml = '';
+        const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
         function updateMenuAchievements() {
-            window.__ppMenuUpdateSeq = (window.__ppMenuUpdateSeq || 0) + 1;
-            const menuAchievements = document.getElementById('menuRecentAchievements');
-            const menuList = document.getElementById('menuAchievementsList');
-            const overlay = document.getElementById('overlay');
-            const isPostMatch = overlay?.classList.contains('post-match');
-            const summaryOpen = !!document.querySelector('.achievement-summary-modal');
+            const list = document.getElementById('menuAchievementsList');
+            const prog = window.game?.progression;
+            if (!list || !prog) return;
 
-            const snapshotDebug = () => ({
-                isPostMatch,
-                summaryOpen,
-                overlayClasses: overlay ? Array.from(overlay.classList) : [],
-                menuAchievementsExists: !!menuAchievements,
-                menuListExists: !!menuList,
-                windowMenuDisplay: Array.isArray(window.__ppMenuDisplayAchievements) ? window.__ppMenuDisplayAchievements.slice() : null,
-                windowMenuDisplayIndex: window.__ppMenuDisplayAchievementIndex,
-                windowLastMatch: Array.isArray(window.__ppLastMatchAchievements) ? window.__ppLastMatchAchievements.slice() : null,
-                windowLastMatchIndex: window.__ppLastMatchAchievementIndex
-            });
+            const all = Object.values(prog.achievements || {});
+            const unlocked = all.filter((a) => a.unlocked).length;
+            const count = document.querySelector('#menuRecentAchievements .menu-achievements-count');
+            const countText = `${unlocked}/${all.length} unlocked`;
+            if (count && count.textContent !== countText) count.textContent = countText;
 
-            const logSnapshot = (label, extra = {}) => {
-                const payload = { seq: window.__ppMenuUpdateSeq, label, ...snapshotDebug(), ...extra };
-                window.__ppMenuDebugLastRead = payload;
-                return payload;
-            };
-
-            if (menuAchievements) {
-                // Keep the unified recent achievements strip visible during post-match,
-                // even when the end-match achievement summary modal is present.
-                menuAchievements.style.display = (summaryOpen && !isPostMatch) ? 'none' : '';
+            const items = prog.getRecentUnlocks?.(3) || [];
+            const html = items.length
+                ? items.map((a) => `
+                    <li class="menu-achievement-item${a.isNew ? ' is-new' : ''}" data-ach="${escapeHtml(a.id)}" title="${escapeHtml(a.desc)}" tabindex="0" role="button">
+                        <span class="menu-achievement-icon">${escapeHtml(a.icon || '★')}</span>
+                        <span class="menu-achievement-name">${escapeHtml(a.title)}</span>
+                        ${a.isNew ? '<span class="menu-achievement-new">NEW</span>' : ''}
+                    </li>`).join('')
+                : '<li class="menu-achievements-empty">No achievements yet: win a match to earn your first. <span>Ctrl + Shift + A shows them all.</span></li>';
+            if (html !== lastMenuHtml) {
+                list.innerHTML = html;
+                lastMenuHtml = html;
             }
-
-            if (!menuList || (summaryOpen && !isPostMatch)) {
-                logSnapshot('early-return', { reason: !menuList ? 'missing-menu-list' : 'summary-open-not-post-match' });
-                return;
-            }
-
-            const recent = Array.isArray(window.__ppMenuDisplayAchievements) ? window.__ppMenuDisplayAchievements.slice() : [];
-
-            if (!recent.length) {
-                const promptStack = (new Error('[MenuAchievementsPrompt]')).stack || '';
-                logSnapshot('fallback-to-prompt', {
-                    recentCount: recent.length,
-                    menuRecentCount: recent.length,
-                    displayedText: isPostMatch ? 'No achievements unlocked in the previous match.' : 'Press Ctrl + Shift + A to open achievement sidebar.',
-                    promptStack: promptStack.split('\n').slice(1, 6).map(line => line.trim())
-                });
-                menuList.innerHTML = `<li class="menu-achievements-empty" id="menuAchievementsEmpty">${isPostMatch ? 'No achievements unlocked in the previous match.' : 'Press Ctrl + Shift + A to open achievement sidebar.'}</li>`;
-                return;
-            }
-
-            logSnapshot('rendering-achievements', {
-                recentCount: recent.length,
-                menuRecentCount: recent.length
-            });
-
-            const totalRecent = recent.length;
-            let displayRecent = recent.slice();
-
-            if (totalRecent > 1) {
-                const nextIndex = Number.isFinite(window.__ppMenuDisplayAchievementIndex)
-                    ? window.__ppMenuDisplayAchievementIndex % totalRecent
-                    : (Number(menuList.dataset.achievementIndex || 0) % totalRecent);
-                window.__ppMenuDisplayAchievementIndex = (nextIndex + 1) % totalRecent;
-                window.__ppMenuRecentAchievementIndex = window.__ppMenuDisplayAchievementIndex;
-                window.__ppMenuLastNonEmptyAchievementIndex = window.__ppMenuDisplayAchievementIndex;
-                displayRecent = [recent[nextIndex]];
-                menuList.dataset.achievementIndex = String(window.__ppMenuDisplayAchievementIndex);
-            } else {
-                menuList.dataset.achievementIndex = '0';
-            }
-
-            menuList.innerHTML = displayRecent.map(a => {
-                const icon = a.icon || '★';
-                const shortName = a.title.length > 20 ? a.title.substring(0, 18) + '...' : a.title;
-                return `
-                    <li class="menu-achievement-item" title="${a.title}">
-                        <span class="menu-achievement-icon">${icon}</span>
-                        <span class="menu-achievement-name">${shortName}</span>
-                    </li>
-                `;
-            }).join('');
         }
+        window.ppUpdateMenuAchievements = updateMenuAchievements;
 
-        // Set up periodic menu achievement updates (every 2 seconds when on menu)
-        setInterval(() => {
-            if (window.game && document.getElementById('overlay').classList.contains('visible')) {
-                updateMenuAchievements();
+        // Clicking a recent achievement opens the full list.
+        document.addEventListener('click', (e) => {
+            if (e.target.closest?.('#menuAchievementsList .menu-achievement-item')) {
+                window.game?.progression?.toggleAchievementSidebar?.();
             }
-        }, 2000);
+        });
+
+        // Refresh when the game is ready and whenever we land back on the menu.
+        window.addEventListener('pp-game-ready', updateMenuAchievements);
+        window.addEventListener('pp-returned-to-menu', updateMenuAchievements);
+        // Cheap safety net (no DOM writes unless something changed): covers the
+        // post-match screen and XP/level changes.
+        setInterval(() => {
+            const overlay = document.getElementById('overlay');
+            if (window.game && overlay && !overlay.classList.contains('hidden')) updateMenuAchievements();
+        }, 1000);
 
     })();
 
@@ -395,9 +354,7 @@
         }
 
         // Update menu achievements when overlay is shown
-        if (typeof updateMenuAchievements === 'function') {
-            updateMenuAchievements();
-        }
+        window.ppUpdateMenuAchievements?.();
         try { window.__ppTraceMenuAchievements('fadeInOverlay'); } catch (_) { }
     }
 
