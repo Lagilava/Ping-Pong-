@@ -26,6 +26,26 @@ Keep the small console window open while you play; close it to stop.
   match, match intros are short anyway).
 - Your progress (XP, achievements) is saved in the browser on this PC.
 
+### Let testers anywhere play it (PC + mobile)
+
+Double-click **`Share Online (PC + Mobile).bat`** on the Windows PC that has the
+game. After a few seconds it shows a public link like
+`https://some-random-words.trycloudflare.com/` (also copied to the clipboard)
+and opens a page with a QR code for phones. Send that link to anyone, in any
+country: they open it in Chrome, Edge, Safari or Firefox on a PC or phone and
+play, with nothing to install. You can play on your own PC at the same time.
+
+- Each tester plays their own game in their own browser; their progress is
+  saved on their device.
+- It uses a free Cloudflare quick tunnel, so there's no account to make and no
+  router or firewall setup. The first run downloads Cloudflare's
+  `cloudflared.exe` (about 60 MB) into `tools\bin`.
+- Only the `game/` folder is shared, read-only. The link is random, changes on
+  every run, and stops working as soon as you close the window.
+- The game is about 50 MB, mostly music that streams as it plays, and it's sent
+  from your PC, so your upload speed decides how fast testers' first load is.
+- The QR code image comes from api.qrserver.com.
+
 **Other systems:** serve the `game/` folder with any static web server, e.g.
 `python -m http.server 8080 --directory game`, then open
 <http://127.0.0.1:8080/>.
@@ -132,6 +152,7 @@ is unavailable.
 
 ```
 Play Ping Pong.bat        Double-click to play (Windows)
+Share Online (PC + Mobile).bat   Public link + QR code so remote testers can play
 game/                     Everything the browser loads
   index.html                Intro / boot screen
   play.html                 Menu + game
@@ -148,7 +169,8 @@ game/                     Everything the browser loads
     vendor/                 three.js r128, anime.js (no CDN needed)
   assets/                   audio/, fonts/, images/
 physics/                  C++ source for the physics engine + build scripts
-tools/serve.ps1           Zero-dependency local web server used by the .bat
+tools/serve.ps1           Zero-dependency local web server used by the .bat files
+tools/share.ps1           Cloudflare quick tunnel for "Share Online"
 docs/screenshots/         Images for this README
 ```
 

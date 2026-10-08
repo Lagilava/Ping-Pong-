@@ -15,12 +15,14 @@
     -NoBrowser  only run the server
     -Uncapped   ask Chrome to ignore vsync (lets 60 Hz screens show >60 fps,
                 at the cost of tearing; 120 Hz screens don't need this)
+    -PortFile   write the port actually used to this file (used by share.ps1)
 #>
 param(
     [string]$Root = (Join-Path $PSScriptRoot '..\game'),
     [int]$Port = 8080,
     [switch]$NoBrowser,
-    [switch]$Uncapped
+    [switch]$Uncapped,
+    [string]$PortFile
 )
 
 $ErrorActionPreference = 'Stop'
@@ -239,6 +241,7 @@ Write-Host '  PING PONG - NEON EDITION' -ForegroundColor Cyan
 Write-Host "  Serving $Root"
 
 $server = Start-Listener $Port
+if ($PortFile) { Set-Content -Path $PortFile -Value $server.Port -Encoding ASCII }
 $url = "http://127.0.0.1:$($server.Port)/index.html"
 
 if (-not $server.Listener) {
