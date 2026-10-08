@@ -67,6 +67,10 @@ persistent level / XP / achievement system.
 <td width="50%"><img src="docs/screenshots/zombie.jpg" alt="Zombie mode" /><br/><sub><b>Zombie</b></sub></td>
 <td width="50%"><img src="docs/screenshots/obstacle.jpg" alt="Obstacle mode" /><br/><sub><b>Obstacle</b></sub></td>
 </tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/pause.jpg" alt="Pause menu" /><br/><sub><b>Pause menu</b>: resume, restart, settings, audio, help, quit</sub></td>
+<td width="50%"></td>
+</tr>
 </table>
 
 ## How it plays: the physics
