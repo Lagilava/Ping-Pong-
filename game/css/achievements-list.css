@@ -1,0 +1,434 @@
+/* =========================================================
+   ACHIEVEMENTS LIST — COSMIC / SPACE HUD AESTHETIC
+   ========================================================= */
+
+.achievements-list {
+    background: rgba(15, 20, 50, 0.8);
+    border: 1px solid rgba(106, 227, 255, 0.25);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    position: relative;
+    overflow: visible;
+}
+
+@keyframes container-pulse {
+
+    0%,
+    100% {
+        box-shadow: none;
+    }
+
+    50% {
+        box-shadow: none;
+    }
+}
+
+/* Animated cosmic energy field */
+.achievements-list::before {
+    display: none;
+}
+
+@keyframes cosmic-flow {
+
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+/* Enhanced starfield + HUD grid */
+.achievements-list::after {
+    display: none;
+}
+
+/* =========================================================
+   TITLE - PREMIUM STYLING
+   ========================================================= */
+
+.achievements-list h3 {
+    color: #6ae3ff;
+    font-family: 'Orbitron', 'Segoe UI', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin: 0 0 8px 0;
+    padding: 0;
+    border: none;
+    text-align: left;
+    text-shadow: 0 0 8px rgba(106, 227, 255, 0.3);
+    animation: none;
+}
+
+@keyframes title-glow {
+
+    0%,
+    100% {
+        text-shadow: none;
+    }
+
+    50% {
+        text-shadow: none;
+    }
+}
+
+/* Premium orbital markers */
+.achievements-list h3::before,
+.achievements-list h3::after {
+    display: none;
+}
+
+.achievements-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+}
+
+/* PREMIUM ACHIEVEMENT CARD */
+.achievements-list ul:not(.compact-achievements-display) li {
+    display: none;
+}
+
+/* Achievement name - Premium gradient text */
+.achievements-list ul:not(.compact-achievements-display) li strong {
+    display: none;
+}
+
+/* =========================================================
+   COMPACT ACHIEVEMENTS DISPLAY (for end-game summary)
+   ========================================================= */
+
+.compact-achievements-display {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.compact-achievement-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(20, 30, 70, 0.6);
+    border: 1px solid rgba(106, 227, 255, 0.25);
+    border-radius: 6px;
+    color: #b0c0ff;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.compact-achievement-item:hover {
+    background: rgba(35, 50, 100, 0.8);
+    border-color: rgba(106, 227, 255, 0.5);
+    transform: scale(1.05);
+}
+
+.overlay.post-match .achievements-list {
+    background: rgba(10, 14, 28, 0.82);
+    border-color: rgba(106, 227, 255, 0.18);
+    padding: 10px 12px;
+    margin: 10px auto 0;
+    max-width: min(100%, 460px);
+    width: min(100%, 460px);
+    border-radius: 10px;
+}
+
+.overlay.post-match .achievements-list h3 {
+    font-size: 12px;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+    text-align: left;
+}
+
+.overlay.post-match .compact-achievements-display {
+    gap: 6px;
+    justify-content: flex-start;
+    max-height: 110px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 4px;
+}
+
+.overlay.post-match .compact-achievement-item {
+    padding: 4px 10px;
+    font-size: 11px;
+    min-width: auto;
+}
+
+.overlay.post-match .achievement-icon-compact {
+    font-size: 0.9em;
+}
+
+.overlay.post-match .achievements-list::-webkit-scrollbar {
+    height: 6px;
+}
+
+.overlay.post-match .achievements-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+}
+
+.overlay.post-match .achievements-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.achievement-icon-compact {
+    color: gold;
+    font-weight: bold;
+    font-size: 0.95em;
+    flex-shrink: 0;
+}
+
+/* Description with enhanced styling */
+.achievements-list ul:not(.compact-achievements-display) li span {
+    display: none;
+}
+
+/* 80s GLITCH EFFECT -------------------------------------------------- */
+/* utility class applied to title/description elements */
+.glitch {
+    position: relative;
+    display: inline-block;
+    animation: text-glitch 2.5s infinite;
+
+    /* neon gradient base matching existing strong style */
+    background: linear-gradient(90deg, #6ae3ff, #7b6cff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.glitch::before,
+.glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.8;
+}
+
+.glitch::before {
+    left: 2px;
+    color: #ff0080;
+    text-shadow: -2px 0 #ff0080;
+    clip: rect(0, 900px, 0, 0);
+    animation: glitch-top 2.5s infinite linear;
+}
+
+.glitch::after {
+    left: -2px;
+    color: #00ffff;
+    text-shadow: -2px 0 #00ffff;
+    clip: rect(0, 900px, 0, 0);
+    animation: glitch-bottom 2.5s infinite linear;
+}
+
+@keyframes text-glitch {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: none;
+    }
+
+    20% {
+        opacity: 0.9;
+        transform: translate(-1px, 1px);
+    }
+
+    40% {
+        opacity: 0.8;
+        transform: translate(1px, -1px);
+    }
+
+    60% {
+        opacity: 0.95;
+        transform: translate(-1px, -1px);
+    }
+
+    80% {
+        opacity: 0.9;
+        transform: translate(1px, 1px);
+    }
+}
+
+@keyframes glitch-top {
+    0% {
+        clip: rect(0, 900px, 0, 0);
+    }
+
+    10% {
+        clip: rect(2px, 900px, 20px, 0);
+    }
+
+    20% {
+        clip: rect(4px, 900px, 8px, 0);
+    }
+
+    30% {
+        clip: rect(6px, 900px, 22px, 0);
+    }
+
+    40% {
+        clip: rect(8px, 900px, 12px, 0);
+    }
+
+    50% {
+        clip: rect(10px, 900px, 4px, 0);
+    }
+
+    60% {
+        clip: rect(12px, 900px, 18px, 0);
+    }
+
+    70% {
+        clip: rect(14px, 900px, 6px, 0);
+    }
+
+    80% {
+        clip: rect(16px, 900px, 24px, 0);
+    }
+
+    90% {
+        clip: rect(18px, 900px, 10px, 0);
+    }
+
+    100% {
+        clip: rect(0, 900px, 0, 0);
+    }
+}
+
+@keyframes glitch-bottom {
+    0% {
+        clip: rect(0, 900px, 0, 0);
+    }
+
+    10% {
+        clip: rect(20px, 900px, 40px, 0);
+    }
+
+    20% {
+        clip: rect(12px, 900px, 26px, 0);
+    }
+
+    30% {
+        clip: rect(24px, 900px, 52px, 0);
+    }
+
+    40% {
+        clip: rect(16px, 900px, 32px, 0);
+    }
+
+    50% {
+        clip: rect(8px, 900px, 18px, 0);
+    }
+
+    60% {
+        clip: rect(30px, 900px, 60px, 0);
+    }
+
+    70% {
+        clip: rect(22px, 900px, 44px, 0);
+    }
+
+    80% {
+        clip: rect(34px, 900px, 68px, 0);
+    }
+
+    90% {
+        clip: rect(26px, 900px, 52px, 0);
+    }
+
+    100% {
+        clip: rect(0, 900px, 0, 0);
+    }
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
+
+.achievements-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.achievements-list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.achievements-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(#6ae3ff, #7b6cff);
+    border-radius: 3px;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 768px) {
+    .achievements-list {
+        padding: 28px 20px;
+        margin: 20px 0;
+    }
+
+    .achievements-list h3 {
+        font-size: 22px;
+        letter-spacing: 3px;
+        margin-bottom: 24px;
+    }
+
+    .achievements-list h3::before,
+    .achievements-list h3::after {
+        font-size: 14px;
+        display: none;
+    }
+
+    .achievements-list ul {
+        gap: 14px;
+    }
+
+    .achievements-list ul:not(.compact-achievements-display) li {
+        display: none;
+    }
+
+    .achievements-list ul:not(.compact-achievements-display) li::before {
+        display: none;
+    }
+
+    .achievements-list ul:not(.compact-achievements-display) li strong {
+        display: none;
+    }
+
+    .achievements-list ul:not(.compact-achievements-display) li span {
+        display: none;
+    }
+}
+
+.hidden-svg-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.hidden-file-picker {
+    display: none;
+}

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Ping Pong - Neon Edition</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="stylesheet" href="css/achievement-toasts.css">
+    <link rel="stylesheet" href="css/achievement-toasts-compact.css">
+    <link rel="stylesheet" href="css/achievements-list.css">
+    <script src="js/vendor/three.min.js"></script>
+    <script src="js/core/boot.js"></script>
+</head>
+
+<body class="force-menu-bg-motion">
+    <div class="game-container">
+        <canvas id="c"></canvas>
+        <div class="speed-lines" id="speedLines"></div>
+        <div class="zombie-progress-overlay" id="zombieProgressOverlay" aria-hidden="true">
+            <div class="zombie-progress-pill" id="zombieProgressWave">Wave <strong>1/10</strong></div>
+            <div class="zombie-progress-pill" id="zombieProgressBreaches">Breaches <strong>0/7</strong></div>
+        </div>
+        <div class="hud" id="hud">
+            <div class="score-container">
+                <div class="player-score" id="playerScore">0</div>
+                <div class="score-divider">—</div>
+                <div class="ai-score" id="aiScore">0</div>
+            </div>
+            <div class="game-mode" id="gameMode">Classic Mode</div>
+            <div class="mode-selector">
+                <button class="mode-btn active" data-mode="classic">Classic</button>
+                <button class="mode-btn" data-mode="zombie">Zombie</button>
+                <button class="mode-btn" data-mode="gravity">Gravity</button>
+                <button class="mode-btn" data-mode="speed">Speed</button>
+                <button class="mode-btn" data-mode="obstacle">Obstacle</button>
+                <button class="mode-btn" data-mode="customise">Customise</button>
+            </div>
+            <div class="progression">
+                <span>Lvl <span id="playerLevel">1</span></span>
+                <div class="xp-bar">
+                    <div class="xp-fill" id="xpBar"></div>
+                </div>
+                <span id="xpText">0/100</span>
+            </div>
+            <div class="controls">
+                <button class="btn" id="restart">Restart</button>
+                <div class="range-container">
+                    <label for="diff">AI Level</label>
+                    <input type="range" id="diff" class="range" min="0" max="4" step="1" value="2"
+                        title="AI difficulty level" aria-label="AI difficulty level">
+                    <div class="difficulty-display" id="difficultyDisplay">Medium</div>
+                </div>
+                <button class="btn" id="pause">Pause</button>
+                <button class="btn" id="fullscreen">Full</button>
+            </div>
+            <div class="stats">
+                <div>Speed: <span id="speedDisplay">0</span></div>
+                <div>Rally: <span id="rallyDisplay">0</span></div>
+                <div>Wave: <span id="waveDisplay">-</span></div>
+                <div>Breaches: <span id="breachDisplay">-</span></div>
+                <div>Boost: <span id="zombiePowerDisplay">-</span></div>
+                <div>Streak: <span id="streakDisplay">0</span></div>
+            </div>
+            <div class="power-ups" id="powerUpsContainer">
+                <button class="power-up" id="slowBall">
+                    <div class="cooldown"></div>
+                    <span class="label">Slow Ball</span>
+                </button>
+                <button class="power-up" id="fastPaddle">
+                    <div class="cooldown"></div>
+                    <span class="label">Fast Paddle</span>
+                </button>
+                <button class="power-up" id="freezeAI">
+                    <div class="cooldown"></div>
+                    <span class="label">Freeze AI</span>
+                </button>
+                <button class="power-up" id="doublePoints">
+                    <div class="cooldown"></div>
+                    <span class="label">Double Points</span>
+                </button>
+            </div>
+        </div>
+        <!-- Speed Challenge UI -->
+        <div class="speed-challenge" id="speedChallenge" data-level="1">
+            <div class="speed-challenge-stars" aria-hidden="true"></div>
+            <div class="speed-challenge-fx" aria-hidden="true">
+                <div class="speed-challenge-shutter top"></div>
+                <div class="speed-challenge-shutter bottom"></div>
+                <div class="speed-challenge-core"></div>
+            </div>
+            <div class="speed-challenge-content">
+                <div class="challenge-title">CLICK TO SAVE!</div>
+
+                <!-- Container for click targets (this is where targets will be spawned) -->
+                <div class="target-container"></div>
+
+                <!-- Timer progress bar with time display -->
+                <div class="challenge-timer">
+                    <div class="challenge-timer-fill" id="challengeTimerFill"></div>
+                    <div class="challenge-time-display" id="challengeTimeDisplay">0.0s</div>
+                </div>
+
+                <!-- Status message -->
+                <div class="challenge-status" id="challengeStatus">Ready to start!</div>
+
+                <!-- Difficulty indicator (optional) -->
+                <div class="target-difficulty" id="targetDifficulty">Level 1</div>
+            </div>
+        </div>
+        <div class="zombie-wave-choice" id="zombieWaveChoice" aria-hidden="true">
+            <div class="zombie-wave-choice-panel">
+                <div class="zombie-wave-choice-kicker">Wave Clear</div>
+                <h3 id="zombieWaveChoiceTitle">Choose your reward</h3>
+                <p id="zombieWaveChoiceCopy">Pick one powerup before the next wave begins.</p>
+                <div class="zombie-wave-choice-grid">
+                    <button class="zombie-wave-choice-btn" data-powerup="rage">
+                        <span class="choice-icon">🔥</span>
+                        <span class="choice-label">Rage</span>
+                        <span class="choice-desc">Stronger returns</span>
+                    </button>
+                    <button class="zombie-wave-choice-btn" data-powerup="shield">
+                        <span class="choice-icon">🛡️</span>
+                        <span class="choice-label">Shield</span>
+                        <span class="choice-desc">Block a fatal hit</span>
+                    </button>
+                    <button class="zombie-wave-choice-btn" data-powerup="slow">
+                        <span class="choice-icon">🐌</span>
+                        <span class="choice-label">Slow</span>
+                        <span class="choice-desc">Cripple the horde</span>
+                    </button>
+                </div>
+                <div class="zombie-wave-choice-timer" id="zombieWaveChoiceTimer">Auto-pick in 8s</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3D NEON SCROLLABLE MENU WITH THREE.JS -->
+    <div id="overlay" class="overlay">
+        <canvas id="menuCanvas"></canvas>
+        <div id="ui">
+            <div class="hdr">
+                <h1>PING PONG</h1>
+                <p>NEON EDITION · CHOOSE YOUR ARENA</p>
+            </div>
+            <div class="menu-right-panel">
+                <div class="menu-progress-panel" id="menuProgressPanel" aria-label="Player level and XP">
+                    <div class="menu-progress-label">Player Progress</div>
+                    <div class="menu-progress-row">
+                        <div class="menu-progress-level">
+                            <span class="menu-progress-kicker">Level</span>
+                            <span class="menu-progress-value" id="menuLevel">1</span>
+                        </div>
+                        <div class="menu-progress-meter">
+                            <div class="menu-progress-meta">
+                                <span>Match XP</span>
+                                <span id="menuXpText">0/100 XP</span>
+                            </div>
+                            <div class="menu-progress-bar-shell" aria-hidden="true">
+                                <div class="menu-progress-bar-fill" id="menuXpBar"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="menu-recent-achievements" id="menuRecentAchievements">
+                    <div class="menu-achievements-header">
+                        <h2 class="menu-achievements-title">Recent Achievements</h2>
+                        <div class="menu-achievements-count">Latest unlocks</div>
+                    </div>
+                    <ul class="menu-achievements-list" id="menuAchievementsList"></ul>
+                </div>
+            </div>
+            <div class="hint">SCROLL OR DRAG</div>
+            <div id="cards-hud">
+                <button class="arr-btn left" id="btnL">&#8592;</button>
+                <div class="card-row" id="cardRow"></div>
+                <button class="arr-btn right" id="btnR">&#8594;</button>
+            </div>
+        </div>
+        <div class="modal" id="modal">
+            <div class="modal-box">
+                <div class="modal-title" id="mTitle">CHOOSE OPPONENT</div>
+                <div class="opts">
+                    <div class="opt sel" data-mp="false">
+                        <div class="opt-icon-large">&#x2A;</div>
+                        <div class="opt-title">VS COMPUTER</div>
+                        <div class="opt-sub">Single Player</div>
+                    </div>
+                    <div class="opt" data-mp="true">
+                        <div class="opt-icon-large">&#x2694;</div>
+                        <div class="opt-title">LOCAL 1v1</div>
+                        <div class="opt-sub">Two Players</div>
+                    </div>
+                </div>
+                <div class="btns">
+                    <button class="btn-back" id="btnBack">BACK</button>
+                    <button class="btn-go" id="btnGo">PLAY</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-Screen Customise Overlay -->
+    <div id="customiseOverlay" class="customise-overlay" aria-hidden="true">
+        <div class="customise-overlay-header">
+            <div>
+                <h2 class="customise-overlay-title">Customise Your Match</h2>
+                <p class="customise-overlay-subtitle">Tune both paddles, preview the result, and shape the background to
+                    fit your style.</p>
+            </div>
+            <button id="customiseBackBtn" class="customise-overlay-back-btn" type="button"
+                aria-label="Back to modes">Back to Modes</button>
+        </div>
+        <div class="customise-overlay-content">
+            <div class="customise-overlay-scrollable">
+                <div id="customisePanel" class="customise-panel" aria-label="Custom mode settings">
+                    <div class="customise-hero">
+                        <div class="customise-hero-copy">
+                            <p class="customise-kicker">Quick setup</p>
+                            <h3>Make it yours in a few taps</h3>
+                            <p>Choose a background, set each paddle color independently, and preview the result before
+                                starting the match.</p>
+                        </div>
+                    </div>
+
+                    <div class="customise-hero-summary">
+                        <div class="customise-summary-card">
+                            <span class="customise-summary-label">Left Paddle Preview</span>
+                            <canvas id="customPreviewLeftPaddle" class="customise-summary-swatch"
+                                aria-label="Left paddle preview"></canvas>
+                        </div>
+                        <div class="customise-summary-card">
+                            <span class="customise-summary-label">Right Paddle Preview</span>
+                            <canvas id="customPreviewRightPaddle" class="customise-summary-swatch"
+                                aria-label="Right paddle preview"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="customise-color-controls">
+                        <div class="customise-controls-heading">
+                            <p class="customise-kicker">Colors & Visuals</p>
+                            <h3>Paddle Customization</h3>
+                        </div>
+                        <div class="customise-grid">
+                            <div class="customise-field">
+                                <label for="customPaddleStyle">Paddle Style</label>
+                                <select id="customPaddleStyle">
+                                    <option value="classic">Classic</option>
+                                    <option value="neonBlade">Satelliten</option>
+                                    <option value="shieldWall">World Shield</option>
+                                    <option value="arcadeBlock">AI Rebel</option>
+                                    <option value="prismGlass">Prizma</option>
+                                </select>
+                            </div>
+                            <div class="customise-field">
+                                <label for="customLeftPaddleColor">Left Paddle Color</label>
+                                <input id="customLeftPaddleColor" type="color" value="#00ffd6">
+                            </div>
+                            <div class="customise-field">
+                                <label for="customRightPaddleColor">Right Paddle Color</label>
+                                <input id="customRightPaddleColor" type="color" value="#ff0044">
+                            </div>
+                            <div class="customise-field customise-ball-studio-field">
+                                <label>Ball Studio</label>
+                                <p class="customise-field-copy">Use the dedicated studio to customise the ball skin,
+                                    image, and effect code. Changes made here will only affect custom matches and not
+                                    the other modes.</p>
+                                <button id="openBallStudioBtn" class="btn primary" type="button">Open Ball
+                                    Studio</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="customise-audio-controls">
+                        <div class="customise-controls-heading">
+                            <p class="customise-kicker">Audio</p>
+                            <h3>Match Music Selection</h3>
+                        </div>
+                        <div class="customise-grid">
+                            <div class="customise-field">
+                                <label for="customAudioTrack">Match Audio Track</label>
+                                <select id="customAudioTrack">
+                                    <option value="" selected>Select a track</option>
+                                    <option value="assets/audio/axel-f.mp3">axel-f.mp3</option>
+                                    <option value="assets/audio/zombies.mp3">zombies.mp3</option>
+                                    <option value="assets/audio/space.mp3">space.mp3</option>
+                                    <option value="assets/audio/speed.mp3">speed.mp3</option>
+                                    <option value="assets/audio/obstacles.mp3">obstacles.mp3</option>
+                                </select>
+                            </div>
+                            <div class="customise-field">
+                                <label for="customAudioCustomPath">Or Custom Audio Path</label>
+                                <input id="customAudioCustomPath" type="text"
+                                    placeholder="Choose a local file or type a valid path">
+                                <input type="file" id="customAudioFilePicker" class="hidden-file-picker"
+                                    accept="audio/*">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="customise-background-studio">
+                        <div class="customise-background-controls">
+                            <div class="customise-studio-heading">
+                                <p class="customise-kicker">Background studio</p>
+                                <h3>Shape the backdrop beside the live preview</h3>
+                                <p>These controls update the background preview and the actual in-game custom background
+                                    together.</p>
+                            </div>
+                            <div class="customise-field">
+                                <label for="customBackgroundMode">Background Preset</label>
+                                <select id="customBackgroundMode">
+                                    <option value="classic">Classic</option>
+                                    <option value="zombie">Zombie</option>
+                                    <option value="gravity">Gravity</option>
+                                    <option value="speed">Speed</option>
+                                    <option value="obstacle">Obstacle</option>
+                                </select>
+                            </div>
+                            <div class="customise-field">
+                                <label for="customBgBrightness">Background Brightness</label>
+                                <input id="customBgBrightness" type="range" min="0.5" max="1.6" step="0.05" value="1">
+                                <div class="customise-slider-row"><span>Dim</span><span
+                                        id="customBgBrightnessValue">1.00</span><span>Bright</span></div>
+                            </div>
+                            <div class="customise-field">
+                                <label for="customBgSaturation">Background Saturation</label>
+                                <input id="customBgSaturation" type="range" min="0.5" max="1.8" step="0.05" value="1">
+                                <div class="customise-slider-row"><span>Muted</span><span
+                                        id="customBgSaturationValue">1.00</span><span>Rich</span></div>
+                            </div>
+                            <div class="customise-field">
+                                <label for="customBgContrast">Background Contrast</label>
+                                <input id="customBgContrast" type="range" min="0.6" max="1.7" step="0.05" value="1">
+                                <div class="customise-slider-row"><span>Soft</span><span
+                                        id="customBgContrastValue">1.00</span><span>Sharp</span></div>
+                            </div>
+                        </div>
+                        <div class="customise-live-preview-wrapper">
+                            <div class="customise-live-preview-header">
+                                <div>
+                                    <p class="customise-kicker">Live background preview</p>
+                                    <h3>See the selected world with your tone settings applied</h3>
+                                </div>
+                                <p class="customise-live-preview-note">Use the sliders to tune the exact look of the
+                                    background before the match starts.</p>
+                            </div>
+                            <div id="customiseLivePreview" class="customise-live-preview"
+                                aria-label="Live game preview">
+                                <img id="customLiveBackgroundImage" class="customise-live-bg-image"
+                                    alt="Selected background preview">
+                                <canvas id="customLiveBackgroundCanvas" class="customise-live-bg-canvas" width="620"
+                                    height="130" aria-hidden="true"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="customise-powerups-panel">
+                        <p class="customise-powerups-title">Allowed Power-Ups In Custom Match</p>
+                        <div id="customPowerupsGrid" class="customise-powerups-grid">
+                            <label class="customise-powerup-option"><input type="checkbox" value="slowBall">Slow
+                                Ball</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="fastPaddle">Fast
+                                Paddle</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="doublePoints">Double
+                                Points</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="bigPaddle">Big
+                                Paddle</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="smallBall">Small
+                                Ball</label>
+                            <label class="customise-powerup-option"><input type="checkbox"
+                                    value="invincible">Invincible</label>
+                            <label class="customise-powerup-option"><input type="checkbox"
+                                    value="multiBall">Multi-Ball</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="powerShot">Power
+                                Shot</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="timeWarp">Time
+                                Warp</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="magnetPaddle">Magnet
+                                Paddle</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="ghostBall">Ghost
+                                Ball</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="laserPaddle">Laser
+                                Paddle</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="shrinkOpponent">Shrink
+                                Opponent</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="chaosMode">Chaos
+                                Mode</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="shield">Shield</label>
+                        </div>
+                    </div>
+
+                    <p id="customModeNotice" class="custom-mode-note">
+                        Customise stays in local PvP classic gameplay: no AI opponent, no speed challenge, no gravity
+                        wells, no obstacles, no XP, no achievements.
+                    </p>
+                    <div class="customise-actions">
+                        <button id="customStartMatchBtn" type="button" class="customise-start-btn">Start Custom
+                            Match</button>
+                        <button id="customResetDefaultsBtn" type="button" class="customise-reset-btn">Reset
+                            Defaults</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Menu Toggle Button -->
+    <button id="menuToggleBtn" class="menu-toggle-btn" aria-label="Toggle menu and pause" title="Menu"
+        style="display: none !important;">MENU</button>
+
+    <div class="achievements" id="achievementsContainer"></div>
+
+
+    <!-- Gravity Well VFX Filters (enhanced: subtle chromatic split + sheen) -->
+    <svg class="hidden-svg-defs" aria-hidden="true">
+        <defs>
+            <filter id="gravity-distortion" x="-50%" y="-50%" width="200%" height="200%">
+                <!-- Noise base for displacement and lighting -->
+                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="4" result="noise" seed="1" />
+
+                <!-- Displacement for the warped "gravity" look -->
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="28" xChannelSelector="R" yChannelSelector="G"
+                    result="distorted" />
+
+                <!-- Soften a bit for blending layers -->
+                <feGaussianBlur in="distorted" stdDeviation="2" result="blurred" />
+
+                <!-- Chromatic split: create slightly offset red and blue layers -->
+                <feOffset in="blurred" dx="-1" dy="0" result="redShift" />
+                <feColorMatrix in="redShift" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
+                    result="redOnly" />
+
+                <feOffset in="blurred" dx="1" dy="0" result="blueShift" />
+                <feColorMatrix in="blueShift" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"
+                    result="blueOnly" />
+
+                <!-- Merge color-shifted layers into a chromatic effect -->
+                <feBlend in="redOnly" in2="blueOnly" mode="screen" result="chromatic" />
+
+                <!-- Blend chromatic effect over the original for a subtle aberration -->
+                <feBlend in="SourceGraphic" in2="chromatic" mode="overlay" result="withChromatic" />
+
+                <!-- Add a subtle specular sheen from the noise to give depth -->
+                <feSpecularLighting in="noise" surfaceScale="2" specularConstant="0.6" specularExponent="12"
+                    lighting-color="#ffffff" result="spec">
+                    <fePointLight x="100" y="-100" z="200" />
+                </feSpecularLighting>
+
+                <!-- Composite the sheen with the chromatic result for a soft lit look -->
+                <feComposite in="spec" in2="withChromatic" operator="arithmetic" k1="0" k2="0.6" k3="0.2" k4="0"
+                    result="lit" />
+
+                <!-- Final blend back to the source graphic -->
+                <feBlend in="lit" in2="SourceGraphic" mode="normal" />
+            </filter>
+
+            <!-- Accretion Disk Noise (softened + tinted) -->
+            <filter id="accretion-noise" x="-20%" y="-20%" width="140%" height="140%">
+                <feTurbulence type="turbulence" baseFrequency="0.6" numOctaves="3" result="turb" seed="2" />
+                <feGaussianBlur in="turb" stdDeviation="0.8" result="softTurb" />
+                <feColorMatrix in="softTurb" type="matrix" values="1 0 0 0 0  0 0.9 0 0 0  0 0 0.8 0 0  0 0 0 0.45 0"
+                    result="tint" />
+                <feBlend in="SourceGraphic" in2="tint" mode="screen" />
+            </filter>
+        </defs>
+    </svg>
+
+    <script src="js/core/globals.js"></script>
+    <script src="js/core/vec2.js"></script>
+    <script src="js/render/background-renderer.js"></script>
+    <script src="js/fx/particles.js"></script>
+    <script src="js/audio/audio-engine.js"></script>
+    <script src="js/entities/gravity-well.js"></script>
+    <script src="js/entities/ball.js"></script>
+    <script src="js/entities/paddle.js"></script>
+    <script src="js/modes/obstacles.js"></script>
+    <script src="js/modes/zombie-boss.js"></script>
+    <script src="js/audio/ai-voice.js"></script>
+    <script src="js/entities/power-up.js"></script>
+    <script src="js/fx/neon-particles.js"></script>
+    <script src="js/systems/progression.js"></script>
+    <script src="js/modes/speed-challenge.js"></script>
+    <script src="js/ui/match-intro.js"></script>
+    <script src="js/core/game.js"></script>
+    <script src="js/vendor/anime.min.js"></script>
+    <script src="js/game-enhancements.js"></script>
+    <script src="js/game-modes.js"></script>
+    <script src="js/physics/background-wasm.js"></script>
+    <script src="js/physics/physics-wasm.js"></script>
+    <script src="js/app/bootstrap.js"></script>
+    <script src="js/menu/menu.js"></script>
+</body>
+</html>
