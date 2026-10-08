@@ -6066,117 +6066,87 @@ class Game {
         this.ctx.closePath();
     }
 
+    // Per-hit speed multiplier. Rallies speed up gradually rather than doubling,
+    // so long exchanges build tension without instantly maxing the ball out.
+    getPaddleSpeedIncrease(isPlayer) {
+        let inc = 1.045;
+        if (this.gameMode === 'speed') inc = 1.11;
+        else if (this.gameMode === 'obstacle') inc = 1.04;
+        if (this.isZombieWaveMode() && isPlayer && this.zombieState.powerups.rage > 0) inc *= 1.18;
+        inc += Math.min(0.035, this.rallyCount * 0.0025);
+        if (this.powerShotActive && isPlayer) inc *= 1.9;
+        return inc;
+    }
+
     checkPaddleCollision(paddle, isPlayer, ball = this.ball) {
         if (paddle.laserStunned) return false;
 
         const b = ball;
         const p = paddle;
-        const maxAngle = Math.PI / 3.5;
-        const randomYOffset = (Math.random() - 0.5) * 30;
+        const maxAngle = Math.PI / 3.4;
+        const preHitSpeed = b.getSpeed();
+        const hit = PhysicsCore.collidePaddle(b, p, isPlayer, this.getPaddleSpeedIncrease(isPlayer), maxAngle, this.dt);
+        if (!hit) return false;
 
-        const getSpeedIncrease = () => {
-            let speedIncrease = 1.085;
-            if (this.gameMode === 'speed') speedIncrease = 1.45;
-            if (this.gameMode === 'zombie') speedIncrease = 1.085;
-            if (this.gameMode === 'obstacle') speedIncrease = 1.08;
-            if (this.isZombieWaveMode() && isPlayer && this.zombieState.powerups.rage > 0) {
-                speedIncrease *= 1.22;
-            }
-            const rallyBonus = Math.min(1.0, this.rallyCount * 0.20);
-            speedIncrease *= (1 + rallyBonus);
-            if (this.rallyCount >= 10) speedIncrease *= 1.2;
-            if (this.rallyCount >= 20) speedIncrease *= 1.3;
-            if (this.powerShotActive && isPlayer) {
-                speedIncrease *= 2.5;
-            }
-            return speedIncrease;
-        };
-
-        const applyCollisionEffects = (speed) => {
-            // Trigger Speed Challenge in Speed Mode every N hits.
-            // For single-player only trigger when the HUMAN player is the one being scored against
-            // (i.e. the AI just hit the ball toward the player). Multiplayer retains original behaviour.
-            if (this.gameMode === 'speed' && this.rallyCount > 0 && this.rallyCount % 6 === 0) {
-                if (this.speedChallenge) {
-                    if (this.isMultiplayer) {
+        const speed = preHitSpeed;
+        // Trigger Speed Challenge in Speed Mode every N hits.
+        // For single-player only trigger when the HUMAN player is the one being scored against
+        // (i.e. the AI just hit the ball toward the player). Multiplayer retains original behaviour.
+        if (this.gameMode === 'speed' && this.rallyCount > 0 && this.rallyCount % 6 === 0) {
+            if (this.speedChallenge) {
+                if (this.isMultiplayer) {
+                    this.speedChallenge.startChallenge();
+                } else {
+                    // In single-player, only start if the last hit was by the AI
+                    // (so the human is the one being scored against)
+                    if (!isPlayer) {
                         this.speedChallenge.startChallenge();
-                    } else {
-                        // In single-player, only start if the last hit was by the AI
-                        // (so the human is the one being scored against)
-                        if (!isPlayer) {
-                            this.speedChallenge.startChallenge();
-                        }
                     }
                 }
             }
+        }
 
-            if (this.powerShotActive && isPlayer) {
-                this.powerShotActive = false;
-                this.particles.spawnGodTierHit(b.pos.x, b.pos.y, '#ff5252', speed * 2);
-                if (this.ai && typeof this.ai.onPowerShot === 'function') {
-                    this.ai.onPowerShot();
-                }
-            }
-
-            // NEW: Trigger fire burst on zombie boss paddle collision
-            if (!isPlayer && this.gameMode === 'zombie' && this.ai && typeof this.ai.onBallHit === 'function') {
-                this.ai.onBallHit(speed);
-            }
-
-            b.lastHit = isPlayer ? 'player' : 'ai';
-
-            const hitX = isPlayer ? p.pos.x + p.w : p.pos.x;
-            this.particles.spawnGodTierHit(hitX, b.pos.y, p.color, speed);
-            this.audio.hit();
-            this.rallyCount++;
-            this.rallyDisplay.textContent = this.rallyCount;
-            this.progression.incrementAchievementProgress('rallyLegend');
-            this.checkRallyMilestones();
-
-            // NEW: Drug mode hit flash trigger
-            if (this.gameMode === 'speed') {
-                this.lastHitFlash = 1.0;
-                this.hitFlashDirection = isPlayer ? 1 : -1;
-            }
-        };
-
-        const resolveJsCollision = () => {
-            const closestX = Math.max(p.pos.x, Math.min(b.pos.x, p.pos.x + p.w));
-            const closestY = Math.max(p.pos.y, Math.min(b.pos.y, p.pos.y + p.h));
-            const distX = b.pos.x - closestX;
-            const distY = b.pos.y - closestY;
-            const distSq = distX * distX + distY * distY;
-            if (distSq > b.r * b.r) {
-                return false;
-            }
-
-            const overlap = b.r - Math.sqrt(distSq);
-            const normal = new Vec2(distX, distY).normalize();
-            b.pos.add(normal.mul(overlap + 0.05));
-            const speed = b.getSpeed();
-            const speedIncrease = getSpeedIncrease();
-            const newSpeed = Math.min(b.maxSpeed, speed * speedIncrease);
-            const hitPos = (b.pos.y - (p.pos.y + p.h / 2)) / (p.h / 2);
-            const angle = hitPos * maxAngle;
-            const direction = isPlayer ? 1 : -1;
-            b.vel.x = Math.cos(angle) * newSpeed * direction;
-            b.vel.y = Math.sin(angle) * newSpeed + randomYOffset;
-            b.spin += p.vel.y * 0.0008;
-            applyCollisionEffects(speed);
-
-            return true;
-        };
-
-        if (window.WasmPhysics?.ready && typeof window.WasmPhysics.resolvePaddleCollision === 'function') {
-            const speedIncrease = getSpeedIncrease();
-            const preHitSpeed = b.getSpeed();
-            if (window.WasmPhysics.resolvePaddleCollision(b, p, isPlayer, speedIncrease, maxAngle, randomYOffset)) {
-                applyCollisionEffects(preHitSpeed);
-                return true;
+        if (this.powerShotActive && isPlayer) {
+            this.powerShotActive = false;
+            this.particles.spawnGodTierHit(b.pos.x, b.pos.y, '#ff5252', speed * 2);
+            if (this.ai && typeof this.ai.onPowerShot === 'function') {
+                this.ai.onPowerShot();
             }
         }
 
-        return resolveJsCollision();
+        // NEW: Trigger fire burst on zombie boss paddle collision
+        if (!isPlayer && this.gameMode === 'zombie' && this.ai && typeof this.ai.onBallHit === 'function') {
+            this.ai.onBallHit(speed);
+        }
+
+        b.lastHit = isPlayer ? 'player' : 'ai';
+
+        const hitX = isPlayer ? p.pos.x + p.w : p.pos.x;
+        this.particles.spawnGodTierHit(hitX, b.pos.y, p.color, speed);
+        this.audio.hit();
+        this.rallyCount++;
+        this.rallyDisplay.textContent = this.rallyCount;
+        this.progression.incrementAchievementProgress('rallyLegend');
+        this.checkRallyMilestones();
+
+        // NEW: Drug mode hit flash trigger
+        if (this.gameMode === 'speed') {
+            this.lastHitFlash = 1.0;
+            this.hitFlashDirection = isPlayer ? 1 : -1;
+        }
+
+        this.onPaddleImpact(b, p, isPlayer, hit === 2);
+        return true;
+    }
+
+    // Juice for a paddle hit, scaled by how hard the ball was travelling.
+    onPaddleImpact(ball, paddle, isPlayer, edgeHit) {
+        const impact = ball.lastImpact || 0;
+        paddle.kick?.(isPlayer ? -1 : 1, 0.35 + impact * 0.9);
+        this.hitStop = Math.max(this.hitStop || 0, 0.012 + impact * 0.045 + (edgeHit ? 0.02 : 0));
+        this.screenShake = Math.max(this.screenShake || 0, 2 + impact * 9);
+        this.postFx?.ripple(ball.pos.x, ball.pos.y, 0.35 + impact * 0.65);
+        this.postFx?.punch(0.25 + impact * 0.75);
     }
 
     checkRallyMilestones() {
@@ -6206,8 +6176,9 @@ class Game {
         this.rallyDisplay.textContent = this.rallyCount;
     }
 
+    // Extra balls (multi-ball / chaos). dt already includes time warp.
     updateAdditionalBalls(dt) {
-        const effectiveDt = this.timeWarpFactor * dt;
+        const effectiveDt = dt;
         const balls = this.additionalBalls;
         let writeIndex = 0;
         for (let i = 0; i < balls.length; i++) {
@@ -6219,8 +6190,6 @@ class Game {
                     continue;
                 }
             }
-            ball.vel.x *= Math.pow(0.999, effectiveDt * 60);
-            ball.vel.y *= Math.pow(0.999, effectiveDt * 60);
             if (this.magnetPaddleActive) {
                 const distToPlayer = Math.hypot(
                     ball.pos.x - this.player.pos.x,
@@ -6239,14 +6208,7 @@ class Game {
                     this.progression.incrementAchievementProgress('magnetMaster');
                 }
             }
-            ball.integrate(effectiveDt);
-            if (ball.pos.y <= ball.r) {
-                ball.pos.y = ball.r;
-                ball.vel.y = Math.abs(ball.vel.y) * 0.92;
-                this.audio.bounce();
-            } else if (ball.pos.y >= this.height - ball.r) {
-                ball.pos.y = this.height - ball.r;
-                ball.vel.y = -Math.abs(ball.vel.y) * 0.92;
+            if (ball.integrate(effectiveDt, this.height) & (PhysicsCore.EVT.WALL_TOP | PhysicsCore.EVT.WALL_BOTTOM)) {
                 this.audio.bounce();
             }
             if (!this.ghostBallActive) {
@@ -6331,14 +6293,18 @@ class Game {
 
     physicsStep(dt, updateGravityWells = true) {
         if (this.paused) return;
-        const effectiveDt = this.timeWarpFactor * dt;
+        // Hit-stop: on a hard paddle hit the world briefly runs at a crawl, which
+        // sells the impact without feeling like input lag.
+        let hitStopScale = 1;
+        if (this.hitStop > 0) {
+            this.hitStop -= dt;
+            hitStopScale = 0.12;
+        }
+        const effectiveDt = this.timeWarpFactor * dt * hitStopScale;
         this.updateSpeedBackground(effectiveDt);
         this.updateGameState(effectiveDt);
         this.updateGameObjects(effectiveDt, updateGravityWells);
         this.updateBallPhysics(this.ball, effectiveDt);
-        for (let i = 0; i < this.additionalBalls.length; i++) {
-            this.updateBallPhysics(this.additionalBalls[i], effectiveDt);
-        }
         this.handleCollisions(effectiveDt);
         this.updatePaddles(effectiveDt);
         this.checkScoringConditions();
@@ -6444,10 +6410,6 @@ class Game {
     }
 
     updateBallPhysics(ball, dt) {
-        const dampingFactor = Math.pow(0.9998, dt * 60);
-        ball.vel.x *= dampingFactor;
-        ball.vel.y *= dampingFactor;
-
         if (this.gameMode === 'obstacle' && this.bgRenderer?.applyObstacleGameplayEffects) {
             this.bgRenderer.applyObstacleGameplayEffects(ball, dt);
         }
@@ -6484,15 +6446,20 @@ class Game {
                 this.progression.incrementAchievementProgress('magnetMaster');
             }
         }
-        ball.integrate(dt);
-        if (ball.pos.y <= ball.r) {
-            ball.pos.y = ball.r;
-            ball.vel.y = Math.abs(ball.vel.y) * 0.96;
-            this.audio.bounce();
-        } else if (ball.pos.y >= this.height - ball.r) {
-            ball.pos.y = this.height - ball.r;
-            ball.vel.y = -Math.abs(ball.vel.y) * 0.96;
-            this.audio.bounce();
+        const events = ball.integrate(dt, this.height);
+        if (events & (PhysicsCore.EVT.WALL_TOP | PhysicsCore.EVT.WALL_BOTTOM)) {
+            this.onBallWallHit(ball, events);
+        }
+    }
+
+    // Rail contact: sound plus a little feedback scaled by how hard it hit.
+    onBallWallHit(ball, events) {
+        this.audio.bounce();
+        const impact = ball.lastImpact || 0;
+        if (impact > 0.35) {
+            this.screenShake = Math.max(this.screenShake || 0, impact * 4);
+            const y = (events & PhysicsCore.EVT.WALL_TOP) ? 0 : this.height;
+            this.postFx?.ripple(ball.pos.x, y, 0.25 + impact * 0.35);
         }
     }
 
@@ -6500,26 +6467,18 @@ class Game {
         this.checkPaddleCollision(this.player, true);
         this.checkPaddleCollision(this.aiPaddle, false);
         this.handleZombieBallCollisions(this.ball);
-        for (let i = 0; i < this.additionalBalls.length; i++) {
-            const ball = this.additionalBalls[i];
-            this.checkPaddleCollision(this.player, true, ball);
-            this.checkPaddleCollision(this.aiPaddle, false, ball);
-        }
         if (!this.ghostBallActive) {
-            for (let ballIndex = -1; ballIndex < this.additionalBalls.length; ballIndex++) {
-                const ball = ballIndex === -1 ? this.ball : this.additionalBalls[ballIndex];
-                for (let obstacleIndex = 0; obstacleIndex < this.obstacles.length; obstacleIndex++) {
-                    const o = this.obstacles[obstacleIndex];
-                    if (o.checkCollision(ball)) {
-                        this.audio.hit();
-                        if (this.gameMode !== 'obstacle') {
-                            this.particles.spawnGodTierHit(ball.pos.x, ball.pos.y, '#e040fb', ball.getSpeed());
-                            this.screenShake = Math.max(this.screenShake, 8);
-                        } else {
-                            this.screenShake = Math.max(this.screenShake, 2);
-                        }
-                        break;
+            const ball = this.ball;
+            for (let i = 0; i < this.obstacles.length; i++) {
+                if (this.obstacles[i].checkCollision(ball)) {
+                    this.audio.hit();
+                    if (this.gameMode !== 'obstacle') {
+                        this.particles.spawnGodTierHit(ball.pos.x, ball.pos.y, '#e040fb', ball.getSpeed());
+                        this.screenShake = Math.max(this.screenShake, 8);
+                    } else {
+                        this.screenShake = Math.max(this.screenShake, 2);
                     }
+                    break;
                 }
             }
         }
@@ -6600,9 +6559,13 @@ class Game {
                 this.aiPaddle.fireLaser(this);
                 this.keys['enter'] = false;
             }
-        } else if (this.aiPaddle.hasLaser && Math.random() < 0.01 && !this.aiPaddle.laserStunned) {
+        } else if (this.aiPaddle.hasLaser && Math.random() < 1.2 * dt && !this.aiPaddle.laserStunned) {
             this.aiPaddle.fireLaser(this);
         }
+
+        // Recoil springs, hit particles and idle animation.
+        this.player.update(dt);
+        this.aiPaddle.update(dt);
     }
 
     checkScoringConditions() {

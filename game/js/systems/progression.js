@@ -1708,7 +1708,10 @@ class ProgressionSystem {
     color: #f0f6ff;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     transform: translateX(100%);
-    transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+    /* Hidden while closed so its glow can't bleed onto the screen edge
+       (and the browser skips its backdrop blur). */
+    visibility: hidden;
+    transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1), visibility 0s linear 0.6s;
     z-index: 100000;
     overflow: hidden;
     display: flex;
@@ -1717,6 +1720,8 @@ class ProgressionSystem {
 
 .achievement-sidebar.visible {
     transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1), visibility 0s;
 }
 
 .sidebar-header {

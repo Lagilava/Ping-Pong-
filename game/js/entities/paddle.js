@@ -50,6 +50,11 @@ class Paddle {
         this.pulseDirection = 1;
         this.lastUpdateTime = Date.now();
 
+        // Hit response: horizontal recoil (px) and squash, both spring back.
+        this.recoil = 0;
+        this.recoilVel = 0;
+        this.squash = 0;
+
         // "Alive" behaviour
         this.circuitNodes = [];
         this.circuitSparkTimer = 0;
@@ -589,6 +594,14 @@ class Paddle {
     }
 
     // Trigger a paddle hit particle effect
+    // Knock the paddle back on contact. dir is -1 (push left) or 1 (push right).
+    kick(dir, strength = 1) {
+        this.recoilVel += dir * 420 * strength;
+        this.squash = Math.min(1, this.squash + 0.55 * strength);
+        this.lastHitTime = Date.now();
+        this.energyPulse = 1.0;
+    }
+
     addHitParticles(x, y, speed = 800) {
         const hitColor = this.isZombieBoss ? '#44ff44' : this.color;
         this.particleSystem.spawnGodTierHit(x, y, hitColor, speed);
@@ -610,11 +623,11 @@ class Paddle {
         // Update the particle system
         this.particleSystem.update(dt);
 
-        // If stunned, apply visual wobble
-        if (this.laserStunned) {
-            // Enhanced wobble effect
-            this.pos.y += Math.sin(Date.now() * 0.02) * 3;
-        }
+        // Critically damped spring pulls the recoil back to rest.
+        const k = 520, c = 2 * Math.sqrt(k);
+        this.recoilVel += (-k * this.recoil - c * this.recoilVel) * dt;
+        this.recoil += this.recoilVel * dt;
+        this.squash *= Math.exp(-10 * dt);
 
         // "alive" behaviour
         if (this.isAI) {
@@ -645,7 +658,12 @@ class Paddle {
         const style = this._normalizePaddleStyle(this.paddleStyle);
 
         ctx.save();
-        ctx.translate(this.pos.x + this.w / 2, this.pos.y + this.h / 2);
+        // Stun wobble is visual only so it never drifts the paddle's real position.
+        const wobble = this.laserStunned ? Math.sin(Date.now() * 0.02) * 3 : 0;
+        ctx.translate(this.pos.x + this.w / 2 + this.recoil, this.pos.y + this.h / 2 + wobble);
+        if (this.squash > 0.01) {
+            ctx.scale(1 + this.squash * 0.35, 1 - this.squash * 0.12);
+        }
 
         if (this.isAI && this.isZombieBoss) {
             this.renderZombieBossAI(ctx, time, hitGlow, pulse, pulseIntensity, transformPulse);

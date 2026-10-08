@@ -250,50 +250,22 @@ class Ball {
     }
 
     reset(center, speed = null) {
-        this.pos.set(center.x, center.y);
         const actualSpeed = Number.isFinite(speed) ? speed : this.baseSpeed;
-        const angle = (Math.random() * Math.PI * 0.6) - Math.PI * 0.3;
+        // Serve at a lively but readable angle: 8-25 degrees up or down.
+        const angle = (0.14 + Math.random() * 0.3) * (Math.random() < 0.5 ? -1 : 1);
         const dir = Math.random() > 0.5 ? 1 : -1;
-        const cosAngle = Math.cos(angle);
-        const sinAngle = Math.sin(angle);
-
-        this.vel.set(
-            cosAngle * actualSpeed * dir,
-            sinAngle * actualSpeed * ((Math.random() * 0.4) - 0.2)
-        );
-
-        this.spin = 0;
-        this.prev.set(this.pos.x, this.pos.y);
+        PhysicsCore.reset(this, center.x, center.y, actualSpeed, angle, dir);
         this.lastHit = null;
         this.trailCount = 0;
         this.particles.length = 0; // Clear particles without reallocation
     }
 
-    integrate(dt) {
-        this.prev.set(this.pos.x, this.pos.y);
+    // Advances the ball. The physics itself (spin, drag, wall bounces, speed
+    // clamps) runs in C++ via PhysicsCore; this method also maintains the
+    // visual trail and particles. Returns PhysicsCore.EVT flags.
+    integrate(dt, height = window.game?.height ?? 600) {
+        const events = PhysicsCore.integrate(this, dt, height);
         const particlesEnabled = areParticleEffectsEnabled();
-
-        // Magnus effect: spin affects trajectory (more realistic physics)
-        if (Math.abs(this.spin) > 0.01) {
-            // Magnus force: F = S * ω × v (simplified)
-            const magnusForce = this._tempVec.copy(this.vel).normalize().perp();
-            const spinMagnitude = this.spin * this.r * 0.0005; // Scale by ball radius
-            magnusForce.mul(spinMagnitude * dt);
-            this.vel.add(magnusForce);
-
-            // Spin decays faster at higher speeds (air resistance on rotation)
-            const spinDecay = 0.98 - this._speed * 0.00001;
-            this.spin *= Math.max(0.8, spinDecay);
-        }
-
-        // Velocity-dependent air resistance (quadratic drag approximation)
-        const speedRatio = this._speed / this.maxSpeed;
-        const airResistance = 1 - (0.0001 + speedRatio * 0.0003) * dt;
-        this.vel.mul(airResistance);
-
-        // Velocity integration
-        this.pos.x += this.vel.x * dt;
-        this.pos.y += this.vel.y * dt;
 
         if (particlesEnabled) {
             // Preserve the legacy drifting trail only for special modes.
@@ -331,22 +303,11 @@ class Ball {
             this.particles.length = 0;
         }
 
-        // Cache speed calculation
-        this._speed = this.vel.len();
-
-        // Speed clamping with cached normalization
-        if (this._speed > this.maxSpeed) {
-            this.vel.normalize().mul(this.maxSpeed);
-            this._speed = this.maxSpeed;
-        } else if (this._speed < this.minSpeed && this._speed > 0.001) {
-            this.vel.normalize().mul(this.minSpeed);
-            this._speed = this.minSpeed;
-        }
-
         // Update particles (simplified)
         if (particlesEnabled) {
             this._updateParticles(dt);
         }
+        return events;
     }
 
     // Enhanced particle physics with air resistance

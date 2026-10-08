@@ -239,37 +239,15 @@ class GravityWell {
         let currentlyAffecting = false;
 
         if (inForceRange) {
-            if (window.WasmPhysics?.ready && typeof window.WasmPhysics.applyGravityWell === 'function') {
-                window.WasmPhysics.applyGravityWell(
-                    ball,
-                    this.#pos.x,
-                    this.#pos.y,
-                    this.#pullRadiusSq,
-                    this.#strength,
-                    dt,
-                    GravityWell.MIN_DISTANCE_SQ
-                );
-            } else {
-                const invDist = 1 / Math.sqrt(distSq);
-                const pullRatio = Math.max(0, 1 - (distSq / this.#pullRadiusSq));
-                const smooth = pullRatio * pullRatio;
-                const forceCap = Math.max(420, Math.min(1600, this.#strength * 0.06));
-                const force = Math.min(this.#strength * smooth, forceCap);
-                const accel = force * dt;
-
-                ball.vel.x += dx * invDist * accel;
-                ball.vel.y += dy * invDist * accel;
-
-                // Hard clamp to keep the gravity step from ever exploding.
-                const ballSpeedSq = ball.vel.x * ball.vel.x + ball.vel.y * ball.vel.y;
-                const maxSpeed = ball.maxSpeed || 1400;
-                const maxSpeedSq = maxSpeed * maxSpeed;
-                if (ballSpeedSq > maxSpeedSq) {
-                    const scale = maxSpeed / Math.sqrt(ballSpeedSq);
-                    ball.vel.x *= scale;
-                    ball.vel.y *= scale;
-                }
-            }
+            PhysicsCore.gravityWell(
+                ball,
+                this.#pos.x,
+                this.#pos.y,
+                this.#pullRadiusSq,
+                this.#strength,
+                dt,
+                GravityWell.MIN_DISTANCE_SQ
+            );
         }
 
         currentlyAffecting = inPullRange;

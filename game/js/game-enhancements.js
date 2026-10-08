@@ -119,9 +119,6 @@
                 modifier: ['current', 'active', 'detected', 'peripheral']
             };
 
-            this.lastWebFetchTime = 0;
-            this.webFetchCooldown = 600000;
-            this.externalTaunts = [];
         }
 
         generatePersonality() {
@@ -504,27 +501,6 @@
             return generated;
         }
 
-        async fetchNewTaunts() {
-            const now = Date.now();
-            if (now - this.lastWebFetchTime < this.webFetchCooldown) return;
-            this.lastWebFetchTime = now;
-            try {
-                const res = await fetch('https://v2.jokeapi.dev/joke/Any?safe-mode&amount=3');
-                const data = await res.json();
-                const jokes = Array.isArray(data.jokes) ? data.jokes : [data];
-                jokes.forEach(j => {
-                    let jokeText = j.joke || `${j.setup} ${j.delivery}`;
-                    jokeText = jokeText.replace(/he|she|it|they|person|man|woman/g, 'paddle')
-                                      .replace(/run|walk|jump|fly/g, 'smash')
-                                      .replace(/food|drink|eat/g, 'spin');
-                    this.externalTaunts.push(jokeText);
-                });
-                this.wordBanks.adjective.push(...['hilarious', 'chaotic', 'epic']);
-            } catch (e) {
-                console.error('Failed to fetch new taunts:', e);
-            }
-        }
-
         getTaunt(context = { type: 'general' }) {
             if (this.isPvPMatch()) return "";
 
@@ -745,7 +721,6 @@
                 ]);
             }
 
-            if (this.externalTaunts?.length > 0) taunts = taunts.concat(this.externalTaunts);
 
             let categoryPool = [...new Set(taunts.filter(Boolean))];
 
@@ -801,11 +776,10 @@
         }
 
         predict() {
-            if (window.WasmPhysics?.ready) {
-                return window.WasmPhysics.predictBallY(this.ball, this.paddle.pos.x, this.predictionSteps);
-            }
-            const timeToImpact = Math.abs((this.paddle.pos.x - this.ball.pos.x) / this.ball.vel.x);
-            return this.ball.pos.y + this.ball.vel.y * timeToImpact;
+            // Same C++ integrator as the live ball, so the AI reads spin and wall
+            // kicks. predictionSteps (difficulty) limits how far ahead it can see.
+            const faceX = this.paddle.pos.x - this.ball.r;
+            return PhysicsCore.predictY(this.ball, faceX, this.predictionSteps * 2, window.game?.height ?? 600);
         }
 
         update(dt, powerUps = []) {
@@ -827,15 +801,20 @@
                 return;
             }
 
-            let targetY = ballMovingToAI ? this.predict() : this.idleTargetY;
-            if (this.targetPowerUp && Math.random() < this.powerUpAwareness) {
-                targetY = this.targetPowerUp.pos.y;
-            }
+            // Reaction timing runs on game time so pauses, hit-stop and time warp
+            // affect the AI exactly like everything else.
+            this.simTimeMs = (this.simTimeMs || 0) + dt * 1000;
+            const simNow = this.simTimeMs;
+            if (!(this.nextTrackingUpdate <= simNow + 2000)) this.nextTrackingUpdate = simNow;
 
-            if (now >= this.nextTrackingUpdate) {
+            if (simNow >= this.nextTrackingUpdate) {
+                let targetY = ballMovingToAI ? this.predict() : this.idleTargetY;
+                if (this.targetPowerUp && Math.random() < this.powerUpAwareness) {
+                    targetY = this.targetPowerUp.pos.y;
+                }
                 const reactionBase = 65 + this.reaction * 260;
                 const pressureFactor = ballMovingToAI ? 0.85 : 1.2;
-                this.nextTrackingUpdate = now + reactionBase * pressureFactor;
+                this.nextTrackingUpdate = simNow + reactionBase * pressureFactor;
 
                 const noiseMagnitude = (8 + this.inaccuracy * 120) * (ballMovingToAI ? 0.7 : 1.0);
                 const noise = (Math.random() - 0.5) * noiseMagnitude;
@@ -903,8 +882,6 @@
                     this.triggerTaunt(closeLine, 'close_call');
                 }
             }
-
-            this.fetchNewTaunts();
 
             if (this.canTriggerLine() && Math.random() < 0.22) {
                 const ballAngle = Math.atan2(this.ballVelocity.y, this.ballVelocity.x);
