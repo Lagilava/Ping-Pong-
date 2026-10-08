@@ -342,6 +342,10 @@
         varying vec2 vUv;
         void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
     `;
+    // Phones: lighter menu scene (fewer clouds/particles, half the cloud noise
+    // octaves, coarser court mesh). Fill rate is what limits mobile GPUs.
+    const MENU_MOBILE = !!window.PerfGovernor?.isMobile;
+
     const CLOUD_FS = `
         uniform float uTime;
         uniform float uFlash;
@@ -358,7 +362,7 @@
         }
         float fbm(vec2 p) {
             float v = 0.0, a = 0.5;
-            for (int i = 0; i < 6; i++) { v += a * n(p); p *= 2.08; a *= 0.48; }
+            for (int i = 0; i < CLOUD_OCTAVES; i++) { v += a * n(p); p *= 2.08; a *= 0.48; }
             return v;
         }
 
@@ -754,7 +758,8 @@
                 angleOffset: -0.18
             };
 
-            menuRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+            // No MSAA on phones: the bloom pass smooths edges and MSAA costs fill rate.
+            menuRenderer = new THREE.WebGLRenderer({ canvas, antialias: !MENU_MOBILE, powerPreference: 'high-performance' });
             menuRenderer.setPixelRatio(MENU_CONFIG.renderer.pixelRatio);
             menuRenderer.setSize(innerWidth, innerHeight);
             // Use ACES Filmic tonemapping for richer highlights
@@ -765,7 +770,7 @@
             menuRenderer.physicallyCorrectLights = true;
             // Enable soft shadows
             // Phones / very low-end devices skip shadow maps from the start.
-            menuRenderer.shadowMap.enabled = (window.PerfGovernor?.tier || 0) < 2;
+            menuRenderer.shadowMap.enabled = !MENU_MOBILE && (window.PerfGovernor?.tier || 0) < 2;
             menuRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
             menuRenderer.setClearColor(0x050b14, 1);
             try {
@@ -823,7 +828,7 @@
                 uLightningPos: { value: new THREE.Vector3(0, 28, -12) }
             };
 
-            const seaGeo = new THREE.PlaneGeometry(13.2, 6.4, 96, 64);
+            const seaGeo = new THREE.PlaneGeometry(13.2, 6.4, MENU_MOBILE ? 48 : 96, MENU_MOBILE ? 32 : 64);
             const seaMat = new THREE.ShaderMaterial({
                 uniforms: seaUniforms,
                 vertexShader: SEA_VS,
@@ -929,7 +934,7 @@
                 { w: 85, h: 60, y: 21, z: -26, rx: -0.10, offX: 0.38 },
             ];
             cloudMeshes = [];
-            cloudCfg.forEach((cfg, i) => {
+            (MENU_MOBILE ? cloudCfg.slice(0, 2) : cloudCfg).forEach((cfg, i) => {
                 const cGeo = new THREE.PlaneGeometry(cfg.w, cfg.h);
                 const cMat = new THREE.ShaderMaterial({
                     uniforms: {
@@ -939,7 +944,7 @@
                         uOffX: { value: cfg.offX }
                     },
                     vertexShader: CLOUD_VS,
-                    fragmentShader: CLOUD_FS,
+                    fragmentShader: `#define CLOUD_OCTAVES ${MENU_MOBILE ? 3 : 6}\n` + CLOUD_FS,
                     transparent: true,
                     depthWrite: false,
                     blending: THREE.NormalBlending
@@ -954,7 +959,7 @@
             });
 
             // ── RAIN ─────────────────────────────────────────────────
-            const rainCount = 1800;
+            const rainCount = MENU_MOBILE ? 600 : 1800;
             const rPos = new Float32Array(rainCount * 3);
             rainVelocities = new Float32Array(rainCount);
             for (let i = 0; i < rainCount; i++) {
@@ -976,7 +981,7 @@
             menuScene.add(rainPoints);
 
             // ── MIST / SPRAY PARTICLES ─────────────────────────────────
-            const sprayCount = 360;
+            const sprayCount = MENU_MOBILE ? 100 : 360;
             const sPos = new Float32Array(sprayCount * 3);
             for (let i = 0; i < sprayCount; i++) {
                 sPos[i * 3] = (Math.random() - 0.5) * 80;
@@ -1119,7 +1124,7 @@
             menuScene.add(ringGroup);
 
             // ── AMBIENT PARTICLES ─────────────────────────────────────
-            const particleCount = 320;
+            const particleCount = MENU_MOBILE ? 120 : 320;
             const pPositions = new Float32Array(particleCount * 3);
             const pColors = new Float32Array(particleCount * 3);
             for (let i = 0; i < particleCount; i++) {

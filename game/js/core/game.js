@@ -2091,7 +2091,8 @@ class Game {
         // Full cinematic on the first match of a session; a short version after
         // that so rematches get to the action quickly. Click/Esc/Skip skips it.
         if (this.intro) {
-            this.intro.duration = this._introsPlayed ? 3.4 : Intro.DURATION;
+            // Phones always get the short intro.
+            this.intro.duration = (this._introsPlayed || PerfGovernor.isMobile) ? 3.4 : Intro.DURATION;
             this._introsPlayed = (this._introsPlayed || 0) + 1;
         }
         const skipButton = document.getElementById('skipIntro');
@@ -7684,15 +7685,17 @@ class Game {
                 ctx.globalAlpha = taunt.opacity || 1;
                 const paddleX = this.aiPaddle.pos.x;
                 const paddleY = this.aiPaddle.pos.y + this.aiPaddle.h / 2;
-                ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-                const maxBubbleWidth = 220;
-                const padding = 14;
+                // Scale with screen height so the bubble stays proportionate on phones.
+                const k = Math.max(0.6, Math.min(1, H / 700));
+                ctx.font = `${Math.round(16 * k)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+                const maxBubbleWidth = Math.round(220 * k);
+                const padding = Math.round(14 * k);
                 const maxTextWidth = maxBubbleWidth - padding * 2;
                 const lines = this.getTauntLayout(ctx, taunt.text, maxTextWidth);
-                const lineHeight = 20;
-                const bubbleHeight = Math.max(36, lines.length * lineHeight + padding);
+                const lineHeight = Math.round(20 * k);
+                const bubbleHeight = Math.max(36 * k, lines.length * lineHeight + padding);
                 const bubbleWidth = maxBubbleWidth;
-                const bubbleX = paddleX - bubbleWidth - 50;
+                const bubbleX = paddleX - bubbleWidth - 50 * k;
                 const bubbleY = paddleY - bubbleHeight / 2;
                 ctx.fillStyle = '#0088ff';
                 this.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 18);

@@ -13,8 +13,10 @@
     // Circular frame buffer (pre-allocated to avoid GC churn)
     // 6 s at 24 fps. Frames are stored downscaled (REPLAY_WIDTH) because each
     // one is a GPU bitmap: full-resolution frames would cost gigabytes of VRAM.
-    const BUFFER_SIZE = 144;
-    const REPLAY_WIDTH = 640;
+    // Phones keep a smaller, lower-rate buffer (less GPU memory and copy work).
+    const IS_MOBILE = !!window.PerfGovernor?.isMobile;
+    const BUFFER_SIZE = IS_MOBILE ? 100 : 144;
+    const REPLAY_WIDTH = IS_MOBILE ? 420 : 640;
     const frameBuffer = new Array(BUFFER_SIZE).fill(null);
     const frameTimestamps = new Float64Array(BUFFER_SIZE);
     const frameMetaBuffer = new Array(BUFFER_SIZE).fill(null);
@@ -74,7 +76,7 @@
     // ─── CONFIG ───────────────────────────────────────────────────────────────
     const CFG = {
         record: {
-            targetFPS: 24,
+            targetFPS: IS_MOBILE ? 18 : 24,
             // minReplayDuration is enforced in frames, not ms, for accuracy
         },
         playback: {

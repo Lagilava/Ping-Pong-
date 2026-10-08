@@ -21,7 +21,8 @@ class MenuBloom {
             format: THREE.RGBAFormat,
             encoding: THREE.sRGBEncoding,   // 8-bit storage without banding in darks
         };
-        this.sceneRT = isWebGL2 && THREE.WebGLMultisampleRenderTarget
+        const msaa = isWebGL2 && !window.PerfGovernor?.isMobile;
+        this.sceneRT = msaa && THREE.WebGLMultisampleRenderTarget
             ? new THREE.WebGLMultisampleRenderTarget(1, 1, rtOpts)
             : new THREE.WebGLRenderTarget(1, 1, rtOpts);
         if (this.sceneRT.samples !== undefined) this.sceneRT.samples = 4;

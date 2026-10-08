@@ -45,6 +45,15 @@ const PerfGovernor = {
         { name: 'low',    glow: 0.15, glowFx: 0.0,  particles: 0.4,  scale: 0.9,  fx: 1, bgFps: 30 },
         { name: 'potato', glow: 0.0,  glowFx: 0.0,  particles: 0.25, scale: 0.75, fx: 3, bgFps: 24 },
     ],
+    // Phones/tablets get their own ladder: canvas glow (shadowBlur) is far too
+    // expensive on mobile GPUs, render at CSS resolution or below, and only the
+    // top mobile tier runs the (single-level) bloom pass.
+    MOBILE_TIERS: [
+        { name: 'mobile-high', glow: 0, glowFx: 0, particles: 0.5,  scale: 1.0,  fx: 1, bgFps: 30 },
+        { name: 'mobile',      glow: 0, glowFx: 0, particles: 0.35, scale: 0.9,  fx: 3, bgFps: 30 },
+        { name: 'mobile-low',  glow: 0, glowFx: 0, particles: 0.2,  scale: 0.72, fx: 3, bgFps: 20 },
+    ],
+    isMobile: false,
     tier: 0,
     // Never go below this frame rate. Above it we still try to match the
     // display (e.g. 120 Hz), but only by trimming the top tier, never by
@@ -75,16 +84,25 @@ const PerfGovernor = {
      */
     initForDevice() {
         const nav = typeof navigator !== 'undefined' ? navigator : {};
+        const ua = nav.userAgent || '';
         const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
         const smallScreen = Math.min(screen?.width || 9999, screen?.height || 9999) < 820;
         const cores = nav.hardwareConcurrency || 8;
         const memory = nav.deviceMemory || 8;          // Chrome/Edge only; GB, rounded
-        let start = 0;
-        if (cores <= 4 || memory <= 4) start = 1;
-        if (coarse && smallScreen) start = 2;            // phones
-        if (cores <= 2 || memory <= 2) start = 3;
-        this.tier = start;
-        this.deviceClass = start === 0 ? 'desktop' : (coarse && smallScreen ? 'mobile' : 'low-end');
+        this.isMobile = !!(nav.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (coarse && smallScreen));
+        if (this.isMobile) {
+            this.TIERS = this.MOBILE_TIERS;
+            // Mid tier to start; strong phones climb to the bloom tier.
+            this.tier = (cores <= 4 || memory <= 3) ? 2 : 1;
+            this.deviceClass = 'mobile';
+            document.documentElement?.classList.add('pp-mobile');
+        } else {
+            let start = 0;
+            if (cores <= 4 || memory <= 4) start = 1;
+            if (cores <= 2 || memory <= 2) start = 3;
+            this.tier = start;
+            this.deviceClass = start === 0 ? 'desktop' : 'low-end';
+        }
         this._applyTier();
     },
 

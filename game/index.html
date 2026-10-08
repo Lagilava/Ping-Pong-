@@ -410,7 +410,9 @@
             return { width, height };
         };
 
-        const INTRO_DURATION_MS = 9000;
+        // Phones get a shorter boot cinematic (it's a heavy full-screen canvas scene).
+        const IS_MOBILE_DEVICE = (navigator.userAgentData && navigator.userAgentData.mobile) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820);
+        const INTRO_DURATION_MS = IS_MOBILE_DEVICE ? 4000 : 9000;
         const INTRO_KEY = 'pp_neon_intro_seen';
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const lowPowerDevice = prefersReducedMotion ||
