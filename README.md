@@ -95,6 +95,10 @@ is unavailable.
 - **Rallies build:** a live rally counter grows and warms in colour, with a
   callout every 5 hits; returning the ball off the very tip of the paddle
   earns a **CLUTCH!** slow-mo beat. The ball's trail heats up with speed.
+- **Living paddles:** on top of each paddle's design, a light band sweeps
+  along it, the striking face lights up and the corner brackets tighten as
+  the ball comes in, outlines trail it at speed and a ring snaps out on
+  contact (plain strokes, ~0.05 ms per paddle; bloom adds the glow).
 - **Every point lands:** goals get a shockwave, flash and camera punch, then a
   short telegraphed serve (countdown ring + direction chevrons) towards the
   player who conceded.

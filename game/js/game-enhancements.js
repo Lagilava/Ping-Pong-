@@ -1758,7 +1758,10 @@
             state.game.player.render = function (c) {
                 if (!this.pos || !Number.isFinite(this.pos.x) || !Number.isFinite(this.pos.y) || !Number.isFinite(this.w) || !Number.isFinite(this.h) || this.w <= 0 || this.h <= 0) { oldPlayerRender.call(this, c); return; }
                 c.save();
-                const movementIntensity = Math.min(Math.abs(this.vel.y) / 15, 1);
+                // Follow the hit recoil so the underlay stays attached to the paddle.
+                c.translate(this.recoil || 0, 0);
+                // vel is px/s; full intensity at paddle top speed.
+                const movementIntensity = Math.min(Math.abs(this.vel.y) / 850, 1);
                 const dynamicGlow = CONFIG.baseGlowBlur + (movementIntensity * 15);
                 const gradient = c.createLinearGradient(this.pos.x, this.pos.y, this.pos.x + this.w, this.pos.y + this.h);
                 gradient.addColorStop(0, 'rgba(0,255,234,0.1)');
@@ -1786,7 +1789,7 @@
                 c.fillRect(this.pos.x + this.w / 2 - pulseSize / 2, this.pos.y + 4, pulseSize, this.h - 8);
                 c.restore();
                 oldPlayerRender.call(this, c);
-                if (Math.abs(this.vel.y) > 2) addTrailParticle(this.pos.x + this.w / 2, this.pos.y + (this.vel.y > 0 ? this.h : 0), true, movementIntensity);
+                if (Math.abs(this.vel.y) > 180) addTrailParticle(this.pos.x + this.w / 2, this.pos.y + (this.vel.y > 0 ? this.h : 0), true, movementIntensity);
             };
 
             const oldAiRender = state.game.aiPaddle.render;
@@ -1797,7 +1800,10 @@
                 const paddleColor = isP2 ? CONFIG.colorPlayer : CONFIG.colorAI;
                 const glowColor = isP2 ? CONFIG.colorPlayerGlow : CONFIG.colorAIGlow;
                 c.save();
-                const movementIntensity = Math.min(Math.abs(this.vel.y) / 15, 1);
+                // Follow the hit recoil so the underlay stays attached to the paddle.
+                c.translate(this.recoil || 0, 0);
+                // vel is px/s; full intensity at paddle top speed.
+                const movementIntensity = Math.min(Math.abs(this.vel.y) / 850, 1);
                 const dynamicGlow = CONFIG.baseGlowBlur + (movementIntensity * 15);
                 const gradient = c.createLinearGradient(this.pos.x, this.pos.y, this.pos.x + this.w, this.pos.y + this.h);
                 if (isP2) { gradient.addColorStop(0, 'rgba(0,255,234,0.1)'); gradient.addColorStop(0.5, CONFIG.colorPlayer); gradient.addColorStop(1, 'rgba(0,255,234,0.1)'); }
@@ -1824,7 +1830,7 @@
                 c.fillRect(this.pos.x + this.w / 2 - pulseSize / 2, this.pos.y + 4, pulseSize, this.h - 8);
                 c.restore();
                 oldAiRender.call(this, c);
-                if (Math.abs(this.vel.y) > 2) addTrailParticle(this.pos.x + this.w / 2, this.pos.y + (this.vel.y > 0 ? this.h : 0), isP2, movementIntensity);
+                if (Math.abs(this.vel.y) > 180) addTrailParticle(this.pos.x + this.w / 2, this.pos.y + (this.vel.y > 0 ? this.h : 0), isP2, movementIntensity);
             };
         }
 

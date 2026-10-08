@@ -6379,6 +6379,25 @@ class Game {
         }
     }
 
+    // 0..1 per paddle: how imminent the ball's arrival is (drives the paddle
+    // accent animations). Smoothed so it eases in and out.
+    updatePaddleAnticipation(dt) {
+        const b = this.ball;
+        if (!b) return;
+        const reach = this.width * 0.55;
+        for (const [p, dir] of [[this.player, -1], [this.aiPaddle, 1]]) {
+            if (!p) continue;
+            let target = 0;
+            if (Math.sign(b.vel.x) === dir) {
+                const faceX = dir < 0 ? p.pos.x + p.w : p.pos.x;
+                target = Math.max(0, 1 - Math.abs(b.pos.x - faceX) / reach);
+                target *= target;
+            }
+            const a = p.anticipation || 0;
+            p.anticipation = a + (target - a) * Math.min(1, dt * 12);
+        }
+    }
+
     static rallyColor(r) {
         if (r >= 20) return '#ff4fd8';
         if (r >= 15) return '#ff8a3d';
@@ -7390,6 +7409,7 @@ class Game {
         this.renderZombieModeEntities(ctx);
 
         this.renderAdditionalBalls();
+        this.updatePaddleAnticipation(renderDt);
         // draw player and AI paddles every frame regardless of mode
         this.player.render(ctx);
         if (this.isZombieWaveMode() && this.player) {

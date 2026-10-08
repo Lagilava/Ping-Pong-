@@ -684,6 +684,8 @@ class Paddle {
             this.renderStyledPaddle(ctx, time, hitGlow, pulse, pulseIntensity, transformPulse, style);
         }
 
+        if (!this.isZombieBoss) this._renderAnimatedAccents(ctx, time, hitGlow);
+
         ctx.restore();
 
         // Particles + lasers on top
@@ -691,6 +693,84 @@ class Paddle {
         this.renderLasers(ctx);
     }
 
+
+    /**
+     * Animated touches layered over whichever paddle design is drawn. Plain
+     * fills/strokes only (no shadowBlur, no gradients): the post-process bloom
+     * turns the bright lines into glow for free. Drawn in paddle-local space.
+     *  - face light: the striking face brightens as the ball approaches
+     *  - scanner: a light band sweeps along the paddle
+     *  - corner brackets: breathe, and tighten when a hit is coming
+     *  - afterimages: outlines trail the paddle when it moves fast
+     *  - hit ring: an outline snaps outwards on contact
+     */
+    _renderAnimatedAccents(ctx, time, hitGlow) {
+        const w = this.w, h = this.h, hw = w / 2, hh = h / 2;
+        const color = this.primaryColor || this.color || '#00ffd6';
+        const ant = this.anticipation || 0;
+        // Which side faces the court: +1 for the left paddle, -1 for the right.
+        const gameW = (typeof window !== 'undefined' && window.game?.width) || 0;
+        const face = gameW && this.pos.x > gameW / 2 ? -1 : 1;
+        const seed = face > 0 ? 0 : 1.37;                       // desync the two paddles
+
+        ctx.save();
+        ctx.shadowBlur = 0;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = color;
+        ctx.strokeStyle = color;
+
+        // Afterimages along the direction of travel.
+        const speed = Math.abs(this.vel?.y || 0);
+        if (speed > 280) {
+            const k = Math.min(1, (speed - 280) / 900);
+            const dir = this.vel.y > 0 ? -1 : 1;
+            ctx.lineWidth = 1.5;
+            for (let i = 1; i <= 2; i++) {
+                ctx.globalAlpha = k * (0.32 / i);
+                ctx.strokeRect(-hw, -hh + dir * i * (6 + k * 10), w, h);
+            }
+        }
+
+        // Scanner band sweeping along the paddle (~2.4 s cycle).
+        const cycle = ((time * 0.42 + seed) % 1);
+        if (cycle < 0.55) {
+            const y = -hh + (cycle / 0.55) * h;
+            ctx.globalAlpha = 0.22 + ant * 0.25;
+            ctx.fillRect(-hw, y - 3, w, 6);
+        }
+
+        // Striking-face light: brightens as the ball comes in, flares on a hit.
+        const faceX = face > 0 ? hw - 1.5 : -hw - 1.5;
+        ctx.globalAlpha = Math.min(1, 0.15 + ant * 0.65 + hitGlow * 0.6);
+        ctx.fillRect(faceX, -hh + 4, 3, h - 8);
+
+        // Corner brackets: breathe gently, pull in tight when a hit is coming.
+        const gap = 5 + Math.sin(time * 2.2 + seed * 3) * 1.5 - ant * 3;
+        const arm = Math.min(10, h * 0.1);
+        ctx.globalAlpha = 0.35 + ant * 0.5;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (const sx of [-1, 1]) {
+            for (const sy of [-1, 1]) {
+                const x = sx * (hw + gap), y = sy * (hh + gap);
+                ctx.moveTo(x, y - sy * arm);
+                ctx.lineTo(x, y);
+                ctx.lineTo(x - sx * arm, y);
+            }
+        }
+        ctx.stroke();
+
+        // Hit ring: snaps outwards and fades over ~0.3 s.
+        const sinceHit = (Date.now() - this.lastHitTime) / 300;
+        if (sinceHit >= 0 && sinceHit < 1) {
+            const grow = 4 + sinceHit * 22;
+            ctx.globalAlpha = (1 - sinceHit) * 0.8;
+            ctx.lineWidth = 2.5 * (1 - sinceHit) + 0.5;
+            ctx.strokeRect(-hw - grow, -hh - grow, w + grow * 2, h + grow * 2);
+        }
+
+        ctx.restore();
+    }
 
     renderStyledPaddle(ctx, time, hitGlow, pulse, pulseIntensity, transformPulse, style) {
         const halfW = this.w / 2;
