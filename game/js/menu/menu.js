@@ -5,29 +5,10 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // GAME MODES DATA
-    // ─────────────────────────────────────────────────────────────────
-    const gameModes = [
-        { id: 'classic', name: '⚔️ CLASSIC', desc: 'Traditional Ping Pong', color: 0x00d4ff, emoji: '⚔️' },
-        { id: 'zombie', name: '🧟 ZOMBIE', desc: 'Undead Invasion', color: 0x00ff88, emoji: '🧟' },
-        { id: 'gravity', name: '⭐ GRAVITY', desc: 'Defy Physics', color: 0xff00cc, emoji: '⭐' },
-        { id: 'speed', name: '⚡ SPEED', desc: 'Extreme Velocity', color: 0xffaa00, emoji: '⚡' },
-        { id: 'obstacle', name: '🌀 OBSTACLE', desc: 'Navigate Hazards', color: 0x9040ff, emoji: '🌀' },
-        { id: 'customise', name: '⚙️ CUSTOMIZE', desc: 'Fine-tune Your Arena', color: 0x00ff88, emoji: '⚙️' }
-    ];
-
-    // ─────────────────────────────────────────────────────────────────
     // STATE
     // ─────────────────────────────────────────────────────────────────
     let scene, camera, renderer;
-    let cards = [];
-    let cardLabels = [];
-    let selectedCardIndex = -1;
-    let scrollY = 0;
-    let targetScrollY = 0;
-    const scrollSpeed = 0.3;
     let raycaster, mouse;
-    let hoveredCard = null;
 
     // Storm state
     let seaUniforms = null;
@@ -527,66 +508,7 @@
     // ─────────────────────────────────────────────────────────────────
     // TEXTURE HELPERS  (ball, paddle — unchanged from original)
     // ─────────────────────────────────────────────────────────────────
-    function createTextTexture(text, emoji) {
-        const canvas = document.createElement('canvas');
-        canvas.width = canvas.height = 512;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.fillRect(0, 0, 512, 512);
-        ctx.strokeStyle = 'rgba(0,212,255,0.8)';
-        ctx.lineWidth = 4;
-        ctx.strokeRect(20, 20, 472, 472);
-        ctx.font = 'bold 120px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#fff';
-        ctx.shadowColor = 'rgba(0,212,255,1)';
-        ctx.shadowBlur = 20;
-        ctx.fillText(emoji, 256, 512 / 3);
-        ctx.font = 'bold 48px Arial';
-        ctx.fillStyle = '#00d4ff';
-        ctx.shadowColor = 'rgba(0,212,255,0.8)';
-        ctx.shadowBlur = 10;
-        ctx.fillText(text, 256, 512 * 2.2 / 3);
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.needsUpdate = true;
-        return tex;
-    }
 
-    function createModeInfoTexture(mode) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 1024; canvas.height = 512;
-        const ctx = canvas.getContext('2d');
-        const bg = ctx.createLinearGradient(0, 0, 1024, 512);
-        bg.addColorStop(0, 'rgba(5,10,24,0.98)');
-        bg.addColorStop(0.55, 'rgba(8,16,34,0.96)');
-        bg.addColorStop(1, 'rgba(2,6,16,0.99)');
-        ctx.fillStyle = bg; ctx.fillRect(0, 0, 1024, 512);
-        const glow = ctx.createRadialGradient(225, 128, 0, 512, 256, 735);
-        glow.addColorStop(0, 'rgba(0,212,255,0.18)');
-        glow.addColorStop(0.45, 'rgba(144,64,255,0.12)');
-        glow.addColorStop(1, 'transparent');
-        ctx.fillStyle = glow; ctx.fillRect(0, 0, 1024, 512);
-        ctx.strokeStyle = 'rgba(0,212,255,0.78)'; ctx.lineWidth = 8;
-        ctx.strokeRect(18, 18, 988, 476);
-        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2;
-        ctx.strokeRect(34, 34, 956, 444);
-        ctx.fillStyle = 'rgba(255,255,255,0.88)';
-        ctx.font = '900 64px Audiowide,Arial,sans-serif';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        ctx.fillText(mode.name, 62, 58);
-        ctx.fillStyle = 'rgba(200,255,248,0.88)';
-        ctx.font = '600 34px Audiowide,Arial,sans-serif';
-        ctx.fillText(mode.desc, 62, 160);
-        ctx.fillStyle = 'rgba(160,220,255,0.92)';
-        ctx.font = '600 26px Audiowide,Arial,sans-serif';
-        ctx.fillText('Hover for mode details', 62, 360);
-        const accent = `rgba(${(mode.color >> 16) & 255},${(mode.color >> 8) & 255},${mode.color & 255},0.95)`;
-        ctx.fillStyle = accent; ctx.fillRect(62, 314, 210, 10);
-        const tex = new THREE.CanvasTexture(canvas);
-        tex.needsUpdate = true;
-        return tex;
-    }
 
     function createPaddleTexture(primaryColor, secondaryColor) {
         const canvas = document.createElement('canvas');
@@ -837,8 +759,6 @@
             camera = menuCam;
             renderer = menuRenderer;
 
-            canvas.addEventListener('mousemove', onMouseMove, false);
-            canvas.addEventListener('click', onCanvasClick, false);
 
             // ── LIGHTING ─────────────────────────────────────────────
             // Ambient + hemisphere for ground/sky bounce
@@ -1574,203 +1494,8 @@
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // CARD MESHES (3D orbit cards — unchanged logic)
+    // CUSTOMISE OVERLAY
     // ─────────────────────────────────────────────────────────────────
-    function createCardMeshes() {
-        const cardWidth = 4.2;
-        const cardHeight = 2.65;
-        const radius = 11.2;
-
-        gameModes.forEach((mode, index) => {
-            const angle = (index / gameModes.length) * Math.PI * 2;
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-
-            const geometry = new THREE.BoxGeometry(cardWidth, cardHeight, 0.4);
-            const textTexture = createTextTexture(mode.name.split(' ')[1] || mode.name, mode.emoji);
-
-            const baseMat = new THREE.MeshStandardMaterial({
-                color: mode.color, emissive: 0x000000, emissiveIntensity: 0,
-                metalness: 0.95, roughness: 0.08, envMapIntensity: 1.2
-            });
-            const textMat = new THREE.MeshBasicMaterial({
-                map: textTexture, color: 0xffffff, transparent: true,
-                toneMapped: false, depthWrite: false
-            });
-
-            geometry.clearGroups();
-            geometry.addGroup(0, 6, 0);
-            geometry.addGroup(6, 6, 0);
-            geometry.addGroup(12, 6, 0);
-            geometry.addGroup(18, 6, 0);
-            geometry.addGroup(24, 6, 1);
-            geometry.addGroup(30, 6, 1);
-
-            const mesh = new THREE.Mesh(geometry, [baseMat, textMat]);
-            mesh.position.set(x, 0, z);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-
-            const infoGeo = new THREE.BoxGeometry(3.55, 1.65, 0.16);
-            const infoTexture = createModeInfoTexture(mode);
-            const infoMaterial = new THREE.MeshStandardMaterial({
-                map: infoTexture, color: 0xffffff, transparent: true, opacity: 0,
-                metalness: 0.18, roughness: 0.42,
-                emissive: 0x04111d, emissiveIntensity: 0.28,
-                depthWrite: false, side: THREE.DoubleSide
-            });
-            const infoPanel = new THREE.Mesh(infoGeo, infoMaterial);
-            infoPanel.position.set(cardWidth * 0.88, cardHeight * 0.05, 0.32);
-            infoPanel.rotation.y = -0.08;
-            infoPanel.visible = false;
-            infoPanel.renderOrder = 20;
-            mesh.add(infoPanel);
-
-            mesh.userData = {
-                mode, index, angle,
-                targetY: 0, hovered: false, glowIntensity: 0.4,
-                rotationVelocity: 0,
-                baseMat, textMat, infoPanel
-            };
-            scene.add(mesh);
-            cards.push(mesh);
-        });
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // CARD ANIMATE (orbit loop — unchanged)
-    // ─────────────────────────────────────────────────────────────────
-    function animate() {
-        requestAnimationFrame(animate);
-        scrollY += (targetScrollY - scrollY) * 0.15;
-
-        cards.forEach((card) => {
-            const isHovered = card.userData.hovered;
-            const orbitAngle = card.userData.angle + scrollY * 0.03;
-            let x = Math.cos(orbitAngle) * 11.2;
-            let z = Math.sin(orbitAngle) * 11.2;
-            let y = 0;
-
-            if (isHovered) {
-                x += (0 - x) * 0.145;
-                z += (1.2 - z) * 0.145;
-                y += (0.3 - y) * 0.145;
-            } else {
-                x += (Math.cos(orbitAngle) * 11.2 - x) * 0.12;
-                z += (Math.sin(orbitAngle) * 11.2 - z) * 0.12;
-                y += (0 - y) * 0.12;
-            }
-
-            card.position.set(x, y, z);
-            card.rotation.y = Math.atan2(x, z) + Math.PI;
-            card.rotation.z = 0;
-            card.rotation.x = 0;
-
-            if (isHovered) {
-                card.userData.glowIntensity += (1 - card.userData.glowIntensity) * 0.15;
-                card.userData.baseMat.metalness = 0.98;
-                card.userData.baseMat.roughness = 0.05;
-                card.scale.lerp(new THREE.Vector3(1.35, 1.35, 1.35), 0.15);
-            } else {
-                card.userData.glowIntensity += (0.3 - card.userData.glowIntensity) * 0.08;
-                card.userData.baseMat.metalness = 0.95;
-                card.userData.baseMat.roughness = 0.08;
-                card.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1);
-            }
-
-            if (card.userData.infoPanel) {
-                const panel = card.userData.infoPanel;
-                panel.visible = isHovered;
-                if (panel.material) panel.material.opacity = isHovered ? 1 : 0;
-                panel.scale.lerp(
-                    isHovered ? new THREE.Vector3(1, 1, 1) : new THREE.Vector3(0.96, 0.96, 0.96),
-                    isHovered ? 0.18 : 0.1
-                );
-            }
-        });
-
-        updateModeInfoPanel();
-        if (renderer && scene && camera) renderer.render(scene, camera);
-    }
-
-    function updateModeInfoPanel() {
-        const modeInfo = document.querySelector('.mode-info-display');
-        if (modeInfo) modeInfo.classList.add('hidden');
-        cards.forEach(card => {
-            const panel = card.userData?.infoPanel;
-            if (!panel) return;
-            const isHov = card === hoveredCard;
-            panel.visible = isHov;
-            if (panel.material) panel.material.opacity = isHov ? 1 : 0;
-        });
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // RAYCASTING
-    // ─────────────────────────────────────────────────────────────────
-    function onMouseMove(event) {
-        if (!raycaster || !mouse || !camera || !cards.length) return;
-        const canvas = document.getElementById('menuCanvas');
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.setFromCamera(mouse, camera);
-        const hits = raycaster.intersectObjects(cards);
-        cards.forEach(c => c.userData.hovered = false);
-        if (hits.length > 0) {
-            hits[0].object.userData.hovered = true;
-            hoveredCard = hits[0].object;
-            selectedCardIndex = hits[0].object.userData.index;
-        } else {
-            hoveredCard = null;
-            selectedCardIndex = -1;
-        }
-    }
-
-    function onMouseWheel(event) {
-        const hd = event.deltaX !== 0 ? event.deltaX : event.deltaY;
-        targetScrollY += hd * scrollSpeed;
-        targetScrollY = Math.max(-120, Math.min(120, targetScrollY));
-    }
-
-    function onCanvasClick(event) {
-        if (!raycaster || !mouse || !camera || !cards.length) return;
-        const canvas = document.getElementById('menuCanvas');
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.setFromCamera(mouse, camera);
-        const hits = raycaster.intersectObjects(cards);
-        if (hits.length > 0) {
-            const mode = hits[0].object.userData.mode;
-            if (mode.id === 'customise') showCustomiseRedirect();
-            else showPvPSelector(mode.id);
-        }
-    }
-
-    function onWindowResize() {
-        if (!camera || !renderer) return;
-        camera.aspect = innerWidth / innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(innerWidth, innerHeight);
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // PVP / CUSTOMISE SELECTORS (unchanged)
-    // ─────────────────────────────────────────────────────────────────
-    let selectedMode = null;
-    let isMultiplayer = false;
-
-    function showPvPSelector(mode) {
-        selectedMode = mode;
-        const pvpModal = document.querySelector('.pvp-selector-modal');
-        const overlay = document.getElementById('overlay');
-        if (pvpModal) pvpModal.classList.remove('hidden');
-        if (overlay) overlay.style.pointerEvents = 'auto';
-    }
-
     function showCustomiseRedirect() {
         const customiseButton = document.querySelector('#hud .mode-btn[data-mode="customise"]');
         if (customiseButton) {
@@ -1975,55 +1700,12 @@
     window.openCustomiseOverlay = showCustomiseRedirect;
 
     // ─────────────────────────────────────────────────────────────────
-    // EVENT HANDLERS (unchanged)
+    // EVENT HANDLERS
     // ─────────────────────────────────────────────────────────────────
     function setupEventHandlers() {
-        const pvpModal = document.querySelector('.pvp-selector-modal');
-        const customiseModal = document.querySelector('.customise-modal');
-        const pvpOptions = document.querySelectorAll('.pvp-option-3d');
-        const pvpConfirmBtn = document.querySelector('.pvp-confirm-btn');
-        const pvpCancelBtn = document.querySelector('.pvp-cancel-btn');
-        const customiseBackBtn = document.querySelector('.customise-back-btn');
         const customiseOverlayBackBtn = document.getElementById('customiseBackBtn');
         const overlay = document.getElementById('overlay');
         const customiseOverlay = document.getElementById('customiseOverlay');
-
-        pvpOptions.forEach(option => {
-            option.addEventListener('click', () => {
-                pvpOptions.forEach(o => o.classList.remove('selected'));
-                option.classList.add('selected');
-                isMultiplayer = option.dataset.multiplayer === 'true';
-            });
-        });
-
-        if (pvpConfirmBtn) {
-            pvpConfirmBtn.addEventListener('click', async () => {
-                if (selectedMode && window.game) {
-                    window.game.isMultiplayer = isMultiplayer;
-                    if (typeof window.game.setGameMode === 'function') window.game.setGameMode(selectedMode);
-                    document.querySelectorAll('#hud .mode-btn').forEach(btn => {
-                        btn.classList.toggle('active', btn.dataset.mode === selectedMode);
-                    });
-                    if (window.game.player) window.game.player.isAI = false;
-                    if (window.game.aiPaddle) window.game.aiPaddle.isAI = !isMultiplayer;
-                    if (overlay) overlay.classList.add('hidden');
-                    if (pvpModal) pvpModal.classList.add('hidden');
-                    if (typeof window.game.startIntro === 'function') window.game.startIntro();
-                    if (typeof window.game.startMatchMusic === 'function') await window.game.startMatchMusic();
-                }
-            });
-        }
-
-        if (pvpCancelBtn) {
-            pvpCancelBtn.addEventListener('click', () => { if (pvpModal) pvpModal.classList.add('hidden'); });
-        }
-
-        if (customiseBackBtn) {
-            customiseBackBtn.addEventListener('click', () => {
-                if (customiseModal) customiseModal.classList.add('hidden');
-                if (overlay) { overlay.classList.remove('hidden'); overlay.classList.add('visible'); }
-            });
-        }
 
         if (customiseOverlayBackBtn) {
             customiseOverlayBackBtn.addEventListener('click', () => {

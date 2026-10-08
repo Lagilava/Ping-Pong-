@@ -1,74 +1,58 @@
-# C++ / WebAssembly Integration — Ping Pong
+# Physics engine (C++ → WebAssembly)
 
-## What was scaffolded
-
-```
-physics/
-  physics.cpp        ← C++ physics engine (ball integration, paddle collision, AI prediction)
-  build.ps1          ← Emscripten compile script  →  physics.js + physics.wasm
-  physics-wasm.js    ← JS bridge: loads wasm, patches the game at runtime
-```
-
-`ping_pong.html` and `game-enhancements.js` were updated with minimal, backward-compatible hooks.
-
----
-
-## Quick-start
-
-### 1. Install Emscripten (one-time)
-```powershell
-git clone https://github.com/emscripten-core/emsdk.git
-cd emsdk
-.\emsdk install latest
-.\emsdk activate latest
-.\emsdk_env.ps1          # activates emcc in this shell session
-```
-
-### 2. Compile the C++ module
-```powershell
-cd c:\Users\emi\Desktop\101\PingPong\physics
-.\build.ps1
-```
-This produces `physics/physics.js` and `physics/physics.wasm`.
-
-### 3. Serve the game over HTTP
-WebAssembly requires a server (`file://` won't work for wasm).
-```powershell
-cd c:\Users\emi\Desktop\101\PingPong
-python -m http.server 8080
-# then open: http://localhost:8080/ping_pong.html
-```
-
-### 4. Verify
-Open DevTools console — you should see:
-```
-[WasmPhysics] Ready. physics.wasm loaded successfully.
-[WasmPhysics] Ball instance patched — physics running in WebAssembly.
-```
-The AI's `predict()` now logs a richer simulation (spin, drag, wall bounces) instead of linear extrapolation.
-
----
-
-## What the C++ module does
-
-| Function | Description |
+| File | What it is |
 |---|---|
-| `ball_integrate(state, dt, canvasH)` | Physics step: Magnus effect, quadratic air drag, speed clamping, wall bounces |
-| `ball_paddle_collide(state, px, py, pw, ph, padVelY, isLeft)` | AABB collision + deflection angle + spin transfer |
-| `predict_ball_y(bx, by, vx, vy, spin, r, …, targetX, steps)` | Full trajectory simulation used by AI controller |
-| `ball_reset(state, cx, cy, speed, …)` | Reinitialise ball state for new round |
+| `physics.cpp` | Ball physics: integration, spin, walls, swept paddle collisions, AI prediction, gravity wells. |
+| `build.ps1` / `build.sh` | Compile `physics.cpp` with clang and embed it in the game. |
+| `background_sim.cpp` | Particle simulation for some animated backgrounds (rain, stars). Built with Emscripten; output is `game/js/physics/background-sim.*`. |
 
----
+## Building
 
-## Fallback behaviour
-`physics-wasm.js` is **purely additive**. If the `.wasm` file is missing or fails to load:
-- Original JS `Ball.integrate()` / `Ball.reset()` / `AIController.predict()` remain in effect.
-- No errors are thrown — a `console.warn` is emitted and the game runs as before.
+`physics.cpp` needs no Emscripten — plain clang with the `wasm32` target and
+`wasm-ld` (LLVM 14 or newer):
 
----
+- **Windows:** `winget install LLVM.LLVM`, then run `physics\build.ps1`
+- **macOS / Linux:** install LLVM/clang + lld, then run `physics/build.sh`
 
-## Next steps to go deeper
+The script writes `physics/physics.wasm` (ignored by git) and
+`game/js/physics/physics-binary.js`, which embeds that wasm as base64. The
+embedded copy is what the game loads, so it starts instantly and also works
+from `file://`.
 
-1. **Move paddle collision detection** into C++ — replace the per-frame `if` checks in `ping_pong.html`.
-2. **Rewrite `AIController` in C++** — compile the full personality/difficulty system to wasm; expose `ai_update(dt)` returning `paddle_vel_y`.
-3. **Sub-step physics** — call `ball_integrate` 4× per frame at `dt/4` for higher-fidelity tunnelling prevention at very high ball speeds.
+## How the game uses it
+
+[`game/js/physics/physics-core.js`](../game/js/physics/physics-core.js)
+instantiates the module and exposes `window.PhysicsCore`:
+
+| Call | Used by |
+|---|---|
+| `integrate(ball, dt, height)` | `Ball.integrate` every physics step (240 Hz) |
+| `collidePaddle(ball, paddle, isLeft, speedIncrease, maxAngle, dt)` | `Game.checkPaddleCollision` |
+| `predictY(ball, targetX, steps, height)` | the AI controller |
+| `gravityWell(...)` | gravity wells in Gravity mode |
+| `reset(ball, x, y, speed, angle, dir)` | serving |
+
+Ball state moves through a 16-float slot in wasm memory (layout documented at
+the top of `physics.cpp`), so no memory is allocated per frame.
+
+`physics-core.js` also contains a JavaScript port of the same model. It runs
+only if WebAssembly can't load, and must be kept in step with `physics.cpp`
+when the tunables change. The game logs which backend is active, and **F2**
+shows it in-game.
+
+## Tuning
+
+The constants at the top of `physics.cpp` control the feel:
+
+| Constant | Effect |
+|---|---|
+| `MAGNUS` | How strongly spin curves the ball |
+| `SPIN_DECAY` | How fast spin wears off (per second) |
+| `PADDLE_BRUSH` | Spin gained from a moving paddle |
+| `PADDLE_ENGLISH` | Share of paddle velocity carried into the ball |
+| `WALL_GRIP` | How much spin converts to forward speed off the rails |
+| `WALL_REST` | Bounciness of the rails |
+| `DRAG` | Air drag |
+
+Per-hit speed-up per mode is in `Game.getPaddleSpeedIncrease`
+(`game/js/core/game.js`).

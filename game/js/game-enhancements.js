@@ -1895,7 +1895,6 @@
 
             const css = `
 /* ── Google Fonts ── */
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
 
 /* ── Design Tokens ── */
 :root {

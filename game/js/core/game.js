@@ -5971,8 +5971,9 @@ class Game {
         for (let i = startIndex; i < this.notifications.length; i++) {
             const n = this.notifications[i];
             const displayIndex = i - startIndex;
-            const x = this.width - 220;
-            const y = 30 + displayIndex * 65;
+            // Bottom-left: the top corners hold the scores and achievement toasts.
+            const x = 20;
+            const y = this.height - 76 - displayIndex * 60;
             this.ctx.save();
             this.ctx.globalAlpha = n.opacity * 0.8;
             this.ctx.fillStyle = 'rgba(20, 20, 20, 0.5)';

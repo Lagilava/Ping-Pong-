@@ -1003,7 +1003,6 @@
         replayUI = document.createElement('div');
         replayUI.innerHTML = `
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&display=swap');
 
 canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
 
