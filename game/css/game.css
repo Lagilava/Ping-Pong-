@@ -5480,6 +5480,100 @@ canvas {
     opacity: 0 !important;
 }
 
+/* Pause menu */
+.pause-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 100002;            /* above the HUD, below settings/audio/help panels */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(4, 10, 24, 0.55), rgba(2, 4, 12, 0.85));
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.18s ease, visibility 0s linear 0.18s;
+}
+.pause-menu.open {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.18s ease;
+}
+.pause-card {
+    width: min(380px, 92vw);
+    padding: 26px 26px 18px;
+    border: 1px solid rgba(0, 255, 214, 0.35);
+    border-radius: 16px;
+    background: linear-gradient(170deg, rgba(10, 18, 36, 0.96), rgba(6, 8, 22, 0.96));
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    color: #e6faff;
+    text-align: center;
+    transform: translateY(8px) scale(0.98);
+    transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.pause-menu.open .pause-card { transform: none; }
+.pause-kicker {
+    font: 600 11px/1 'Share Tech Mono', monospace;
+    letter-spacing: 0.3em;
+    color: rgba(150, 230, 255, 0.65);
+}
+.pause-card h2 {
+    margin: 8px 0 10px;
+    font: 900 34px/1 'Orbitron', 'Audiowide', sans-serif;
+    letter-spacing: 0.18em;
+    color: #ffffff;
+    text-shadow: 0 0 14px rgba(0, 255, 214, 0.45);
+}
+.pause-score {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.pause-side { display: flex; flex-direction: column; align-items: center; min-width: 70px; }
+.pause-side small { font: 600 10px/1 'Share Tech Mono', monospace; letter-spacing: 0.2em; opacity: 0.6; }
+.pause-side b { font: 900 30px/1.1 'Orbitron', sans-serif; }
+.pause-side.left b { color: #00ffd6; }
+.pause-side.right b { color: #ff3fa4; }
+.pause-dash { font: 700 22px/1 'Orbitron', sans-serif; opacity: 0.4; }
+.pause-actions { display: flex; flex-direction: column; gap: 9px; }
+.pause-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+.pause-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid rgba(120, 220, 255, 0.22);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #dff7ff;
+    font: 700 13px/1 'Orbitron', system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.08s;
+}
+.pause-btn:hover, .pause-btn:focus-visible { background: rgba(0, 255, 214, 0.12); border-color: rgba(0, 255, 214, 0.6); outline: none; }
+.pause-btn:active { transform: scale(0.98); }
+.pause-btn.primary { background: rgba(0, 255, 214, 0.16); border-color: rgba(0, 255, 214, 0.65); color: #ffffff; }
+.pause-btn.small { padding: 10px 6px; font-size: 11px; }
+.pause-btn.danger { border-color: rgba(255, 80, 120, 0.4); color: #ffc2d1; }
+.pause-btn.danger:hover, .pause-btn.danger:focus-visible { background: rgba(255, 60, 110, 0.14); border-color: rgba(255, 80, 120, 0.8); }
+.pause-btn.confirming { background: rgba(255, 190, 60, 0.18); border-color: rgba(255, 200, 80, 0.85); color: #fff3cf; }
+.pause-btn kbd {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    font: 600 10px/1.2 'Share Tech Mono', monospace;
+    letter-spacing: 0;
+    opacity: 0.8;
+}
+.pause-hint { margin: 14px 0 0; font: 11px/1 'Share Tech Mono', monospace; opacity: 0.4; letter-spacing: 0.1em; }
+
+/* The in-match MENU button only exists during a match. */
+body:not(.pp-in-match) #cyber-menu-btn { display: none !important; }
+body.pp-paused #cyber-menu-btn { opacity: 0; pointer-events: none; }
+
 /* Match intro skip button */
 .skip-intro {
     position: fixed;

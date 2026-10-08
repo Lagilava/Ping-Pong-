@@ -410,6 +410,29 @@
         style="display: none !important;">MENU</button>
 
     <div class="achievements" id="achievementsContainer"></div>
+    <!-- Pause menu (driven by Game.syncPauseState) -->
+    <div id="pauseMenu" class="pause-menu" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" aria-hidden="true">
+        <div class="pause-card">
+            <div class="pause-kicker" id="pauseMode">CLASSIC</div>
+            <h2 id="pauseTitle">PAUSED</h2>
+            <div class="pause-score">
+                <span class="pause-side left"><small id="pauseLabelL">PLAYER</small><b id="pauseScoreL">0</b></span>
+                <span class="pause-dash">:</span>
+                <span class="pause-side right"><small id="pauseLabelR">AI</small><b id="pauseScoreR">0</b></span>
+            </div>
+            <div class="pause-actions">
+                <button type="button" class="pause-btn primary" data-act="resume">Resume <kbd>Esc</kbd></button>
+                <button type="button" class="pause-btn" data-act="restart" data-confirm="Tap again to restart">Restart match <kbd>R</kbd></button>
+                <div class="pause-row">
+                    <button type="button" class="pause-btn small" data-act="settings">Settings</button>
+                    <button type="button" class="pause-btn small" data-act="audio">Audio</button>
+                    <button type="button" class="pause-btn small" data-act="help">Help</button>
+                </div>
+                <button type="button" class="pause-btn danger" data-act="quit" data-confirm="Tap again to quit">Quit to menu <kbd>Q</kbd></button>
+            </div>
+            <p class="pause-hint">Gamepad: Start resumes</p>
+        </div>
+    </div>
     <button id="skipIntro" class="skip-intro hidden" type="button">Skip intro ▸ <span>Esc</span></button>
 
 

@@ -2642,7 +2642,8 @@ function enhanceGameAudio() {
         window.game.audioEnhanced = true;
 
         enhanceGameMethods();
-        addEnhancedAudioControlsToCyberBar();
+        // Audio is mixed from the pause menu's Audio panel; the old floating
+        // cyber-bar mixer (and its always-running visualizer loop) is not injected.
 
 
         // Ensure audio context is initialized

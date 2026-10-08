@@ -2203,6 +2203,7 @@ class Game {
         this.lastIntroTime = now;
 
         this.pollGamepads();
+        this.syncMatchUiState();
         this.intro.render(dt);
         this.postFx?.present(dt);
         this.introRafId = requestAnimationFrame(() => this.introLoop());
@@ -5374,9 +5375,17 @@ class Game {
         this.canvas.addEventListener('pointerup', releasePointer);
         this.canvas.addEventListener('pointercancel', releasePointer);
         window.addEventListener('keydown', e => {
-            if (e.key === 'Escape' && this.paused) {
-                this.togglePause();
+            // An open settings/audio/help panel takes Escape first.
+            if (e.key === 'Escape' && window.ppCloseOpenPanel?.()) {
                 e.preventDefault();
+                return;
+            }
+            if (this.userPaused) {
+                const k = e.key.toLowerCase();
+                if (e.key === 'Escape') this.setUserPaused(false);
+                else if (k === 'r') this.restartMatch();
+                else if (k === 'q') this.returnToMenu();
+                if (e.key === 'Escape' || k === 'r' || k === 'q') e.preventDefault();
                 return;
             }
 
@@ -5428,7 +5437,31 @@ class Game {
         });
     }
 
+    // True while a match is on screen (including the intro/serve/paused states),
+    // false on the main menu, customise screen and post-match screen.
+    isInMatch() {
+        const overlay = document.getElementById('overlay');
+        if (overlay && !overlay.classList.contains('hidden')) return false;
+        if (document.getElementById('customiseOverlay')?.classList.contains('active')) return false;
+        if (this.matchEnding) return false;
+        return !!(this.running || this.paused || this.introActive || this.serveHold > 0);
+    }
+
+    // Keep body classes in step with the match state (used by CSS to show the
+    // MENU button only in a match). Cheap: only touches the DOM on change.
+    syncMatchUiState() {
+        const inMatch = this.isInMatch();
+        if (inMatch !== this._uiInMatch) {
+            this._uiInMatch = inMatch;
+            document.body.classList.toggle('pp-in-match', inMatch);
+            if (!inMatch && this.userPaused) this.setUserPaused(false);
+        }
+    }
+
     togglePause() {
+        // Pausing only means something during a match (not on the menus or
+        // during the intro, which has its own skip).
+        if (!this.userPaused && (!this.isInMatch() || this.introActive)) return;
         this.setUserPaused(!this.userPaused);
 
         if (this.paused && typeof this.audio?.stopAllGravityWellSounds === 'function') {
@@ -5461,6 +5494,140 @@ class Game {
         if (pauseBtn && wasPaused !== nextPaused) {
             pauseBtn.textContent = nextPaused ? 'Resume' : 'Pause';
         }
+        this.renderPauseMenu();
+    }
+
+    // ── Pause menu ──────────────────────────────────────────────────────────
+    renderPauseMenu() {
+        const menu = document.getElementById('pauseMenu');
+        if (!menu) return;
+        const open = !!this.userPaused;
+        if (!menu.__ppBound) this.bindPauseMenu(menu);
+        document.body.classList.toggle('pp-paused', open);
+        if (open) {
+            const zombie = this.isZombieWaveMode();
+            const z = this.zombieState || {};
+            const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+            set('pauseMode', (this.getModeDisplayName(this.gameMode) || '').toUpperCase());
+            set('pauseLabelL', zombie ? 'SCORE' : (this.isMultiplayer ? 'P1' : 'PLAYER'));
+            set('pauseLabelR', zombie ? 'BREACHES' : (this.isMultiplayer ? 'P2' : 'AI'));
+            set('pauseScoreL', this.scores.player);
+            set('pauseScoreR', zombie ? `${z.waveBreaches || 0}/${z.breachLimit || 0}` : this.scores.ai);
+        }
+        this.resetPauseConfirms(menu);
+        if (open !== menu.classList.contains('open')) {
+            menu.classList.toggle('open', open);
+            menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+            if (open) menu.querySelector('[data-act="resume"]')?.focus({ preventScroll: true });
+            else if (document.activeElement && menu.contains(document.activeElement)) document.activeElement.blur();
+        }
+    }
+
+    bindPauseMenu(menu) {
+        menu.__ppBound = true;
+        menu.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-act]');
+            if (btn) this.handlePauseAction(btn.dataset.act, btn);
+        });
+    }
+
+    resetPauseConfirms(menu = document.getElementById('pauseMenu')) {
+        clearTimeout(this._pauseConfirmTimer);
+        menu?.querySelectorAll('.confirming').forEach((b) => {
+            b.classList.remove('confirming');
+            if (b.__ppLabel) b.innerHTML = b.__ppLabel;
+        });
+    }
+
+    // Restart/Quit need a second press (button turns amber for 3 s) so a
+    // stray click can't throw away a match.
+    confirmPauseAction(btn) {
+        if (!btn || btn.classList.contains('confirming')) return true;
+        this.resetPauseConfirms();
+        btn.__ppLabel = btn.innerHTML;
+        btn.classList.add('confirming');
+        btn.textContent = btn.dataset.confirm || 'Tap again to confirm';
+        this._pauseConfirmTimer = setTimeout(() => this.resetPauseConfirms(), 3000);
+        return false;
+    }
+
+    handlePauseAction(action, btn = null) {
+        switch (action) {
+            case 'resume':
+                this.setUserPaused(false);
+                break;
+            case 'restart':
+                if (btn && !this.confirmPauseAction(btn)) return;
+                this.restartMatch();
+                break;
+            case 'quit':
+                if (btn && !this.confirmPauseAction(btn)) return;
+                this.returnToMenu();
+                break;
+            case 'settings':
+            case 'audio':
+            case 'help':
+                window.ppOpenPanel?.(action);
+                break;
+        }
+    }
+
+    // Resume the loop after an external pause (e.g. instant replay). Pause
+    // state is re-derived from the user/challenge flags and start() never
+    // creates a second animation-frame loop.
+    resume() {
+        this.running = true;
+        this.syncPauseState();
+        this.start();
+    }
+
+    restartMatch() {
+        this.resetPauseConfirms();
+        this.setUserPaused(false);
+        this.resetMatch();
+        this.startMatchMusic?.();
+    }
+
+    // Leave the match and go straight back to the mode menu, in place (no
+    // page reload). Starting a new match resets scores via setGameMode.
+    returnToMenu() {
+        this.resetPauseConfirms();
+        this.userPaused = false;
+        this.challengePaused = false;
+        this.syncPauseState();
+        this.stop();
+        if (this.introRafId != null) {
+            cancelAnimationFrame(this.introRafId);
+            this.introRafId = null;
+        }
+        if (this.intro) { this.intro.active = false; this.intro.running = false; }
+        this.introActive = false;
+        this.running = false;
+        this.serveHold = 0;
+        this.pendingServe = null;
+        this.hitStop = 0;
+        this.speedChallenge?.terminateChallenge?.('quit');
+        this.audio?.stopAllGravityWellSounds?.();
+        this.audio?.stopMusic?.('all');
+        this.stopCustomHtmlTrack?.();
+        this.additionalBalls = [];
+        this.powerUps = [];
+        this.popTexts = [];
+        document.getElementById('skipIntro')?.classList.add('hidden');
+        if (this.hud) { this.hud.style.opacity = '0'; this.hud.style.pointerEvents = 'none'; }
+
+        const overlay = document.getElementById('overlay');
+        if (overlay) {
+            overlay.classList.remove('hidden', 'post-match');
+            overlay.classList.add('visible');
+        }
+        document.body.classList.add('has-overlay');
+        const progress = document.getElementById('menuProgressPanel');
+        if (progress) progress.style.display = '';
+        const recent = document.getElementById('menuRecentAchievements');
+        if (recent) recent.style.display = '';
+        this.syncMatchUiState();
+        window.dispatchEvent(new Event('pp-returned-to-menu'));
     }
 
     syncMatchAudioState() {
@@ -7564,6 +7731,7 @@ class Game {
         this.rafId = requestAnimationFrame(() => this.step());
         const now = performance.now() / 1000;
         this.pollGamepads();
+        this.syncMatchUiState();
 
         // Only gameplay frames feed the quality governor (the menu and intro have
         // their own costs and shouldn't lower in-match quality).

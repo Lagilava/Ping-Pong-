@@ -1143,81 +1143,49 @@
         // ==================================================================
         // CYBER BAR SHOW / HIDE
         // ==================================================================
-        function showCyberBar() {
-            const bar = refreshCyberBarRefs();
-            if (!bar) return;
-            if (state.game && !state.game.paused) state.game.paused = true;
-            bar.classList.add('open');
-            bar.setAttribute('aria-hidden', 'false');
-            state.ui.cyberMenuBtn?.setAttribute('aria-expanded', 'true');
+        // The in-match MENU button opens the game's pause menu; Settings,
+        // Audio and Help open as panels on top of it. Pause state is owned by
+        // the Game (setUserPaused) so music, Esc and gamepad Start all agree.
+        function openPauseMenu() {
+            const game = state.game || window.game;
+            if (game?.isInMatch?.() && !game.introActive) game.setUserPaused(true);
         }
 
-        function hideCyberBar() {
-            const bar = refreshCyberBarRefs();
-            if (!bar) return;
-            if (state.game && state.game.paused &&
-                (!state.ui.settingsPanel || state.ui.settingsPanel.style.display !== 'flex') &&
-                (!state.ui.audioPanel || state.ui.audioPanel.style.display !== 'flex') &&
-                (!state.ui.helpPanel || state.ui.helpPanel.style.display !== 'flex')) {
-                state.game.paused = false;
-            }
-            bar.classList.remove('open');
-            bar.setAttribute('aria-hidden', 'true');
-            state.ui.cyberMenuBtn?.setAttribute('aria-expanded', 'false');
+        function showCyberBar() { openPauseMenu(); }
+        function hideCyberBar() { /* legacy no-op: the bar is replaced by the pause menu */ }
+
+        const panelFor = (name) => ({ settings: state.ui.settingsPanel, audio: state.ui.audioPanel, help: state.ui.helpPanel })[name];
+
+        function setPanel(name, show) {
+            ['settings', 'audio', 'help'].forEach((n) => {
+                const el = panelFor(n);
+                if (el) el.style.display = (n === name && show) ? 'flex' : 'none';
+            });
         }
 
-        // ==================================================================
-        // TOGGLE PANELS
-        // ==================================================================
-        function toggleSettings() {
-            if (!state.ui.settingsPanel) return;
-            const visible = state.ui.settingsPanel.style.display === 'flex';
-            state.ui.settingsPanel.style.display = visible ? 'none' : 'flex';
-            if (!visible) {
-                if (state.ui.audioPanel) state.ui.audioPanel.style.display = 'none';
-                if (state.ui.helpPanel) state.ui.helpPanel.style.display = 'none';
-                if (state.game && !state.game.paused) state.game.paused = true;
-            }
-            showCyberBar();
+        function togglePanel(name) {
+            const el = panelFor(name);
+            if (!el) return;
+            const opening = el.style.display !== 'flex';
+            if (opening) openPauseMenu();
+            setPanel(name, opening);
         }
 
-        function toggleAudio() {
-            if (!state.ui.audioPanel) return;
-            const visible = state.ui.audioPanel.style.display === 'flex';
-            state.ui.audioPanel.style.display = visible ? 'none' : 'flex';
-            if (!visible) {
-                if (state.ui.settingsPanel) state.ui.settingsPanel.style.display = 'none';
-                if (state.ui.helpPanel) state.ui.helpPanel.style.display = 'none';
-                if (state.game && !state.game.paused) state.game.paused = true;
-            }
-            showCyberBar();
-        }
+        function toggleSettings() { togglePanel('settings'); }
+        function toggleAudio() { togglePanel('audio'); }
+        function toggleHelp() { togglePanel('help'); }
 
-        function toggleHelp() {
-            if (!state.ui.helpPanel) return;
-            const visible = state.ui.helpPanel.style.display === 'flex';
-            state.ui.helpPanel.style.display = visible ? 'none' : 'flex';
-            if (!visible) {
-                if (state.ui.settingsPanel) state.ui.settingsPanel.style.display = 'none';
-                if (state.ui.audioPanel) state.ui.audioPanel.style.display = 'none';
-                if (state.game && !state.game.paused) state.game.paused = true;
-            }
-            showCyberBar();
-        }
+        window.ppOpenPanel = (name) => setPanel(name, true);
+        window.ppCloseOpenPanel = () => {
+            const open = ['settings', 'audio', 'help'].find((n) => panelFor(n)?.style.display === 'flex');
+            if (!open) return false;
+            setPanel(open, false);
+            return true;
+        };
 
         function quitGame() {
-            if (!confirm('Are you sure you want to quit the current game and return to the main menu?')) return;
             const game = state.game || window.game;
-            if (game && typeof game.returnToMenu === 'function') {
-                game.returnToMenu({ rollbackProgress: true });
-                hideCyberBar();
-                return;
-            }
-            try {
-                sessionStorage.setItem('pp-return-to-menu', '1');
-                sessionStorage.setItem('pp-skip-intro', '1');
-            } catch (e) {}
-            window.location.href = 'play.html?return_to_menu=1';
+            if (game?.returnToMenu) game.returnToMenu();
         }
 
         // ==================================================================
@@ -1250,20 +1218,12 @@
                 menuBtn.addEventListener('click', e => {
                     e.preventDefault();
                     e.stopPropagation();
-                    refreshCyberBarRefs()?.classList.contains('open') ? hideCyberBar() : showCyberBar();
+                    const game = state.game || window.game;
+                    if (game?.userPaused) game.setUserPaused(false);
+                    else openPauseMenu();
                 });
             }
 
-            if (!state.cyberAwayBound) {
-                state.cyberAwayBound = true;
-                document.addEventListener('pointerdown', e => {
-                    const currentBar = refreshCyberBarRefs();
-                    const currentBtn = state.ui.cyberMenuBtn;
-                    if (!currentBar || !currentBar.classList.contains('open')) return;
-                    if (currentBar.contains(e.target) || currentBtn?.contains(e.target)) return;
-                    hideCyberBar();
-                });
-            }
 
             const bindOnce = (button, handler) => {
                 if (!button || button.dataset.cyberBound) return;
@@ -1536,10 +1496,13 @@
                     const val = parseInt(e.target.value);
                     e.target.closest('.pp-slider-row').querySelector('.pp-slider-val').textContent = `${val}%`;
                     state.preferences[pref] = val;
-                    if (window.game?.audio) {
-                        if (pref === 'masterVolume' && typeof window.game.audio.setMasterVolume === 'function') window.game.audio.setMasterVolume(val / 100);
-                        if (pref === 'musicVolume' && typeof window.game.audio.setMusicVolume === 'function') window.game.audio.setMusicVolume(val / 100);
-                        if (pref === 'sfxVolume' && typeof window.game.audio.setSfxVolume === 'function') window.game.audio.setSfxVolume(val / 100);
+                    const audio = window.game?.audio;
+                    if (audio) {
+                        const v = val / 100;
+                        if (pref === 'masterVolume') (audio.setMasterVolume || audio.setVolume)?.call(audio, v);
+                        if (pref === 'musicVolume') audio.setMusicVolume?.(v);
+                        if (pref === 'sfxVolume') audio.setSfxVolume?.(v);
+                        if (pref === 'voiceVolume') audio.setVoiceVolume?.(v);
                     }
                 });
                 el.addEventListener('change', () => state.savePrefs());
