@@ -23,6 +23,7 @@ class Game {
         idle(() => this.ensurePostFx(), { timeout: 2500 });
         PerfGovernor.onChange((tier) => {
             this.postFx?.setQuality(tier.fx);
+            PerfGovernor.fxActive = !!this.postFx?.active;
             const dpr = PerfGovernor.renderScale;
             if (Math.abs(this.canvas.width - Math.round(this.width * dpr)) > 1) this.setupCanvas();
         });
@@ -2192,6 +2193,7 @@ class Game {
         const dt = Math.min(now - this.lastIntroTime, 0.1);
         this.lastIntroTime = now;
 
+        this.pollGamepads();
         this.intro.render(dt);
         this.postFx?.present(dt);
         this.introRafId = requestAnimationFrame(() => this.introLoop());
@@ -6116,6 +6118,52 @@ class Game {
         return this.postFx;
     }
 
+    // ── Gamepads ────────────────────────────────────────────────────────────
+    // Pad 1 drives the left paddle, pad 2 the right paddle in local 1v1.
+    // Left stick / d-pad move (analog), A = laser (or skip intro), Start = pause.
+    pollGamepads() {
+        if (!navigator.getGamepads) return;
+        const list = navigator.getGamepads();
+        const pads = [];
+        for (let i = 0; i < list.length; i++) if (list[i] && list[i].connected) pads.push(list[i]);
+        const prev = this._padPrev || (this._padPrev = []);
+        this.padState = pads.slice(0, 2).map((pad, i) => {
+            const raw = pad.axes[1] || 0;
+            const dead = 0.18;
+            // Rescale past the deadzone and add a gentle curve for fine aiming.
+            let axis = Math.abs(raw) < dead ? 0 : Math.sign(raw) * ((Math.abs(raw) - dead) / (1 - dead)) ** 1.35;
+            if (pad.buttons[12]?.pressed) axis = -1;
+            if (pad.buttons[13]?.pressed) axis = 1;
+            const a = !!pad.buttons[0]?.pressed;
+            const start = !!pad.buttons[9]?.pressed;
+            const was = prev[i] || {};
+            prev[i] = { a, start };
+            return { pad, axis, aPressed: a && !was.a, startPressed: start && !was.start };
+        });
+
+        const p1 = this.padState[0];
+        if (p1?.startPressed) {
+            if (this.introActive && this.intro?.active) this.skipIntro();
+            else if (this.running || this.paused) this.togglePause();
+        }
+        for (let i = 0; i < this.padState.length; i++) {
+            const st = this.padState[i];
+            if (!st.aPressed) continue;
+            if (this.introActive && this.intro?.active) { this.skipIntro(); continue; }
+            this.keys[i === 0 ? ' ' : 'enter'] = true;   // laser, consumed in updatePaddles
+        }
+    }
+
+    // side: 'left' | 'right' (which player's pad), strength 0..1
+    rumble(side, strength, ms = 90) {
+        const st = this.padState?.[side === 'right' ? 1 : 0];
+        if (side === 'right' && !this.isMultiplayer) return;
+        const act = st?.pad?.vibrationActuator;
+        if (!act?.playEffect) return;
+        const k = Math.max(0, Math.min(1, strength));
+        act.playEffect('dual-rumble', { duration: ms, strongMagnitude: k, weakMagnitude: Math.min(1, k * 0.6 + 0.2) }).catch(() => {});
+    }
+
     // F2: frame rate, detected refresh rate, quality tier and physics backend.
     togglePerfOverlay() {
         if (this.perfOverlay) {
@@ -6143,7 +6191,7 @@ class Game {
         const gov = PerfGovernor;
         this.perfOverlay.textContent =
             `${fps} FPS  ·  display ${gov.fps} Hz  ·  quality ${gov.tierName}  ·  ` +
-            `scale ${gov.renderScale.toFixed(2)}x  ·  shaders ${this.postFx ? 'on' : 'off'}  ·  ` +
+            `scale ${gov.renderScale.toFixed(2)}x  ·  shaders ${this.postFx?.active ? 'on' : 'off'}  ·  ` +
             `physics ${PhysicsCore.backend === 'wasm' ? 'C++/wasm' : 'JS'}`;
     }
 
@@ -6223,6 +6271,8 @@ class Game {
     // A point was won: let it land before play resumes.
     onGoalScored(goalOnRight, y) {
         const x = goalOnRight ? this.width : 0;
+        this.rumble(goalOnRight ? 'right' : 'left', 0.9, 260);
+        this.rallyPop = 0;
         this.postFx?.ripple(x, y, 1.15);
         this.postFx?.punch(1.0);
         this.screenShake = Math.max(this.screenShake || 0, 15);
@@ -6309,6 +6359,85 @@ class Game {
         this.screenShake = Math.max(this.screenShake || 0, 2 + impact * 9);
         this.postFx?.ripple(ball.pos.x, ball.pos.y, 0.35 + impact * 0.65);
         this.postFx?.punch(0.25 + impact * 0.75);
+
+        const side = isPlayer ? 'left' : 'right';
+        const human = isPlayer || this.isMultiplayer;
+        if (human) this.rumble(side, 0.25 + impact * 0.6, 60 + impact * 80);
+
+        // Rally counter pop + milestone callouts every 5 hits.
+        this.rallyPop = 1;
+        const r = this.rallyCount;
+        if (r >= 5 && r % 5 === 0) {
+            this.popText(`${r} RALLY`, this.width / 2, this.height * 0.3, Game.rallyColor(r), 46);
+            this.postFx?.punch(0.6);
+        }
+        // Clutch: a human returns the ball off the very end of the paddle.
+        if (edgeHit && human) {
+            const x = isPlayer ? paddle.pos.x + paddle.w + 70 : paddle.pos.x - 70;
+            this.popText('CLUTCH!', x, ball.pos.y, '#ffe066', 30);
+            this.hitStop = Math.max(this.hitStop, 0.09);
+        }
+    }
+
+    static rallyColor(r) {
+        if (r >= 20) return '#ff4fd8';
+        if (r >= 15) return '#ff8a3d';
+        if (r >= 10) return '#ffe066';
+        if (r >= 5) return '#5dffa8';
+        return '#7fe9ff';
+    }
+
+    // Short animated callout drawn in the playfield (rises, scales in, fades).
+    popText(text, x, y, color = '#ffffff', size = 32) {
+        const list = this.popTexts || (this.popTexts = []);
+        if (list.length > 6) list.shift();
+        list.push({ text, x, y, color, size, t: 0, life: 1.1 });
+    }
+
+    renderPopTexts(ctx, dt) {
+        const list = this.popTexts;
+        if (!list || !list.length) return;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        for (let i = list.length - 1; i >= 0; i--) {
+            const p = list[i];
+            p.t += dt;
+            const k = p.t / p.life;
+            if (k >= 1) { list.splice(i, 1); continue; }
+            const appear = Math.min(1, p.t / 0.12);
+            const scale = 0.6 + 0.55 * (1 - Math.pow(1 - appear, 3)) - 0.1 * k;
+            ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
+            ctx.font = `900 ${Math.round(p.size * scale)}px Orbitron, Audiowide, sans-serif`;
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+            const y = p.y - k * 36;
+            ctx.strokeText(p.text, p.x, y);
+            ctx.fillStyle = p.color;
+            ctx.fillText(p.text, p.x, y);
+        }
+        ctx.restore();
+    }
+
+    // Live rally count under the menu button; grows and warms up as it builds.
+    renderRallyCounter(ctx, dt) {
+        const r = this.rallyCount || 0;
+        this.rallyPop = Math.max(0, (this.rallyPop || 0) - dt * 4);
+        if (r < 3 || this.isZombieWaveMode()) return;
+        const pop = this.rallyPop;
+        const size = Math.min(44, 22 + r * 0.8) * (1 + pop * 0.35);
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = 0.75 + pop * 0.25;
+        ctx.font = `900 ${Math.round(size)}px Orbitron, Audiowide, sans-serif`;
+        ctx.fillStyle = Game.rallyColor(r);
+        ctx.fillText(String(r), this.width / 2, 96);
+        ctx.globalAlpha = 0.55;
+        ctx.font = '700 11px Orbitron, Audiowide, sans-serif';
+        ctx.fillStyle = '#d9f6ff';
+        ctx.fillText('RALLY', this.width / 2, 96 + size * 0.62 + 6);
+        ctx.restore();
     }
 
     checkRallyMilestones() {
@@ -6664,7 +6793,9 @@ class Game {
         } else if (this.pointerControls.player !== null) {
             this.followPointerTarget(this.player, dt);
         } else {
-            const p1MoveDir = this.keys['w'] ? -1 : (this.keys['s'] ? 1 : 0);
+            let p1MoveDir = this.keys['w'] ? -1 : (this.keys['s'] ? 1 : 0);
+            const pad1 = this.padState?.[0];
+            if (pad1 && pad1.axis !== 0) p1MoveDir = pad1.axis;
             if (p1MoveDir !== 0) {
                 const speedMul = this.powerUpTimers.fastPaddle > 0 ? 1.5 : 1;
                 const targetVelY = p1MoveDir * this.player.maxSpeed * speedMul;
@@ -6684,7 +6815,9 @@ class Game {
             } else if (this.pointerControls.ai !== null) {
                 this.followPointerTarget(this.aiPaddle, dt);
             } else {
-                const p2MoveDir = this.keys['arrowup'] ? -1 : (this.keys['arrowdown'] ? 1 : 0);
+                let p2MoveDir = this.keys['arrowup'] ? -1 : (this.keys['arrowdown'] ? 1 : 0);
+                const pad2 = this.padState?.[1];
+                if (pad2 && pad2.axis !== 0) p2MoveDir = pad2.axis;
                 if (p2MoveDir !== 0) {
                     const speedMul = 1; // Standard speed for P2 for now
                     const targetVelY = p2MoveDir * this.aiPaddle.maxSpeed * speedMul;
@@ -7336,6 +7469,8 @@ class Game {
         }
         this.ball.render(ctx, interp);
         this.renderServeTelegraph(ctx);
+        this.renderRallyCounter(ctx, renderDt);
+        this.renderPopTexts(ctx, renderDt);
         if (this.shieldActive) {
             ctx.save();
             ctx.strokeStyle = '#00bcd4';
@@ -7401,6 +7536,7 @@ class Game {
 
         this.rafId = requestAnimationFrame(() => this.step());
         const now = performance.now() / 1000;
+        this.pollGamepads();
 
         // Only gameplay frames feed the quality governor (the menu and intro have
         // their own costs and shouldn't lower in-match quality).

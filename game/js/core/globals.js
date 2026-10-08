@@ -47,10 +47,14 @@ function areParticleEffectsEnabled() {
 // ===================================================================
 const PerfGovernor = {
     TIERS: [
-        { name: 'high',   glow: 1.0,  glowFx: 0.35, particles: 1.0,  scale: 1.5,  fx: 0 },
-        { name: 'medium', glow: 0.5,  glowFx: 0.12, particles: 0.65, scale: 1.25, fx: 1 },
-        { name: 'low',    glow: 0.15, glowFx: 0.0,  particles: 0.4,  scale: 1.0,  fx: 1 },
-        { name: 'potato', glow: 0.0,  glowFx: 0.0,  particles: 0.25, scale: 0.8,  fx: 2 },
+        // bgFps: how often animated backgrounds are redrawn (0 = every frame).
+        // scale: canvas resolution multiplier (capped at devicePixelRatio).
+        // Pixel fill is the real cost of this game, so scale is the big lever;
+        // bloom hides the difference between 1.25x and 1.5x.
+        { name: 'high',   glow: 1.0,  glowFx: 0.35, particles: 1.0,  scale: 1.25, fx: 0, bgFps: 0 },
+        { name: 'medium', glow: 0.5,  glowFx: 0.12, particles: 0.65, scale: 1.0,  fx: 1, bgFps: 60 },
+        { name: 'low',    glow: 0.15, glowFx: 0.0,  particles: 0.4,  scale: 0.9,  fx: 1, bgFps: 30 },
+        { name: 'potato', glow: 0.0,  glowFx: 0.0,  particles: 0.25, scale: 0.75, fx: 3, bgFps: 24 },
     ],
     tier: 0,
     fxActive: false,

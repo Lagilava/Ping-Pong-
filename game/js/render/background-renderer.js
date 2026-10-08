@@ -974,6 +974,12 @@ class BackgroundRenderer {
     }
 
     _getBackgroundFrameMs() {
+        // Redraw rate follows the quality tier: at the top tier backgrounds
+        // animate every frame so they don't judder behind a 120 fps foreground.
+        const tier = typeof PerfGovernor !== 'undefined' ? PerfGovernor.current : null;
+        if (tier && Number.isFinite(tier.bgFps)) {
+            return tier.bgFps > 0 ? 1000 / tier.bgFps : 0;
+        }
         switch (this.mode) {
             case 'zombie':
             case 'obstacle':

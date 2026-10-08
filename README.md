@@ -16,6 +16,9 @@ Keep the small console window open while you play; close it to stop.
 
 - **Esc** pauses · **W / S**, or hold the mouse button / touch and drag, moves the left paddle · **↑ / ↓** moves
   the right paddle in local 1v1 · **Space** fires the laser power-up
+- **Gamepad:** left stick or d-pad moves (analog), **A** fires the laser / skips
+  intros, **Start** pauses; a second pad controls the right paddle in local 1v1.
+  Controllers rumble on hits and goals.
 - **F2** shows a performance readout: FPS, detected display refresh rate,
   quality tier, render scale, shaders and physics backend.
 - Intros can be skipped: click or press any key during the boot cinematic,
@@ -89,6 +92,9 @@ is unavailable.
 - **Sound you can feel:** layered impacts (transient click, pitched body, low
   thump on hard hits) that get louder and brighter with speed, panned to where
   they happen; the two paddles are pitched differently: ping… pong.
+- **Rallies build:** a live rally counter grows and warms in colour, with a
+  callout every 5 hits; returning the ball off the very tip of the paddle
+  earns a **CLUTCH!** slow-mo beat. The ball's trail heats up with speed.
 - **Every point lands:** goals get a shockwave, flash and camera punch, then a
   short telegraphed serve (countdown ring + direction chevrons) towards the
   player who conceded.
@@ -109,8 +115,10 @@ is unavailable.
   weave court texture, an animated aurora and starfield sky shader, and its own
   bloom pass ([`game/js/menu/menu-bloom.js`](game/js/menu/menu-bloom.js)).
 - **Adaptive quality:** `PerfGovernor` learns the display refresh rate and,
-  if frames are missed, steps down glow, particles, render resolution and
-  post-fx quality — then steps back up when there's headroom.
+  if frames are missed, steps down glow, particles, render resolution,
+  background animation rate and post-fx quality (the lowest tier turns the
+  shader pass off) — then steps back up when there's headroom. At the top
+  tier animated backgrounds redraw every frame, so nothing judders at 120 Hz.
 
 ## Project layout
 

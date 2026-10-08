@@ -101,7 +101,18 @@ class PostFX {
     /** Colour grade towards a mode tint, e.g. [1.05, 0.95, 1.1]. */
     setTint(r, g, b) { this.tint = [r, g, b]; }
 
-    setQuality(tier) { this.quality = Math.max(0, Math.min(2, tier | 0)); }
+    // 0 high, 1 medium (single bloom level), 2 low (no bloom), 3 = off: the
+    // canvas is shown directly, saving the per-frame upload and composite.
+    setQuality(tier) {
+        const q = Math.max(0, Math.min(3, tier | 0));
+        if (q === 3) {
+            if (this.active) this.setActive(false);
+            this.quality = 2;
+            return;
+        }
+        if (!this.active && this.gl) this.setActive(true);
+        this.quality = q;
+    }
 
     setActive(on) {
         this.active = !!on && !!this.gl;

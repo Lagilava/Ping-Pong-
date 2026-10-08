@@ -489,11 +489,24 @@ class Ball {
         };
     }
 
+    // Trail colour heats up with speed (cool blue -> white -> amber -> magenta)
+    // so pace reads at a glance. A custom Ball Forge colour always wins.
     _getTrailColorRgb() {
         const custom = this._hexToRgb(this.customTrailColor);
         if (custom) return custom;
-        return { r: 170, g: 205, b: 255 };
+        const stops = Ball.HEAT_STOPS;
+        const k = Math.max(0, Math.min(0.999, (this._speed || 0) / Math.max(1, this.maxSpeed * 1.25)));
+        const f = k * (stops.length - 1);
+        const i = Math.floor(f), t = f - i;
+        const a = stops[i], b = stops[i + 1];
+        const out = this._heatRgb || (this._heatRgb = { r: 0, g: 0, b: 0 });
+        out.r = Math.round(a[0] + (b[0] - a[0]) * t);
+        out.g = Math.round(a[1] + (b[1] - a[1]) * t);
+        out.b = Math.round(a[2] + (b[2] - a[2]) * t);
+        return out;
     }
+
+    static HEAT_STOPS = [[120, 200, 255], [190, 235, 255], [255, 245, 220], [255, 170, 70], [255, 70, 200]];
 
     _renderTrail(ctx, ballX, ballY) {
         const speedRatio = Math.min(1, this._speed / 1200);
