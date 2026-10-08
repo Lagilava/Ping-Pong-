@@ -908,13 +908,24 @@ class Game {
         return canvasX >= this.width * 0.5 ? 'ai' : 'player';
     }
 
+    // Mouse/touch set a target; the paddle chases it in updatePaddles with a
+    // fast but finite response, so it has real velocity (spin + english work
+    // for mouse players) and can't teleport through the ball.
     updatePointerControlledPaddle(target, canvasY) {
         const paddle = target === 'ai' ? this.aiPaddle : this.player;
         if (!paddle) return;
-        if (paddle.laserStunned) return;
-        paddle.setCenterY(canvasY);
-        paddle.clampTo(this.height);
-        paddle.vel.y = 0;
+        paddle.pointerTargetY = canvasY;
+    }
+
+    followPointerTarget(paddle, dt) {
+        if (!Number.isFinite(paddle.pointerTargetY)) { paddle.vel.y *= paddle.friction; return; }
+        const centre = paddle.pos.y + paddle.h / 2;
+        const error = paddle.pointerTargetY - centre;
+        const speedMul = (paddle === this.player && this.powerUpTimers.fastPaddle > 0) ? 1.5 : 1;
+        const maxSpeed = 2600 * speedMul;
+        // Critically damped approach (~45 ms), capped to a believable top speed.
+        const desired = Math.max(-maxSpeed, Math.min(maxSpeed, error * 22));
+        paddle.vel.y += (desired - paddle.vel.y) * Math.min(1, dt * 45);
     }
 
     initSpeedParticles() {
@@ -5462,6 +5473,9 @@ class Game {
     resetMatch() {
         // Stop any ongoing game loop
         this.stop();
+        this.serveHold = 0;
+        this.pendingServe = null;
+        this.hitStop = 0;
         if (this.speedChallenge && typeof this.speedChallenge.terminateChallenge === 'function') {
             this.speedChallenge.terminateChallenge('reset');
         }
@@ -6161,7 +6175,7 @@ class Game {
 
         const hitX = isPlayer ? p.pos.x + p.w : p.pos.x;
         this.particles.spawnGodTierHit(hitX, b.pos.y, p.color, speed);
-        this.audio.hit();
+        this.audio.hit(b.lastImpact || 0.4, this.panFor(b.pos.x), isPlayer ? 'left' : 'right');
         this.rallyCount++;
         this._setText(this.rallyDisplay, this.rallyCount);
         this.progression.incrementAchievementProgress('rallyLegend');
@@ -6177,10 +6191,91 @@ class Game {
         return true;
     }
 
+    // A point was won: let it land before play resumes.
+    onGoalScored(goalOnRight, y) {
+        const x = goalOnRight ? this.width : 0;
+        this.postFx?.ripple(x, y, 1.15);
+        this.postFx?.punch(1.0);
+        this.screenShake = Math.max(this.screenShake || 0, 15);
+        if (this.cameraKick) this.cameraKick.vx += goalOnRight ? 420 : -420;
+        this.screenFlash = Math.max(this.screenFlash || 0, 0.35);
+        this.particles.spawnGodTierHit(goalOnRight ? this.width - 6 : 6, y, goalOnRight ? '#ff3a5c' : '#00ffd6', 1400);
+    }
+
+    // Hold the ball at the serve spot briefly (with a telegraph) so each point
+    // has a beat between them and the receiver can get set.
+    holdServe(seconds) {
+        const b = this.ball;
+        this.pendingServe = { vx: b.vel.x, vy: b.vel.y };
+        this.serveHold = seconds;
+        this.serveHoldTotal = seconds;
+        b.vel.set(0, 0);
+        b.trailCount = 0;
+    }
+
+    updateServeHold(dt) {
+        const b = this.ball;
+        // Something else served (e.g. the Speed challenge, a reset): stand down.
+        if (Math.abs(b.vel.x) + Math.abs(b.vel.y) > 1 || !this.pendingServe) {
+            this.serveHold = 0;
+            this.pendingServe = null;
+            return false;
+        }
+        this.serveHold -= dt;
+        b.prev.set(b.pos.x, b.pos.y);
+        if (this.serveHold > 0) return true;
+        b.vel.set(this.pendingServe.vx, this.pendingServe.vy);
+        this.pendingServe = null;
+        this.serveHold = 0;
+        this.audio.bounce?.(0.5, this.panFor(b.pos.x));
+        this.postFx?.ripple(b.pos.x, b.pos.y, 0.4);
+        return false;
+    }
+
+    renderServeTelegraph(ctx) {
+        if (!(this.serveHold > 0) || !this.pendingServe) return;
+        const b = this.ball;
+        const t = 1 - this.serveHold / (this.serveHoldTotal || 1);
+        const dir = this.pendingServe.vx >= 0 ? 1 : -1;
+        const ang = Math.atan2(this.pendingServe.vy, Math.abs(this.pendingServe.vx));
+        ctx.save();
+        ctx.translate(b.pos.x, b.pos.y);
+        // Closing ring = countdown.
+        ctx.globalAlpha = 0.35 + 0.5 * t;
+        ctx.strokeStyle = '#bff8ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, b.r + 6 + (1 - t) * 46, 0, Math.PI * 2);
+        ctx.stroke();
+        // Chevrons show where the serve is going.
+        ctx.scale(dir, 1);
+        ctx.rotate(ang * 0.6);
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 3; i++) {
+            const phase = (t * 2 + i / 3) % 1;
+            ctx.globalAlpha = (1 - phase) * 0.8;
+            const cx = b.r + 18 + phase * 40;
+            ctx.beginPath();
+            ctx.moveTo(cx, -8);
+            ctx.lineTo(cx + 8, 0);
+            ctx.lineTo(cx, 8);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // Stereo position for a sound at canvas x (-1 left … 1 right), kept subtle.
+    panFor(x) {
+        return Math.max(-1, Math.min(1, (x / Math.max(1, this.width) - 0.5) * 1.3));
+    }
+
     // Juice for a paddle hit, scaled by how hard the ball was travelling.
     onPaddleImpact(ball, paddle, isPlayer, edgeHit) {
         const impact = ball.lastImpact || 0;
         paddle.kick?.(isPlayer ? -1 : 1, 0.35 + impact * 0.9);
+        ball.squashImpact?.(0, 0.3 + impact * 0.45);
+        if (this.cameraKick) this.cameraKick.vx += (isPlayer ? 1 : -1) * (40 + impact * 260);
         this.hitStop = Math.max(this.hitStop || 0, 0.012 + impact * 0.045 + (edgeHit ? 0.02 : 0));
         this.screenShake = Math.max(this.screenShake || 0, 2 + impact * 9);
         this.postFx?.ripple(ball.pos.x, ball.pos.y, 0.35 + impact * 0.65);
@@ -6337,11 +6432,16 @@ class Game {
             hitStopScale = 0.12;
         }
         const effectiveDt = this.timeWarpFactor * dt * hitStopScale;
+        if (this.player) this.player._prevY = this.player.pos.y;
+        if (this.aiPaddle) this.aiPaddle._prevY = this.aiPaddle.pos.y;
         this.updateSpeedBackground(effectiveDt);
         this.updateGameState(effectiveDt);
         this.updateGameObjects(effectiveDt, updateGravityWells);
-        this.updateBallPhysics(this.ball, effectiveDt);
-        this.handleCollisions(effectiveDt);
+        const holding = this.serveHold > 0 && this.updateServeHold(dt);
+        if (!holding) {
+            this.updateBallPhysics(this.ball, effectiveDt);
+            this.handleCollisions(effectiveDt);
+        }
         this.updatePaddles(effectiveDt);
         this.checkScoringConditions();
         this.updateGameUI();
@@ -6494,8 +6594,9 @@ class Game {
 
     // Rail contact: sound plus a little feedback scaled by how hard it hit.
     onBallWallHit(ball, events) {
-        this.audio.bounce();
         const impact = ball.lastImpact || 0;
+        this.audio.bounce(impact, this.panFor(ball.pos.x));
+        ball.squashImpact?.(Math.PI / 2, 0.15 + impact * 0.35);
         if (impact > 0.35) {
             this.screenShake = Math.max(this.screenShake || 0, impact * 4);
             const y = (events & PhysicsCore.EVT.WALL_TOP) ? 0 : this.height;
@@ -6532,7 +6633,7 @@ class Game {
         if (this.player.laserStunned) {
             this.player.vel.y = 0;
         } else if (this.pointerControls.player !== null) {
-            this.player.vel.y = 0;
+            this.followPointerTarget(this.player, dt);
         } else {
             const p1MoveDir = this.keys['w'] ? -1 : (this.keys['s'] ? 1 : 0);
             if (p1MoveDir !== 0) {
@@ -6552,7 +6653,7 @@ class Game {
             if (this.aiPaddle.laserStunned) {
                 this.aiPaddle.vel.y = 0;
             } else if (this.pointerControls.ai !== null) {
-                this.aiPaddle.vel.y = 0;
+                this.followPointerTarget(this.aiPaddle, dt);
             } else {
                 const p2MoveDir = this.keys['arrowup'] ? -1 : (this.keys['arrowdown'] ? 1 : 0);
                 if (p2MoveDir !== 0) {
@@ -6735,13 +6836,20 @@ class Game {
             return true;
         };
         if (!checkBallScore(this.ball)) {
+            const goalOnRight = this.ball.pos.x > this.width * 0.5;
+            const goalY = Math.max(0, Math.min(this.height, this.ball.pos.y));
+            this.onGoalScored(goalOnRight, goalY);
             this.ball.reset(this.center);
             if (this.isZombieWaveMode() && Number.isFinite(this._zombieNextServeDirection)) {
                 const dir = this._zombieNextServeDirection >= 0 ? 1 : -1;
                 this.ball.vel.x = Math.abs(this.ball.vel.x) * dir;
                 this._zombieNextServeDirection = null;
             } else {
-                this.ball.vel.x = this.scores.ai > this.scores.player ? Math.abs(this.ball.vel.x) : -Math.abs(this.ball.vel.x);
+                // The player who conceded receives the serve.
+                this.ball.vel.x = goalOnRight ? Math.abs(this.ball.vel.x) : -Math.abs(this.ball.vel.x);
+            }
+            if (!this.isZombieWaveMode() && !this.speedChallenge?.isActive) {
+                this.holdServe(0.85);
             }
         }
         let writeIndex = 0;
@@ -6968,10 +7076,28 @@ class Game {
         }
     }
 
+    // Paddles move on the 240 Hz physics clock; draw them interpolated between
+    // the last two steps (like the ball) so they don't judder on 144/165 Hz
+    // screens, where frames don't divide evenly into physics steps.
     render(interp) {
-        // Don't render game if intro is active
-        if (this.introActive) return;
-        if (this.paused) return;
+        if (this.introActive || this.paused) return;
+        const paddles = [this.player, this.aiPaddle];
+        const realY = [];
+        for (let i = 0; i < paddles.length; i++) {
+            const p = paddles[i];
+            realY[i] = p ? p.pos.y : 0;
+            if (p && Number.isFinite(p._prevY) && Math.abs(p.pos.y - p._prevY) < 200) {
+                p.pos.y = p._prevY + (p.pos.y - p._prevY) * interp;
+            }
+        }
+        try {
+            this.renderScene(interp);
+        } finally {
+            for (let i = 0; i < paddles.length; i++) if (paddles[i]) paddles[i].pos.y = realY[i];
+        }
+    }
+
+    renderScene(interp) {
 
         const ctx = this.ctx;
         const W = this.width, H = this.height;
@@ -6995,23 +7121,41 @@ class Game {
             }
         };
         renderBackgroundLayer();
+        // Camera: smooth multi-sine shake (no per-frame white noise) plus a
+        // spring-damped directional kick that pushes along the impact.
         let shakeApplied = false;
-        if (this.screenShake) {
+        const kick = this.cameraKick || (this.cameraKick = { x: 0, y: 0, vx: 0, vy: 0 });
+        {
+            const k = 900, c = 2 * Math.sqrt(k) * 0.55;
+            const kdt = Math.min(renderDt, 1 / 30);
+            kick.vx += (-k * kick.x - c * kick.vx) * kdt;
+            kick.vy += (-k * kick.y - c * kick.vy) * kdt;
+            kick.x += kick.vx * kdt;
+            kick.y += kick.vy * kdt;
+        }
+        let shakeMag = 0;
+        if (typeof this.screenShake === 'object' && this.screenShake) {
+            shakeMag = Math.hypot(this.screenShake.x || 0, this.screenShake.y || 0);
+        } else if (this.screenShake) {
+            shakeMag = this.screenShake;
+        }
+        if (shakeMag > 0.05 || Math.abs(kick.x) + Math.abs(kick.y) > 0.05) {
             shakeApplied = true;
             ctx.save();
-            let translateX = 0;
-            let translateY = 0;
-            if (typeof this.screenShake === 'object' && this.screenShake.x !== undefined) {
-                const strength = Math.sqrt(this.screenShake.x * this.screenShake.x + this.screenShake.y * this.screenShake.y);
-                const normalizedStrength = Math.min(strength, 25) * 0.65;
-                translateX = (this.screenShake.x / strength) * normalizedStrength + (Math.random() - 0.5) * 2;
-                translateY = (this.screenShake.y / strength) * normalizedStrength + (Math.random() - 0.5) * 2;
-            } else {
-                const strength = Math.min(this.screenShake, 25) * 0.65;
-                translateX = (Math.random() - 0.5) * strength;
-                translateY = (Math.random() - 0.5) * strength;
+            const t = performance.now() * 0.001;
+            // Shake grows with the square of its strength ("trauma"), so small
+            // taps stay subtle and big impacts really land.
+            const trauma = Math.min(shakeMag, 25) / 25;
+            const amp = trauma * trauma * 16;
+            const nx = Math.sin(t * 47.3) * 0.6 + Math.sin(t * 83.1 + 1.7) * 0.4;
+            const ny = Math.sin(t * 53.7 + 0.5) * 0.6 + Math.sin(t * 91.3 + 2.9) * 0.4;
+            ctx.translate(nx * amp + kick.x, ny * amp + kick.y);
+            const roll = Math.sin(t * 37.1 + 4.2) * trauma * trauma * 0.006;
+            if (roll) {
+                ctx.translate(W / 2, H / 2);
+                ctx.rotate(roll);
+                ctx.translate(-W / 2, -H / 2);
             }
-            ctx.translate(translateX, translateY);
         }
         if (this.screenFlash > 0.001) {
             ctx.save();
@@ -7162,6 +7306,7 @@ class Game {
             }
         }
         this.ball.render(ctx, interp);
+        this.renderServeTelegraph(ctx);
         if (this.shieldActive) {
             ctx.save();
             ctx.strokeStyle = '#00bcd4';

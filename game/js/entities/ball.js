@@ -49,6 +49,18 @@ class Ball {
         this.customEffectError = '';
         this.studioActive = false;
         this.studioSavedColors = null;
+
+        // Feel: impact squash (axis angle + amount, springs back) and the
+        // visual rotation used to show spin.
+        this.squashAngle = 0;
+        this.squashAmount = 0;
+        this.spinAngle = 0;
+    }
+
+    /** Flatten the ball along `angle` (radians) on impact. */
+    squashImpact(angle, amount) {
+        this.squashAngle = angle;
+        this.squashAmount = Math.min(0.6, Math.max(this.squashAmount, amount));
     }
 
     setCustomColors(options = {}) {
@@ -265,6 +277,8 @@ class Ball {
     // visual trail and particles. Returns PhysicsCore.EVT flags.
     integrate(dt, height = window.game?.height ?? 600) {
         const events = PhysicsCore.integrate(this, dt, height);
+        this.squashAmount *= Math.exp(-16 * dt);
+        this.spinAngle += (this.spin || 0) * dt * 2.2;
         const particlesEnabled = areParticleEffectsEnabled();
 
         if (particlesEnabled) {
@@ -402,13 +416,54 @@ class Ball {
             }
         }
 
-        // Render ball with cached gradients
+        // Squash on impact, stretch along the velocity at speed.
+        const speed = this._speed || 0;
+        const stretch = Math.min(0.22, (speed / Math.max(1, this.maxSpeed)) * 0.22);
+        const deformed = this.squashAmount > 0.01 || stretch > 0.02;
+        if (deformed) {
+            ctx.save();
+            ctx.translate(x, y);
+            if (this.squashAmount > 0.01) {
+                ctx.rotate(this.squashAngle);
+                ctx.scale(1 - this.squashAmount, 1 + this.squashAmount * 0.6);
+                ctx.rotate(-this.squashAngle);
+            }
+            if (stretch > 0.02) {
+                const a = Math.atan2(this.vel.y, this.vel.x);
+                ctx.rotate(a);
+                ctx.scale(1 + stretch, 1 - stretch * 0.5);
+                ctx.rotate(-a);
+            }
+            ctx.translate(-x, -y);
+        }
         this._renderBall(ctx, x, y, isZombieMode);
+        if (deformed) ctx.restore();
+        this._renderSpinMarks(ctx, x, y);
 
         // Render particles
         if (particlesEnabled) {
             this._renderParticles(ctx);
         }
+    }
+
+    // Two orbiting arcs whose speed and brightness follow the spin, so players
+    // can read a curving shot before it bends.
+    _renderSpinMarks(ctx, x, y) {
+        const spin = this.spin || 0;
+        const amount = Math.min(1, Math.abs(spin) / 6);
+        if (amount < 0.12) return;
+        const r = this.r * 1.55;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(this.spinAngle);
+        ctx.globalAlpha = 0.25 + amount * 0.6;
+        ctx.strokeStyle = this.customGlowTint || '#e8fbff';
+        ctx.lineWidth = 1.5 + amount * 1.5;
+        ctx.lineCap = 'round';
+        const sweep = 0.5 + amount * 0.9;
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, sweep); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, 0, r, Math.PI, Math.PI + sweep); ctx.stroke();
+        ctx.restore();
     }
 
     _isZombieMode() {

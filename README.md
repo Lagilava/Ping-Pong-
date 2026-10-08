@@ -14,7 +14,7 @@ That's it — nothing to install. The batch file starts a tiny local web server
 using PowerShell (built into Windows) and opens the game in Chrome or Edge.
 Keep the small console window open while you play; close it to stop.
 
-- **Esc** pauses · **W / S** or mouse/touch moves the left paddle · **↑ / ↓** moves
+- **Esc** pauses · **W / S**, or hold the mouse button / touch and drag, moves the left paddle · **↑ / ↓** moves
   the right paddle in local 1v1 · **Space** fires the laser power-up
 - **F2** shows a performance readout: FPS, detected display refresh rate,
   quality tier, render scale, shaders and physics backend.
@@ -78,8 +78,20 @@ is unavailable.
 - **No tunnelling.** Paddle collisions are swept along the ball's path, so even
   the fastest balls can't pass through a paddle between frames.
 - **Rallies build gradually** instead of jumping to max speed.
-- **Impact feel:** hit-stop, paddle recoil and squash, impact-scaled screen
-  shake and shader shockwaves.
+- **Impact feel:** hit-stop, paddle recoil and squash, ball squash/stretch,
+  trauma-style screen shake with a directional camera kick, and shader
+  shockwaves, all scaled by how hard the ball was hit.
+- **Readable spin:** arcs orbit the ball at the speed and in the direction of
+  its spin, so you can see a curving shot coming.
+- **Sound you can feel:** layered impacts (transient click, pitched body, low
+  thump on hard hits) that get louder and brighter with speed, panned to where
+  they happen; the two paddles are pitched differently: ping… pong.
+- **Every point lands:** goals get a shockwave, flash and camera punch, then a
+  short telegraphed serve (countdown ring + direction chevrons) towards the
+  player who conceded.
+- **Mouse/touch control has real momentum**, so mouse players can put spin
+  and english on the ball too, and paddles are interpolated between physics
+  steps so they stay smooth on 144/165 Hz screens.
 - The AI predicts the ball with the exact same C++ integrator, so it reads
   curving shots; difficulty limits how far ahead it can see.
 

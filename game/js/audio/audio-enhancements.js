@@ -1320,43 +1320,94 @@ class EnhancedAudioEngine {
     // ========================================
 
     // Enhanced sound methods with bass-heavy, consistent sounds
-    hit() {
+    /**
+     * Layered impact: a short filtered-noise click (the transient you feel), a
+     * pitched body whose pitch and loudness follow the hit strength, and a low
+     * thump on hard hits. Panned to where it happened; all layers are scheduled
+     * on the audio clock so they stay tight.
+     */
+    playImpact({ strength = 0.5, pan = 0, freq = 440, type = 'triangle', thump = true, length = 0.09 } = {}) {
+        if (!this.initialized || !this.enabled || !this.ctx) return;
+        if (this.activeOscillators.size >= this.maxPolyphony) return;
+        const ctx = this.ctx;
+        const now = ctx.currentTime + 0.002;
+        const k = Math.max(0, Math.min(1, strength));
+        const vol = Math.max(0, Math.min(1, this.sfxVolume)) * (0.35 + 0.65 * k);
+
+        let out = this.masterGain;
+        if (typeof ctx.createStereoPanner === 'function') {
+            const panner = ctx.createStereoPanner();
+            panner.pan.value = Math.max(-1, Math.min(1, pan));
+            panner.connect(this.masterGain);
+            out = panner;
+        }
+
+        // Transient click
+        if (!this._impactNoise) {
+            const len = Math.floor(ctx.sampleRate * 0.05);
+            const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+            this._impactNoise = buf;
+        }
+        const noise = ctx.createBufferSource();
+        noise.buffer = this._impactNoise;
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 1800 + k * 3200;
+        bp.Q.value = 0.9;
+        const ng = ctx.createGain();
+        ng.gain.setValueAtTime(vol * 0.55, now);
+        ng.gain.exponentialRampToValueAtTime(0.0005, now + 0.025);
+        noise.connect(bp); bp.connect(ng); ng.connect(out);
+        noise.start(now);
+        noise.stop(now + 0.04);
+
+        // Pitched body: starts a little sharp and settles (reads as "contact").
+        const f0 = this.clampFrequency(freq * (1 + k * 0.35));
+        const osc = ctx.createOscillator();
+        osc.type = type;
+        osc.frequency.setValueAtTime(f0 * 1.3, now);
+        osc.frequency.exponentialRampToValueAtTime(f0, now + 0.025);
+        const og = ctx.createGain();
+        const bodyLen = length + k * 0.05;
+        og.gain.setValueAtTime(0.0005, now);
+        og.gain.linearRampToValueAtTime(vol * 0.5, now + 0.002);
+        og.gain.exponentialRampToValueAtTime(0.0005, now + bodyLen);
+        osc.connect(og); og.connect(out);
+        osc.start(now);
+        osc.stop(now + bodyLen + 0.01);
+        this.activeOscillators.add(osc);
+        osc.onended = () => this.activeOscillators.delete(osc);
+
+        // Low thump for hard hits.
+        if (thump && k > 0.25) {
+            const sub = ctx.createOscillator();
+            sub.type = 'sine';
+            sub.frequency.setValueAtTime(110, now);
+            sub.frequency.exponentialRampToValueAtTime(45, now + 0.12);
+            const sg = ctx.createGain();
+            sg.gain.setValueAtTime(0.0005, now);
+            sg.gain.linearRampToValueAtTime(vol * 0.75 * k, now + 0.004);
+            sg.gain.exponentialRampToValueAtTime(0.0005, now + 0.14);
+            sub.connect(sg); sg.connect(out);
+            sub.start(now);
+            sub.stop(now + 0.15);
+        }
+        this.analytics.soundsPlayed++;
+    }
+
+    // strength 0..1, pan -1..1, side 'left' | 'right' (left is higher: ping… pong).
+    hit(strength = 0.5, pan = 0, side = 'left') {
         this.ensureContext().then(() => {
-            const sound = this.sounds.hit;
-            const freq = sound.randomize && sound.variations
-                ? this.getRandomVariation(sound.variations)
-                : sound.freq;
-
-            // Main hit sound
-            this.createSound(freq, sound.type, sound.duration, sound.vol);
-
-            // Add bass impact if specified
-            if (sound.bassImpact) {
-                setTimeout(() => {
-                    this.createSound(sound.impactFreq, 'sine', 0.15, 0.4);
-                }, 20);
-            }
-
+            this.playImpact({ strength, pan, freq: side === 'right' ? 392 : 523, type: 'triangle', length: 0.1 });
             this.consecutiveHits++;
         });
     }
 
-    bounce() {
+    bounce(strength = 0.4, pan = 0) {
         this.ensureContext().then(() => {
-            const sound = this.sounds.bounce;
-            const freq = sound.randomize && sound.variations
-                ? this.getRandomVariation(sound.variations)
-                : sound.freq;
-
-            // Main bounce sound
-            this.createSound(freq, sound.type, sound.duration, sound.vol);
-
-            // Add bass component if specified
-            if (sound.bassComponent) {
-                setTimeout(() => {
-                    this.createSound(sound.bassComponent, 'sine', 0.1, 0.3);
-                }, 30);
-            }
+            this.playImpact({ strength: strength * 0.7, pan, freq: 294, type: 'sine', thump: false, length: 0.07 });
         });
     }
 

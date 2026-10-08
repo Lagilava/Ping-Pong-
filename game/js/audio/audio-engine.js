@@ -47,8 +47,10 @@ class AudioEngine {
         o.start(now);
         o.stop(now + duration);
     }
-    hit() { this.createOscillatorSound(880 + Math.random() * 80 - 40, 'square', 0.07, 0.5); }
-    bounce() { this.createOscillatorSound(440 + Math.random() * 40 - 20, 'sine', 0.05, 0.3); }
+    hit(strength = 0.5, pan = 0, side = 'left') {
+        this.createOscillatorSound((side === 'right' ? 660 : 880) * (1 + strength * 0.3), 'square', 0.07, 0.25 + strength * 0.4);
+    }
+    bounce(strength = 0.4) { this.createOscillatorSound(440, 'sine', 0.05, 0.15 + strength * 0.25); }
     score() {
         const now = this.ctx.currentTime;
         const notes = [0, 4, 7, 12].map(n => 220 * Math.pow(2, n / 12));
