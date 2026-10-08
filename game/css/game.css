@@ -5494,6 +5494,30 @@ canvas {
 }
 .menu-achievements-empty span { display: block; margin-top: 6px; opacity: 0.6; font-size: 0.85em; }
 
+/* Phones held upright during a match: the court is a landscape playfield. */
+.rotate-hint { display: none; }
+@media (orientation: portrait) and (pointer: coarse) {
+    body.pp-in-match .rotate-hint {
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        z-index: 100001;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: rgba(4, 10, 20, 0.85);
+        border: 1px solid rgba(0, 255, 214, 0.4);
+        color: #cffcf2;
+        font: 600 12px/1 'Orbitron', system-ui, sans-serif;
+        letter-spacing: 0.06em;
+        pointer-events: none;
+    }
+    body.pp-in-match .rotate-hint span { font-size: 18px; }
+}
+
 /* Pause menu */
 .pause-menu {
     position: fixed;

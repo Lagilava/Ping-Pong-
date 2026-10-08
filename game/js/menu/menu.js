@@ -412,7 +412,8 @@
             { id: 'obstacle', name: 'OBSTACLE', desc: 'Navigate deadly hazards', col: 0xff7620, hex: '#ff7620', icon: 'obstacle' },
             { id: 'customise', name: 'CUSTOM', desc: 'Build your own rules', col: 0x00ffc8, hex: '#00ffc8', icon: 'custom' },
         ],
-        renderer: { pixelRatio: Math.min(devicePixelRatio, 1.5), exposure: 1.28 },
+        // Lower-end devices (as classified by PerfGovernor) start at 1x.
+        renderer: { pixelRatio: Math.min(devicePixelRatio, (window.PerfGovernor?.tier || 0) >= 1 ? 1 : 1.5), exposure: 1.28 },
         camera: { fov: 58, pos: [0, 5.2, 12], near: 0.1, far: 200 },
     };
 
@@ -763,11 +764,12 @@
             menuRenderer.outputEncoding = THREE.sRGBEncoding;
             menuRenderer.physicallyCorrectLights = true;
             // Enable soft shadows
-            menuRenderer.shadowMap.enabled = true;
+            // Phones / very low-end devices skip shadow maps from the start.
+            menuRenderer.shadowMap.enabled = (window.PerfGovernor?.tier || 0) < 2;
             menuRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
             menuRenderer.setClearColor(0x050b14, 1);
             try {
-                menuBloom = new MenuBloom(menuRenderer, menuScene, menuCam);
+                if ((window.PerfGovernor?.tier || 0) < 3) menuBloom = new MenuBloom(menuRenderer, menuScene, menuCam);
             } catch (err) {
                 console.warn('[Menu] Bloom unavailable, rendering directly.', err);
                 menuBloom = null;
@@ -1172,6 +1174,33 @@
             const clock = new THREE.Clock();
 
             const menuOverlayEl = document.getElementById('overlay');
+
+            // Hold the menu at 60 fps on any device: if it averages below ~55
+            // fps, step down resolution, then bloom, then shadows (one step
+            // per ~1.5 s of measurement, never back up during the session).
+            let menuFrameSum = 0, menuFrameCount = 0, menuQualityStep = 0;
+            function adaptMenuQuality(delta) {
+                if (!(delta > 0) || delta > 0.25) return;
+                menuFrameSum += delta;
+                menuFrameCount++;
+                if (menuFrameCount < 90) return;
+                const avg = menuFrameSum / menuFrameCount;
+                menuFrameSum = 0;
+                menuFrameCount = 0;
+                if (avg <= 1 / 55 || menuQualityStep >= 3) return;
+                menuQualityStep++;
+                if (menuQualityStep === 1 && menuRenderer.getPixelRatio() > 1) {
+                    MENU_CONFIG.renderer.pixelRatio = 1;
+                    menuRenderer.setPixelRatio(1);
+                    menuBloom?.setSize(innerWidth, innerHeight);
+                } else if (menuQualityStep <= 2 && menuBloom) {
+                    menuQualityStep = 2;
+                    menuBloom = null;
+                } else {
+                    menuQualityStep = 3;
+                    menuRenderer.shadowMap.enabled = false;
+                }
+            }
             function animateMenu() {
                 requestAnimationFrame(animateMenu);
                 // The menu scene is only visible behind the overlay; skip all work
@@ -1181,6 +1210,7 @@
                     return;
                 }
                 const delta = clock.getDelta();
+                adaptMenuQuality(delta);
                 const time = clock.getElapsedTime();
 
                 // ── Sea uniforms ─────────────────────────────────────
