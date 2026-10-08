@@ -647,13 +647,22 @@
         overlay.setAttribute('aria-label', 'Intro authorization overlay. Tap or press Enter to continue. Press Escape to skip.');
         try { overlay.focus(); } catch(e) {}
 
-        /* Live telemetry ticker */
-        let fpsCount = 60;
+        /* Live telemetry ticker: FRAME is the real measured frame rate. */
+        let frameCount = 0, frameWindowStart = performance.now(), measuredFps = 0;
+        (function countFrames(now) {
+            frameCount++;
+            if (now - frameWindowStart >= 500) {
+                measuredFps = Math.round(frameCount * 1000 / (now - frameWindowStart));
+                frameCount = 0;
+                frameWindowStart = now;
+            }
+            if (document.getElementById('fpsVal')) requestAnimationFrame(countFrames);
+        })(performance.now());
         const telemTick = setInterval(()=>{
             const fps = document.getElementById('fpsVal');
             const lat = document.getElementById('latVal');
             const render = document.getElementById('renderVal');
-            if (fps) fps.textContent = (58 + Math.floor(Math.random()*4));
+            if (fps && measuredFps) fps.textContent = measuredFps;
             if (lat) lat.textContent = (8 + Math.floor(Math.random()*12)) + 'ms';
             if (render) render.textContent = 'IDLE';
         }, 900);

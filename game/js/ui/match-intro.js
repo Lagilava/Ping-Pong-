@@ -1175,7 +1175,6 @@ class Intro {
         const isAudioDisabled = this.game.audio && this.game.audio.enabled === false;
 
         if (isMusicMuted || isAudioDisabled) {
-            console.log(`Music muted: Not playing ${this.selectedMusic.name}`);
             return;
         }
 

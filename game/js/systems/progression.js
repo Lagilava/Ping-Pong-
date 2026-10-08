@@ -253,12 +253,12 @@ class ProgressionSystem {
 
             speedLegend: {
                 name: 'Speed Legend',
-                description: 'Reach ball speed of 520 units.',
+                description: 'Reach ball speed of 1400 units.',
                 icon: '🌠',
                 joke: 'You were no longer playing Pong. You were forecasting weather.',
                 unlocked: false,
                 progress: 0,
-                maxProgress: 520
+                maxProgress: 1400
             },
 
             obstacleNavigator: {
@@ -517,11 +517,9 @@ class ProgressionSystem {
         }
 
         if (this.achievements[id].unlocked) {
-            console.log(`Achievement ${id} already unlocked`);
             return;
         }
 
-        console.log(`Unlocking achievement: ${id} - ${this.achievements[id].name}`);
         this.achievements[id].unlocked = true;
 
         const { name: title, description: desc, icon } = this.achievements[id];
@@ -559,10 +557,19 @@ class ProgressionSystem {
             this.unlockAchievement(id);
             // unlockAchievement will save
         } else {
-            // update sidebar in case it's visible
+            // Some callers report progress every physics step (e.g. seconds
+            // survived), so coalesce the sidebar rebuild and localStorage write.
+            this.scheduleProgressFlush();
+        }
+    }
+
+    scheduleProgressFlush() {
+        if (this._progressFlushTimer) return;
+        this._progressFlushTimer = setTimeout(() => {
+            this._progressFlushTimer = null;
             this.updateAchievementSidebar();
             this.saveProgress();
-        }
+        }, 750);
     }
 
     buildProgressPayload() {
@@ -750,7 +757,6 @@ class ProgressionSystem {
     }
 
     showSubtleAchievement(title, description) {
-        console.log('Progression.showSubtleAchievement called:', title);
 
         // Ensure container exists
         if (!this.notificationContainer) {

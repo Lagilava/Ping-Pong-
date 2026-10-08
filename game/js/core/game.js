@@ -2215,7 +2215,6 @@ class Game {
         const isMusicMuted = this.audio && this.audio.musicMuted;
         const isAudioDisabled = this.audio && this.audio.enabled === false;
         if (isMusicMuted || isAudioDisabled) {
-            console.log(`[Music] Music muted: Not playing ${effectiveMusicInfo.name}`);
             return;
         }
 
@@ -2242,7 +2241,6 @@ class Game {
             }
         }
 
-        console.log(`[Music] Starting match music: ${effectiveMusicInfo.name}`);
 
         if (this.audio?.playMusic) {
             // Stop all previous music first
@@ -5348,23 +5346,36 @@ class Game {
 
             if (this.paused) return;
 
+            if (e.key === 'F2') {
+                this.togglePerfOverlay();
+                e.preventDefault();
+                return;
+            }
+
             this.keys[e.key.toLowerCase()] = true;
             if (e.key === ' ' || e.key === 'Enter') e.preventDefault();
 
-            // Skip intro with ESC key
-            if (e.key === 'Escape' && this.introActive && this.intro && this.intro.active) {
-                this.skipIntro();
-                e.preventDefault();
-            } else if (e.key === 'Escape') {
-                this.togglePause();
-            }
-
-            if (this.gameMode === 'speed' && this.speedChallenge.isActive && e.key === 'Escape') {
-                this.speedChallenge.cancelChallenge();
+            if (e.key === 'Escape') {
+                if (this.introActive && this.intro && this.intro.active) {
+                    // Skip the match intro.
+                    this.skipIntro();
+                    e.preventDefault();
+                } else if (this.gameMode === 'speed' && this.speedChallenge?.isActive) {
+                    // Escape leaves the challenge; it must not also pause the match.
+                    this.speedChallenge.cancelChallenge();
+                } else {
+                    this.togglePause();
+                }
             }
         });
         window.addEventListener('keyup', e => { this.keys[e.key.toLowerCase()] = false; });
-        if (window.DeviceOrientationEvent) {
+        // Releasing a key while the window is unfocused never sends keyup, which
+        // left paddles running away after alt-tab.
+        window.addEventListener('blur', () => { for (const k in this.keys) this.keys[k] = false; });
+        // Tilt control is for phones/tablets only; 2-in-1 laptops also report
+        // orientation and would drift the paddle.
+        const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches;
+        if (window.DeviceOrientationEvent && coarsePointer) {
             window.addEventListener('deviceorientation', e => {
                 if (!this.running || this.paused || !e.gamma) return;
                 const tilt = e.gamma / 45;
@@ -6061,6 +6072,37 @@ class Game {
         this.ctx.closePath();
     }
 
+    // F2: frame rate, detected refresh rate, quality tier and physics backend.
+    togglePerfOverlay() {
+        if (this.perfOverlay) {
+            this.perfOverlay.remove();
+            this.perfOverlay = null;
+            return;
+        }
+        const el = document.createElement('div');
+        el.className = 'perf-overlay';
+        document.body.appendChild(el);
+        this.perfOverlay = el;
+        this._perfFrames = 0;
+        this._perfStart = performance.now();
+    }
+
+    updatePerfOverlay() {
+        if (!this.perfOverlay) return;
+        this._perfFrames++;
+        const now = performance.now();
+        const elapsed = now - this._perfStart;
+        if (elapsed < 500) return;
+        const fps = Math.round(this._perfFrames * 1000 / elapsed);
+        this._perfFrames = 0;
+        this._perfStart = now;
+        const gov = PerfGovernor;
+        this.perfOverlay.textContent =
+            `${fps} FPS  ·  display ${gov.fps} Hz  ·  quality ${gov.tierName}  ·  ` +
+            `scale ${gov.renderScale.toFixed(2)}x  ·  shaders ${this.postFx ? 'on' : 'off'}  ·  ` +
+            `physics ${PhysicsCore.backend === 'wasm' ? 'C++/wasm' : 'JS'}`;
+    }
+
     // Per-hit speed multiplier. Rallies speed up gradually rather than doubling,
     // so long exchanges build tension without instantly maxing the ball out.
     getPaddleSpeedIncrease(isPlayer) {
@@ -6199,8 +6241,6 @@ class Game {
                     );
                     ball.vel.x += Math.cos(angle) * pullForce * effectiveDt;
                     ball.vel.y += Math.sin(angle) * pullForce * effectiveDt;
-
-                    this.progression.incrementAchievementProgress('magnetMaster');
                 }
             }
             if (ball.integrate(effectiveDt, this.height) & (PhysicsCore.EVT.WALL_TOP | PhysicsCore.EVT.WALL_BOTTOM)) {
@@ -6412,12 +6452,14 @@ class Game {
         // update high speed achievement (guard in case achievements not initialized)
         const speedAch = this.progression.achievements?.speedLegend;
         if (speedAch && !speedAch.unlocked) {
-            const sp = ball.getSpeed();
+            const sp = Math.floor(ball.getSpeed());
             if (sp > speedAch.progress) {
+                const before = speedAch.progress;
                 speedAch.progress = Math.min(speedAch.maxProgress, sp);
                 if (speedAch.progress >= speedAch.maxProgress) {
                     this.progression.unlockAchievement('speedLegend');
-                } else {
+                } else if (Math.floor(speedAch.progress / 50) !== Math.floor(before / 50)) {
+                    // Rebuilding the sidebar is DOM-heavy: only refresh in 50-unit steps.
                     this.progression.updateAchievementSidebar();
                 }
             }
@@ -6428,6 +6470,8 @@ class Game {
                 ball.pos.y - (this.player.pos.y + this.player.h / 2)
             );
             const attractionRadius = 300;
+            const wasAttracted = ball._magnetized;
+            ball._magnetized = distToPlayer < attractionRadius;
             if (distToPlayer < attractionRadius) {
                 const pullForce = 200 * (1 - distToPlayer / attractionRadius);
                 const angle = Math.atan2(
@@ -6437,8 +6481,8 @@ class Game {
                 ball.vel.x += Math.cos(angle) * pullForce * dt;
                 ball.vel.y += Math.sin(angle) * pullForce * dt;
 
-                // track magnet attraction progress
-                this.progression.incrementAchievementProgress('magnetMaster');
+                // One attraction per approach, not one per physics step.
+                if (!wasAttracted) this.progression.incrementAchievementProgress('magnetMaster');
             }
         }
         const events = ball.integrate(dt, this.height);
@@ -6825,7 +6869,6 @@ class Game {
             }
 
             if (typeof this.audio?.stopMusic === 'function') {
-                console.log('[Music] Stopping all music when showing end-match menu');
                 this.audio.stopMusic('all');
             }
 
@@ -7244,6 +7287,7 @@ class Game {
         const renderStartMs = performance.now();
         this.render(alpha);
         this.postFx?.present(frameTime);
+        this.updatePerfOverlay();
         const renderTimeMs = performance.now() - renderStartMs;
         this.recordPerfSample(performance.now() - frameStartMs, physicsTimeMs, renderTimeMs);
     }

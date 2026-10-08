@@ -140,7 +140,6 @@
             const logSnapshot = (label, extra = {}) => {
                 const payload = { seq: window.__ppMenuUpdateSeq, label, ...snapshotDebug(), ...extra };
                 window.__ppMenuDebugLastRead = payload;
-                console.debug('[MenuAchievementsDebug]', payload);
                 return payload;
             };
 

@@ -90,7 +90,6 @@ class AIVoice {
         this.initTimeout = setTimeout(() => {
             if (this.selectedVoice) {
                 this.voiceReady = true;
-                console.log("AIVoice system ready!");
             } else {
                 console.warn("Voice not loaded, speech will be disabled");
                 this.voiceReady = false;
@@ -112,7 +111,6 @@ class AIVoice {
             return;
         }
 
-        console.log(`Found ${voices.length} voices`);
 
         // Try to find distinctive voices
         const distinctiveVoices = [
@@ -132,7 +130,6 @@ class AIVoice {
             );
             if (found) {
                 this.selectedVoice = found;
-                console.log("AI Voice loaded:", found.name);
                 return;
             }
         }
@@ -141,7 +138,6 @@ class AIVoice {
         const englishVoice = voices.find(v => v.lang.includes("en")) || voices[0];
         if (englishVoice) {
             this.selectedVoice = englishVoice;
-            console.log("Fallback voice loaded:", englishVoice.name);
         }
     }
 
@@ -266,11 +262,9 @@ class AIVoice {
 
             // Event handlers with better error handling
             utter.onstart = () => {
-                console.log("Speaking:", text.substring(0, 50) + "...");
             };
 
             utter.onend = () => {
-                console.log("Speech ended:", text.substring(0, 30));
                 this.isSpeaking = false;
                 this.consecutiveErrors = 0; // Reset on success
                 // Process next after a short delay
@@ -373,9 +367,7 @@ class AIVoice {
         this.isMuted = muted;
         if (muted) {
             this.clearAll();
-            console.log("Voice muted");
         } else {
-            console.log("Voice unmuted");
         }
     }
 
@@ -406,7 +398,6 @@ class AIVoice {
 
     setChattiness(level) {
         this.speakRate = Math.max(0, Math.min(1, level));
-        console.log("Chattiness set to:", this.speakRate);
     }
 
     // Test speech

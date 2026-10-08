@@ -5467,6 +5467,21 @@ canvas {
     opacity: 0 !important;
 }
 
+/* F2 performance readout */
+.perf-overlay {
+    position: fixed;
+    left: 12px;
+    bottom: 12px;
+    z-index: 100001;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #8fffe0;
+    font: 12px/1.3 Consolas, 'Courier New', monospace;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
 /* The neon UI shares a paint layer with the canvas, so Chrome re-rasterises
    every text-shadow/box-shadow glow each time the game repaints underneath.
    Promoting these panels to their own compositor layers keeps the look but

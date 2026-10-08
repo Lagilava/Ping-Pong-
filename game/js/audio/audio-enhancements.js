@@ -1,4 +1,4 @@
-﻿// audio-enhancements.js - ENHANCED & OPTIMIZED VERSION v2.1
+// audio-enhancements.js - ENHANCED & OPTIMIZED VERSION v2.1
 class EnhancedAudioEngine {
     constructor() {
         this.ctx = null;
@@ -574,7 +574,6 @@ class EnhancedAudioEngine {
 
         if (attached > 0) {
             // Minimal logging for debugging; production should be quiet.
-            console.debug(`[Audio] ${attached} new media element(s) attached to visualizer`);
         }
     }
 
@@ -993,7 +992,6 @@ class EnhancedAudioEngine {
             this.applyMusicMuteState();
             this.applyVoiceSettings();
 
-            console.log('🎵 Enhanced Audio Engine initialized with bass-heavy professional audio chain');
         } catch (error) {
             console.warn('Audio initialization failed:', error);
             this.fallbackToNoAudio();
@@ -1001,7 +999,6 @@ class EnhancedAudioEngine {
     }
 
     fallbackToNoAudio() {
-        console.log('🔇 Audio engine falling back to silent mode');
 
         // Create silent stub methods
         const methods = [
@@ -2356,7 +2353,6 @@ class EnhancedAudioEngine {
     enable() {
         if (this.isMobile && !this.initialized) {
             return Promise.resolve().then(() => {
-                console.log('📱 Mobile audio - initializing with user gesture');
                 return this.init();
             });
         }
@@ -2469,7 +2465,6 @@ class EnhancedAudioEngine {
             return;
         }
 
-        console.log('🎵 Testing all bass-enhanced audio features...');
 
         const testSuites = {
             'Basic Sounds': [
@@ -2502,11 +2497,9 @@ class EnhancedAudioEngine {
 
         let delay = 0;
         Object.entries(testSuites).forEach(([suiteName, sounds]) => {
-            console.log(`🎵 Testing: ${suiteName}`);
 
             sounds.forEach((sound, index) => {
                 setTimeout(() => {
-                    console.log(`   🔈 ${sound.name}`);
                     sound.fn();
                 }, delay);
                 delay += 700; // Increased from 600
@@ -2516,8 +2509,6 @@ class EnhancedAudioEngine {
         });
 
         setTimeout(() => {
-            console.log('🎵 Bass-enhanced audio test completed!');
-            console.log('📊 Audio Analytics:', this.getAnalytics());
         }, delay);
     }
 
@@ -2561,24 +2552,20 @@ class EnhancedAudioEngine {
             this.ctx.close().catch(console.warn);
         }
 
-        console.log('🔇 Bass-enhanced audio engine destroyed');
     }
 }
 
 // Enhanced integration with better error handling and features
 function enhanceGameAudio() {
     if (!window.game) {
-        console.log('⏳ Waiting for game to initialize...');
         setTimeout(enhanceGameAudio, 100);
         return;
     }
 
     if (window.game.audioEnhanced) {
-        console.log('✅ Audio already enhanced');
         return;
     }
 
-    console.log('🎵 Enhancing game audio with bass-heavy professional engine...');
 
     try {
         const enhancedAudio = new EnhancedAudioEngine();
@@ -2606,11 +2593,9 @@ function enhanceGameAudio() {
         enhanceGameMethods();
         addEnhancedAudioControlsToCyberBar();
 
-        console.log('✅ Game audio enhanced with bass-heavy effects!');
 
         // Ensure audio context is initialized
         enhancedAudio.ensureContext?.().then(() => {
-            console.log('🔊 Bass-enhanced audio context initialized');
         }).catch(err => {
             console.warn('Audio context initialization note:', err?.message);
         });
@@ -2704,7 +2689,6 @@ function enhanceGameMethods() {
         };
     }
 
-    console.log('🎮 Game methods enhanced for bass-heavy audio');
 }
 
 function addEnhancedAudioControlsToCyberBar() {
@@ -2935,7 +2919,6 @@ function addEnhancedAudioControlsToCyberBar() {
             }
         }, 1500);
 
-        console.log('Bass-enhanced audio controls integrated with cyber bar');
     }, 100);
 }
 
@@ -3190,7 +3173,6 @@ function showCyberBarTemporarily() {
             }
         }, 3000);
     } catch (e) {
-        console.debug('Cyberbar show error:', e?.message);
     }
 }
 
@@ -3234,4 +3216,3 @@ window.AudioEnhancements = {
     })
 };
 
-console.log('🎵 Bass-Enhanced Audio System v2.1 loaded - Ready to enhance!');

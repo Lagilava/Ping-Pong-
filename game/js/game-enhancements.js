@@ -1,4 +1,3 @@
-﻿console.log('%cPING PONG ULTIMATE v6.0 – FULL GOD AI + CYBERPUNK UI + TAUNTS', 'color:#ff00c8;font-weight:bold;font-size:42px;background:black;padding:30px;border:8px double #ff00c8;text-shadow:0 0 30px #ff00c8;');
 
 (() => {
     'use strict';
@@ -1001,7 +1000,6 @@
                 liveAI.canvasH = window.game.canvas.height;
             }
             liveAI.setDifficulty(targetLevel);
-            console.log(`GOD AI synced to live controller at difficulty level ${targetLevel} (${percent}%)`);
         }
 
         if (!document.getElementById('taunt-style')) {
@@ -1019,7 +1017,6 @@
     // ==================================================================
     // INNER ENHANCED UI MODULE
     // ==================================================================
-    console.log('%cPING PONG ULTIMATE v6.0 – CYBERPUNK UI', 'color:#00ffea;font-weight:bold;font-size:38px;background:linear-gradient(135deg,#000,#1a0033);padding:30px;border:5px solid #00ffea;');
     (() => {
         'use strict';
 
@@ -1138,10 +1135,6 @@
             const inverted = !!state.preferences.invertColors;
             document.documentElement.style.filter = inverted ? 'invert(1) hue-rotate(180deg)' : '';
             if (showFeedback) showNeonNotification(inverted ? 'Color inversion active' : 'Normal colors restored', 'info', 1800);
-        }
-
-        if (typeof Howl !== 'undefined' && Howl.ctx && Howl.ctx.state === 'suspended') {
-            Howl.ctx.resume().then(() => console.log('Audio automatically enabled'));
         }
 
         const $ = (s, el = document) => el.querySelector(s);
@@ -2677,7 +2670,6 @@ canvas {
                 }
             };
 
-            console.log('%cPING PONG ULTIMATE v6.0 – CYBERPUNK UI APPLIED', 'color:#00ffea;font-size:20px;background:#000;padding:16px;border:2px solid #00ffea;');
         }
 
         // ==================================================================
@@ -2709,13 +2701,6 @@ canvas {
         }, CONFIG.checkInterval);
 
         setTimeout(() => {
-            console.log('HUD State:', {
-                hudElement: !!state.ui.hudTop,
-                playerScore: !!state.ui.hudPlayerScore,
-                aiScore: !!state.ui.hudAiScore,
-                gameScores: window.game?.scores,
-                gameCanvas: !!window.game?.canvas
-            });
         }, 2000);
 
         window.PingPongPerfected = { version: '6.0-cyberpunk', state, CONFIG, SVG_ICONS };
@@ -2734,5 +2719,4 @@ canvas {
         setTimeout(() => upgradeToGodAI(), 1000);
     }
 
-    console.log('%cGOD AI READY – CYBERPUNK UI + FULL AIController = PERFECTION', 'color:#ff00c8;font-size:20px;font-weight:bold;');
 })();

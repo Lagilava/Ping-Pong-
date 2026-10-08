@@ -290,9 +290,7 @@ class SpeedChallenge {
 
         // Special Rule: If both players are at 10, the combo must be exactly 10 keys
         // Using .ai for the right player score as defined in this.game.scores
-        console.log(`Checking tiebreaker: Player Score: ${this.game.scores.player}, AI Score: ${this.game.scores.ai}`);
         if (parseInt(this.game.scores.player) === 10 && parseInt(this.game.scores.ai) === 10) {
-            console.log("Tiebreaker triggered! Combo length set to 10.");
             comboLength = 10;
         }
 
@@ -374,7 +372,6 @@ class SpeedChallenge {
         if (pressedKey === ' ') pressedKey = 'spacebar';
 
         const expectedKey = this.targetCombo[this.currentCombo.length];
-        console.log(`SpeedChallenge: Pressed ${pressedKey}, Expected ${expectedKey}`);
 
         if (pressedKey === expectedKey) {
             // Highlight successful key

@@ -575,7 +575,6 @@ class ZombieBoss {
             playerPaddle.fireHitFlashTimer = 0.5; // 0.5 second yellow flash
             playerPaddle.fireHitFlashing = true; // Currently flashing
             const shrinkPercent = Math.round((1 - shrinkMultiplier) * 100);
-            console.log(`🔥 PHASE ${phase} Paddle hit! Shrinking HEIGHT by ${shrinkPercent}% (from ${playerPaddle.originalUnshrunkenHeight} to ${Math.round(shrunkenHeight)}px)`);
         }
 
         // Apply shrink with minimum scaling by phase
@@ -758,7 +757,6 @@ class ZombieBoss {
                     paddle.fireShrinked = false;
                     paddle.fireRecoveryTimer = 0;
                     paddle.fireHitFlashing = false;
-                    console.log(`✅ Paddle recovered to ${paddle.h}px`);
                 }
             }
         }
@@ -1539,7 +1537,6 @@ try {
     ZombieBoss.bbB = new Uint8Array(ZombieBoss.LUT_SIZE);
     ZombieBoss._tempCache = new Uint8Array(3);
 
-    console.debug('[DEBUG] ZombieBoss static properties initialized');
 } catch (e) {
     console.error('[ERROR] Failed to initialize basic static properties:', e);
     throw e;
@@ -1572,7 +1569,6 @@ try {
             else ZombieBoss.bbB[i] = Math.min(255, 114 + (T - 3100) * 0.048);
         }
     })();
-    console.debug('[DEBUG] Blackbody LUT initialized');
 } catch (e) {
     console.error('[ERROR] Failed to initialize blackbody LUT:', e);
     throw e;
@@ -1605,7 +1601,6 @@ try {
     ZombieBoss.ENTR = 0.0095;
     ZombieBoss.DRAG_BASE = 0.978;
 
-    console.debug('[DEBUG] Perlin noise and physics initialized');
 } catch (e) {
     console.error('[ERROR] Failed to initialize Perlin noise/physics:', e);
     throw e;
@@ -1654,8 +1649,6 @@ try {
         return ZombieBoss._tempCache;
     };
 
-    console.log('[DEBUG] ✓ All static methods initialized');
-    console.log('[DEBUG] ZombieBoss class ready:', Object.keys(ZombieBoss).slice(0, 10).join(', ') + '...');
 } catch (e) {
     console.error('[ERROR] Failed to initialize static methods:', e);
     throw e;

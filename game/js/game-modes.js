@@ -11,7 +11,10 @@
     let offscreenCtx = null;
 
     // Circular frame buffer (pre-allocated to avoid GC churn)
-    const BUFFER_SIZE = 240; // ~4s at 60fps, ~8s at 30fps
+    // 6 s at 24 fps. Frames are stored downscaled (REPLAY_WIDTH) because each
+    // one is a GPU bitmap: full-resolution frames would cost gigabytes of VRAM.
+    const BUFFER_SIZE = 144;
+    const REPLAY_WIDTH = 640;
     const frameBuffer = new Array(BUFFER_SIZE).fill(null);
     const frameTimestamps = new Float64Array(BUFFER_SIZE);
     const frameMetaBuffer = new Array(BUFFER_SIZE).fill(null);
@@ -71,7 +74,7 @@
     // ─── CONFIG ───────────────────────────────────────────────────────────────
     const CFG = {
         record: {
-            targetFPS: 30,
+            targetFPS: 24,
             // minReplayDuration is enforced in frames, not ms, for accuracy
         },
         playback: {
@@ -92,7 +95,7 @@
             minBallSpeedPxPerSec: 450,
             minTimeSinceLastReplayMs: 25000,
             maxConsecutiveReplays: 2,
-            minFramesForReplay: 90,    // ~3s at 30fps
+            minFramesForReplay: 72,    // ~3s at 24fps
         },
         timing: {
             replayDelay: 400,
@@ -129,14 +132,15 @@
     const getBallSpeedPxPerSec = () => {
         const vx = safeNumber(game?.ball?.vel?.x);
         const vy = safeNumber(game?.ball?.vel?.y);
-        return Math.sqrt(vx * vx + vy * vy) * 60;
+        return Math.sqrt(vx * vx + vy * vy); // ball velocity is already px/s
     };
 
     const createFrameMeta = (timestamp) => {
         const ball = game?.ball;
         const canvas = game?.canvas;
-        const width = safeNumber(canvas?.width, safeNumber(game?.width, 800));
-        const height = safeNumber(canvas?.height, safeNumber(game?.height, 600));
+        // Game-space size (CSS px): ball positions are in these units.
+        const width = safeNumber(game?.width, safeNumber(canvas?.width, 800));
+        const height = safeNumber(game?.height, safeNumber(canvas?.height, 600));
         return {
             t: timestamp,
             width,
@@ -307,11 +311,11 @@
     const initOffscreen = () => {
         if (offscreen || !game?.canvas) return false;
         try {
-            offscreen = HAS_OFFSCREEN
-                ? new OffscreenCanvas(game.canvas.width, game.canvas.height)
-                : document.createElement('canvas');
-            offscreen.width = game.canvas.width;
-            offscreen.height = game.canvas.height;
+            const w = Math.min(REPLAY_WIDTH, game.canvas.width);
+            const h = Math.max(1, Math.round(w * game.canvas.height / Math.max(1, game.canvas.width)));
+            offscreen = HAS_OFFSCREEN ? new OffscreenCanvas(w, h) : document.createElement('canvas');
+            offscreen.width = w;
+            offscreen.height = h;
             offscreenCtx = offscreen.getContext('2d', { alpha: false, willReadFrequently: false });
             return true;
         } catch (e) {
@@ -376,7 +380,7 @@
                 requestAnimationFrame(recordFrame);
                 return;
             }
-            offscreenCtx.drawImage(game.canvas, 0, 0);
+            offscreenCtx.drawImage(game.canvas, 0, 0, offscreen.width, offscreen.height);
             const meta = createFrameMeta(timestamp);
             const frame = await captureOneFrame();
             if (frame) bufferPush(frame, timestamp, meta);
@@ -574,6 +578,9 @@
         if (!c?.classList) return;
         c.classList.toggle(CANVAS_HIDDEN_CLASS, !visible);
         c.style.visibility = visible ? '' : 'hidden';
+        // The shader output canvas is what's actually on screen.
+        const fx = game?.postFx?.canvas;
+        if (fx) fx.style.visibility = visible ? '' : 'hidden';
     };
 
     const ensureGameLoopRunning = () => {
@@ -1928,7 +1935,6 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
         installCollisionHook();
         startRecording();
         pollForScoreAndRally();
-        console.log('%c🏓 Ping Pong Replay v14 installed', 'color:#00eeff;font-weight:bold');
     };
 
     // Auto-find the game object
