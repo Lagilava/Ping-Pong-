@@ -1,12 +1,21 @@
 class Game {
-    // Per-mode colour grade applied by the post-process shader (r, g, b gain).
-    static MODE_TINTS = {
-        classic: [1.0, 1.0, 1.02],
-        zombie: [0.97, 1.05, 0.94],
-        gravity: [0.96, 1.0, 1.08],
-        speed: [1.06, 1.0, 0.96],
-        obstacle: [1.03, 0.97, 1.06],
-        customise: [1.0, 1.0, 1.0],
+    // Per-mode colour grade, applied inside the existing post-process pass
+    // (a few extra multiply-adds per pixel; no extra passes or texture reads).
+    //   sat/contrast: global punch; shadow/highlight: split-tone offsets added
+    //   to dark/bright areas; tint: overall per-channel gain.
+    static MODE_GRADES = {
+        // Synthwave sunset: violet shadows, warm highlights.
+        classic:   { sat: 1.12, contrast: 1.06, shadow: [0.020, 0.000, 0.035], highlight: [0.030, 0.012, 0.000], tint: [1.00, 1.00, 1.02] },
+        // Sickly horror: desaturated, crunchy, teal-green darks, bilious highlights.
+        zombie:    { sat: 0.90, contrast: 1.12, shadow: [0.000, 0.025, 0.012], highlight: [0.018, 0.028, -0.010], tint: [0.97, 1.04, 0.94] },
+        // Deep space: cold blue shadows, icy cyan highlights.
+        gravity:   { sat: 1.15, contrast: 1.08, shadow: [0.000, 0.008, 0.045], highlight: [0.000, 0.018, 0.032], tint: [0.96, 1.00, 1.08] },
+        // Hot velocity: magenta shadows, orange highlights, extra punch.
+        speed:     { sat: 1.18, contrast: 1.10, shadow: [0.028, 0.000, 0.022], highlight: [0.045, 0.018, -0.010], tint: [1.06, 1.00, 0.95] },
+        // Tactical grid: teal shadows, violet highlights.
+        obstacle:  { sat: 1.08, contrast: 1.08, shadow: [0.000, 0.022, 0.032], highlight: [0.022, 0.000, 0.028], tint: [1.03, 0.97, 1.06] },
+        // Custom matches stay neutral so the player's own colours read true.
+        customise: { sat: 1.08, contrast: 1.04, shadow: [0, 0, 0], highlight: [0, 0, 0], tint: [1, 1, 1] },
     };
 
     constructor(canvas) {
@@ -2326,8 +2335,7 @@ class Game {
 
         // Set the new mode first
         this.gameMode = mode;
-        const tint = Game.MODE_TINTS[mode] || Game.MODE_TINTS.classic;
-        this.postFx?.setTint(tint[0], tint[1], tint[2]);
+        this.postFx?.setGrade(Game.MODE_GRADES[mode] || Game.MODE_GRADES.classic);
         if (mode === 'customise') {
             this.isMultiplayer = true;
         } else {
@@ -6112,8 +6120,7 @@ class Game {
         PerfGovernor.fxActive = !!this.postFx;
         if (this.postFx) {
             this.postFx.setQuality(PerfGovernor.current.fx);
-            const tint = Game.MODE_TINTS[this.gameMode] || Game.MODE_TINTS.classic;
-            this.postFx.setTint(tint[0], tint[1], tint[2]);
+            this.postFx.setGrade(Game.MODE_GRADES[this.gameMode] || Game.MODE_GRADES.classic);
         }
         return this.postFx;
     }

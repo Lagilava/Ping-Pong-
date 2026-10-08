@@ -35,7 +35,7 @@ class PostFX {
         this.time = 0;
         this.punchAmount = 0;
         this.ripples = [];         // { x, y (uv), age, strength }
-        this.tint = [1, 1, 1];
+        this.grade = { tint: [1, 1, 1], shadow: [0, 0, 0], highlight: [0, 0, 0], sat: 1.1, contrast: 1.04 };
 
         const canvas = document.createElement('canvas');
         canvas.id = 'fx';
@@ -99,7 +99,8 @@ class PostFX {
     }
 
     /** Colour grade towards a mode tint, e.g. [1.05, 0.95, 1.1]. */
-    setTint(r, g, b) { this.tint = [r, g, b]; }
+    /** Colour grade: { tint, shadow, highlight (rgb arrays), sat, contrast }. */
+    setGrade(grade) { this.grade = { ...this.grade, ...grade }; }
 
     // 0 high, 1 medium (single bloom level), 2 low (no bloom), 3 = off: the
     // canvas is shown directly, saving the per-frame upload and composite.
@@ -166,7 +167,11 @@ class PostFX {
             uBloomWide: this.quality === 0 ? 1.0 : 0.0,
             uPunch: this.punchAmount,
             uRip: rip,
-            uTint: this.tint,
+            uTint: this.grade.tint,
+            uShadow: this.grade.shadow,
+            uHighlight: this.grade.highlight,
+            uSat: this.grade.sat,
+            uContrast: this.grade.contrast,
             uDetail: this.quality === 0 ? 1.0 : 0.5,
         });
     }
@@ -326,7 +331,8 @@ class PostFX {
             uniform vec2 uRes;
             uniform float uTime, uBloom, uBloomWide, uPunch, uDetail;
             uniform vec4 uRip[6];
-            uniform vec3 uTint;
+            uniform vec3 uTint, uShadow, uHighlight;
+            uniform float uSat, uContrast;
 
             float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
@@ -362,13 +368,15 @@ class PostFX {
                 // Bloom, with a lens-dirt texture catching the brightest glow.
                 vec3 bloom = texture2D(uBloomA, uv).rgb * 0.9 + texture2D(uBloomB, uv).rgb * 1.25 * uBloomWide;
                 vec3 dirt = texture2D(uDirt, vUv).rgb;
-                col += uBloom * (bloom * 0.95 + bloom * dirt * 1.6);
+                col += uBloom * (bloom * 0.475 + bloom * dirt * 0.8);
                 col += ringGlow * 0.08 * vec3(0.6, 0.9, 1.0);
 
-                // Grade: gentle contrast + saturation, mode tint, impact flash.
+                // Grade (per mode): saturation, contrast, split-tone (shadows
+                // and highlights pushed towards different hues), overall tint.
                 float lum = dot(col, vec3(0.299, 0.587, 0.114));
-                col = mix(vec3(lum), col, 1.1);
-                col = (col - 0.5) * 1.04 + 0.5;
+                col = mix(vec3(lum), col, uSat);
+                col = (col - 0.5) * uContrast + 0.5;
+                col += uShadow * (1.0 - smoothstep(0.0, 0.5, lum)) + uHighlight * smoothstep(0.45, 1.0, lum);
                 col *= uTint;
                 col += uPunch * 0.05;
 
