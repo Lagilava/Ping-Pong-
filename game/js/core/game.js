@@ -1,8 +1,28 @@
 class Game {
+    // Per-mode colour grade applied by the post-process shader (r, g, b gain).
+    static MODE_TINTS = {
+        classic: [1.0, 1.0, 1.02],
+        zombie: [0.97, 1.05, 0.94],
+        gravity: [0.96, 1.0, 1.08],
+        speed: [1.06, 1.0, 0.96],
+        obstacle: [1.03, 0.97, 1.06],
+        customise: [1.0, 1.0, 1.0],
+    };
+
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d', { alpha: false });
         PerfGovernor.attach(this.ctx);
+
+        // GPU post-processing (bloom, ripples, grading). Null if WebGL is missing,
+        // in which case the 2D canvas is shown directly.
+        this.postFx = window.PostFX ? PostFX.create(canvas) : null;
+        PerfGovernor.fxActive = !!this.postFx;
+        PerfGovernor.onChange((tier) => {
+            this.postFx?.setQuality(tier.fx);
+            const dpr = PerfGovernor.renderScale;
+            if (Math.abs(this.canvas.width - Math.round(this.width * dpr)) > 1) this.setupCanvas();
+        });
         const viewport = this.getViewportSize();
         this.width = viewport.width;
         this.height = viewport.height;
@@ -1132,11 +1152,12 @@ class Game {
         }
         this.syncViewportMetrics();
         const viewport = this.getViewportSize();
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        // Backing-store scale comes from the quality governor (≤ devicePixelRatio).
+        const dpr = PerfGovernor.renderScale;
         const width = Math.max(1, Math.round(container.clientWidth || viewport.width));
         const height = Math.max(1, Math.round(container.clientHeight || viewport.height));
-        this.canvas.width = width * dpr;
-        this.canvas.height = height * dpr;
+        this.canvas.width = Math.round(width * dpr);
+        this.canvas.height = Math.round(height * dpr);
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         if ('imageSmoothingEnabled' in this.ctx) {
             this.ctx.imageSmoothingEnabled = true;
@@ -2146,6 +2167,7 @@ class Game {
         this.lastIntroTime = now;
 
         this.intro.render(dt);
+        this.postFx?.present(dt);
         this.introRafId = requestAnimationFrame(() => this.introLoop());
     }
 
@@ -2278,6 +2300,8 @@ class Game {
 
         // Set the new mode first
         this.gameMode = mode;
+        const tint = Game.MODE_TINTS[mode] || Game.MODE_TINTS.classic;
+        this.postFx?.setTint(tint[0], tint[1], tint[2]);
         if (mode === 'customise') {
             this.isMultiplayer = true;
         } else {
@@ -2410,10 +2434,10 @@ class Game {
         }
 
         // Update UI to reflect new mode
-        this.scoreElements.player.textContent = '0';
-        this.scoreElements.ai.textContent = '0';
-        this.rallyDisplay.textContent = '0';
-        this.streakDisplay.textContent = this.progression.winStreak;
+        this._setText(this.scoreElements.player, '0');
+        this._setText(this.scoreElements.ai, '0');
+        this._setText(this.rallyDisplay, '0');
+        this._setText(this.streakDisplay, this.progression.winStreak);
         this.syncZombieHUD();
 
         // Show skip button
@@ -2694,71 +2718,42 @@ class Game {
         if (rageSeconds > 0) boostParts.push(`Rage ${rageSeconds}s`);
         if (slowSeconds > 0) boostParts.push(`Slow ${slowSeconds}s`);
 
+        const set = (el, v) => this._setText(el, v);
         if (this.scoreElements?.player && this.scoreElements?.ai) {
             if (zombieMode) {
-                this.scoreElements.player.textContent = `${currentWave}/${state.maxWave}`;
-                this.scoreElements.ai.textContent = `${breachesLeft} left`;
+                set(this.scoreElements.player, `${currentWave}/${state.maxWave}`);
+                set(this.scoreElements.ai, `${breachesLeft} left`);
                 this.scoreElements.player.setAttribute('data-score-label', 'wave');
                 this.scoreElements.ai.setAttribute('data-score-label', 'breaches left');
-                if (this.scoreDivider) this.scoreDivider.textContent = '/';
             } else {
                 this.scoreElements.player.removeAttribute('data-score-label');
                 this.scoreElements.ai.removeAttribute('data-score-label');
-                if (this.scoreDivider) this.scoreDivider.textContent = '—';
             }
         }
+        set(this.scoreDivider, zombieMode ? '/' : '—');
 
-        if (this.waveDisplay) {
-            this.waveDisplay.textContent = zombieMode
-                ? `W ${currentWave}/${state.maxWave}`
-                : '-';
-        }
+        set(this.waveDisplay, zombieMode ? `W ${currentWave}/${state.maxWave}` : '-');
+        set(this.breachDisplay, zombieMode ? `B ${breachesLeft}/${state.breachLimit}` : '-');
+        set(this.zombiePowerDisplay, zombieMode ? (boostParts.length ? boostParts.join(' | ') : 'None') : '-');
 
-        if (this.breachDisplay) {
-            this.breachDisplay.textContent = zombieMode
-                ? `B ${breachesLeft}/${state.breachLimit}`
-                : '-';
-        }
-
-        if (this.zombiePowerDisplay) {
-            this.zombiePowerDisplay.textContent = this.isZombieWaveMode()
-                ? (boostParts.length ? boostParts.join(' · ') : 'None')
-                : '-';
-        }
-
-        if (this.zombieProgressOverlay) {
+        if (this.zombieProgressOverlay && this._zombieOverlayShown !== zombieMode) {
+            this._zombieOverlayShown = zombieMode;
             this.zombieProgressOverlay.classList.toggle('visible', zombieMode);
             this.zombieProgressOverlay.setAttribute('aria-hidden', zombieMode ? 'false' : 'true');
         }
-
-        if (this.zombieProgressWave) {
-            this.zombieProgressWave.innerHTML = `Wave <strong>${currentWave}/${state.maxWave}</strong>`;
-        }
-
-        if (this.zombieProgressBreaches) {
-            this.zombieProgressBreaches.innerHTML = `Breaches <strong>${breachesLeft}/${state.breachLimit}</strong>`;
-        }
-
-        if (zombieMode && this.zombiePowerDisplay) {
-            this.zombiePowerDisplay.textContent = boostParts.length ? boostParts.join(' | ') : 'None';
+        if (zombieMode) {
+            this._setHTML(this.zombieProgressWave, `Wave <strong>${currentWave}/${state.maxWave}</strong>`);
+            this._setHTML(this.zombieProgressBreaches, `Breaches <strong>${breachesLeft}/${state.breachLimit}</strong>`);
         }
 
         if (this.gameModeDisplay) {
-            if (this.isZombieWaveMode()) {
-                this.gameModeDisplay.textContent = 'Zombie Mode';
+            if (zombieMode) {
+                set(this.gameModeDisplay, 'Zombie Mode');
             } else if (this.gameMode === 'obstacle' && this.obstacleCourse?.getCourseStatusText) {
-                this.gameModeDisplay.textContent = this.obstacleCourse.getCourseStatusText();
+                set(this.gameModeDisplay, this.obstacleCourse.getCourseStatusText());
             } else {
-                this.gameModeDisplay.textContent = this.getModeDisplayName(this.gameMode);
+                set(this.gameModeDisplay, this.getModeDisplayName(this.gameMode));
             }
-        }
-
-        if (zombieMode && this.gameModeDisplay) {
-            this.gameModeDisplay.textContent = 'Zombie Mode';
-        }
-
-        if (!zombieMode && this.scoreDivider) {
-            this.scoreDivider.textContent = '-';
         }
     }
 
@@ -3048,7 +3043,7 @@ class Game {
     addZombieScore(points) {
         this.scores.player += Math.max(0, Math.round(points));
         if (!this.isZombieWaveMode()) {
-            this.scoreElements.player.textContent = this.scores.player;
+            this._setText(this.scoreElements.player, this.scores.player);
         }
     }
 
@@ -6125,7 +6120,7 @@ class Game {
         this.particles.spawnGodTierHit(hitX, b.pos.y, p.color, speed);
         this.audio.hit();
         this.rallyCount++;
-        this.rallyDisplay.textContent = this.rallyCount;
+        this._setText(this.rallyDisplay, this.rallyCount);
         this.progression.incrementAchievementProgress('rallyLegend');
         this.checkRallyMilestones();
 
@@ -6173,7 +6168,7 @@ class Game {
     resetRally() {
         this.rallyCount = 0;
         this.lastRallyMilestone = 0;
-        this.rallyDisplay.textContent = this.rallyCount;
+        this._setText(this.rallyDisplay, this.rallyCount);
     }
 
     // Extra balls (multi-ball / chaos). dt already includes time warp.
@@ -6716,7 +6711,7 @@ class Game {
 
     updateGameUI() {
         const speed = this.ball.getSpeed();
-        this.speedDisplay.textContent = Math.round(speed);
+        this._setText(this.speedDisplay, Math.round(speed));
         if (speed > 1000 && !this.progression.achievements.speedDemon.unlocked) {
             this.progression.unlockAchievement('speedDemon');
         }
@@ -6860,169 +6855,41 @@ class Game {
             return;
         }
 
-        this.scoreElements.player.textContent = this.scores.player;
-        this.scoreElements.ai.textContent = this.scores.ai;
-        this.streakDisplay.textContent = this.progression.winStreak;
+        if (!this.isZombieWaveMode()) {
+            this._setText(this.scoreElements.player, this.scores.player);
+            this._setText(this.scoreElements.ai, this.scores.ai);
+        }
+        this._setText(this.streakDisplay, this.progression.winStreak);
         this.syncZombieHUD();
 
         if (this.isZombieWaveMode()) {
             return;
         }
 
-        // Check for match end condition
+        // Match end. Speed Mode's challenge can still overturn the final point.
         if (this.scores.player >= this.maxScore || this.scores.ai >= this.maxScore) {
-            // Special handling for Speed Mode: Speed Challenge can override the end
             if (this.gameMode === 'speed' && this.speedChallenge && this.speedChallenge.isActive) {
                 return;
             }
-
             this.finishMatch(this.scores.player >= this.maxScore);
-            return;
+        }
+    }
 
-            this.matchEnding = true;
-            if (this.gameMode === 'speed' && this.speedChallenge && typeof this.speedChallenge.terminateChallenge === 'function') {
-                this.speedChallenge.terminateChallenge('match-end');
-            }
-            const playerWon = this.scores.player >= this.maxScore;
-            const progressionEnabled = !this.isMultiplayer && this.gameMode !== 'customise';
-            // Match XP stays separate from achievement XP; keep this payout conservative.
-            let xp = playerWon ? 8 : 4;
-            xp += Math.min(4, Math.floor(this.maxRally / 3));
+    _setHTML(el, html) {
+        if (el && el.__ppHTML !== html) {
+            el.innerHTML = html;
+            el.__ppHTML = html;
+        }
+    }
 
-            // Add bonus XP for specific modes
-            if (this.gameMode === 'speed') xp += 8;
-            if (this.gameMode === 'zombie') xp += 6;
-            if (this.gameMode === 'obstacle') xp += 4;
-            if (this.gameMode === 'gravity') xp += 4;
-
-            // Perfect game check
-            if (progressionEnabled && playerWon && this.scores.ai === 0 && !this.progression.achievements.perfectGame.unlocked) {
-                this.progression.unlockAchievement('perfectGame');
-            }
-
-            // First blood check (first point scored in any game)
-            if (progressionEnabled && playerWon && this.scores.player === this.maxScore &&
-                !this.progression.achievements.firstBlood.unlocked) {
-                this.progression.unlockAchievement('firstBlood');
-            }
-
-            // Check all skill-based achievements (speed demon, rally master) for both wins and losses
-            if (progressionEnabled) {
-                this.checkAchievementsOnWin(playerWon);
-            }
-
-            if (progressionEnabled && playerWon) {
-                // Pass the current game mode to recordGameWin
-                this.progression.recordGameWin(this.comeback, this.gameMode, {
-                    playerScore: this.scores.player,
-                    aiScore: this.scores.ai,
-                    maxScore: this.maxScore
-                });
-            } else if (progressionEnabled) {
-                this.progression.recordGameLoss();
-            }
-
-            if (progressionEnabled) {
-                this.progression.addXP(xp);
-            }
-            this.running = false;
-            if (typeof this.audio?.stopAllGravityWellSounds === 'function') {
-                this.audio.stopAllGravityWellSounds();
-            }
-
-            if (this.ai && typeof this.ai.onGameEnd === 'function') {
-                this.ai.onGameEnd(!playerWon);
-            }
-
-            setTimeout(() => {
-                this.stop();
-                const winner = playerWon ? 'Player' : 'AI';
-                const overlay = document.getElementById('overlay');
-                if (!overlay) return;
-
-                let achievementsHtml = '';
-                const recent = this.progression.getRecentlyUnlockedAchievements();
-                // always render the container so the glitch effect is visible even
-                // when there are no newly unlocked items; this aids testing.
-                if (recent.length > 0) {
-                    achievementsHtml = `
-            <div class="achievements-list">
-                <h3 class="glitch" data-text="Recent Achievements:">Recent Achievements:</h3>
-                <ul class="compact-achievements-display">
-                    ${recent.map(a => {
-                        const icon = a.icon || '★';
-                        const shortName = a.title.length > 25 ? a.title.substring(0, 22) + '...' : a.title;
-                        return `<li class="compact-achievement-item"><span class="achievement-icon-compact">${icon}</span> <strong>${shortName}</strong></li>`;
-                    }).join('')}
-                </ul>
-            </div>
-        `;
-                } else {
-                    achievementsHtml = `
-            <div class="achievements-list">
-                <h3 class="glitch" data-text="Recent Achievements:">Recent Achievements:</h3>
-                <p style="text-align:center; color:#c0c8ff; font-size:16px; padding:20px; font-style:italic; opacity:0.8;">No achievements unlocked yet — keep playing!</p>
-            </div>
-        `;
-                }
-
-                const p = overlay.querySelector('p');
-                if (p) {
-                    const winnerLabel = this.gameMode === 'customise'
-                        ? (playerWon ? 'Left Player' : 'Right Player')
-                        : (playerWon ? 'Player' : 'AI');
-                    const showCustomiseReturn = this.gameMode === 'customise';
-                    p.innerHTML = `
-            ${winnerLabel} Wins!<br>
-            Final Score: ${this.scores.player} - ${this.scores.ai}<br>
-            XP Earned: +${xp}<br>
-            Mode: ${this.getModeDisplayName(this.gameMode)}<br>
-            ${showCustomiseReturn ? `<div class="end-match-actions"><button id="backToCustomise" class="btn">Go Back to Customise</button></div>` : ''}
-        `;
-                }
-
-                overlay.classList.remove('hidden');
-                overlay.classList.add('post-match');
-
-                // Keep the menu progress panel visible after a match
-                const menuProgressPanel = document.getElementById('menuProgressPanel');
-                if (menuProgressPanel) {
-                    menuProgressPanel.style.display = '';
-                }
-
-                const menuAchievements = document.getElementById('menuRecentAchievements');
-                if (menuAchievements) {
-                    menuAchievements.style.display = '';
-                    if (typeof updateMenuAchievements === 'function') {
-                        updateMenuAchievements();
-                    }
-                }
-
-                // ✅ STOP ALL MUSIC when showing menu/overlay
-                if (typeof this.audio?.stopMusic === 'function') {
-                    console.log('[Music] Stopping all music when showing end-match menu');
-                    this.audio.stopMusic('all');
-                }
-
-                const backToCustomiseBtn = document.getElementById('backToCustomise');
-                if (backToCustomiseBtn) {
-                    const newBackBtn = backToCustomiseBtn.cloneNode(true);
-                    backToCustomiseBtn.parentNode.replaceChild(newBackBtn, backToCustomiseBtn);
-                    newBackBtn.addEventListener('click', () => {
-                        const customiseOverlay = document.getElementById('customiseOverlay');
-                        const customisePanel = document.getElementById('customisePanel');
-                        overlay.classList.add('hidden');
-                        if (customiseOverlay) {
-                            customiseOverlay.classList.add('active');
-                            customiseOverlay.setAttribute('aria-hidden', 'false');
-                        }
-                        customisePanel?.classList.add('active');
-                        this.customSettings.previewModeActive = true;
-                    });
-                }
-
-                this.progression.showEndGameAchievementSummary();
-            }, 1800);
+    // Write to the DOM only when the value actually changed: this runs every
+    // physics step and unchanged textContent writes still cost layout work.
+    _setText(el, value) {
+        if (!el) return;
+        const text = String(value);
+        if (el.__ppText !== text) {
+            el.textContent = text;
+            el.__ppText = text;
         }
     }
 
@@ -7317,8 +7184,14 @@ class Game {
         this.rafId = requestAnimationFrame(() => this.step());
         const now = performance.now() / 1000;
 
-        if (this._govLast !== undefined) PerfGovernor.sample((now - this._govLast) * 1000);
-        this._govLast = now;
+        // Only gameplay frames feed the quality governor (the menu and intro have
+        // their own costs and shouldn't lower in-match quality).
+        if (this.running && !this.paused && !this.introActive) {
+            if (this._govLast !== undefined) PerfGovernor.sample((now - this._govLast) * 1000);
+            this._govLast = now;
+        } else {
+            this._govLast = undefined;
+        }
 
         // Don't run game logic if intro is active
         if (this.introActive) {
@@ -7370,6 +7243,7 @@ class Game {
         const alpha = this.accumulator / physicsStepDt;
         const renderStartMs = performance.now();
         this.render(alpha);
+        this.postFx?.present(frameTime);
         const renderTimeMs = performance.now() - renderStartMs;
         this.recordPerfSample(performance.now() - frameStartMs, physicsTimeMs, renderTimeMs);
     }

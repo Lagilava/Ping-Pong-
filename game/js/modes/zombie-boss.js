@@ -718,8 +718,10 @@ class ZombieBoss {
             }
 
             // Update phase based on health
-            if (this.health > 66) this.phase = 1;
-            else if (this.health > 33) this.phase = 2;
+            // Phases are thirds of max health (max health grows with each wave).
+            const phaseRatio = this.health / Math.max(1, this.maxHealth);
+            if (phaseRatio > 0.66) this.phase = 1;
+            else if (phaseRatio > 0.33) this.phase = 2;
             else this.phase = 3;
         }
 
@@ -1467,7 +1469,7 @@ class ZombieBoss {
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 22px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(`ZOMBIE BOSS – ${Math.ceil(this.health)}%`, this.game.width / 2, y + barHeight + 35);
+        ctx.fillText(`ZOMBIE BOSS – ${Math.ceil(Math.max(0, healthRatio) * 100)}%`, this.game.width / 2, y + barHeight + 35);
     }
 
     getPhaseDescription() {

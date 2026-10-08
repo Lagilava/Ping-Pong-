@@ -7,7 +7,8 @@
    any achievement from ever appearing; rule removed during bugfix. */
 .achievement-notifications-container {
     position: fixed;
-    top: 10px;
+    /* Below the score boxes so a toast never covers the AI score. */
+    top: 76px;
     right: 10px;
     z-index: 10000;
     display: flex;
@@ -250,7 +251,7 @@
 /* During active gameplay - keep it minimal */
 .game-container:has(canvas:focus) .achievement-notifications-container,
 body:not(.has-overlay) .achievement-notifications-container {
-    top: 8px;
+    top: 76px;
     right: 8px;
     gap: 4px;
     opacity: 0.95;
@@ -258,7 +259,7 @@ body:not(.has-overlay) .achievement-notifications-container {
 
 /* During speed challenge - even more subtle */
 .speed-challenge.active~.achievement-notifications-container {
-    top: 5px;
+    top: 76px;
     right: 5px;
     opacity: 0.85;
     transform: scale(0.95);

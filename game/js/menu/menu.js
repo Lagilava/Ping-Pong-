@@ -31,6 +31,8 @@
 
     // Storm state
     let seaUniforms = null;
+    let skyUniforms = null;
+    let menuBloom = null;
     let cloudMeshes = [];
     let rainPoints = null;
     let rainVelocities = null;
@@ -98,6 +100,7 @@
     // OCEAN FRAGMENT SHADER
     // ─────────────────────────────────────────────────────────────────
     const SEA_FS = `
+        uniform sampler2D uSurface;
         uniform float uTime;
         uniform vec3  uCamPos;
         uniform float uLightningFlash;
@@ -183,6 +186,13 @@
             float fbmV = fbm2(vWorldPos.xz * 0.22 + uTime * 0.08);
             base += vec3(0.0, 0.022, 0.055) * fbmV;
 
+            // ── Court surface texture (carbon weave + wear) ─────────
+            vec2 suv = (vWorldPos.xz - vec2(0.0, -2.4)) / vec2(13.2, 6.4) + 0.5;
+            vec3 surf = texture2D(uSurface, suv * vec2(9.0, 4.5)).rgb;
+            float wear = texture2D(uSurface, suv * 0.7 + 0.31).a;
+            base += vec3(0.045, 0.100, 0.150) * surf * (0.55 + wear * 0.7);
+            base += vec3(0.020, 0.070, 0.115) * smoothstep(6.0, 0.0, length((vWorldPos.xz - vec2(0.0, -2.4)) * vec2(0.6, 1.0)));
+
             // ── Compose ─────────────────────────────────────────────
             vec3 col = base + skyRefl + sssC;
             col += specCol * (1.0 + uLightningFlash * 1.5);
@@ -194,6 +204,10 @@
             col  = mix(col, foamC, foam * 0.18);
             col += lColor * uLightningFlash * foam * 0.22;
             col *= gloss;
+            col += specCol * surf.g * 0.35;
+            // This shader writes display values directly (no tone mapping), so
+            // lift the storm-dark palette enough for the court to read.
+            col *= 1.25;
 
             // ── Vignette ────────────────────────────────────────────
             float vign = 1.0 - clamp(length(vWorldPos.xz) * 0.022, 0.0, 0.65);
@@ -202,6 +216,126 @@
             gl_FragColor = vec4(col, 0.98);
         }
     `;
+
+    // ─────────────────────────────────────────────────────────────────
+    // SKY DOME SHADERS: painted backdrop + aurora ribbons + twinkling stars
+    // ─────────────────────────────────────────────────────────────────
+    const SKY_VS = `
+        varying vec2 vUv;
+        varying vec3 vDir;
+        void main() {
+            vUv = uv;
+            vDir = normalize(position);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `;
+    const SKY_FS = `
+        uniform sampler2D uMap;
+        uniform float uTime;
+        uniform float uFlash;
+        varying vec2 vUv;
+        varying vec3 vDir;
+
+        float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+        float n2(vec2 p) {
+            vec2 i = floor(p), f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            float a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5);
+            float b = fract(sin(dot(i + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5);
+            float c = fract(sin(dot(i + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5);
+            float d = fract(sin(dot(i + vec2(1, 1), vec2(127.1, 311.7))) * 43758.5);
+            return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+        }
+
+        void main() {
+            vec3 col = texture2D(uMap, vUv).rgb;
+            vec3 d = normalize(vDir);
+            float up = clamp(d.y, -0.2, 1.0);
+
+            // Aurora: a few drifting ribbons high in the sky.
+            float az = atan(d.z, d.x);
+            float aur = 0.0;
+            for (int i = 0; i < 3; i++) {
+                float fi = float(i);
+                float wave = sin(az * (2.0 + fi) + uTime * (0.07 + fi * 0.03) + n2(vec2(az * 2.0, uTime * 0.05 + fi)) * 2.5);
+                float h = 0.38 + fi * 0.09 + wave * 0.06;
+                aur += exp(-pow((up - h) * 16.0, 2.0)) * (0.55 + 0.45 * n2(vec2(az * 6.0 + fi * 3.0, uTime * 0.2)));
+            }
+            vec3 aurCol = mix(vec3(0.05, 0.75, 0.85), vec3(0.45, 0.25, 0.95), smoothstep(0.35, 0.6, up));
+            col += aurCol * aur * 0.16 * smoothstep(0.05, 0.3, up);
+
+            // Stars: hashed cells on the sphere, twinkling, fading near the horizon.
+            vec3 sp = d * 220.0;
+            vec3 cell = floor(sp);
+            float h = hash3(cell);
+            float star = step(0.9972, h) * smoothstep(0.55, 0.0, length(fract(sp) - 0.5));
+            star *= 0.55 + 0.45 * sin(uTime * (1.5 + h * 4.0) + h * 80.0);
+            col += vec3(0.75, 0.88, 1.0) * star * smoothstep(0.0, 0.25, up) * 1.4;
+
+            // Lightning lights the whole sky briefly.
+            col += vec3(0.35, 0.45, 0.7) * uFlash * 0.35 * smoothstep(-0.1, 0.6, up);
+            gl_FragColor = vec4(col, 1.0);
+        }
+    `;
+
+    function createSoftDotTexture() {
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const g = c.getContext('2d');
+        const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, 'rgba(255,255,255,1)');
+        grad.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, 64, 64);
+        return new THREE.CanvasTexture(c);
+    }
+
+    // Procedural court surface: RGB = carbon-fibre weave with a gloss channel
+    // in G, A = large-scale wear/scuffs. Tiled across the table in SEA_FS.
+    function createCourtSurfaceTexture(renderer) {
+        const size = 256;
+        const c = document.createElement('canvas');
+        c.width = c.height = size;
+        const g = c.getContext('2d');
+        const img = g.createImageData(size, size);
+        let seed = 7;
+        const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+        const cellSize = 16;
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const cx = Math.floor(x / cellSize), cy = Math.floor(y / cellSize);
+                const lx = (x % cellSize) / cellSize, ly = (y % cellSize) / cellSize;
+                const horizontal = (cx + cy) % 2 === 0;
+                const along = horizontal ? lx : ly;
+                const across = horizontal ? ly : lx;
+                // Each tow is a rounded bundle of fibres: bright crown, dark edges.
+                const crown = Math.sin(across * Math.PI);
+                const fibre = 0.5 + 0.5 * Math.sin((along * 9 + across * 1.5) * Math.PI * 2);
+                const v = 0.35 + crown * 0.45 + fibre * 0.12;
+                const i = (y * size + x) * 4;
+                img.data[i] = v * 255;
+                img.data[i + 1] = Math.pow(crown, 3) * 255;   // gloss
+                img.data[i + 2] = v * 230;
+                img.data[i + 3] = 255;
+            }
+        }
+        g.putImageData(img, 0, 0);
+        // Wear map in alpha: soft scuffs.
+        g.globalCompositeOperation = 'destination-out';
+        for (let i = 0; i < 40; i++) {
+            const x = rnd() * size, y = rnd() * size, r = 10 + rnd() * 50;
+            const grad = g.createRadialGradient(x, y, 0, x, y, r);
+            grad.addColorStop(0, `rgba(0,0,0,${0.15 + rnd() * 0.3})`);
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            g.fillStyle = grad;
+            g.fillRect(x - r, y - r, r * 2, r * 2);
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+        return tex;
+    }
 
     // ─────────────────────────────────────────────────────────────────
     // CLOUD SHADERS
@@ -280,7 +414,7 @@
             { id: 'obstacle', name: 'OBSTACLE', desc: 'Navigate deadly hazards', col: 0xff7620, hex: '#ff7620', icon: 'obstacle' },
             { id: 'customise', name: 'CUSTOM', desc: 'Build your own rules', col: 0x00ffc8, hex: '#00ffc8', icon: 'custom' },
         ],
-        renderer: { pixelRatio: Math.min(devicePixelRatio, 2), exposure: 1.28 },
+        renderer: { pixelRatio: Math.min(devicePixelRatio, 1.5), exposure: 1.28 },
         camera: { fov: 58, pos: [0, 5.2, 12], near: 0.1, far: 200 },
     };
 
@@ -643,10 +777,17 @@
 
             menuScene = new THREE.Scene();
             const backdropTexture = createMenuBackdropTexture();
+            skyUniforms = {
+                uMap: { value: backdropTexture },
+                uTime: { value: 0 },
+                uFlash: { value: 0 },
+            };
             const backdropDome = new THREE.Mesh(
-                new THREE.SphereGeometry(140, 28, 18),
-                new THREE.MeshBasicMaterial({
-                    map: backdropTexture,
+                new THREE.SphereGeometry(140, 48, 24),
+                new THREE.ShaderMaterial({
+                    uniforms: skyUniforms,
+                    vertexShader: SKY_VS,
+                    fragmentShader: SKY_FS,
                     side: THREE.BackSide,
                     depthWrite: false,
                     toneMapped: false,
@@ -685,6 +826,12 @@
             menuRenderer.shadowMap.enabled = true;
             menuRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
             menuRenderer.setClearColor(0x050b14, 1);
+            try {
+                menuBloom = new MenuBloom(menuRenderer, menuScene, menuCam);
+            } catch (err) {
+                console.warn('[Menu] Bloom unavailable, rendering directly.', err);
+                menuBloom = null;
+            }
 
             scene = menuScene;
             camera = menuCam;
@@ -704,7 +851,7 @@
             const moonLight = new THREE.DirectionalLight(0x5f8fcf, 0.95);
             moonLight.position.set(10, 30, -15);
             moonLight.castShadow = true;
-            moonLight.shadow.mapSize.set(2048, 2048);
+            moonLight.shadow.mapSize.set(1024, 1024);
             moonLight.shadow.camera.near = 1;
             moonLight.shadow.camera.far = 120;
             moonLight.shadow.bias = -0.0006;
@@ -719,9 +866,9 @@
             // Flash light — fires on lightning strikes (short, high-decay)
             flashLight = new THREE.PointLight(0xb0d4ff, 0, 220, 2.0);
             flashLight.position.set(0, 38, -16);
-            flashLight.castShadow = true;
-            flashLight.shadow.mapSize.set(1024, 1024);
-            flashLight.shadow.bias = -0.0008;
+            // No shadows from the flash: a point-light shadow re-renders the scene
+            // six times per frame, which costs far more than it adds.
+            flashLight.castShadow = false;
             menuScene.add(flashLight);
 
             // Ball / ring lights (dynamic, added per-ring)
@@ -729,6 +876,7 @@
 
             // ── STORM OCEAN ──────────────────────────────────────────
             seaUniforms = {
+                uSurface: { value: createCourtSurfaceTexture(menuRenderer) },
                 uTime: { value: 0 },
                 uCamPos: { value: menuCam.position.clone() },
                 uLightningFlash: { value: 0 },
@@ -742,8 +890,11 @@
                 fragmentShader: SEA_FS,
                 transparent: true
             });
+            // SEA_VS displaces along local Y and reads waves from local XZ, so the
+            // plane must be laid flat in its own geometry (rotating the mesh
+            // instead leaves the shader's normals pointing sideways = black court).
+            seaGeo.rotateX(-Math.PI / 2);
             const seaMesh = new THREE.Mesh(seaGeo, seaMat);
-            seaMesh.rotation.x = -Math.PI / 2;
             seaMesh.position.set(0, -1.05, -2.4);
             menuScene.add(seaMesh);
 
@@ -874,8 +1025,11 @@
             }
             const rainGeo = new THREE.BufferGeometry();
             rainGeo.setAttribute('position', new THREE.BufferAttribute(rPos, 3));
+            // Soft round sprite so points render as droplets/motes, not squares.
+            const softDot = createSoftDotTexture();
             const rainMat = new THREE.PointsMaterial({
-                color: 0x8abde6, size: 0.035, transparent: true, opacity: 0.18,
+                map: softDot,
+                color: 0x8abde6, size: 0.05, transparent: true, opacity: 0.22,
                 blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
             });
             rainPoints = new THREE.Points(rainGeo, rainMat);
@@ -892,6 +1046,7 @@
             const sprayGeo = new THREE.BufferGeometry();
             sprayGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
             const sprayMat = new THREE.PointsMaterial({
+                map: softDot,
                 color: 0x7ab0d6, size: 0.5, transparent: true, opacity: 0.08,
                 blending: THREE.NormalBlending, depthWrite: false, sizeAttenuation: true
             });
@@ -1041,7 +1196,8 @@
             pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
             pGeo.setAttribute('color', new THREE.BufferAttribute(pColors, 3));
             menuParticles = new THREE.Points(pGeo, new THREE.PointsMaterial({
-                size: 0.035, vertexColors: true, transparent: true, opacity: 0.18,
+                map: softDot,
+                size: 0.06, vertexColors: true, transparent: true, opacity: 0.18,
                 blending: THREE.AdditiveBlending, sizeAttenuation: true, depthWrite: false
             }));
             menuScene.add(menuParticles);
@@ -1077,8 +1233,15 @@
             // ── ANIMATION LOOP ────────────────────────────────────────
             const clock = new THREE.Clock();
 
+            const menuOverlayEl = document.getElementById('overlay');
             function animateMenu() {
                 requestAnimationFrame(animateMenu);
+                // The menu scene is only visible behind the overlay; skip all work
+                // (including the GPU render) while a match is being played.
+                if (document.hidden || !menuOverlayEl || menuOverlayEl.classList.contains('hidden')) {
+                    clock.getDelta();
+                    return;
+                }
                 const delta = clock.getDelta();
                 const time = clock.getElapsedTime();
 
@@ -1326,7 +1489,10 @@
                 lookTarget.y += Math.cos(time * 1.9) * sceneGlitch * 0.03;
                 menuCam.lookAt(lookTarget);
 
-                menuRenderer.render(menuScene, menuCam);
+                skyUniforms.uTime.value = time;
+                skyUniforms.uFlash.value = lightningActive ? seaUniforms.uLightningFlash.value : 0;
+                if (menuBloom) menuBloom.render(delta);
+                else menuRenderer.render(menuScene, menuCam);
             }
 
             animateMenu();
@@ -1335,7 +1501,8 @@
             window.addEventListener('resize', () => {
                 menuCam.aspect = innerWidth / innerHeight;
                 menuCam.updateProjectionMatrix();
-                menuRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+                menuRenderer.setPixelRatio(MENU_CONFIG.renderer.pixelRatio);
+                menuBloom?.setSize(innerWidth, innerHeight);
                 menuRenderer.setSize(innerWidth, innerHeight);
             }, false);
 

@@ -1353,6 +1353,23 @@
             state.ui.hudTop = hud;
             state.ui.hudPlayerScore = hud.querySelector('.player-score');
             state.ui.hudAiScore = hud.querySelector('.ai-score');
+            state.ui.hudPlayerLabel = hud.querySelector('.player-side .pp-score-label');
+            state.ui.hudAiLabel = hud.querySelector('.ai-side .pp-score-label');
+        }
+
+        // Zombie waves have no AI score: show points and the breach count instead.
+        function getHudScoreView(game) {
+            if (typeof game.isZombieWaveMode === 'function' && game.isZombieWaveMode() && game.zombieState) {
+                const z = game.zombieState;
+                return {
+                    leftLabel: 'SCORE', left: game.scores.player,
+                    rightLabel: 'BREACHES', right: `${z.waveBreaches || 0}/${z.breachLimit}`,
+                };
+            }
+            return {
+                leftLabel: game.isMultiplayer ? 'P1' : 'PLAYER', left: game.scores.player,
+                rightLabel: game.isMultiplayer ? 'P2' : 'AI', right: game.scores.ai,
+            };
         }
 
         function updateEnhancedScoreHUD(game) {
@@ -1366,15 +1383,18 @@
             }
 
             const checkAndUpdateScores = () => {
-                if (game.scores.player !== game._lastPlayerScore) {
-                    playerScoreEl.textContent = game.scores.player;
+                const view = getHudScoreView(game);
+                if (state.ui.hudPlayerLabel && state.ui.hudPlayerLabel.textContent !== view.leftLabel) state.ui.hudPlayerLabel.textContent = view.leftLabel;
+                if (state.ui.hudAiLabel && state.ui.hudAiLabel.textContent !== view.rightLabel) state.ui.hudAiLabel.textContent = view.rightLabel;
+                if (view.left !== game._lastPlayerScore) {
+                    playerScoreEl.textContent = view.left;
                     animateScoreChange(playerScoreEl, 'player');
-                    game._lastPlayerScore = game.scores.player;
+                    game._lastPlayerScore = view.left;
                 }
-                if (game.scores.ai !== game._lastAiScore) {
-                    aiScoreEl.textContent = game.scores.ai;
+                if (view.right !== game._lastAiScore) {
+                    aiScoreEl.textContent = view.right;
                     animateScoreChange(aiScoreEl, 'ai');
-                    game._lastAiScore = game.scores.ai;
+                    game._lastAiScore = view.right;
                 }
             };
 
@@ -1388,8 +1408,8 @@
                 game._enhancedHudInitialized = true;
             }
 
-            playerScoreEl.textContent = game.scores.player;
-            aiScoreEl.textContent = game.scores.ai;
+            game._lastPlayerScore = game._lastAiScore = undefined;
+            checkAndUpdateScores();
         }
 
         function animateScoreChange(scoreElement, type) {

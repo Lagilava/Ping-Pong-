@@ -1725,9 +1725,10 @@ body.obstacle-mode .mode-btn.active[data-mode="obstacle"] {
 }
 
 .hint {
+    /* Sits under the title, clear of the progress panel on the right. */
     position: absolute;
-    top: 32px;
-    right: 32px;
+    top: 132px;
+    left: 36px;
     font-size: .65rem;
     letter-spacing: .35em;
     color: rgba(180, 230, 255, .45);
@@ -5434,11 +5435,6 @@ canvas {
     max-width: var(--game-max-width);
     max-height: var(--game-max-height);
     aspect-ratio: 16 / 9;
-
-    /* Image rendering */
-    image-rendering: pixelated;
-    image-rendering: crisp-edges;
-    /* fallback for non-pixelated browsers */
 }
 
 @media (max-aspect-ratio: 1/1) {
@@ -5449,6 +5445,26 @@ canvas {
 
 #c {
     touch-action: none;
+}
+
+/* WebGL post-process output (js/render/post-fx.js). It sits exactly over the
+   2D game canvas, which stays underneath as the input surface and texture
+   source but is made transparent so the browser doesn't composite it twice. */
+#fx {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: #000;
+    max-width: none;
+    max-height: none;
+    aspect-ratio: auto;
+}
+
+#c.fx-source {
+    opacity: 0 !important;
 }
 
 /* The neon UI shares a paint layer with the canvas, so Chrome re-rasterises
@@ -6654,13 +6670,6 @@ body.pp-lowfx .achievements * {
     }
 }
 
-/* High-DPI displays */
-@media (-webkit-min-device-pixel-ratio: 2),
-(min-resolution: 192dpi) {
-    canvas {
-        image-rendering: crisp-edges;
-    }
-}
 
 /* Dark mode preference */
 @media (prefers-color-scheme: dark) {
