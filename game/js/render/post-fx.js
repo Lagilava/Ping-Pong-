@@ -368,7 +368,7 @@ class PostFX {
                 // Bloom, with a lens-dirt texture catching the brightest glow.
                 vec3 bloom = texture2D(uBloomA, uv).rgb * 0.9 + texture2D(uBloomB, uv).rgb * 1.25 * uBloomWide;
                 vec3 dirt = texture2D(uDirt, vUv).rgb;
-                col += uBloom * (bloom * 0.475 + bloom * dirt * 0.8);
+                col += uBloom * (bloom * 0.24 + bloom * dirt * 0.4);
                 col += ringGlow * 0.08 * vec3(0.6, 0.9, 1.0);
 
                 // Grade (per mode): saturation, contrast, split-tone (shadows

@@ -485,8 +485,19 @@
     }
 
     let menuOffset = 0, menuLastWheelTime = 0;
+    // Phones lay the cards out as a native, swipeable scroll row (css/mobile.css).
+    const isNativeCardScroll = (row) => !!row && getComputedStyle(row).overflowX === 'auto';
+
     function scrollMenuCards(dir) {
         const row = document.getElementById('cardRow');
+        if (isNativeCardScroll(row)) {
+            if (dir) {
+                const cw = (row.children[0]?.offsetWidth || 140) + (parseInt(getComputedStyle(row).gap, 10) || 12);
+                row.scrollBy({ left: dir * cw, behavior: 'smooth' });
+            }
+            updateMenuCards();
+            return;
+        }
         const cw = (row?.children[0]?.offsetWidth || 200) + parseInt(getComputedStyle(row).gap || '10');
         const cur = menuActiveIdx !== null ? menuActiveIdx : Math.max(0, Math.min(MENU_CONFIG.modes.length - 1, Math.round(menuOffset / cw)));
         const nxt = Math.max(0, Math.min(MENU_CONFIG.modes.length - 1, cur + dir));
@@ -1503,6 +1514,7 @@
                     cardRowEl.dataset.touchX0 = String(e.touches[0].clientX);
                 }, { passive: true });
                 cardRowEl.addEventListener('touchend', (e) => {
+                    if (isNativeCardScroll(document.getElementById('cardRow'))) return;
                     const x0 = Number(cardRowEl.dataset.touchX0 || 0);
                     const dx = x0 - e.changedTouches[0].clientX;
                     if (Math.abs(dx) > 30) scrollMenuCards(dx > 0 ? 1 : -1);

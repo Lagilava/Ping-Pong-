@@ -49,9 +49,11 @@ const PerfGovernor = {
     // expensive on mobile GPUs, render at CSS resolution or below, and only the
     // top mobile tier runs the (single-level) bloom pass.
     MOBILE_TIERS: [
-        { name: 'mobile-high', glow: 0, glowFx: 0, particles: 0.5,  scale: 1.0,  fx: 1, bgFps: 30 },
-        { name: 'mobile',      glow: 0, glowFx: 0, particles: 0.35, scale: 0.9,  fx: 3, bgFps: 30 },
-        { name: 'mobile-low',  glow: 0, glowFx: 0, particles: 0.2,  scale: 0.72, fx: 3, bgFps: 20 },
+        // Phone screens are 2-3x DPR; below ~1.25x the court lines and HUD
+        // text go visibly soft, so even the bottom tier stays at 1x.
+        { name: 'mobile-high', glow: 0, glowFx: 0, particles: 0.5,  scale: 1.5,  fx: 1, bgFps: 30 },
+        { name: 'mobile',      glow: 0, glowFx: 0, particles: 0.35, scale: 1.25, fx: 3, bgFps: 30 },
+        { name: 'mobile-low',  glow: 0, glowFx: 0, particles: 0.2,  scale: 1.0,  fx: 3, bgFps: 20 },
     ],
     isMobile: false,
     tier: 0,

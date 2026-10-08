@@ -927,7 +927,14 @@ class Game {
     updatePointerControlledPaddle(target, canvasY) {
         const paddle = target === 'ai' ? this.aiPaddle : this.player;
         if (!paddle) return;
-        paddle.pointerTargetY = canvasY;
+        const offset = this.touchDragOffset?.[target] || 0;
+        const half = paddle.h / 2;
+        // Clamp to the reachable range so a long drag doesn't wind up a
+        // target the paddle then has to "unwind" before it responds.
+        paddle.pointerTargetY = Math.max(half, Math.min(this.height - half, canvasY + offset));
+        if (offset && paddle.pointerTargetY !== canvasY + offset) {
+            this.touchDragOffset[target] = paddle.pointerTargetY - canvasY;
+        }
     }
 
     followPointerTarget(paddle, dt) {
@@ -5322,7 +5329,16 @@ class Game {
             }
 
             const target = this.getPointerTarget(point.x);
-            if (this.pointerControls[target] !== null) return;
+            if (this.pointerControls[target] !== null) {
+                // Touch: a second finger on your side fires the laser power-up
+                // (the keyboard's Space/Enter), without letting go of the paddle.
+                const paddle = target === 'ai' ? this.aiPaddle : this.player;
+                if (e.pointerType === 'touch' && paddle?.hasLaser) {
+                    this.keys[target === 'ai' ? 'enter' : ' '] = true;
+                    e.preventDefault();
+                }
+                return;
+            }
 
             this.pointerControls[target] = e.pointerId;
             if (target === 'player') {
@@ -5339,6 +5355,14 @@ class Game {
                 }
             }
 
+            // Touch drags relatively: the paddle keeps its place on touch-down
+            // and follows the finger's movement, so the finger never has to
+            // cover the paddle (or the ball) and nothing jumps.
+            const paddle = target === 'ai' ? this.aiPaddle : this.player;
+            this.touchDragOffset = this.touchDragOffset || { player: 0, ai: 0 };
+            this.touchDragOffset[target] = (e.pointerType === 'touch' && paddle)
+                ? (paddle.pos.y + paddle.h / 2) - point.y
+                : 0;
             this.updatePointerControlledPaddle(target, point.y);
             if (e.pointerType !== 'mouse') {
                 e.preventDefault();
@@ -5418,17 +5442,8 @@ class Game {
         // Releasing a key while the window is unfocused never sends keyup, which
         // left paddles running away after alt-tab.
         window.addEventListener('blur', () => { for (const k in this.keys) this.keys[k] = false; });
-        // Tilt control is for phones/tablets only; 2-in-1 laptops also report
-        // orientation and would drift the paddle.
-        const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches;
-        if (window.DeviceOrientationEvent && coarsePointer) {
-            window.addEventListener('deviceorientation', e => {
-                if (!this.running || this.paused || !e.gamma) return;
-                const tilt = e.gamma / 45;
-                this.player.pos.y += tilt * this.player.maxSpeed * (1 / 60);
-                this.player.clampTo(this.height);
-            });
-        }
+        // (No tilt control: in a landscape grip the gyro reads constant tilt,
+        // which drifted the paddle and fought the player's finger.)
 
         // Add click to skip intro
         this.canvas.addEventListener('click', () => {
@@ -5456,6 +5471,20 @@ class Game {
             this._uiInMatch = inMatch;
             document.body.classList.toggle('pp-in-match', inMatch);
             if (!inMatch && this.userPaused) this.setUserPaused(false);
+        }
+        this.syncOrientationPause(inMatch);
+    }
+
+    // Phones: the court is played sideways. Turning to portrait mid-match
+    // pauses it (css/mobile.css shows a "turn your phone" card over the
+    // pause menu); turning back leaves the pause menu up so the player can
+    // get a grip before tapping Resume.
+    syncOrientationPause(inMatch = this.isInMatch()) {
+        if (!window.PerfGovernor?.isMobile) return;
+        this._portraitMq = this._portraitMq || window.matchMedia?.('(orientation: portrait)');
+        const portrait = !!this._portraitMq?.matches;
+        if (portrait && inMatch && !this.introActive && !this.userPaused) {
+            this.setUserPaused(true);
         }
     }
 
@@ -5961,7 +5990,9 @@ class Game {
             case 'laserPaddle':
                 this.player.activateLaser(3);
                 this.aiPaddle.activateLaser(3);
-                this.showNotification('Laser Paddle!', this.isMultiplayer ? 'SPACE/ENTER = 3 laser shots' : 'SPACE = 3 laser shots', '#f44336');
+                this.showNotification('Laser Paddle!', PerfGovernor.isMobile
+                    ? 'Tap with a 2nd finger = 3 laser shots'
+                    : (this.isMultiplayer ? 'SPACE/ENTER = 3 laser shots' : 'SPACE = 3 laser shots'), '#f44336');
                 break;
             case 'shrinkOpponent':
                 this.aiPaddle.shrink(0.6);
@@ -6178,25 +6209,37 @@ class Game {
         for (let i = startIndex; i < this.notifications.length; i++) {
             const n = this.notifications[i];
             const displayIndex = i - startIndex;
-            // Bottom-left: the top corners hold the scores and achievement toasts.
-            const x = 20;
-            const y = this.height - 76 - displayIndex * 60;
-            this.ctx.save();
-            this.ctx.globalAlpha = n.opacity * 0.8;
-            this.ctx.fillStyle = 'rgba(20, 20, 20, 0.5)';
-            this.roundRect(x, y, 200, 50, 8);
-            this.ctx.fill();
-            this.ctx.strokeStyle = n.color;
-            this.ctx.lineWidth = 1;
-            this.ctx.stroke();
-            this.ctx.fillStyle = '#ffffff';
-            this.ctx.font = 'bold 14px Arial';
-            this.ctx.textAlign = 'left';
-            this.ctx.fillText(n.title, x + 10, y + 20);
-            this.ctx.font = '12px Arial';
-            this.ctx.fillStyle = '#cccccc';
-            this.ctx.fillText(n.message, x + 10, y + 38);
-            this.ctx.restore();
+            // Bottom centre, sized to the text: the corners hold the scores,
+            // and the left/right edges are where the paddles live.
+            const ctx = this.ctx;
+            const k = Math.max(0.75, Math.min(1, this.height / 600));
+            const titleFont = `bold ${Math.round(14 * k)}px Arial`;
+            const msgFont = `${Math.round(12 * k)}px Arial`;
+            ctx.save();
+            ctx.font = titleFont;
+            const tw = ctx.measureText(n.title).width;
+            ctx.font = msgFont;
+            const mw = ctx.measureText(n.message).width;
+            const pad = 10 * k;
+            const w = Math.min(this.width * 0.6, Math.max(tw, mw) + pad * 2);
+            const h = 48 * k;
+            const x = (this.width - w) / 2;
+            const y = this.height - h - 12 * k - displayIndex * (h + 8 * k);
+            ctx.globalAlpha = n.opacity * 0.85;
+            ctx.fillStyle = 'rgba(10, 12, 20, 0.6)';
+            this.roundRect(x, y, w, h, 8 * k);
+            ctx.fill();
+            ctx.strokeStyle = n.color;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = titleFont;
+            ctx.fillText(n.title, this.width / 2, y + 19 * k, w - pad * 2);
+            ctx.font = msgFont;
+            ctx.fillStyle = '#cccccc';
+            ctx.fillText(n.message, this.width / 2, y + 37 * k, w - pad * 2);
+            ctx.restore();
         }
     }
 
@@ -6396,7 +6439,10 @@ class Game {
         // Trigger Speed Challenge in Speed Mode every N hits.
         // For single-player only trigger when the HUMAN player is the one being scored against
         // (i.e. the AI just hit the ball toward the player). Multiplayer retains original behaviour.
-        if (this.gameMode === 'speed' && this.rallyCount > 0 && this.rallyCount % 6 === 0) {
+        // Phones skip the mid-rally challenge: freezing a live rally to tap
+        // targets breaks touch play. They still get the "save the point"
+        // challenge on conceding, which lands at a natural break.
+        if (this.gameMode === 'speed' && !PerfGovernor.isMobile && this.rallyCount > 0 && this.rallyCount % 6 === 0) {
             if (this.speedChallenge) {
                 if (this.isMultiplayer) {
                     this.speedChallenge.startChallenge();
@@ -7698,12 +7744,13 @@ class Game {
                 const bubbleX = paddleX - bubbleWidth - 50 * k;
                 const bubbleY = paddleY - bubbleHeight / 2;
                 ctx.fillStyle = '#0088ff';
-                this.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 18);
+                this.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 18 * k);
                 ctx.fill();
+                // Tail from the bubble's edge towards the paddle.
                 ctx.beginPath();
-                ctx.moveTo(paddleX - 50, paddleY);
-                ctx.lineTo(paddleX - 40, paddleY - 8);
-                ctx.lineTo(paddleX - 40, paddleY + 8);
+                ctx.moveTo(paddleX - 30 * k, paddleY);
+                ctx.lineTo(paddleX - 50 * k, paddleY - 8 * k);
+                ctx.lineTo(paddleX - 50 * k, paddleY + 8 * k);
                 ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.textAlign = 'left';

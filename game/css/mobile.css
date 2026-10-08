@@ -1,0 +1,275 @@
+/* ==========================================================================
+   Phones and tablets (html.pp-mobile, set by PerfGovernor.initForDevice).
+   Loaded last so it wins over the desktop layout without touching it.
+   ========================================================================== */
+
+html.pp-mobile,
+html.pp-mobile body {
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+}
+
+/* ---------- Menu: header ---------- */
+html.pp-mobile .hdr {
+    top: max(10px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+    transform: none;
+    width: auto;
+    text-align: left;
+}
+html.pp-mobile .hdr h1 { font-size: clamp(1.15rem, 5.2vw, 1.7rem); letter-spacing: .14em; }
+html.pp-mobile .hdr p { font-size: .5rem; letter-spacing: .32em; margin-top: 4px; }
+html.pp-mobile .hint,
+html.pp-mobile .arr-btn { display: none !important; }
+
+/* ---------- Menu: progress chip (top right), achievements hidden ---------- */
+html.pp-mobile .menu-right-panel {
+    display: flex;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    width: 190px;
+    gap: 0;
+}
+html.pp-mobile .menu-right-panel > .menu-recent-achievements { display: none !important; }
+html.pp-mobile .menu-progress-panel { padding: 6px 10px; border-radius: 10px; background: rgba(4, 10, 24, .55); }
+html.pp-mobile .menu-progress-label { display: none; }
+html.pp-mobile .menu-progress-row { flex-direction: row; gap: 10px; }
+html.pp-mobile .menu-progress-level { width: auto; gap: 6px; }
+html.pp-mobile .menu-progress-kicker { font-size: .55rem; }
+html.pp-mobile .menu-progress-value { font-size: 1.3rem; }
+html.pp-mobile .menu-progress-meta { font-size: .55rem; }
+html.pp-mobile .menu-progress-bar-shell { height: 6px; }
+
+/* ---------- Menu: one swipeable row of cards ---------- */
+html.pp-mobile #cards-hud {
+    max-height: none;
+    padding: 0 0 max(10px, env(safe-area-inset-bottom));
+}
+html.pp-mobile .card-row {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 14px max(16px, env(safe-area-inset-left)) 6px;
+    gap: 12px;
+    transform: none !important;
+    transition: none !important;
+    touch-action: pan-x;
+}
+html.pp-mobile .card-row::-webkit-scrollbar { display: none; }
+html.pp-mobile .card {
+    width: 132px;
+    aspect-ratio: auto;
+    height: 168px;
+    gap: 6px;
+    padding: 10px 8px;
+    scroll-snap-align: center;
+    border-radius: 16px;
+    background: rgba(6, 10, 26, .62);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+}
+html.pp-mobile .card:last-child { margin-right: max(16px, env(safe-area-inset-right)); }
+/* Touch has no hover: no stuck lift; a quick press response instead. */
+html.pp-mobile .card:hover,
+html.pp-mobile .card.active { transform: none; }
+html.pp-mobile .card:active { transform: scale(.96); box-shadow: inset 0 0 0 1.5px var(--c); }
+html.pp-mobile .card:hover .card-icon,
+html.pp-mobile .card.active .card-icon { transform: none; }
+html.pp-mobile .card-badge { font-size: .45rem; padding: 4px 10px; }
+html.pp-mobile .card-icon { width: 50px; height: 50px; border-radius: 12px; }
+html.pp-mobile .card-name { font-size: .7rem; letter-spacing: .14em; }
+html.pp-mobile .card-desc { font-size: .6rem; line-height: 1.35; padding: 0 2px; }
+
+/* Portrait: header centred, bigger cards. */
+@media (orientation: portrait) {
+    html.pp-mobile .hdr {
+        top: calc(max(10px, env(safe-area-inset-top)) + 54px);
+        left: 0;
+        right: 0;
+        text-align: center;
+    }
+    html.pp-mobile .hdr h1 { font-size: clamp(1.6rem, 9vw, 2.3rem); }
+    html.pp-mobile .hdr p { font-size: .55rem; letter-spacing: .26em; }
+    html.pp-mobile .menu-right-panel { left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); width: auto; }
+    html.pp-mobile .menu-progress-meter { flex: 1; }
+    html.pp-mobile .card { width: 40vw; max-width: 180px; height: min(34vh, 250px); }
+    html.pp-mobile .card-icon { width: 60px; height: 60px; }
+    html.pp-mobile .card-name { font-size: .78rem; }
+    html.pp-mobile .card-desc { font-size: .66rem; }
+}
+
+/* ---------- Opponent picker (modal) ---------- */
+html.pp-mobile .modal { padding: max(8px, env(safe-area-inset-top)) 10px max(8px, env(safe-area-inset-bottom)); }
+html.pp-mobile .modal-box {
+    width: min(560px, 100%);
+    max-height: 100%;
+    overflow-y: auto;
+    padding: 16px 18px;
+    border-radius: 20px;
+}
+html.pp-mobile .modal-title { margin-bottom: 14px; font-size: .9rem; letter-spacing: .2em; }
+html.pp-mobile .opts { grid-template-columns: 1fr 1fr; gap: 12px; }
+html.pp-mobile .opt { padding: 14px 10px; border-radius: 16px; }
+html.pp-mobile .opt:hover { transform: none; }
+html.pp-mobile .opt.sel { transform: none; }
+html.pp-mobile .opt-icon-large { width: 52px; height: 52px; font-size: 2rem; margin-bottom: 8px; border-radius: 14px; }
+html.pp-mobile .opt:hover .opt-icon-large,
+html.pp-mobile .opt.sel .opt-icon-large { transform: none; }
+html.pp-mobile .opt-title { font-size: .72rem; margin-bottom: 4px; }
+html.pp-mobile .opt-sub { font-size: .7rem; }
+html.pp-mobile .btns { margin-top: 16px; gap: 12px; }
+html.pp-mobile .btns button { padding: 13px 28px; min-height: 46px; }
+@media (orientation: portrait) {
+    html.pp-mobile .opts { grid-template-columns: 1fr; }
+    html.pp-mobile .opt { display: grid; grid-template-columns: 56px 1fr; grid-template-rows: auto auto; column-gap: 14px; text-align: left; align-items: center; }
+    html.pp-mobile .opt-icon-large { grid-row: span 2; margin: 0; }
+}
+
+/* ---------- First-launch letter ---------- */
+html.pp-mobile .all-unlocked-overlay { position: fixed; inset: 0; padding: 16px; overflow-y: auto; }
+html.pp-mobile .all-unlocked-message { font-size: clamp(.9rem, 3.6vw, 1.1rem) !important; line-height: 1.45; max-width: 560px; }
+html.pp-mobile .all-unlocked-message p { margin: 0 0 .7em; }
+
+/* ---------- In match: portrait blocker ---------- */
+/* Pong is played sideways; in portrait the game pauses behind this card and
+   resumes when the phone is turned (see Game.syncOrientationPause). */
+html.pp-mobile .rotate-hint { display: none !important; }
+html.pp-mobile .pp-rotate-block {
+    position: fixed;
+    inset: 0;
+    z-index: 100010;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 24px;
+    text-align: center;
+    background: radial-gradient(ellipse at center, rgba(6, 14, 32, .94), rgba(2, 4, 12, .98));
+    color: #dff8ff;
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: .12em;
+}
+html.pp-mobile .pp-rotate-block .pp-rotate-phone {
+    width: 56px;
+    height: 92px;
+    border: 3px solid #00ffd6;
+    border-radius: 12px;
+    box-shadow: 0 0 24px rgba(0, 255, 214, .35);
+    animation: ppRotatePhone 2.2s cubic-bezier(.6, 0, .3, 1) infinite;
+}
+html.pp-mobile .pp-rotate-block b { font-size: 1rem; color: #fff; }
+html.pp-mobile .pp-rotate-block small { font-family: system-ui, sans-serif; letter-spacing: .02em; font-size: .85rem; color: rgba(200, 235, 255, .7); }
+html.pp-mobile .pp-rotate-block button {
+    margin-top: 6px;
+    padding: 10px 22px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .25);
+    background: rgba(255, 255, 255, .06);
+    color: #fff;
+}
+@keyframes ppRotatePhone {
+    0%, 20% { transform: rotate(0); }
+    55%, 100% { transform: rotate(-90deg); }
+}
+@media (orientation: portrait) {
+    html.pp-mobile body.pp-in-match .pp-rotate-block { display: flex; }
+}
+
+/* ---------- In match: HUD sizing ---------- */
+html.pp-mobile .skip-intro { padding: 10px 16px; bottom: max(12px, env(safe-area-inset-bottom)); }
+html.pp-mobile .skip-intro span { display: none; }
+html.pp-mobile kbd { display: none; }
+html.pp-mobile .pause-hint { display: none; }
+
+/* The in-match MENU button would sit on top of the replay header. */
+body.pp-replaying #cyber-menu-btn,
+body.pp-replaying #cyber-control-bar { display: none !important; }
+
+/* Opt-in replay chip (phones): under the scoreboard, clear of both paddles. */
+.pp-replay-offer {
+    position: fixed;
+    top: calc(max(8px, env(safe-area-inset-top)) + 64px);
+    left: 50%;
+    z-index: 100001;
+    transform: translate(-50%, -8px);
+    opacity: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px !important;
+    min-height: 40px;
+    border-radius: 999px !important;
+    border: 1px solid rgba(0, 238, 255, .45) !important;
+    background: rgba(6, 12, 24, .82) !important;
+    color: #bff8ff !important;
+    font: 800 .72rem/1 'Orbitron', sans-serif !important;
+    letter-spacing: .18em;
+    overflow: hidden;
+    transition: opacity .2s ease, transform .2s ease;
+    pointer-events: none;
+}
+.pp-replay-offer.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.pp-replay-offer span { color: #ff4f8b; }
+/* Countdown bar along the bottom edge. */
+.pp-replay-offer i {
+    position: absolute;
+    left: 0; bottom: 0;
+    height: 2px; width: 100%;
+    background: linear-gradient(90deg, #ff2d55, #00eeff);
+    transform-origin: left;
+    animation: ppOfferCountdown var(--pp-offer-ms, 4500ms) linear forwards;
+}
+@keyframes ppOfferCountdown { to { transform: scaleX(0); } }
+
+/* Achievement toasts: a slim pill top-centre under the scoreboard, clear of
+   both paddles (in-game notices use the bottom centre), and click-through so
+   it never eats a touch. */
+html.pp-mobile .achievement-notifications-container {
+    top: calc(max(8px, env(safe-area-inset-top)) + 112px);
+    right: auto;
+    left: 50%;
+    bottom: auto;
+    transform: translateX(-50%);
+    max-width: min(300px, 70vw);
+    align-items: center;
+}
+html.pp-mobile .achievement-notification {
+    position: relative;
+    width: min(300px, 70vw);
+    pointer-events: none;
+    transform-origin: bottom center;
+    opacity: .92;
+    animation: ppToastUp .35s ease-out;
+}
+@keyframes ppToastUp { from { transform: translateY(-14px); opacity: 0; } }
+
+/* Speed "save the point" challenge and zombie wave reward: the MENU button
+   would cover their headings, and the cockpit side panels sit under the
+   targets on a phone-height screen. */
+body:has(#speedChallenge.active) #cyber-menu-btn,
+body:has(#zombieWaveChoice.visible) #cyber-menu-btn { visibility: hidden; }
+html.pp-mobile .speed-challenge .cockpit-panel { display: none; }
+html.pp-mobile .speed-challenge .challenge-title { font-size: clamp(1rem, 4.5vh, 1.6rem); }
+html.pp-mobile .zombie-wave-choice-panel { padding: 14px 16px; max-height: calc(100% - 16px); overflow-y: auto; }
+
+/* Zombie mode: the wave/breach pills repeat the scoreboard; on a phone the
+   court needs the room more. */
+html.pp-mobile .zombie-progress-overlay { display: none !important; }
+
+/* Customise: keep the header to one slim row so the settings get the screen. */
+html.pp-mobile .customise-overlay-header {
+    padding: max(8px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 8px max(14px, env(safe-area-inset-left)) !important;
+    align-items: center !important;
+    gap: 10px;
+}
+html.pp-mobile .customise-overlay-title { font-size: clamp(.95rem, 4.2vw, 1.3rem) !important; margin: 0 !important; line-height: 1.15; }
+html.pp-mobile .customise-overlay-subtitle { display: none; }
+html.pp-mobile .customise-overlay-back-btn { padding: 8px 14px !important; font-size: .7rem !important; white-space: nowrap; }
+html.pp-mobile .customise-overlay-content { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }

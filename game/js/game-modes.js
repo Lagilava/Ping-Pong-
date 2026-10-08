@@ -94,7 +94,7 @@
             // FIX: threshold is now pixels/second, not pixels/frame.
             // A fast ball at 60fps might be 12 px/frame = 720 px/s.
             // A "fast" shot is realistically 400–900 px/s on a typical canvas.
-            minBallSpeedPxPerSec: 450,
+            minBallSpeedPxPerSec: 1000, // floor; see getFastShotThreshold()
             minTimeSinceLastReplayMs: 25000,
             maxConsecutiveReplays: 2,
             minFramesForReplay: 72,    // ~3s at 24fps
@@ -417,6 +417,18 @@
             collisionHookCleanup = null;
         }
 
+        // Preferred: the game's own paddle-impact callback (fires once per real
+        // paddle hit; obstacle and wall bounces don't count as rally hits).
+        if (typeof game.onPaddleImpact === 'function') {
+            const prev = game.onPaddleImpact;
+            game.onPaddleImpact = function (...args) {
+                recordHit();
+                return prev.apply(this, args);
+            };
+            collisionHookCleanup = () => { if (game) game.onPaddleImpact = prev; };
+            return;
+        }
+
         // Pattern A: game emits events
         if (typeof game.on === 'function' || typeof game.addEventListener === 'function') {
             const addFn = (game.on || game.addEventListener).bind(game);
@@ -462,8 +474,8 @@
                 const vy = game.ball.vel.y ?? 0;
                 const speed = Math.sqrt(vx * vx + vy * vy);
 
-                // Convert px/frame to px/s (assume 60fps game loop; fine for comparison)
-                const pxPerSec = speed * 60;
+                // Ball velocity is already in px/s (dt-based integration).
+                const pxPerSec = speed;
                 if (pxPerSec > maxBallSpeedPxPerSec) maxBallSpeedPxPerSec = pxPerSec;
 
                 // Hit detected when x-velocity reverses sign
@@ -489,7 +501,7 @@
         if (game.ball?.vel) {
             const vx = game.ball.vel.x ?? 0;
             const vy = game.ball.vel.y ?? 0;
-            const speed = Math.sqrt(vx * vx + vy * vy) * 60; // px/s
+            const speed = Math.sqrt(vx * vx + vy * vy); // already px/s
             if (speed > maxBallSpeedPxPerSec) maxBallSpeedPxPerSec = speed;
         }
         rallyHits++;
@@ -506,6 +518,13 @@
     };
 
     // ─── TRIGGER LOGIC ────────────────────────────────────────────────────────
+    const getFastShotThreshold = () => {
+        const cap = Number(game?.ball?.maxSpeed);
+        return Number.isFinite(cap) && cap > 0
+            ? Math.max(CFG.trigger.minBallSpeedPxPerSec, cap * 0.82)
+            : CFG.trigger.minBallSpeedPxPerSec;
+    };
+
     const shouldTriggerReplay = () => {
         if (game?.gameMode === 'zombie') return false;
         if (isReplayPending || isReplaying || isEndingReplay) return false;
@@ -513,9 +532,12 @@
         if (Date.now() - lastReplayTime < CFG.trigger.minTimeSinceLastReplayMs) return false;
         if (bufferCount < CFG.trigger.minFramesForReplay) return false;
 
+        // "Fast" is relative to the ball's cap (it scales with screen size), so
+        // an ordinary serve never qualifies on its own.
+        const fastPx = getFastShotThreshold();
         const goodRally  = rallyHits >= CFG.trigger.minRallyHits;
-        const fastShot   = maxBallSpeedPxPerSec >= CFG.trigger.minBallSpeedPxPerSec;
-        const decentRally = rallyHits >= 4 && maxBallSpeedPxPerSec >= CFG.trigger.minBallSpeedPxPerSec * 0.7;
+        const fastShot   = rallyHits >= 2 && maxBallSpeedPxPerSec >= fastPx;
+        const decentRally = rallyHits >= 4 && maxBallSpeedPxPerSec >= fastPx * 0.8;
 
         return goodRally || fastShot || decentRally;
     };
@@ -572,6 +594,7 @@
         if (!game) return;
         game.replayActive = active;
         game.isReplay = active;
+        document.body.classList.toggle('pp-replaying', !!active);
         if (game.replay) { game.replay.active = active; game.replay.isPlaying = active; }
     };
 
@@ -689,7 +712,7 @@
             if (!m?.ball) continue;
             const p = scaleMetaPoint(m, m.ball);
             const age = (i - trailStart) / Math.max(1, idx - trailStart);
-            const speedPct = clamp((m.ball.speed || 0) / Math.max(1, CFG.trigger.minBallSpeedPxPerSec * 1.8), 0, 1);
+            const speedPct = clamp((m.ball.speed || 0) / Math.max(1, getFastShotThreshold() * 1.2), 0, 1);
             replayCtx.globalAlpha = 0.08 + age * 0.45;
             replayCtx.fillStyle = speedPct > 0.7 ? '#ffb347' : speedPct > 0.45 ? '#00eeff' : '#ffffff';
             replayCtx.beginPath();
@@ -707,6 +730,13 @@
         replayCtx.arc(ball.x, ball.y, Math.max(8, ball.r + 6), 0, Math.PI * 2);
         replayCtx.stroke();
 
+        // Panel is laid out in CSS pixels: the replay canvas is upscaled to
+        // the screen, so on phones canvas-pixel sizes would balloon.
+        const cssW = replayCanvas.clientWidth || replayCanvas.width;
+        const k = replayCanvas.width / Math.max(1, cssW);
+        const compact = (replayCanvas.clientHeight || 999) < 520;
+        if (compact) { replayCtx.restore(); return; }   // stats strip shows the same numbers
+        replayCtx.setTransform(k, 0, 0, k, 0, 0);
         const panelX = 18;
         const panelY = 76;
         const panelW = 190;
@@ -989,7 +1019,7 @@
         const mphSpeed   = pxPerSecToMPH(maxBallSpeedPxPerSec);
         const replayReason = rallyHits >= CFG.trigger.minRallyHits
             ? 'RALLY CLIP'
-            : maxBallSpeedPxPerSec >= CFG.trigger.minBallSpeedPxPerSec
+            : maxBallSpeedPxPerSec >= getFastShotThreshold()
                 ? 'FAST SHOT'
                 : 'MOMENTUM CLIP';
         const rallyDuration = Math.max(0, (Date.now() - rallyStartTime) / 1000).toFixed(1);
@@ -1173,6 +1203,14 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
     from { opacity:0;transform:translateY(16px); }
     to   { opacity:1;transform:translateY(0); }
 }
+/* The settings panels (game-enhancements.js) also style ".pp-btn" (flex:1,
+   min-width:120px, padding); undo that here so replay buttons keep their size. */
+.pp-overlay button.pp-btn {
+    box-sizing:border-box;padding:0;margin:0;letter-spacing:0;
+    flex:0 0 auto;min-width:0;overflow:visible;
+}
+.pp-overlay button.pp-btn::before { display:none; }
+.pp-overlay button.pp-btn-skip { padding:0 14px; }
 .pp-btn {
     width:42px;height:42px;border-radius:10px;
     background:rgba(255,255,255,0.07);
@@ -1235,6 +1273,29 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
     .pp-btn { width:38px;height:38px; }
     .pp-controls { padding:8px 10px;gap:6px; }
     .pp-btn-skip { padding:0 10px; }
+}
+/* Phones / short screens: one compact control row, no keyboard hints,
+   stats folded into a slim strip under the header. */
+@media (max-height:520px), (hover:none) and (pointer:coarse) {
+    .pp-hint, .pp-tooltip { display:none !important; }
+    .pp-header { padding:max(6px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left)); }
+    .pp-brand-badge { width:26px;height:26px;font-size:13px; }
+    .pp-brand-label { font-size:17px; }
+    .pp-brand-sub { display:none; }
+    .pp-reason { top:8px;padding:4px 14px;font-size:13px; }
+    .pp-stats { top:44px;right:max(10px,env(safe-area-inset-right));flex-direction:row;gap:12px;padding:6px 10px;border-radius:10px; }
+    .pp-stat { min-width:0; }
+    .pp-stat-label { font-size:9px; }
+    .pp-stat-value { font-size:16px; }
+    .pp-stat-value span { font-size:9px !important; }
+    .pp-bottom-ui { width:min(620px,94vw);bottom:max(8px,env(safe-area-inset-bottom));gap:4px; }
+    .pp-progress-wrap { padding:10px 0 0; }
+    .pp-times { margin-top:4px; }
+    .pp-controls { padding:6px 10px;gap:8px;flex-wrap:nowrap;border-radius:14px; }
+    .pp-overlay #pp-btn-prev, .pp-overlay #pp-btn-next, .pp-overlay #pp-btn-telemetry, .pp-overlay #pp-btn-loop { display:none; }
+    .pp-btn { width:44px;height:44px; }
+    .pp-btn-skip { width:auto;padding:0 16px; }
+    .pp-btn:hover { transform:none; }
 }
 @media (max-width:520px) {
     .pp-header { padding:8px 10px; }
@@ -1775,6 +1836,56 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
         smoothResumeGame();
     };
 
+    // ─── OPT-IN REPLAY (phones) ───────────────────────────────────────────────
+    // A small chip under the scoreboard for a few seconds. Recording is paused
+    // while it's up so the highlight stays in the buffer; ignoring it costs
+    // nothing and the match never stops unless the player asks.
+    let offerEl = null;
+    let offerTimer = null;
+    const OFFER_MS = 4500;
+
+    const dismissReplayOffer = (resumeRecording = true) => {
+        clearTimeout(offerTimer);
+        offerTimer = null;
+        if (offerEl) {
+            const el = offerEl;
+            offerEl = null;
+            el.classList.remove('on');
+            setTimeout(() => el.remove(), 250);
+            if (resumeRecording) {
+                resetRallyTracking();
+                lastRecordTimestamp = 0;
+                startRecording();
+            }
+        }
+    };
+
+    const offerReplay = () => {
+        if (offerEl || isReplaying || isEndingReplay) return;
+        lastReplayTime = Date.now();   // same spacing as auto replays, watched or not
+        stopRecording();
+        offerEl = document.createElement('button');
+        offerEl.type = 'button';
+        offerEl.className = 'pp-replay-offer';
+        offerEl.innerHTML = '<span aria-hidden="true">&#9654;</span> REPLAY <i></i>';
+        offerEl.style.setProperty('--pp-offer-ms', OFFER_MS + 'ms');
+        offerEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dismissReplayOffer(false);
+            startReplay(true);
+        });
+        document.body.appendChild(offerEl);
+        requestAnimationFrame(() => offerEl?.classList.add('on'));
+        offerTimer = setTimeout(() => dismissReplayOffer(true), OFFER_MS);
+    };
+
+    // Leaving the match (pause menu, quit) drops the offer.
+    const offerWatch = () => {
+        if (offerEl && (!game || game.paused || !game.running)) dismissReplayOffer(true);
+        requestAnimationFrame(offerWatch);
+    };
+    requestAnimationFrame(offerWatch);
+
     // ─── SCORE + RALLY POLLING ────────────────────────────────────────────────
     const pollForScoreAndRally = () => {
         if (!game) { requestAnimationFrame(pollForScoreAndRally); return; }
@@ -1794,7 +1905,11 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
                     score: { player: game.scores?.player ?? 0, ai: game.scores?.ai ?? 0 },
                 });
                 lastScoreTotal = total;
-                if (shouldTriggerReplay()) {
+                if (shouldTriggerReplay() && IS_MOBILE) {
+                    // Phones: never take the screen away mid-match. Freeze the
+                    // clip and offer it; play carries on underneath.
+                    offerReplay();
+                } else if (shouldTriggerReplay()) {
                     isReplayPending = true;
                     if (pendingReplayTimeout) clearTimeout(pendingReplayTimeout);
                     pendingReplayTimeout = setTimeout(() => {

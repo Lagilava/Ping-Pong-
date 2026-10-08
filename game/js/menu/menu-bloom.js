@@ -12,7 +12,7 @@ class MenuBloom {
         this.scene = scene;
         this.camera = camera;
         this.time = 0;
-        this.strength = 1.0;
+        this.strength = 0.5;
 
         const isWebGL2 = renderer.capabilities.isWebGL2;
         const rtOpts = {

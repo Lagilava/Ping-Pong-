@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="css/achievement-toasts.css">
     <link rel="stylesheet" href="css/achievement-toasts-compact.css">
     <link rel="stylesheet" href="css/achievements-list.css">
+    <link rel="stylesheet" href="css/mobile.css">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js"></script>
 </head>
@@ -411,6 +412,12 @@
 
     <div class="achievements" id="achievementsContainer"></div>
     <div class="rotate-hint" aria-hidden="true"><span>&#x21bb;</span>Rotate your device to landscape</div>
+    <div class="pp-rotate-block" role="alert">
+        <div class="pp-rotate-phone" aria-hidden="true"></div>
+        <b>TURN YOUR PHONE</b>
+        <small>The match is paused. Play in landscape.</small>
+        <button type="button">Go fullscreen</button>
+    </div>
     <!-- Pause menu (driven by Game.syncPauseState) -->
     <div id="pauseMenu" class="pause-menu" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" aria-hidden="true">
         <div class="pause-card">

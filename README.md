@@ -19,6 +19,13 @@ Keep the small console window open while you play; close it to stop.
 - **Gamepad:** left stick or d-pad moves (analog), **A** fires the laser / skips
   intros, **Start** pauses; a second pad controls the right paddle in local 1v1.
   Controllers rumble on hits and goals.
+- **Phones / tablets:** play in landscape (the match pauses if you turn the
+  phone upright; Android goes fullscreen and locks landscape when a match
+  starts). Drag anywhere on your half to move your paddle (it follows your
+  finger's movement, so your finger never covers the ball); tap with a second
+  finger to fire the laser. Instant replays never interrupt a match on mobile:
+  after a great point a **▶ REPLAY** chip shows for a few seconds, so tap it
+  only if you want to watch.
 - **F2** shows a performance readout: FPS, detected display refresh rate,
   quality tier, render scale, shaders and physics backend.
 - Intros can be skipped: click or press any key during the boot cinematic,
