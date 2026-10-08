@@ -939,8 +939,9 @@ class ProgressionSystem {
         </div>
         ${itemsHTML}
         <div style="text-align:center; margin-top:20px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.55); font-size:12.5px;">
-            To view the achievements again press Ctrl + Shift + A<br>
-            Click anywhere or press ESC to continue
+            ${window.PPDevice?.touch
+                ? 'Tap anywhere to continue'
+                : 'To view the achievements again press Ctrl + Shift + A<br>Click anywhere or press ESC to continue'}
         </div>
     </div>
 `;

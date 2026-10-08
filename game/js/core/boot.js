@@ -1,15 +1,5 @@
 (function () {
-    // Tag phones/tablets before first paint so css/mobile.css applies from the
-    // start (PerfGovernor.initForDevice uses the same test later).
-    try {
-        const nav = navigator;
-        const coarse = matchMedia('(pointer: coarse)').matches;
-        const small = Math.min(screen.width || 9999, screen.height || 9999) < 820;
-        if (nav.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(nav.userAgent || '') || (coarse && small)) {
-            document.documentElement.classList.add('pp-mobile');
-        }
-    } catch (e) { /* ignore */ }
-
+    // Phones/tablets are tagged (html.pp-mobile) by js/core/device.js.
     const params = new URLSearchParams(location.search);
     const navEntry = performance.getEntriesByType('navigation')[0];
     const isReload = navEntry && navEntry.type === 'reload';

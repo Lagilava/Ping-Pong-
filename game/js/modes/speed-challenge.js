@@ -270,7 +270,7 @@ class SpeedChallenge {
             this.updateStatus(`Cockpit lock acquired. Hit ${this.totalTargets} target${this.totalTargets > 1 ? 's' : ''} in ${timeText}s.`);
         }
 
-        this.announcer.textContent = `Speed challenge: ${this.isMultiplayer ? 'Press combo' : 'Click targets'}. Level ${level}.`;
+        this.announcer.textContent = `Speed challenge: ${this.isMultiplayer ? 'Press combo' : (window.PPDevice?.touch ? 'Tap targets' : 'Click targets')}. Level ${level}.`;
 
         // Play sound
         this.game.audio.speedChallenge();

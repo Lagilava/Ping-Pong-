@@ -470,6 +470,7 @@
             row.appendChild(el);
         });
         updateMenuCards();
+        syncCardOverflow();
     }
 
     function hexToRgba(hex, alpha = 1) {
@@ -479,14 +480,34 @@
         return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${alpha})`;
     }
 
+    let menuOffset = 0, menuLastWheelTime = 0;
+    // Phones lay the cards out as a native, swipeable scroll row (css/mobile.css).
+    const isNativeCardScroll = (row) => !!row && getComputedStyle(row).overflowX === 'auto';
+
+    // Desktop: the arrows and "scroll or drag" hint only appear when the
+    // cards don't all fit across the window.
+    function syncCardOverflow() {
+        const hud = document.getElementById('cards-hud');
+        const row = document.getElementById('cardRow');
+        if (!hud || !row || isNativeCardScroll(row)) return;
+        hud.classList.add('pp-cards-fit');
+        const fits = row.scrollWidth <= row.clientWidth + 1;
+        hud.classList.toggle('pp-cards-fit', fits);
+        const hint = document.querySelector('.hint');
+        if (hint) hint.style.visibility = fits ? 'hidden' : '';
+        if (fits && menuOffset) {
+            menuOffset = 0;
+            row.style.transform = '';
+        }
+    }
+    window.addEventListener('resize', () => requestAnimationFrame(syncCardOverflow));
+    document.fonts?.ready?.then(syncCardOverflow);
+
     function updateMenuCards() {
         const ch = document.getElementById('cardRow')?.children || [];
         for (let i = 0; i < ch.length; i++) ch[i].classList.toggle('active', i === menuActiveIdx);
     }
 
-    let menuOffset = 0, menuLastWheelTime = 0;
-    // Phones lay the cards out as a native, swipeable scroll row (css/mobile.css).
-    const isNativeCardScroll = (row) => !!row && getComputedStyle(row).overflowX === 'auto';
 
     function scrollMenuCards(dir) {
         const row = document.getElementById('cardRow');

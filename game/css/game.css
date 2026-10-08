@@ -1758,10 +1758,16 @@ body.obstacle-mode .mode-btn.active[data-mode="obstacle"] {
 }
 
 .card-row {
+    /* One row: cards shrink to fit (down to ~850px wide windows), then the
+       arrows slide the row (menu.js scrollMenuCards) instead of wrapping it
+       up over the table. The auto margins on the end cards centre the row
+       while it fits and keep the first card reachable once it doesn't. */
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    width: 100%;
+    min-width: 0;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: clamp(10px, 2vw, 22px);
     padding: 0 20px;
     transform-style: preserve-3d;
@@ -1770,7 +1776,7 @@ body.obstacle-mode .mode-btn.active[data-mode="obstacle"] {
 
 .card {
     flex-shrink: 0;
-    width: clamp(140px, 18vw, 192px);
+    width: clamp(118px, 14.2vw, 192px);
     aspect-ratio: .68;
     border-radius: 18px;
     border: none;
@@ -1785,6 +1791,17 @@ body.obstacle-mode .mode-btn.active[data-mode="obstacle"] {
     position: relative;
     overflow: hidden;
     padding: 14px 12px;
+}
+
+.card:first-child { margin-left: auto; }
+.card:last-child { margin-right: auto; }
+html:not(.pp-mobile) #cards-hud.pp-cards-fit .arr-btn { display: none; }
+html:not(.pp-mobile) #cards-hud:not(.pp-cards-fit) .card-row { padding: 0 76px; }
+
+/* Narrow desktop windows: keep the progress panel clear of the title. */
+@media (max-width: 960px) {
+    html:not(.pp-mobile) .menu-right-panel { width: 240px; }
+    html:not(.pp-mobile) .menu-right-panel > .menu-recent-achievements { display: none; }
 }
 
 .card::before {

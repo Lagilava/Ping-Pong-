@@ -184,9 +184,11 @@ html.pp-mobile .pp-rotate-block button {
 
 /* ---------- In match: HUD sizing ---------- */
 html.pp-mobile .skip-intro { padding: 10px 16px; bottom: max(12px, env(safe-area-inset-bottom)); }
-html.pp-mobile .skip-intro span { display: none; }
-html.pp-mobile kbd { display: none; }
-html.pp-mobile .pause-hint { display: none; }
+/* Keyboard shortcuts mean nothing under a finger (touch laptops included). */
+html.pp-input-touch .skip-intro span,
+html.pp-input-touch kbd,
+html.pp-input-touch .pause-hint,
+html.pp-input-touch .pp-hint { display: none !important; }
 
 /* The in-match MENU button would sit on top of the replay header. */
 body.pp-replaying #cyber-menu-btn,

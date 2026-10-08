@@ -86,18 +86,14 @@ const PerfGovernor = {
      */
     initForDevice() {
         const nav = typeof navigator !== 'undefined' ? navigator : {};
-        const ua = nav.userAgent || '';
-        const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-        const smallScreen = Math.min(screen?.width || 9999, screen?.height || 9999) < 820;
         const cores = nav.hardwareConcurrency || 8;
         const memory = nav.deviceMemory || 8;          // Chrome/Edge only; GB, rounded
-        this.isMobile = !!(nav.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (coarse && smallScreen));
+        this.isMobile = !!window.PPDevice?.mobile;
         if (this.isMobile) {
             this.TIERS = this.MOBILE_TIERS;
             // Mid tier to start; strong phones climb to the bloom tier.
             this.tier = (cores <= 4 || memory <= 3) ? 2 : 1;
-            this.deviceClass = 'mobile';
-            document.documentElement?.classList.add('pp-mobile');
+            this.deviceClass = window.PPDevice.kind;
         } else {
             let start = 0;
             if (cores <= 4 || memory <= 4) start = 1;

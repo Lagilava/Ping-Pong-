@@ -1,6 +1,14 @@
 // Phones: going into a match from a tap goes fullscreen and, where the
 // browser allows it (Android Chrome/Edge), locks landscape. iOS Safari has
 // neither, so it gets the "turn your phone" card from css/mobile.css instead.
+// Speed mode's "save the point" heading follows the current input.
+(function inputWording() {
+    const title = document.querySelector('#speedChallenge .challenge-title');
+    const sync = () => { if (title) title.textContent = window.PPDevice?.touch ? 'TAP TO SAVE!' : 'CLICK TO SAVE!'; };
+    sync();
+    window.PPDevice?.onInputChange(sync);
+})();
+
 (function mobileImmersive() {
     const root = document.documentElement;
     if (!root.classList.contains('pp-mobile')) return;
@@ -15,9 +23,6 @@
             }
         } catch (e) { /* ignore */ }
     };
-
-    const challengeTitle = document.querySelector('#speedChallenge .challenge-title');
-    if (challengeTitle) challengeTitle.textContent = 'TAP TO SAVE!';
 
     if (!root.requestFullscreen) {
         const btn = document.querySelector('.pp-rotate-block button');

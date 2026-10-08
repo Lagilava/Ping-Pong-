@@ -6,7 +6,7 @@ class EnhancedAudioEngine {
         this.masterVolume = 0.7;
         this.initialized = false;
         this.enabled = true; // Start enabled by default
-        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        this.isMobile = !!window.PPDevice?.mobile;
         this.activeGravityWells = new Map();
         this.gravitySyncInterval = null;
         this.voiceSyncInterval = null;

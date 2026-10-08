@@ -6,6 +6,7 @@
     <title>Ping Pong - Neon Edition</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="css/fonts.css">
+    <script src="js/core/device.js"></script>
     <style>
         :root {
             --bg: #021019;
@@ -411,7 +412,7 @@
         };
 
         // Phones get a shorter boot cinematic (it's a heavy full-screen canvas scene).
-        const IS_MOBILE_DEVICE = (navigator.userAgentData && navigator.userAgentData.mobile) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820);
+        const IS_MOBILE_DEVICE = !!window.PPDevice?.mobile;
         const INTRO_DURATION_MS = IS_MOBILE_DEVICE ? 4000 : 9000;
         const INTRO_KEY = 'pp_neon_intro_seen';
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -619,7 +620,7 @@
                 </div>
             </div>
 
-            <div id="tapPrompt">Tap anywhere to authorize</div>
+            <div id="tapPrompt">${window.PPDevice?.touch ? 'Tap anywhere to authorize' : 'Click or press Enter to authorize'}</div>
 
             <div id="telemetry">
                 <div class="telem-item"><span style="color:rgba(100,160,220,0.3);font-size:8px;letter-spacing:0.15em">FRAME</span><span class="telem-val" id="fpsVal">60</span></div>
@@ -778,7 +779,7 @@
                 };
                 ['pointerdown','keydown'].forEach(evt => document.addEventListener(evt, skipToGame, { once: true }));
                 const hint = document.createElement('div');
-                hint.textContent = 'Click or press any key to skip';
+                hint.textContent = window.PPDevice?.touch ? 'Tap to skip' : 'Click or press any key to skip';
                 hint.style.cssText = 'position:fixed;right:24px;bottom:20px;z-index:50;color:rgba(190,230,255,0.55);font:12px/1 "Share Tech Mono",monospace;letter-spacing:0.18em;text-transform:uppercase;pointer-events:none;';
                 document.body.appendChild(hint);
             }, 900);

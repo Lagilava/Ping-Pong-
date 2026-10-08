@@ -1588,19 +1588,23 @@
                                 <div class="help-entry"><strong>Speed</strong> – Type scrolling words to keep the ball moving.</div>
                             </div>
                             <div class="help-section" data-section="controls" style="display:none">
+                                ${window.PPDevice?.touch ? `
+                                <div class="help-entry"><strong>Drag</strong> – Slide a finger on your half of the screen to move your paddle</div>
+                                <div class="help-entry"><strong>Second finger</strong> – Tap to fire the laser</div>
+                                <div class="help-entry"><strong>Local 1v1</strong> – Each player drags on their own half</div>
+                                <div class="help-entry"><strong>MENU</strong> – Pause, restart or quit</div>` : `
                                 <div class="help-entry"><strong>W / S</strong> – Move paddle up / down</div>
                                 <div class="help-entry"><strong>↑ / ↓</strong> – Alternative paddle controls</div>
-                                <div class="help-entry"><strong>Mouse / Touch</strong> – Drag to position paddle</div>
+                                <div class="help-entry"><strong>Mouse</strong> – Drag to position paddle</div>
                                 <div class="help-entry"><strong>SPACEBAR</strong> – Pause / Resume / fire laser</div>
-                                <div class="help-entry"><strong>ESC</strong> – Skip intro or close menus</div>
-                                <div class="help-entry"><strong>Device Tilt</strong> – Supported on mobile</div>
+                                <div class="help-entry"><strong>ESC</strong> – Skip intro or close menus</div>`}
                             </div>
                             <div class="help-section" data-section="powerups" style="display:none">
                                 <div class="help-entry">• <strong>Slow Ball</strong> – Temporarily slows the ball</div>
                                 <div class="help-entry">• <strong>Fast Paddle</strong> – Boosts your paddle speed</div>
                                 <div class="help-entry">• <strong>Freeze AI</strong> – Stops the AI briefly</div>
                                 <div class="help-entry">• <strong>Multi-Ball</strong> – Adds up to 3 extra balls</div>
-                                <div class="help-entry">• <strong>Laser Paddle</strong> – Shoot the ball with SPACEBAR</div>
+                                <div class="help-entry">• <strong>Laser Paddle</strong> – Shoot the ball with ${window.PPDevice?.touch ? 'a second finger' : 'SPACEBAR'}</div>
                                 <div class="help-entry">• <strong>Shield</strong> – Absorbs the next point against you</div>
                                 <div class="help-entry">• <strong>Chaos Mode</strong> – Random effects every few seconds</div>
                                 <div class="help-entry">• <strong>Ghost Ball</strong> – Ball passes through objects briefly</div>

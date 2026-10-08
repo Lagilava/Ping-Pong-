@@ -26,6 +26,11 @@ Keep the small console window open while you play; close it to stop.
   finger to fire the laser. Instant replays never interrupt a match on mobile:
   after a great point a **▶ REPLAY** chip shows for a few seconds, so tap it
   only if you want to watch.
+- **Device detection** (`game/js/core/device.js`) picks phone, tablet or PC
+  once at load (iPads that report themselves as a Mac included) and tags
+  `<html>` with `pp-phone` / `pp-tablet` / `pp-desktop` (+ `pp-mobile` for
+  phones and tablets). Layout, quality tiers and on-screen instructions
+  (tap vs. click/keys) all follow it.
 - **F2** shows a performance readout: FPS, detected display refresh rate,
   quality tier, render scale, shaders and physics backend.
 - Intros can be skipped: click or press any key during the boot cinematic,

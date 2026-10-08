@@ -5990,7 +5990,7 @@ class Game {
             case 'laserPaddle':
                 this.player.activateLaser(3);
                 this.aiPaddle.activateLaser(3);
-                this.showNotification('Laser Paddle!', PerfGovernor.isMobile
+                this.showNotification('Laser Paddle!', window.PPDevice?.touch
                     ? 'Tap with a 2nd finger = 3 laser shots'
                     : (this.isMultiplayer ? 'SPACE/ENTER = 3 laser shots' : 'SPACE = 3 laser shots'), '#f44336');
                 break;
