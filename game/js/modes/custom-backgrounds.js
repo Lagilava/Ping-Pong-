@@ -111,15 +111,23 @@ The background I want: `;
     const resolve = (p) => (typeof window.resolveAssetUrl === 'function' ? window.resolveAssetUrl(p) : p);
 
     // ── Library ────────────────────────────────────────────────────────
+    // Parsed once and kept until the next save: a match looks its background
+    // up every frame, and images make the stored JSON large.
+    let libraryCache = null;
+    // Backgrounds lent by an online host for one match. Never saved.
+    const sessionEntries = new Map();
     const Library = {
         list() {
+            if (libraryCache) return libraryCache.slice();
             try {
                 const raw = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
-                return Array.isArray(raw) ? raw.filter((e) => e && e.id && (e.kind === 'image' || e.kind === 'canvas' || e.kind === 'shader')) : [];
-            } catch (_) { return []; }
+                libraryCache = Array.isArray(raw) ? raw.filter((e) => e && e.id && (e.kind === 'image' || e.kind === 'canvas' || e.kind === 'shader')) : [];
+            } catch (_) { libraryCache = []; }
+            return libraryCache.slice();
         },
-        get(id) { return this.list().find((e) => e.id === id) || null; },
+        get(id) { return sessionEntries.get(id) || this.list().find((e) => e.id === id) || null; },
         save(list) {
+            libraryCache = null;
             try {
                 localStorage.setItem(STORE_KEY, JSON.stringify(list.slice(0, MAX_ENTRIES)));
                 return true;
@@ -774,6 +782,13 @@ parent.postMessage({ type: 'boot' }, '*');
         Library, BUILT_INS, AI_PROMPT, EXAMPLE_CANVAS, EXAMPLE_SHADER,
         detectKind, resolveSelection, drawSelection, drawMatchBackground, stopCode,
         openPicker, closePicker, optionsHtml,
+        // Online: the guest borrows the host's imported background for the match.
+        setSessionEntry(entry) {
+            if (!entry || !entry.id || !['image', 'canvas', 'shader'].includes(entry.kind) || typeof entry.data !== 'string') return false;
+            sessionEntries.set(entry.id, { id: entry.id, kind: entry.kind, name: String(entry.name || 'Host background').slice(0, 40), data: entry.data, thumb: typeof entry.thumb === 'string' ? entry.thumb : '' });
+            return true;
+        },
+        clearSessionEntries() { sessionEntries.clear(); },
         isImported: (mode) => typeof mode === 'string' && mode.startsWith('custom:') && !!Library.get(mode.slice(7)),
         nameOf: (mode) => { const s = resolveSelection(mode); return s.entry ? s.entry.name : s.builtin.name; },
     };

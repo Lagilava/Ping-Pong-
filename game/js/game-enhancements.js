@@ -1315,6 +1315,12 @@
                     rightLabel: 'LIVES', right: `${Math.max(0, z.hearts)}/${z.maxHearts}`,
                 };
             }
+            if (game.net) {
+                return {
+                    leftLabel: game.net.labelFor('left'), left: game.scores.player,
+                    rightLabel: game.net.labelFor('right'), right: game.scores.ai,
+                };
+            }
             return {
                 leftLabel: game.isMultiplayer ? 'P1' : 'PLAYER', left: game.scores.player,
                 rightLabel: game.isMultiplayer ? 'P2' : 'AI', right: game.scores.ai,
@@ -1453,6 +1459,10 @@
                 ['online', 'Versus', `
                     <ul class="pphelp-list">
                         <li><b>Local 1v1:</b> pick a mode, choose Local 1v1, and share the keyboard (or plug in two gamepads).</li>
+                        <li><b>Online:</b> pick a mode, choose Online, then <b>Create a room</b>. Send the 5-character code (or the invite link) to a friend; they choose Online, <b>Join a room</b> and type it in. You play on the left, they play on the right.</li>
+                        <li>Online works in Classic, Gravity, Obstacle and Custom. The host picks the mode, and the host's points to win, power-ups and Forge arena are used.</li>
+                        <li>Online, your paddle answers to every control: ${kb('W')}/${kb('S')}, ${kb('↑')}/${kb('↓')}, mouse, touch or a gamepad.</li>
+                        <li>The two browsers connect directly. If it never connects, one network is blocking peer-to-peer games; a phone hotspot usually works.</li>
                     </ul>`],
                 ['progress', 'Progress', `
                     <ul class="pphelp-list">

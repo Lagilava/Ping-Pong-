@@ -25,7 +25,11 @@
 
     const skipIntroFlag = (() => {
         try {
-            if (params.has('return_to_menu')) {
+            // Online invite links: play.html?from_intro=1&join=CODE
+    if (params.has('join')) {
+        window.PP_JOIN_CODE = String(params.get('join') || '').slice(0, 12);
+    }
+    if (params.has('return_to_menu')) {
                 sessionStorage.setItem('pp-return-to-menu', '1');
                 sessionStorage.setItem('pp-skip-intro', '1');
             }
@@ -43,6 +47,10 @@
         return;
     }
 
+    // Online invite links: play.html?from_intro=1&join=CODE
+    if (params.has('join')) {
+        window.PP_JOIN_CODE = String(params.get('join') || '').slice(0, 12);
+    }
     if (params.has('return_to_menu')) {
         window.PP_RETURN_TO_MENU = true;
     }

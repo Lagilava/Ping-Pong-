@@ -88,6 +88,9 @@ class PostFX {
     /** Shockwave ripple at a canvas position (CSS px). strength ~0..1 */
     ripple(x, y, strength = 0.5) {
         if (!this.active || this.quality > 1) return;
+        // Online guest: the court is scaled and letterboxed on screen.
+        const view = window.game?.netView;
+        if (view) { x = view.ox + x * view.scale; y = view.oy + y * view.scale; }
         const w = this.source.clientWidth || 1, h = this.source.clientHeight || 1;
         if (this.ripples.length >= 6) this.ripples.shift();
         this.ripples.push({ x: x / w, y: 1 - y / h, age: 0, strength: Math.min(1.2, strength) });

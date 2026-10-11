@@ -528,7 +528,7 @@
     const shouldTriggerReplay = () => {
         if (game?.gameMode === 'zombie') return false;
         // Settings > Gameplay > Instant replays; online matches never stop for one.
-        if (window.PPSettings?.get('replays') === 'off' || game?.online) return false;
+        if (window.PPSettings?.get('replays') === 'off' || game?.net) return false;
         if (isReplayPending || isReplaying || isEndingReplay) return false;
         if (consecutiveReplays >= CFG.trigger.maxConsecutiveReplays) return false;
         if (Date.now() - lastReplayTime < CFG.trigger.minTimeSinceLastReplayMs) return false;

@@ -986,8 +986,17 @@ class Game {
         const rect = this.canvas.getBoundingClientRect();
         if (!rect.width || !rect.height) return null;
 
-        const x = (clientX - rect.left) * (this.width / rect.width);
-        const y = (clientY - rect.top) * (this.height / rect.height);
+        let x, y;
+        if (this.netView) {
+            // Online guest: undo the letterbox around the host-sized court.
+            const v = this.netView;
+            const sx = rect.width / Math.max(1, this.width * v.scale + v.ox * 2);
+            x = ((clientX - rect.left) / sx - v.ox) / v.scale;
+            y = ((clientY - rect.top) / sx - v.oy) / v.scale;
+        } else {
+            x = (clientX - rect.left) * (this.width / rect.width);
+            y = (clientY - rect.top) * (this.height / rect.height);
+        }
         // Undo the opening camera move so the paddle follows the pointer.
         const zoom = this.arenaRevealZoom || 1;
         if (zoom === 1) return { x, y };
@@ -1034,6 +1043,7 @@ class Game {
     }
 
     getPointerTarget(canvasX) {
+        if (this.net) return this.net.role === 'host' ? 'player' : 'ai';
         if (!this.isMultiplayer) return 'player';
         return canvasX >= this.width * 0.5 ? 'ai' : 'player';
     }
@@ -1303,17 +1313,32 @@ class Game {
         const viewport = this.getViewportSize();
         // Backing-store scale comes from the quality governor (≤ devicePixelRatio).
         const dpr = PerfGovernor.renderScale;
-        const width = Math.max(1, Math.round(container.clientWidth || viewport.width));
-        const height = Math.max(1, Math.round(container.clientHeight || viewport.height));
-        this.canvas.width = Math.round(width * dpr);
-        this.canvas.height = Math.round(height * dpr);
-        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const screenW = Math.max(1, Math.round(container.clientWidth || viewport.width));
+        const screenH = Math.max(1, Math.round(container.clientHeight || viewport.height));
+        // Online guest: the court is the host's size, scaled to fit this
+        // screen (letterboxed) so both players see the same arena.
+        let width = screenW, height = screenH;
+        this.netView = null;
+        if (this.netWorld) {
+            width = this.netWorld.w;
+            height = this.netWorld.h;
+            const scale = Math.min(screenW / width, screenH / height);
+            this.netView = { scale, ox: (screenW - width * scale) / 2, oy: (screenH - height * scale) / 2 };
+        }
+        this.canvas.width = Math.round(screenW * dpr);
+        this.canvas.height = Math.round(screenH * dpr);
+        if (this.netView) {
+            const v = this.netView;
+            this.ctx.setTransform(dpr * v.scale, 0, 0, dpr * v.scale, dpr * v.ox, dpr * v.oy);
+        } else {
+            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
         if ('imageSmoothingEnabled' in this.ctx) {
             this.ctx.imageSmoothingEnabled = true;
             this.ctx.imageSmoothingQuality = 'high';
         }
-        this.canvas.style.width = `${width}px`;
-        this.canvas.style.height = `${height}px`;
+        this.canvas.style.width = `${screenW}px`;
+        this.canvas.style.height = `${screenH}px`;
         this.width = width;
         this.height = height;
         this.center = new Vec2(this.width / 2, this.height / 2);
@@ -1327,7 +1352,14 @@ class Game {
 
     handleResize() {
         clearTimeout(this.resizeTimeout);
-        this.resizeTimeout = setTimeout(() => {
+        this.resizeTimeout = setTimeout(() => this.resizeNow(), 250);
+    }
+
+    // Re-fit the court to the screen (or to the online host's court) and
+    // rescale everything on it.
+    resizeNow() {
+        clearTimeout(this.resizeTimeout);
+        {
             try {
                 const previousWidth = Math.max(1, this.width || 1);
                 const previousHeight = Math.max(1, this.height || 1);
@@ -1384,10 +1416,12 @@ class Game {
                 if (this.gameMode === 'speed') {
                     this.initSpeedParticles();
                 }
+                // Online host: the guest's court follows ours.
+                if (this.net?.role === 'host') this.net.send({ t: 'world', w: this.width, h: this.height });
             } catch (error) {
                 console.error("Error during resize handling:", error);
             }
-        }, 250);
+        }
     }
 
     createGameObjects() {
@@ -1487,7 +1521,7 @@ class Game {
     bindUI() {
         const restartBtn = document.getElementById('restart');
         if (restartBtn && typeof this.resetMatch === 'function') {
-            restartBtn.addEventListener('click', () => this.resetMatch());
+            restartBtn.addEventListener('click', () => this.handlePauseAction('restart'));
         }
 
         // Menu toggle button - opens cyberbar and pauses game
@@ -2442,6 +2476,9 @@ class Game {
     }
 
     setGameMode(mode) {
+        // Starting any other match ends an online session.
+        if (this.net && !this.net.launching) this.net.leave();
+        window.PPResults?.hide();
         // Remove any previous mode classes from body
         document.body.classList.remove('classic-mode', 'zombie-mode', 'gravity-mode', 'speed-mode', 'obstacle-mode', 'customise-mode');
         document.body.classList.add(`${mode}-mode`);
@@ -5737,7 +5774,7 @@ class Game {
             if (this.userPaused) {
                 const k = e.key.toLowerCase();
                 if (e.key === 'Escape') this.setUserPaused(false);
-                else if (k === 'r') this.restartMatch();
+                else if (k === 'r') this.handlePauseAction('restart');
                 else if (k === 'q') this.returnToMenu();
                 if (e.key === 'Escape' || k === 'r' || k === 'q') e.preventDefault();
                 return;
@@ -5777,7 +5814,7 @@ class Game {
         window.addEventListener('blur', () => { for (const k in this.keys) this.keys[k] = false; });
         // Settings > Auto-pause: switching tabs or windows pauses the match.
         const autoPause = () => {
-            if (!window.PPSettings?.get('autoPause') || this.online) return;
+            if (!window.PPSettings?.get('autoPause') || this.net) return;
             if (this.isInMatch() && this.running && !this.introActive && !this.paused) this.setUserPaused(true);
         };
         window.addEventListener('blur', autoPause);
@@ -5840,8 +5877,10 @@ class Game {
     }
 
     setUserPaused(paused) {
+        const changed = this.userPaused !== !!paused;
         this.userPaused = !!paused;
         this.syncPauseState();
+        if (changed) this.net?.onLocalPause(this.userPaused);
     }
 
     setChallengePaused(paused) {
@@ -5879,8 +5918,9 @@ class Game {
             const z = this.zombieState || {};
             const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
             set('pauseMode', (this.getModeDisplayName(this.gameMode) || '').toUpperCase());
-            set('pauseLabelL', zombie ? 'SCORE' : (this.isMultiplayer ? 'P1' : 'PLAYER'));
-            set('pauseLabelR', zombie ? 'LIVES' : (this.isMultiplayer ? 'P2' : 'AI'));
+            set('pauseLabelL', zombie ? 'SCORE' : (this.net ? this.net.labelFor('left') : (this.isMultiplayer ? 'P1' : 'PLAYER')));
+            set('pauseLabelR', zombie ? 'LIVES' : (this.net ? this.net.labelFor('right') : (this.isMultiplayer ? 'P2' : 'AI')));
+            menu.classList.toggle('pp-online-guest', this.net?.role === 'guest');
             set('pauseScoreL', this.scores.player);
             set('pauseScoreR', zombie ? `${Math.max(0, z.hearts)}/${z.maxHearts}` : this.scores.ai);
         }
@@ -5928,6 +5968,11 @@ class Game {
                 break;
             case 'restart':
                 if (btn && !this.confirmPauseAction(btn)) return;
+                // Online: only the host can restart, and it restarts for both.
+                if (this.net) {
+                    if (this.net.role === 'host') this.net.hostStart();
+                    break;
+                }
                 this.restartMatch();
                 break;
             case 'quit':
@@ -5961,6 +6006,8 @@ class Game {
     // Leave the match and go straight back to the mode menu, in place (no
     // page reload). Starting a new match resets scores via setGameMode.
     returnToMenu() {
+        // Leaving an online match leaves the room too.
+        if (this.net) this.net.leave();
         // Stop any code background's sandbox; it restarts with the next match.
         window.CustomBackgrounds?.stopCode();
         this._ppBgErrorShown = false;
@@ -6212,6 +6259,8 @@ class Game {
         if (!this.running || this.paused) return;
         // Disable powerups in zombie mode
         if (this.gameMode === 'zombie') return;
+        // Online guest: power-ups come from the host.
+        if (this.net?.role === 'guest') return;
         // Settings > Gameplay > Power-ups (Custom has its own list).
         if (this.gameMode !== 'customise' && window.PPSettings?.get('powerUps') === false) return;
         const spawnScale = Math.max(0.25, Math.min(1, this.timeWarpFactor || 1));
@@ -6407,6 +6456,8 @@ class Game {
 
     activateChaosMode() {
         this.showNotification('Chaos Mode!', 'Random effects with warnings', '#ff00ff');
+        // Online guest: the host rolls the chaos and its snapshots carry it.
+        if (this.net?.role === 'guest') return;
         const chaosInterval = setInterval(() => {
             if (this.powerUpTimers.chaosMode <= 0) {
                 clearInterval(chaosInterval);
@@ -6540,6 +6591,11 @@ class Game {
     }
 
     showNotification(title, message, color) {
+        // Online: the host's notifications are shown on both screens.
+        if (this.net) {
+            if (this.net.role === 'guest' && !this.net.applyingRemote) return;
+            if (this.net.role === 'host') this.net.hostEvent({ k: 'note', title, message, color });
+        }
         this.notifications.push({ title, message, color, time: 2000, opacity: 1 });
     }
 
@@ -6874,6 +6930,7 @@ class Game {
     // A point was won: let it land before play resumes.
     onGoalScored(goalOnRight, y) {
         this._lastGoalAt = performance.now();
+        this.net?.hostEvent({ k: 'goal', right: !!goalOnRight, y: Math.round(y) });
         const x = goalOnRight ? this.width : 0;
         this.rumble(goalOnRight ? 'right' : 'left', 0.9, 260);
         this.rallyPop = 0;
@@ -7227,6 +7284,8 @@ class Game {
 
     physicsStep(dt, updateGravityWells = true) {
         if (this.paused) return;
+        // Online: hold still until both players are in, and trade state.
+        if (this.net && !this.net.preStep(dt)) return;
         // Hit-stop: on a hard paddle hit the world briefly runs at a crawl, which
         // sells the impact without feeling like input lag.
         let hitStopScale = 1;
@@ -7282,7 +7341,8 @@ class Game {
         for (let i = 0; i < this.powerUps.length; i++) {
             const pu = this.powerUps[i];
             pu.update(dt);
-            if (pu.checkCollision(this.ball)) {
+            if (this.net?.role !== 'guest' && pu.checkCollision(this.ball)) {
+                this.net?.hostEvent({ k: 'pu', type: pu.type });
                 this.activatePowerUp(pu.type);
                 this.particles.spawnGodTierHit(pu.pos.x, pu.pos.y, pu.color, 800);
                 if (this.ai && typeof this.ai.onPowerUpGrab === 'function') {
@@ -7295,7 +7355,7 @@ class Game {
             }
         }
         this.powerUps.length = powerUpWriteIndex;
-        if (this.gameMode === 'obstacle' && !this._obstacleBriefed) {
+        if (this.gameMode === 'obstacle' && !this._obstacleBriefed && !this.net) {
             this._obstacleBriefed = true;
             if (this.showModeBriefing('obstacleBriefing', 'pp-obstacle-briefing-v1')) return;
         }
@@ -7440,7 +7500,10 @@ class Game {
 
     handleCollisions(dt) {
         this.checkPaddleCollision(this.player, true);
-        this.checkPaddleCollision(this.aiPaddle, false);
+        // Online host: hits on the guest's paddle are reported by the guest.
+        if (this.net?.role !== 'host') {
+            if (this.checkPaddleCollision(this.aiPaddle, false) && this.net) this.net.onLocalHit(this.ball);
+        }
         this.handleZombieBallCollisions(this.ball);
         if (!this.ghostBallActive && !((this.gameMode === 'obstacle' || this.obstacleArcade?.fixedLayout) && this.obstacleArcade?.isStarActive())) {
             const ball = this.ball;
@@ -7468,6 +7531,10 @@ class Game {
     updatePaddles(dt) {
         if (this.gameMode === 'customise') {
             this.enforceFairCustomisePaddles();
+        }
+        if (this.net) {
+            this.updateOnlinePaddles(dt);
+            return;
         }
         // Player 1 (Left)
         if (this.player.laserStunned) {
@@ -7553,7 +7620,49 @@ class Game {
         this.aiPaddle.update(dt);
     }
 
+    // Online: this player's paddle takes every control scheme (W/S, arrows,
+    // mouse/touch, either gamepad); the other paddle follows the network.
+    updateOnlinePaddles(dt) {
+        const net = this.net;
+        const isHost = net.role === 'host';
+        const local = isHost ? this.player : this.aiPaddle;
+        const remote = isHost ? this.aiPaddle : this.player;
+        const localKey = isHost ? 'player' : 'ai';
+        if (local.laserStunned) {
+            local.vel.y = 0;
+        } else if (this.pointerControls[localKey] !== null) {
+            this.followPointerTarget(local, dt);
+        } else {
+            let dir = (this.keys['w'] || this.keys['arrowup']) ? -1 : ((this.keys['s'] || this.keys['arrowdown']) ? 1 : 0);
+            const padAxis = this.padState?.[0]?.axis || this.padState?.[1]?.axis || 0;
+            if (padAxis !== 0) dir = padAxis;
+            if (dir !== 0) {
+                const speedMul = (this.powerUpTimers.fastPaddle > 0 ? 1.5 : 1) * this.getKeyboardPaddleSpeed();
+                const targetVelY = dir * local.maxSpeed * speedMul;
+                local.vel.y += (targetVelY - local.vel.y) * 0.1;
+            } else {
+                local.vel.y *= local.friction;
+            }
+        }
+        local.pos.y += local.vel.y * dt;
+        local.clampTo(this.height);
+
+        net.driveRemotePaddle(remote, dt);
+        remote.clampTo(this.height);
+
+        if ((this.keys[' '] || this.keys['enter']) && local.hasLaser && !local.laserStunned) {
+            if (local.fireLaser(this) !== false) net.onLocalFire();
+        }
+        this.keys[' '] = false;
+        this.keys['enter'] = false;
+
+        this.player.update(dt);
+        this.aiPaddle.update(dt);
+    }
+
     checkScoringConditions() {
+        // Online guest: the host keeps score.
+        if (this.net?.role === 'guest') return;
         const checkBallScore = (ball) => {
             if (this.isZombieWaveMode()) {
                 if (ball.pos.x > this.width + 50) {
@@ -7567,7 +7676,7 @@ class Game {
                 return true;
             }
 
-            if (ball.pos.x > this.width + 50) {
+            if (ball.pos.x > this.width + 50 + (this.net ? this.net.goalGrace(ball) : 0)) {
                 if (this.invincibleTime > 0 || (this.isMultiplayer && this.shieldActive.ai)) {
                     ball.pos.x = this.width - ball.r - 10;
                     ball.vel.x = -Math.abs(ball.vel.x) * 1.1;
@@ -7742,6 +7851,8 @@ class Game {
         if (this.gameMode === 'speed' && this.speedChallenge && typeof this.speedChallenge.terminateChallenge === 'function') {
             this.speedChallenge.terminateChallenge('match-end');
         }
+        const net = this.net;
+        if (net) net.onMatchEnd(playerWon);
 
         const matchStats = {
             playerScore: Number(options.matchStats?.playerScore ?? this.scores.player),
@@ -7801,21 +7912,6 @@ class Game {
             const overlay = document.getElementById('overlay');
             if (!overlay) return;
 
-            const p = overlay.querySelector('p');
-            if (p) {
-                const winnerLabel = this.gameMode === 'customise'
-                    ? (playerWon ? 'Left Player' : 'Right Player')
-                    : (playerWon ? 'Player' : 'AI');
-                const showCustomiseReturn = this.gameMode === 'customise' && !options.summaryHtml;
-                p.innerHTML = options.summaryHtml || `
-            ${winnerLabel} Wins!<br>
-            Final Score: ${this.scores.player} - ${this.scores.ai}<br>
-            XP Earned: +${xp}<br>
-            Mode: ${options.modeLabel || this.getModeDisplayName(this.gameMode)}<br>
-            ${showCustomiseReturn ? `<div class="end-match-actions"><button id="backToCustomise" class="btn">Go Back to Customise</button></div>` : ''}
-        `;
-            }
-
             overlay.classList.remove('hidden');
             overlay.classList.add('post-match');
 
@@ -7838,25 +7934,67 @@ class Game {
                 this.audio.stopMusic('all');
             }
 
-            const backToCustomiseBtn = document.getElementById('backToCustomise');
-            if (backToCustomiseBtn) {
-                const newBackBtn = backToCustomiseBtn.cloneNode(true);
-                backToCustomiseBtn.parentNode.replaceChild(newBackBtn, backToCustomiseBtn);
-                newBackBtn.addEventListener('click', () => {
-                    const customiseOverlay = document.getElementById('customiseOverlay');
-                    const customisePanel = document.getElementById('customisePanel');
-                    overlay.classList.add('hidden');
-                    if (customiseOverlay) {
-                        customiseOverlay.classList.add('active');
-                        customiseOverlay.setAttribute('aria-hidden', 'false');
-                    }
-                    customisePanel?.classList.add('active');
-                    this.customSettings.previewModeActive = true;
-                });
-            }
+            const card = net && this.net === net
+                ? net.resultCard(playerWon)
+                : this.buildResultCard(playerWon, options, progressionEnabled ? xp : 0);
+            const box = window.PPResults?.show(card);
+            if (net && this.net === net) window.PPOnline?.bindResults(box);
 
             this.progression.showEndGameAchievementSummary();
         }, Number.isFinite(options.delayMs) ? options.delayMs : 1800);
+    }
+
+    // The end-of-match card for a local match (vs AI, local 1v1, Custom, Zombie).
+    buildResultCard(playerWon, options, xp) {
+        const mode = this.gameMode;
+        const modeLabel = options.modeLabel || this.getModeDisplayName(mode);
+        const versus = this.isMultiplayer || mode === 'customise';
+        const lines = [];
+        let title, tone, left = null, right = null;
+        if (options.summaryHtml) {
+            // Zombie: "Title<br>line<br>line"
+            const parts = String(options.summaryHtml).split(/<br\s*\/?>/i).map((t) => t.replace(/<[^>]*>/g, '').trim()).filter(Boolean);
+            title = parts.shift() || (playerWon ? 'You win!' : 'Game over');
+            lines.push(...parts);
+            tone = playerWon ? 'win' : 'loss';
+        } else {
+            title = versus ? (playerWon ? 'Left player wins!' : 'Right player wins!') : (playerWon ? 'You win!' : 'The AI wins');
+            tone = versus ? 'neutral' : (playerWon ? 'win' : 'loss');
+            left = { label: versus ? 'Left' : 'You', score: this.scores.player };
+            right = { label: versus ? 'Right' : 'AI', score: this.scores.ai };
+            if (this.maxRally > 0) lines.push(`Longest rally: ${this.maxRally}`);
+        }
+        if (xp > 0) lines.push(`XP earned: +${xp}`);
+        const replay = () => {
+            window.PPResults?.hide();
+            if (mode === 'customise' && typeof window.__ppStartCustomMatchCore === 'function') {
+                window.__ppStartCustomMatchCore();
+                return;
+            }
+            const overlay = document.getElementById('overlay');
+            overlay?.classList.remove('visible', 'post-match');
+            overlay?.classList.add('hidden');
+            document.body.classList.remove('has-overlay');
+            this.setGameMode(mode);
+            this.startIntro?.();
+            this.startMatchMusic?.();
+        };
+        const actions = [{ label: 'Play again', primary: true, onClick: replay }];
+        if (mode === 'customise') {
+            actions.push({
+                label: 'Edit Custom setup', onClick: () => {
+                    window.PPResults?.hide();
+                    document.getElementById('overlay')?.classList.add('hidden');
+                    const customiseOverlay = document.getElementById('customiseOverlay');
+                    customiseOverlay?.classList.add('active');
+                    customiseOverlay?.setAttribute('aria-hidden', 'false');
+                    document.getElementById('customisePanel')?.classList.add('active');
+                    this.customSettings.previewModeActive = true;
+                }
+            });
+        }
+        actions.push({ label: 'Main menu', back: true, onClick: () => window.PPResults?.hide() });
+        return { kicker: `${modeLabel} · match over`, title, tone, left, right, lines, actions };
     }
 
     updateScoreUI() {
@@ -7876,6 +8014,8 @@ class Game {
         }
 
         // Match end. Speed Mode's challenge can still overturn the final point.
+        // An online guest waits for the host to call it.
+        if (this.net?.role === 'guest') return;
         if (this.scores.player >= this.maxScore || this.scores.ai >= this.maxScore) {
             if (this.gameMode === 'speed' && this.speedChallenge && this.speedChallenge.isActive) {
                 return;
@@ -7947,9 +8087,24 @@ class Game {
                 p.pos.y = p._prevY + (p.pos.y - p._prevY) * interp;
             }
         }
+        // Online guest: black bars around the host-sized court.
+        const view = this.netView;
+        if (view) {
+            const c = this.ctx;
+            c.save();
+            c.setTransform(1, 0, 0, 1, 0, 0);
+            c.fillStyle = '#000';
+            c.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            c.restore();
+            c.save();
+            c.beginPath();
+            c.rect(0, 0, this.width, this.height);
+            c.clip();
+        }
         try {
             this.renderScene(interp);
         } finally {
+            if (view) this.ctx.restore();
             for (let i = 0; i < paddles.length; i++) if (paddles[i]) paddles[i].pos.y = realY[i];
         }
     }
