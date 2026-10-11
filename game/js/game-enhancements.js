@@ -1310,13 +1310,14 @@
             state.ui.hudAiLabel = hud.querySelector('.ai-side .pp-score-label');
         }
 
-        // Zombie waves have no AI score: show points and the breach count instead.
+        // Zombie waves have no AI score: show points and the barricade hearts instead.
         function getHudScoreView(game) {
             if (typeof game.isZombieWaveMode === 'function' && game.isZombieWaveMode() && game.zombieState) {
                 const z = game.zombieState;
+                const lives = Math.max(0, z.lives);
                 return {
                     leftLabel: 'SCORE', left: game.scores.player,
-                    rightLabel: 'BREACHES', right: `${z.waveBreaches || 0}/${z.breachLimit}`,
+                    rightLabel: 'BARRICADE', right: '♥'.repeat(lives) + '♡'.repeat(Math.max(0, z.maxLives - lives)),
                 };
             }
             return {

@@ -20,8 +20,38 @@
         <canvas id="c"></canvas>
         <div class="speed-lines" id="speedLines"></div>
         <div class="zombie-progress-overlay" id="zombieProgressOverlay" aria-hidden="true">
-            <div class="zombie-progress-pill" id="zombieProgressWave">Wave <strong>1/10</strong></div>
-            <div class="zombie-progress-pill" id="zombieProgressBreaches">Breaches <strong>0/7</strong></div>
+            <div class="zombie-hud-objective">
+                <div class="zombie-hud-head">
+                    <span class="zombie-hud-wave" id="zombieProgressWave">Wave 1/10</span>
+                    <span class="zombie-hud-tag" id="zombieProgressTag">Boss</span>
+                    <span class="zombie-hud-count" id="zombieProgressCount">0 left</span>
+                </div>
+                <div class="zombie-hud-goal" id="zombieProgressObjective">Clear the horde</div>
+                <div class="zombie-hud-bar"><div class="zombie-hud-bar-fill" id="zombieProgressFill"></div></div>
+            </div>
+            <div class="zombie-hud-status">
+                <div class="zombie-hud-chain" id="zombieProgressChain">
+                    <span class="zombie-hud-chain-label">Chain</span>
+                    <strong id="zombieProgressChainValue">x2</strong>
+                    <span class="zombie-hud-chain-timer"><span id="zombieProgressChainFill"></span></span>
+                </div>
+                <div class="zombie-hud-boosts" id="zombieProgressBoosts"></div>
+            </div>
+        </div>
+        <div class="zombie-wave-banner" id="zombieWaveBanner" aria-hidden="true">
+            <div class="zombie-wave-banner-panel">
+                <div class="zombie-wave-banner-kicker" id="zombieWaveBannerKicker">Incoming</div>
+                <div class="zombie-wave-banner-title" id="zombieWaveBannerTitle">Wave 1</div>
+                <div class="zombie-wave-banner-goal" id="zombieWaveBannerGoal">Clear the horde</div>
+                <div class="zombie-roster" id="zombieWaveBannerRoster"></div>
+                <ul class="zombie-wave-banner-rules" id="zombieWaveBannerRules">
+                    <li><b>Clear the horde.</b> Smash every zombie with the ball to finish a wave.</li>
+                    <li><b>Hold the barricade.</b> A ball that gets past you, or a zombie that reaches the dashed line, costs a heart. Lose all 5 and the run ends.</li>
+                    <li><b>Score past the Warden</b> to blast the zombies nearest its gate. On boss waves 5 and 10, break its armor to win the wave.</li>
+                    <li><b>Chain kills</b> within 3 seconds to multiply points, up to x5.</li>
+                </ul>
+                <div class="zombie-wave-banner-hint" id="zombieWaveBannerHint">Press Space or click to start</div>
+            </div>
         </div>
         <div class="hud" id="hud">
             <div class="score-container">
@@ -112,26 +142,33 @@
         </div>
         <div class="zombie-wave-choice" id="zombieWaveChoice" aria-hidden="true">
             <div class="zombie-wave-choice-panel">
-                <div class="zombie-wave-choice-kicker">Wave Clear</div>
+                <div class="zombie-wave-choice-kicker" id="zombieWaveChoiceKicker">Wave Clear</div>
                 <h3 id="zombieWaveChoiceTitle">Choose your reward</h3>
-                <p id="zombieWaveChoiceCopy">Pick one powerup before the next wave begins.</p>
+                <div class="zombie-clear-summary" id="zombieWaveChoiceSummary"></div>
+                <p id="zombieWaveChoiceCopy">Pick one reward before the next wave begins.</p>
                 <div class="zombie-wave-choice-grid">
                     <button class="zombie-wave-choice-btn" data-powerup="rage">
                         <span class="choice-icon">🔥</span>
                         <span class="choice-label">Rage</span>
-                        <span class="choice-desc">Stronger returns</span>
+                        <span class="choice-desc">8s: the ball one-shots zombies</span>
                     </button>
                     <button class="zombie-wave-choice-btn" data-powerup="shield">
                         <span class="choice-icon">🛡️</span>
                         <span class="choice-label">Shield</span>
-                        <span class="choice-desc">Block a fatal hit</span>
+                        <span class="choice-desc">Blocks one breach, spit or fire</span>
                     </button>
                     <button class="zombie-wave-choice-btn" data-powerup="slow">
                         <span class="choice-icon">🐌</span>
                         <span class="choice-label">Slow</span>
-                        <span class="choice-desc">Cripple the horde</span>
+                        <span class="choice-desc">7s: horde and spit crawl</span>
+                    </button>
+                    <button class="zombie-wave-choice-btn" data-powerup="repair">
+                        <span class="choice-icon">❤️</span>
+                        <span class="choice-label">Repair</span>
+                        <span class="choice-desc" id="zombieRepairDesc">Restore one barricade heart</span>
                     </button>
                 </div>
+                <div class="zombie-next-preview" id="zombieWaveChoicePreview"></div>
                 <div class="zombie-wave-choice-timer" id="zombieWaveChoiceTimer">Auto-pick in 8s</div>
             </div>
         </div>

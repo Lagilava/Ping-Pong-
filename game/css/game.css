@@ -1737,6 +1737,11 @@ body.obstacle-mode .mode-btn.active[data-mode="obstacle"] {
     padding: 7px 16px;
 }
 
+/* After a match the subtitle holds the multi-line summary, which runs into the hint. */
+.overlay.post-match .hint {
+    display: none;
+}
+
 @media(max-width: 480px) {
     .hint {
         display: none;
@@ -6096,7 +6101,7 @@ body.pp-lowfx .achievements * {
 
 .zombie-wave-choice-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
     margin-top: 18px;
 }
@@ -6149,45 +6154,340 @@ body.pp-lowfx .achievements * {
     color: rgba(186, 255, 205, 0.78);
 }
 
+/* ── Zombie Siege HUD ──
+   Sits inside the top score band, either side of the MENU button, so the
+   play field stays clear. No blur or glow: it stays sharp over the bloom. */
 .zombie-progress-overlay {
-    position: absolute;
-    bottom: 16px;
-    right: 16px;
-    z-index: 25;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    position: fixed;
+    top: 6px;
+    left: 0;
+    right: 0;
+    height: 48px;
+    z-index: 10002;
     pointer-events: none;
     opacity: 0;
-    transform: translateY(-6px);
-    transition: opacity 0.18s ease, transform 0.18s ease;
+    transition: opacity 0.18s ease;
+    font-family: 'Rajdhani', 'Barlow Condensed', sans-serif;
+    color: #effff2;
 }
 
 .zombie-progress-overlay.visible {
     opacity: 1;
-    transform: translateY(0);
 }
 
-.zombie-progress-pill {
-    min-width: 170px;
-    padding: 8px 12px;
-    border-radius: 999px;
-    background: rgba(4, 12, 8, 0.68);
-    border: 1px solid rgba(140, 255, 180, 0.22);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
-    color: #effff2;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    text-align: left;
-    backdrop-filter: blur(8px);
+body:has(#zombieProgressOverlay.visible) .pp-score-divider { visibility: hidden; }
+
+.zombie-hud-objective,
+.zombie-hud-status {
+    position: absolute;
+    top: 0;
+    max-width: calc(50% - 250px);
 }
 
-.zombie-progress-pill strong {
-    color: #9fffab;
+.zombie-hud-objective {
+    right: calc(50% + 72px);
+    width: 300px;
+}
+
+.zombie-hud-status {
+    left: calc(50% + 72px);
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-start;
+}
+
+.zombie-hud-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-family: 'Orbitron', 'Audiowide', sans-serif;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.zombie-hud-wave { color: #9fffab; }
+
+.zombie-hud-count {
+    margin-left: auto;
+    color: #effff2;
+    font-variant-numeric: tabular-nums;
+}
+
+.zombie-hud-tag {
+    display: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #ff8a1f;
+    color: #1a0b02;
+    font-family: 'Orbitron', 'Audiowide', sans-serif;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.zombie-progress-overlay.boss .zombie-hud-tag,
+.zombie-next-title .zombie-hud-tag { display: inline-block; }
+.zombie-progress-overlay.boss .zombie-hud-wave { color: #ffb36b; }
+
+.zombie-hud-goal {
+    margin-top: 3px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: rgba(230, 255, 236, 0.86);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.zombie-hud-bar {
+    margin-top: 4px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(140, 255, 180, 0.16);
+    overflow: hidden;
+}
+
+.zombie-hud-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4fd96d, #b8ff9c);
+    transform-origin: left center;
+    transform: scaleX(0);
+    transition: transform 0.25s ease;
+}
+
+.zombie-progress-overlay.boss .zombie-hud-bar { background: rgba(255, 140, 60, 0.18); height: 7px; position: relative; }
+/* Boss waves: notch the bar into one plate per armor point. */
+.zombie-progress-overlay.boss .zombie-hud-bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(90deg, transparent 0, transparent calc(100% / var(--zseg, 3) - 3px), #05080a calc(100% / var(--zseg, 3) - 3px), #05080a calc(100% / var(--zseg, 3)));
+}
+.zombie-progress-overlay.boss .zombie-hud-bar-fill { background: linear-gradient(90deg, #ff6a1f, #ffc06b); }
+
+.zombie-hud-chain {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    transform: translateY(-3px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    font-family: 'Orbitron', 'Audiowide', sans-serif;
+    text-transform: uppercase;
+}
+
+.zombie-hud-chain.visible {
+    opacity: 1;
+    transform: none;
+}
+
+.zombie-hud-chain-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: rgba(255, 228, 160, 0.8);
+}
+
+.zombie-hud-chain strong {
+    font-size: 18px;
+    color: #ffd166;
+}
+
+.zombie-hud-chain-timer {
+    width: 64px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 209, 102, 0.2);
+    overflow: hidden;
+}
+
+.zombie-hud-chain-timer span {
+    display: block;
+    height: 100%;
+    background: #ffd166;
+    transform-origin: left center;
+}
+
+.zombie-hud-boosts {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.zombie-boost {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+    background: rgba(4, 10, 8, 0.7);
+}
+
+.zombie-boost.shield { color: #7fd3ff; }
+.zombie-boost.rage { color: #ff8a4c; }
+.zombie-boost.slow { color: #7dffa6; }
+
+/* Wave intro banner (and the wave-1 rules briefing). */
+.zombie-wave-banner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.22s ease;
+    font-family: 'Rajdhani', 'Barlow Condensed', sans-serif;
+}
+
+.zombie-wave-banner.visible { opacity: 1; }
+.zombie-wave-banner.visible.briefing { pointer-events: auto; cursor: pointer; }
+
+.zombie-wave-banner-panel {
+    text-align: center;
+    padding: 18px 28px 20px;
+    border-radius: 18px;
+    background: rgba(4, 12, 8, 0.82);
+    border: 1px solid rgba(140, 255, 180, 0.28);
+    max-width: min(92vw, 640px);
+    transform: scale(0.96);
+    transition: transform 0.22s ease;
+}
+
+.zombie-wave-banner.visible .zombie-wave-banner-panel { transform: none; }
+.zombie-wave-banner.boss .zombie-wave-banner-panel { border-color: rgba(255, 150, 70, 0.5); background: rgba(16, 7, 3, 0.85); }
+
+.zombie-wave-banner-kicker {
+    font-family: 'Orbitron', 'Audiowide', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: #9fffab;
+}
+
+.zombie-wave-banner.boss .zombie-wave-banner-kicker { color: #ffb36b; }
+
+.zombie-wave-banner-title {
+    margin-top: 4px;
+    font-family: 'Orbitron', 'Audiowide', sans-serif;
+    font-size: clamp(30px, 5.4vw, 52px);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    color: #f2fff2;
+    text-transform: uppercase;
+}
+
+.zombie-wave-banner.boss .zombie-wave-banner-title { color: #fff1e0; }
+
+.zombie-wave-banner-goal {
+    margin-top: 2px;
+    font-size: clamp(15px, 2vw, 19px);
+    font-weight: 600;
+    color: rgba(230, 255, 236, 0.9);
+}
+
+.zombie-roster {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.zombie-roster-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 14px;
+    font-weight: 600;
+    color: #effff2;
+}
+
+.zombie-roster-chip i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--zc, #9fffab);
+    align-self: center;
+}
+
+.zombie-roster-chip b { color: var(--zc, #9fffab); font-family: 'Orbitron', 'Audiowide', sans-serif; font-size: 13px; }
+.zombie-roster-chip em { font-style: normal; font-size: 12px; color: rgba(220, 240, 225, 0.6); }
+
+.zombie-wave-banner-rules {
+    display: none;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+    text-align: left;
+    font-size: 15px;
+    line-height: 1.35;
+    color: rgba(230, 255, 236, 0.86);
+}
+
+.zombie-wave-banner.briefing .zombie-wave-banner-rules { display: block; }
+.zombie-wave-banner-rules li { padding: 4px 0 4px 18px; position: relative; }
+.zombie-wave-banner-rules li::before { content: ''; position: absolute; left: 2px; top: 11px; width: 7px; height: 7px; border-radius: 2px; background: #6ddc4f; }
+.zombie-wave-banner-rules b { color: #f2fff2; }
+
+.zombie-wave-banner-hint {
+    margin-top: 12px;
+    font-family: 'Orbitron', 'Audiowide', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #ffd166;
+}
+
+.zombie-wave-banner-hint:empty { display: none; }
+
+/* Wave-clear reward panel additions. */
+.zombie-clear-summary {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 14px;
+    margin-top: 10px;
+    font-size: 14px;
+    color: rgba(227, 255, 232, 0.75);
+}
+
+.zombie-clear-summary:empty { display: none; }
+.zombie-clear-summary b { color: #f2fff2; font-family: 'Orbitron', 'Audiowide', sans-serif; font-size: 13px; }
+.zombie-clear-summary .good b { color: #9fffab; }
+
+.zombie-wave-choice-btn.suggested { border-color: rgba(255, 209, 102, 0.55); }
+.zombie-wave-choice-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.zombie-next-preview {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(140, 255, 180, 0.14);
+}
+
+.zombie-next-preview:empty { display: none; }
+.zombie-next-preview .zombie-roster { margin-top: 8px; }
+
+.zombie-next-title {
+    font-family: 'Orbitron', 'Audiowide', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #c8ffd2;
 }
 
 .power-up:hover {

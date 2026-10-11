@@ -1,3 +1,6 @@
+const ZOMBIE_CHAIN_WINDOW = 3; // seconds between kills that keeps a chain alive
+const ZOMBIE_BEST_KEY = 'pp-zombie-best-v1';
+
 class Game {
     // Per-mode colour grade, applied inside the existing post-process pass
     // (a few extra multiply-adds per pixel; no extra passes or texture reads).
@@ -120,7 +123,20 @@ class Game {
         this.zombiePowerDisplay = document.getElementById('zombiePowerDisplay');
         this.zombieProgressOverlay = document.getElementById('zombieProgressOverlay');
         this.zombieProgressWave = document.getElementById('zombieProgressWave');
-        this.zombieProgressBreaches = document.getElementById('zombieProgressBreaches');
+        this.zombieProgressTag = document.getElementById('zombieProgressTag');
+        this.zombieProgressCount = document.getElementById('zombieProgressCount');
+        this.zombieProgressObjective = document.getElementById('zombieProgressObjective');
+        this.zombieProgressFill = document.getElementById('zombieProgressFill');
+        this.zombieProgressChain = document.getElementById('zombieProgressChain');
+        this.zombieProgressChainValue = document.getElementById('zombieProgressChainValue');
+        this.zombieProgressChainFill = document.getElementById('zombieProgressChainFill');
+        this.zombieProgressBoosts = document.getElementById('zombieProgressBoosts');
+        this.zombieWaveBanner = document.getElementById('zombieWaveBanner');
+        this.zombieWaveBannerKicker = document.getElementById('zombieWaveBannerKicker');
+        this.zombieWaveBannerTitle = document.getElementById('zombieWaveBannerTitle');
+        this.zombieWaveBannerGoal = document.getElementById('zombieWaveBannerGoal');
+        this.zombieWaveBannerRoster = document.getElementById('zombieWaveBannerRoster');
+        this.zombieWaveBannerHint = document.getElementById('zombieWaveBannerHint');
         this.streakDisplay = document.getElementById('streakDisplay');
         this.difficultyDisplay = document.getElementById('difficultyDisplay');
         this.gameModeDisplay = document.getElementById('gameMode');
@@ -130,6 +146,10 @@ class Game {
         this.zombieWaveChoiceTitle = document.getElementById('zombieWaveChoiceTitle');
         this.zombieWaveChoiceCopy = document.getElementById('zombieWaveChoiceCopy');
         this.zombieWaveChoiceTimer = document.getElementById('zombieWaveChoiceTimer');
+        this.zombieWaveChoiceKicker = document.getElementById('zombieWaveChoiceKicker');
+        this.zombieWaveChoiceSummary = document.getElementById('zombieWaveChoiceSummary');
+        this.zombieWaveChoicePreview = document.getElementById('zombieWaveChoicePreview');
+        this.zombieRepairDesc = document.getElementById('zombieRepairDesc');
         this._defaultPowerUpsMarkup = this.powerUpsContainer?.innerHTML || '';
         this._zombieEnemyCatalog = null;
         this._zombiePickupPalette = null;
@@ -166,7 +186,7 @@ class Game {
         };
         this.modeSpeeds = {
             classic: { ballBase: 940, ballMax: 1650, paddleMax: 940 },
-            zombie: { ballBase: 860, ballMax: 1500, paddleMax: 820 },
+            zombie: { ballBase: 900, ballMax: 1600, paddleMax: 880 },
             gravity: { ballBase: 860, ballMax: 1500, paddleMax: 850 },
             obstacle: { ballBase: 920, ballMax: 1680, paddleMax: 880 },
             speed: { ballBase: 900, ballMax: 1800, paddleMax: 1000 },
@@ -2517,6 +2537,15 @@ class Game {
         return names[mode] || 'Classic Mode';
     }
 
+    // Zombie Siege rules
+    //  - 10 waves. A wave ends when every zombie is destroyed; waves 5 and 10
+    //    are boss waves that end when the Warden's armor breaks instead.
+    //  - The barricade has 5 hearts for the whole run. A ball that gets past
+    //    the player costs one; clearing a wave repairs one. 0 hearts = defeat.
+    //  - Scoring past the Warden blasts the zombies nearest its gate (normal
+    //    waves) or cracks one armor plate (boss waves).
+    //  - Kills within ZOMBIE_CHAIN_WINDOW of each other build a chain that
+    //    multiplies their points, up to x5. A breach drops the chain.
     createZombieModeState() {
         return {
             active: false,
@@ -2528,9 +2557,23 @@ class Game {
             waveTarget: 0,
             waveBreaches: 0,
             totalBreaches: 0,
+            wavesCleared: 0,
+            lives: 5,
+            maxLives: 5,
+            isBossWave: false,
+            bossArmor: 0,
+            bossArmorMax: 0,
+            chain: 0,
+            chainTimer: 0,
+            bestChain: 0,
+            waveScoreStart: 0,
+            nextComposition: null,
+            lastClear: null,
+            popups: [],
             transitionTimer: 0,
             transitionWave: 0,
             introTimer: 0,
+            introDuration: 0,
             choicePending: false,
             pendingWave: 0,
             choiceCountdown: 0,
@@ -2538,10 +2581,6 @@ class Game {
             zombies: [],
             spitBalls: [],
             pickups: [],
-            breachLimit: 12,
-            bossHitsThisWave: 0,
-            bossHitsTarget: 2,
-            finalBossPrompted: false,
             shieldBlocks: 0,
             powerupChoices: 0,
             powerups: {
@@ -2550,6 +2589,14 @@ class Game {
             },
             shieldCharges: 0
         };
+    }
+
+    isZombieBossWave(wave) {
+        return wave > 0 && wave % 5 === 0;
+    }
+
+    getZombieBossArmor(wave) {
+        return wave >= 10 ? 5 : 3;
     }
 
     isZombieWaveMode() {
@@ -2625,9 +2672,73 @@ class Game {
 
     resetZombieModeState() {
         this.hideZombieWaveChoice();
+        this.hideZombieWaveBanner();
         this.zombieState = this.createZombieModeState();
         this._zombieNextServeDirection = null;
         this.syncZombieHUD();
+    }
+
+    // Groups a wave's spawn list into "3 Runner" style chips with each type's eye colour.
+    describeZombieComposition(composition) {
+        const catalog = this.getZombieEnemyCatalog();
+        const counts = {};
+        for (let i = 0; i < composition.length; i++) {
+            counts[composition[i]] = (counts[composition[i]] || 0) + 1;
+        }
+        return ['shambler', 'runner', 'spitter', 'tank']
+            .filter(key => counts[key])
+            .map(key => ({ key, count: counts[key], label: catalog[key].label, color: catalog[key].eyeColor }));
+    }
+
+    renderZombieRosterHTML(composition) {
+        const hints = {
+            shambler: 'slow',
+            runner: 'chases the ball',
+            spitter: 'freezes your paddle',
+            tank: 'takes 4 hits'
+        };
+        return this.describeZombieComposition(composition).map(item =>
+            `<span class="zombie-roster-chip" style="--zc:${item.color}"><i></i><b>${item.count}</b> ${item.label}${item.count > 1 ? 's' : ''}<em>${hints[item.key]}</em></span>`
+        ).join('');
+    }
+
+    showZombieWaveBanner(wave, composition) {
+        const banner = this.zombieWaveBanner;
+        if (!banner) return;
+        const state = this.zombieState;
+        const boss = state.isBossWave;
+        const first = wave === 1;
+        banner.classList.toggle('boss', boss);
+        banner.classList.toggle('briefing', first);
+        this._setText(this.zombieWaveBannerKicker, boss ? 'Boss wave' : (first ? 'Zombie Siege' : 'Incoming'));
+        this._setText(this.zombieWaveBannerTitle, wave === state.maxWave ? 'Final Wave' : `Wave ${wave}`);
+        this._setText(this.zombieWaveBannerGoal, boss
+            ? `Break the Warden's armor: score past it ${state.bossArmorMax} times`
+            : `Destroy all ${composition.length} zombies`);
+        this._setHTML(this.zombieWaveBannerRoster, this.renderZombieRosterHTML(composition));
+        const touch = document.documentElement.classList.contains('pp-mobile');
+        this._setText(this.zombieWaveBannerHint, first ? (touch ? 'Tap to start' : 'Press Space or click to start') : '');
+        banner.classList.add('visible');
+        banner.setAttribute('aria-hidden', 'false');
+        if (!banner._zombieSkipBound) {
+            banner._zombieSkipBound = true;
+            banner.addEventListener('pointerdown', () => this.skipZombieWaveIntro());
+        }
+    }
+
+    hideZombieWaveBanner() {
+        if (this.zombieWaveBanner) {
+            this.zombieWaveBanner.classList.remove('visible');
+            this.zombieWaveBanner.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    // The wave-1 briefing waits for the player (or its timer); later intros are short.
+    skipZombieWaveIntro() {
+        const state = this.zombieState;
+        if (!this.isZombieWaveMode() || !state || state.introTimer <= 0.05) return false;
+        state.introTimer = 0.05;
+        return true;
     }
 
     hideZombieWaveChoice() {
@@ -2660,28 +2771,55 @@ class Game {
         this.hideZombieWaveChoice();
         state.choicePending = true;
         state.pendingWave = nextWave;
-        state.choiceCountdown = 8;
+        state.choiceCountdown = 10;
+        state.nextComposition = { wave: nextWave, list: this.getZombieWaveComposition(nextWave) };
 
-        if (this.zombieWaveChoiceTitle) {
-            this.zombieWaveChoiceTitle.textContent = `Wave ${nextWave} reward`;
+        const clear = state.lastClear;
+        const damaged = state.lives < state.maxLives;
+        const autoPick = damaged ? 'repair' : 'shield';
+        this._setText(this.zombieWaveChoiceKicker, clear?.boss ? 'Warden broken' : 'Wave clear');
+        this._setText(this.zombieWaveChoiceTitle, clear ? `Wave ${clear.wave} survived` : 'Choose your reward');
+        if (clear) {
+            const rows = [
+                `<span>Wave score <b>+${clear.waveScore}</b></span>`,
+                `<span>Clear bonus <b>+${clear.clearBonus}</b></span>`
+            ];
+            if (clear.bossBonus) rows.push(`<span>Warden bonus <b>+${clear.bossBonus}</b></span>`);
+            rows.push(clear.flawlessBonus
+                ? `<span class="good">Flawless <b>+${clear.flawlessBonus}</b></span>`
+                : `<span>Breaches <b>${clear.breaches}</b></span>`);
+            if (clear.repaired) rows.push('<span class="good">Barricade <b>+1 ♥</b></span>');
+            this._setHTML(this.zombieWaveChoiceSummary, rows.join(''));
+        } else {
+            this._setHTML(this.zombieWaveChoiceSummary, '');
         }
-        if (this.zombieWaveChoiceCopy) {
-            this.zombieWaveChoiceCopy.textContent = 'Pick one powerup before the horde advances.';
-        }
-        if (this.zombieWaveChoiceTimer) {
-            this.zombieWaveChoiceTimer.textContent = 'Auto-pick in 8s';
-        }
+        this._setText(this.zombieWaveChoiceCopy, `Barricade ${state.lives}/${state.maxLives} · Score ${this.scores.player}. Pick one reward for the next wave.`);
+
+        const nextBoss = this.isZombieBossWave(nextWave);
+        const nextLabel = nextWave === state.maxWave ? `Final wave ${nextWave}` : `Wave ${nextWave}`;
+        this._setHTML(
+            this.zombieWaveChoicePreview,
+            `<div class="zombie-next-title">Next: ${nextLabel}${nextBoss ? ' <span class="zombie-hud-tag">Boss</span>' : ''}</div>` +
+            `<div class="zombie-roster">${this.renderZombieRosterHTML(state.nextComposition.list)}</div>`
+        );
+
+        const timerText = (s) => s > 0 ? `Auto-pick ${autoPick} in ${s}s` : `Auto-picking ${autoPick}`;
+        this._setText(this.zombieWaveChoiceTimer, timerText(state.choiceCountdown));
 
         this.zombieWaveChoice.classList.add('visible');
         this.zombieWaveChoice.setAttribute('aria-hidden', 'false');
         this.setChallengePaused(true);
-        this.showNotification('Wave Clear', `Choose a reward for wave ${nextWave}`, '#ffd166');
         this.audio?.zombieChoice?.();
 
         const buttons = this.zombieWaveChoice.querySelectorAll('.zombie-wave-choice-btn');
         buttons.forEach(button => {
-            button.onclick = () => this.applyZombieWaveChoice(button.dataset.powerup || 'shield');
+            const type = button.dataset.powerup || 'shield';
+            const disabled = type === 'repair' && !damaged;
+            button.disabled = disabled;
+            button.classList.toggle('suggested', type === autoPick);
+            button.onclick = disabled ? null : () => this.applyZombieWaveChoice(type);
         });
+        this._setText(this.zombieRepairDesc, damaged ? 'Restore one barricade heart' : 'Barricade is full');
 
         this._zombieWaveChoiceTimerId = setInterval(() => {
             if (!this.zombieState?.choicePending) {
@@ -2690,22 +2828,18 @@ class Game {
             }
 
             state.choiceCountdown = Math.max(0, state.choiceCountdown - 1);
-            if (this.zombieWaveChoiceTimer) {
-                this.zombieWaveChoiceTimer.textContent = state.choiceCountdown > 0
-                    ? `Auto-pick in ${state.choiceCountdown}s`
-                    : 'Auto-picking shield';
-            }
+            this._setText(this.zombieWaveChoiceTimer, timerText(state.choiceCountdown));
 
             if (state.choiceCountdown <= 0) {
-                this.applyZombieWaveChoice('shield', true);
+                this.applyZombieWaveChoice(autoPick, true);
             }
         }, 1000);
 
         this._zombieWaveChoiceAutoPickId = setTimeout(() => {
             if (this.zombieState?.choicePending) {
-                this.applyZombieWaveChoice('shield', true);
+                this.applyZombieWaveChoice(autoPick, true);
             }
-        }, 8000);
+        }, 10000);
     }
 
     applyZombieWaveChoice(type, autoSelected = false) {
@@ -2744,36 +2878,25 @@ class Game {
     syncZombieHUD() {
         const state = this.zombieState;
         const zombieMode = this.isZombieWaveMode();
-        const rageSeconds = Math.ceil(state.powerups.rage || 0);
-        const slowSeconds = Math.ceil(state.powerups.slow || 0);
         const currentWave = Math.min(state.wave, state.maxWave);
-        const wavesLeft = Math.max(0, state.maxWave - currentWave);
-        const resetBreachesForWaveStart = zombieMode && (state.choicePending || state.transitionTimer > 0 || state.introTimer > 0);
-        const breachesLeft = resetBreachesForWaveStart
-            ? state.breachLimit
-            : Math.max(0, state.breachLimit - state.waveBreaches);
-        const boostParts = [];
-        if (state.shieldCharges > 0) boostParts.push(`Shield x${state.shieldCharges}`);
-        if (rageSeconds > 0) boostParts.push(`Rage ${rageSeconds}s`);
-        if (slowSeconds > 0) boostParts.push(`Slow ${slowSeconds}s`);
+        const hearts = '♥'.repeat(Math.max(0, state.lives)) + '♡'.repeat(Math.max(0, state.maxLives - state.lives));
 
         const set = (el, v) => this._setText(el, v);
         if (this.scoreElements?.player && this.scoreElements?.ai) {
             if (zombieMode) {
-                set(this.scoreElements.player, `${currentWave}/${state.maxWave}`);
-                set(this.scoreElements.ai, `${breachesLeft} left`);
-                this.scoreElements.player.setAttribute('data-score-label', 'wave');
-                this.scoreElements.ai.setAttribute('data-score-label', 'breaches left');
+                set(this.scoreElements.player, this.scores.player);
+                set(this.scoreElements.ai, hearts);
+                this.scoreElements.player.setAttribute('data-score-label', 'score');
+                this.scoreElements.ai.setAttribute('data-score-label', 'barricade');
             } else {
                 this.scoreElements.player.removeAttribute('data-score-label');
                 this.scoreElements.ai.removeAttribute('data-score-label');
             }
         }
-        set(this.scoreDivider, zombieMode ? '/' : '—');
+        set(this.scoreDivider, zombieMode ? '|' : '—');
 
         set(this.waveDisplay, zombieMode ? `W ${currentWave}/${state.maxWave}` : '-');
-        set(this.breachDisplay, zombieMode ? `B ${breachesLeft}/${state.breachLimit}` : '-');
-        set(this.zombiePowerDisplay, zombieMode ? (boostParts.length ? boostParts.join(' | ') : 'None') : '-');
+        set(this.breachDisplay, zombieMode ? `${state.lives}/${state.maxLives} hearts` : '-');
 
         if (this.zombieProgressOverlay && this._zombieOverlayShown !== zombieMode) {
             this._zombieOverlayShown = zombieMode;
@@ -2781,8 +2904,61 @@ class Game {
             this.zombieProgressOverlay.setAttribute('aria-hidden', zombieMode ? 'false' : 'true');
         }
         if (zombieMode) {
-            this._setHTML(this.zombieProgressWave, `Wave <strong>${currentWave}/${state.maxWave}</strong>`);
-            this._setHTML(this.zombieProgressBreaches, `Breaches <strong>${breachesLeft}/${state.breachLimit}</strong>`);
+            const boss = state.isBossWave;
+            const waiting = state.choicePending || state.transitionTimer > 0 || !state.waveStarted;
+            let remaining;
+            let total;
+            let goal;
+            if (boss) {
+                remaining = state.bossArmor;
+                total = Math.max(1, state.bossArmorMax);
+                goal = 'Break the Warden: score past it';
+                set(this.zombieProgressCount, `Armor ${remaining}/${total}`);
+            } else {
+                remaining = state.zombies.length;
+                total = Math.max(1, state.waveTarget);
+                goal = 'Destroy every zombie';
+                set(this.zombieProgressCount, `${remaining} left`);
+            }
+            if (waiting) goal = 'Wave cleared';
+            set(this.zombieProgressWave, `Wave ${currentWave}/${state.maxWave}`);
+            set(this.zombieProgressObjective, goal);
+            this.zombieProgressOverlay.classList.toggle('boss', boss);
+            if (this._zombieSegKey !== state.bossArmorMax) {
+                this._zombieSegKey = state.bossArmorMax;
+                this.zombieProgressOverlay.style.setProperty('--zseg', String(Math.max(1, state.bossArmorMax)));
+            }
+            const fill = waiting ? 0 : remaining / total;
+            const fillKey = Math.round(fill * 200);
+            if (this.zombieProgressFill && this._zombieFillKey !== fillKey) {
+                this._zombieFillKey = fillKey;
+                this.zombieProgressFill.style.transform = `scaleX(${fillKey / 200})`;
+            }
+
+            const chainOn = state.chain >= 2 && state.chainTimer > 0;
+            if (this.zombieProgressChain && this._zombieChainOn !== chainOn) {
+                this._zombieChainOn = chainOn;
+                this.zombieProgressChain.classList.toggle('visible', chainOn);
+            }
+            if (chainOn) {
+                set(this.zombieProgressChainValue, `x${Math.min(5, state.chain)}`);
+                const chainKey = Math.round((state.chainTimer / ZOMBIE_CHAIN_WINDOW) * 60);
+                if (this.zombieProgressChainFill && this._zombieChainKey !== chainKey) {
+                    this._zombieChainKey = chainKey;
+                    this.zombieProgressChainFill.style.transform = `scaleX(${chainKey / 60})`;
+                }
+            }
+
+            const rageSeconds = Math.ceil(state.powerups.rage || 0);
+            const slowSeconds = Math.ceil(state.powerups.slow || 0);
+            const chips = [];
+            if (state.shieldCharges > 0) chips.push(`<span class="zombie-boost shield">Shield x${state.shieldCharges}</span>`);
+            if (rageSeconds > 0) chips.push(`<span class="zombie-boost rage">Rage ${rageSeconds}s</span>`);
+            if (slowSeconds > 0) chips.push(`<span class="zombie-boost slow">Slow ${slowSeconds}s</span>`);
+            this._setHTML(this.zombieProgressBoosts, chips.join(''));
+            set(this.zombiePowerDisplay, chips.length ? chips.length + ' active' : 'None');
+        } else {
+            set(this.zombiePowerDisplay, '-');
         }
 
         if (this.gameModeDisplay) {
@@ -2798,15 +2974,18 @@ class Game {
 
     getZombieWaveComposition(wave) {
         const composition = [];
-        const count = Math.min(4 + wave * 2, wave >= 10 ? 20 : 18);
+        const boss = this.isZombieBossWave(wave);
+        // Boss waves bring a smaller escort so the Warden stays the focus.
+        const fullCount = Math.min(4 + wave * 2, wave >= 10 ? 20 : 18);
+        const count = boss ? Math.round(fullCount * 0.45) : fullCount;
 
         for (let i = 0; i < count; i++) {
             const roll = Math.random();
             let typeKey = 'shambler';
 
-            if (wave >= 8 && roll > 0.82) {
+            if (wave >= 7 && roll > 0.82) {
                 typeKey = 'tank';
-            } else if (wave >= 5 && roll > 0.56) {
+            } else if (wave >= 4 && roll > 0.56) {
                 typeKey = 'spitter';
             } else if (wave >= 2 && roll > 0.32) {
                 typeKey = 'runner';
@@ -2815,10 +2994,15 @@ class Game {
             composition.push(typeKey);
         }
 
-        if (wave >= 4 && !composition.includes('spitter')) {
+        // Each wave introduces its new threat for sure: runners from 2,
+        // spitters from 3, tanks from 6.
+        if (wave >= 2 && !composition.includes('runner')) {
+            composition[1] = 'runner';
+        }
+        if (wave >= 3 && !composition.includes('spitter')) {
             composition[0] = 'spitter';
         }
-        if (wave >= 7 && !composition.includes('tank')) {
+        if (wave >= 6 && !composition.includes('tank')) {
             composition[composition.length - 1] = 'tank';
         }
         if (wave === 10) {
@@ -3018,21 +3202,30 @@ class Game {
         state.kills = 0;
         state.waveTarget = 0;
         state.waveBreaches = 0;
+        state.waveScoreStart = this.scores.player;
         state.transitionTimer = 0;
         state.transitionWave = 0;
-        state.introTimer = 1.45;
+        // Wave 1 opens with the rules briefing; it waits for Space/click or its timer.
+        state.introTimer = wave === 1 ? 9 : 2.6;
+        state.introDuration = state.introTimer;
         state.choicePending = false;
         state.pendingWave = 0;
         state.choiceCountdown = 0;
         state.zombies = [];
         state.spitBalls = [];
         state.pickups = [];
-        state.bossHitsThisWave = 0;
-        state.bossHitsTarget = wave >= 10 ? 4 : (wave >= 7 ? 3 : 2);
-        state.finalBossPrompted = false;
+        state.popups = [];
+        state.chain = 0;
+        state.chainTimer = 0;
         state.wavePhase = 0;
+        state.isBossWave = this.isZombieBossWave(wave);
+        state.bossArmorMax = state.isBossWave ? this.getZombieBossArmor(wave) : 0;
+        state.bossArmor = state.bossArmorMax;
 
-        const composition = this.getZombieWaveComposition(wave);
+        const composition = state.nextComposition?.wave === wave
+            ? state.nextComposition.list
+            : this.getZombieWaveComposition(wave);
+        state.nextComposition = null;
         state.waveTarget = composition.length;
         composition.forEach(typeKey => this.spawnZombieEnemy(typeKey));
 
@@ -3042,21 +3235,101 @@ class Game {
         }
 
         if (this.ai instanceof ZombieBoss && typeof this.ai.configureForWave === 'function') {
-            this.ai.configureForWave(wave, state.maxWave);
+            this.ai.configureForWave(wave, state.maxWave, state.bossArmorMax);
         }
 
         this.primeZombieBall(-1, true);
         this.audio?.zombieWave?.();
-        if (wave === 1) {
-            this.showNotification(
-                `Wave ${wave}`,
-                `${state.waveTarget} undead incoming · survive 10 waves before 7 breaches`,
-                '#7dff9b'
-            );
-        } else {
-            this.showNotification(`Wave ${wave}`, `${state.waveTarget} undead incoming`, '#7dff9b');
-        }
+        this.showZombieWaveBanner(wave, composition);
         this.syncZombieHUD();
+    }
+
+    // Floating "+28 x3" text over a kill; drawn on the canvas without blur.
+    spawnZombiePopup(x, y, text, color, size = 1) {
+        const popups = this.zombieState.popups;
+        if (popups.length >= 24) popups.shift();
+        // Keep clear of the top HUD band.
+        popups.push({ x, y: Math.max(96, y), text, color, size, life: 1.1, maxLife: 1.1 });
+    }
+
+    killZombie(zombie, ballSpeed = 0, allowLoot = true) {
+        const state = this.zombieState;
+        if (!zombie || zombie.dead) return 0;
+        zombie.dead = true;
+        state.kills++;
+        state.totalKills++;
+
+        state.chain = state.chainTimer > 0 ? state.chain + 1 : 1;
+        state.chainTimer = ZOMBIE_CHAIN_WINDOW;
+        state.bestChain = Math.max(state.bestChain, state.chain);
+        const mult = Math.min(5, state.chain);
+        const points = zombie.type.score * mult;
+        this.addZombieScore(points);
+        this.spawnZombiePopup(
+            zombie.x,
+            zombie.y - zombie.radius,
+            mult > 1 ? `+${points}  x${mult}` : `+${points}`,
+            mult > 1 ? '#ffd166' : '#b8ff9c',
+            mult > 1 ? 1.15 : 1
+        );
+
+        this.screenFlash = Math.max(this.screenFlash, 0.2);
+        this.particles.spawnGodTierHit(zombie.x, zombie.y, zombie.type.eyeColor, Math.max(ballSpeed, 500));
+        this.audio?.zombieHit?.();
+
+        if (allowLoot && Math.random() < 0.18 && state.pickups.length < 2) {
+            const lootTypes = ['rage', 'shield', 'slow'];
+            this.spawnZombiePickup(lootTypes[Math.floor(Math.random() * lootTypes.length)]);
+        }
+        return points;
+    }
+
+    completeZombieWave() {
+        const state = this.zombieState;
+        if (!this.isZombieWaveMode() || this.matchEnding || state.choicePending || state.transitionTimer > 0) return;
+
+        const wave = state.wave;
+        const boss = state.isBossWave;
+        // A broken Warden takes its escort down with it (no chain bonus).
+        if (boss && state.zombies.length) {
+            for (let i = 0; i < state.zombies.length; i++) {
+                const z = state.zombies[i];
+                this.addZombieScore(z.type.score);
+                this.spawnZombiePopup(z.x, z.y - z.radius, `+${z.type.score}`, '#b8ff9c');
+                this.particles.spawnGodTierHit(z.x, z.y, z.type.eyeColor, 600);
+                state.kills++;
+                state.totalKills++;
+            }
+            state.zombies = [];
+        }
+
+        const waveScore = this.scores.player - state.waveScoreStart;
+        const clearBonus = 100 * wave;
+        const bossBonus = boss ? 250 * wave : 0;
+        const flawlessBonus = state.waveBreaches === 0 ? 50 * wave : 0;
+        this.addZombieScore(clearBonus + bossBonus + flawlessBonus);
+        const repaired = state.lives < state.maxLives;
+        if (repaired) state.lives++;
+        state.wavesCleared = Math.max(state.wavesCleared, wave);
+        state.chain = 0;
+        state.chainTimer = 0;
+        state.lastClear = {
+            wave,
+            boss,
+            waveScore,
+            clearBonus,
+            bossBonus,
+            flawlessBonus,
+            breaches: state.waveBreaches,
+            repaired
+        };
+
+        if (wave >= state.maxWave) {
+            this.syncZombieHUD();
+            this.finishZombieMode(true);
+            return;
+        }
+        this.queueZombieNextWave();
     }
 
     queueZombieNextWave() {
@@ -3075,8 +3348,10 @@ class Game {
         state.introTimer = 0;
         state.spitBalls = [];
         state.pickups = [];
+        this.hideZombieWaveBanner();
         this.primeZombieBall(-1, true);
         this.showZombieWaveChoice(nextWave);
+        this.syncZombieHUD();
     }
 
     addZombieScore(points) {
@@ -3111,28 +3386,50 @@ class Game {
         this.progression?.recordPowerUpUsed?.();
         if (type === 'rage') {
             state.powerups.rage = 8;
-            this.showNotification('Rage!', 'Your returns hit harder and faster', '#ff5a1f');
+            this.showNotification('Rage!', 'The ball smashes through zombies in one hit', '#ff5a1f');
         } else if (type === 'slow') {
             state.powerups.slow = 7;
-            this.showNotification('Rot Slow!', 'The horde lurches in molasses', '#68ff95');
+            this.showNotification('Rot Slow!', 'The horde and their spit crawl', '#68ff95');
         } else if (type === 'shield') {
             state.shieldCharges = Math.min(3, state.shieldCharges + 1);
-            this.showNotification('Shield!', 'Blocks fire breath, spits, and a breach', '#42b6ff');
+            this.showNotification('Shield!', 'Blocks one breach, spit or fire breath', '#42b6ff');
+        } else if (type === 'repair') {
+            state.lives = Math.min(state.maxLives, state.lives + 1);
+            this.showNotification('Repaired!', `Barricade ${state.lives}/${state.maxLives}`, '#ff6b8a');
         }
         this.audio?.powerUp?.();
         this.syncZombieHUD();
     }
 
-    applyZombieBreach(reason = 'The horde broke through') {
+    getZombieBarricadeX() {
+        return this.width * 0.17;
+    }
+
+    // A marching zombie hit the barricade: it is destroyed (no points) and the
+    // barricade loses a heart unless a shield takes it.
+    zombieReachedBarricade(zombie) {
+        const state = this.zombieState;
+        zombie.dead = true;
+        state.kills++;
+        this.particles.spawnGodTierHit(zombie.x, zombie.y, '#ff6b4a', 700);
+        this.applyZombieBreach('A zombie clawed through the barricade', false);
+    }
+
+    applyZombieBreach(reason = 'The horde broke through', fromBall = true) {
         const state = this.zombieState;
         if (this.tryConsumeZombieShield('The shield held the line')) {
-            this._zombieNextServeDirection = 1;
-            this.primeZombieBall(1);
+            if (fromBall) {
+                this._zombieNextServeDirection = 1;
+                this.primeZombieBall(1);
+            }
             return;
         }
 
         state.waveBreaches += 1;
         state.totalBreaches += 1;
+        state.lives = Math.max(0, state.lives - 1);
+        state.chain = 0;
+        state.chainTimer = 0;
         this.audio.score();
         this.audio?.zombieBreach?.();
         this.screenShake = Math.max(this.screenShake, 12);
@@ -3142,14 +3439,15 @@ class Game {
             this.ai.onAIScore();
         }
 
-        if (state.waveBreaches >= state.breachLimit) {
+        if (state.lives <= 0) {
+            this.syncZombieHUD();
             this.finishZombieMode(false);
             return;
         }
 
-        const left = Math.max(0, state.breachLimit - state.waveBreaches);
-        this.showNotification('Breach!', `${reason} · ${left} breaches left`, '#ff7043');
-        this._zombieNextServeDirection = 1;
+        this.showNotification('Breach!', `${reason} · Barricade ${state.lives}/${state.maxLives}`, '#ff7043');
+        if (fromBall) this._zombieNextServeDirection = 1;
+        this.syncZombieHUD();
     }
 
     handleZombieGoalScore() {
@@ -3163,21 +3461,47 @@ class Game {
         this.audio.score();
         this.audio?.zombieHit?.();
         this.resetRally();
-
-        state.bossHitsThisWave++;
+        this._zombieNextServeDirection = -1;
 
         if (this.ai && typeof this.ai.onPlayerScore === 'function') {
             this.ai.onPlayerScore();
         }
 
-        this.showNotification('Gate Breached!', `+${scoreGain} score`, '#91ff75');
-
-        if (state.wave === state.maxWave && state.zombies.length === 0 && state.bossHitsThisWave >= state.bossHitsTarget) {
-            this.finishZombieMode(true);
+        const gateX = this.width - 24;
+        const gateY = Math.max(40, Math.min(this.height - 40, this.ball.pos.y));
+        if (state.isBossWave) {
+            state.bossArmor = Math.max(0, state.bossArmor - 1);
+            this.spawnZombiePopup(gateX - 80, gateY, `+${scoreGain}`, '#ffb347', 1.2);
+            if (state.bossArmor <= 0) {
+                this.showNotification('Warden broken!', 'The horde collapses', '#ffd166');
+                this.syncZombieHUD();
+                this.completeZombieWave();
+                return;
+            }
+            this.showNotification('Armor cracked!', `${state.bossArmor} plate${state.bossArmor > 1 ? 's' : ''} left · +${scoreGain}`, '#ffb347');
+            this.syncZombieHUD();
             return;
         }
 
-        this._zombieNextServeDirection = -1;
+        // Gate blast: one hit on each of the three zombies nearest the Warden's gate.
+        const targets = state.zombies.slice().sort((a, b) => b.x - a.x).slice(0, 3);
+        let blasted = 0;
+        for (let i = 0; i < targets.length; i++) {
+            const z = targets[i];
+            z.hp -= 1;
+            z.flash = 1;
+            z.hitCooldown = 0.18;
+            if (z.hp <= 0) {
+                this.killZombie(z, 700, false);
+                blasted++;
+            } else {
+                this.particles.spawnGodTierHit(z.x, z.y, z.type.eyeColor, 500);
+            }
+        }
+        if (blasted) state.zombies = state.zombies.filter(z => !z.dead);
+        this.spawnZombiePopup(gateX - 80, gateY, `+${scoreGain}`, '#91ff75', 1.2);
+        this.showNotification('Gate blast!', blasted ? `${blasted} zombie${blasted > 1 ? 's' : ''} destroyed · +${scoreGain}` : `+${scoreGain}`, '#91ff75');
+        this.syncZombieHUD();
     }
 
     finishZombieMode(playerWon) {
@@ -3185,20 +3509,28 @@ class Game {
 
         const state = this.zombieState;
         this.hideZombieWaveChoice();
+        this.hideZombieWaveBanner();
         this.setChallengePaused(false);
-        const clearedWaves = playerWon
-            ? state.maxWave
-            : Math.max(1, Math.min(state.wave, state.maxWave));
-        const summaryHtml = playerWon
-            ? `Survivor Wins!<br>Waves Cleared: ${state.maxWave}/${state.maxWave}<br>Breaches Taken: ${this.scores.ai}/${state.breachLimit}<br>Undead Score: ${this.scores.player}<br>Mode: Zombie Mode`
-            : `Horde Wins!<br>Reached Wave: ${Math.min(state.wave, state.maxWave)}/${state.maxWave}<br>Breaches Taken: ${this.scores.ai}/${state.breachLimit}<br>Undead Score: ${this.scores.player}<br>Goal: survive 10 waves before 7 breaches<br>Mode: Zombie Mode`;
+        const clearedWaves = playerWon ? state.maxWave : state.wavesCleared;
+        const score = this.scores.player;
+        let best = 0;
+        try { best = Number(localStorage.getItem(ZOMBIE_BEST_KEY)) || 0; } catch (e) { /* storage blocked */ }
+        const newBest = score > best;
+        if (newBest) {
+            try { localStorage.setItem(ZOMBIE_BEST_KEY, String(score)); } catch (e) { /* storage blocked */ }
+        }
+        const headline = playerWon ? 'Barricade held!' : 'The horde broke through';
+        const summaryHtml = `${headline}<br>` +
+            `Score ${score}${newBest ? ' · New best!' : ` · Best ${best}`}<br>` +
+            `Waves ${clearedWaves}/${state.maxWave} · Breaches ${state.totalBreaches}<br>` +
+            `Kills ${state.totalKills} · Best chain x${Math.max(1, Math.min(5, state.bestChain))}`;
 
         this.finishMatch(playerWon, {
             delayMs: 1100,
             summaryHtml,
             matchStats: {
                 playerScore: clearedWaves,
-                aiScore: this.scores.ai,
+                aiScore: state.totalBreaches,
                 maxScore: state.maxWave,
                 wavesCleared: clearedWaves,
                 zombieShieldBlocks: state.shieldBlocks,
@@ -3218,8 +3550,7 @@ class Game {
             return;
         }
 
-        state.powerups.rage = Math.max(0, state.powerups.rage - dt);
-        state.powerups.slow = Math.max(0, state.powerups.slow - dt);
+        this.updateZombiePopups(dt);
 
         if (state.transitionTimer > 0) {
             state.transitionTimer -= dt;
@@ -3235,8 +3566,9 @@ class Game {
             if (state.introTimer <= 0) {
                 state.introTimer = 0;
                 this._zombieNextServeDirection = -1;
+                this.hideZombieWaveBanner();
                 this.primeZombieBall(-1, false);
-                this.showNotification('Fight!', 'Wave is live', '#ffd166');
+                this.showNotification('Fight!', state.isBossWave ? 'Score past the Warden to crack its armor' : 'Destroy every zombie', '#ffd166');
             } else {
                 this.ball.vel.set(0, 0);
                 this.ball._speed = 0;
@@ -3251,11 +3583,21 @@ class Game {
         }
 
         state.wavePhase += dt * (0.8 + state.wave * 0.045);
+        // Boost timers only run while a wave is live, not during intros or the reward screen.
+        state.powerups.rage = Math.max(0, state.powerups.rage - dt);
+        state.powerups.slow = Math.max(0, state.powerups.slow - dt);
+        if (state.chainTimer > 0) {
+            state.chainTimer = Math.max(0, state.chainTimer - dt);
+            if (state.chainTimer <= 0) state.chain = 0;
+        }
 
         const slowMul = state.powerups.slow > 0 ? 0.42 : 1;
         const spitSlowMul = state.powerups.slow > 0 ? 0.18 : 1;
         const corridorLeft = this.width * 0.22;
         const corridorRight = this.width * 0.78;
+        // Shamblers and tanks march on the barricade; reaching it costs a heart.
+        const barricadeX = this.getZombieBarricadeX();
+        const advance = (4 + state.wave * 1.2) * (this.height / 720) * slowMul * dt;
         const nextZombies = [];
         const playerCenterX = this.player.pos.x + this.player.w * 0.5;
         const playerCenterY = this.player.pos.y + this.player.h * 0.5;
@@ -3291,11 +3633,13 @@ class Game {
                 steer = 21;
                 maxSpeed = zombie.baseSpeed * 1.05;
             } else if (zombie.typeKey === 'tank') {
-                targetX = this.width * 0.58 + Math.sin(state.wavePhase * 0.5 + zombie.phaseOffset) * 22;
+                zombie.homeX -= advance * 0.8;
+                targetX = zombie.homeX + Math.sin(state.wavePhase * 0.5 + zombie.phaseOffset) * 22;
                 targetY = this.height * 0.5 + Math.cos(state.wavePhase * 0.35 + zombie.phaseOffset) * 34;
                 steer = 16;
                 maxSpeed = zombie.baseSpeed * 0.82;
             } else {
+                zombie.homeX -= advance;
                 targetX = zombie.homeX + Math.sin(state.wavePhase * 0.75 + zombie.phaseOffset) * 42;
                 targetY = zombie.homeY + Math.cos(state.wavePhase * 0.58 + zombie.phaseOffset) * 28;
                 steer = 15;
@@ -3366,8 +3710,14 @@ class Game {
             zombie.x += zombie.vx * dt * slowMul;
             zombie.y += zombie.vy * dt * slowMul;
 
-            if (zombie.x - zombie.radius < corridorLeft) {
-                zombie.x = corridorLeft + zombie.radius;
+            const marching = zombie.typeKey === 'shambler' || zombie.typeKey === 'tank';
+            if (marching && zombie.x - zombie.radius * 0.5 <= barricadeX) {
+                this.zombieReachedBarricade(zombie);
+                continue;
+            }
+            const leftLimit = marching ? barricadeX - zombie.radius : corridorLeft;
+            if (zombie.x - zombie.radius < leftLimit) {
+                zombie.x = leftLimit + zombie.radius;
                 zombie.vx = Math.abs(zombie.vx);
             }
             if (zombie.x + zombie.radius > corridorRight) {
@@ -3467,19 +3817,9 @@ class Game {
         }
         state.pickups = nextPickups;
 
-        if (state.zombies.length === 0) {
-            if (state.wave === state.maxWave && state.bossHitsThisWave < state.bossHitsTarget) {
-                if (!state.finalBossPrompted) {
-                    state.finalBossPrompted = true;
-                    this.showNotification(
-                        'Final Push',
-                        `${state.bossHitsTarget - state.bossHitsThisWave} boss breaches to survive`,
-                        '#ffd166'
-                    );
-                }
-            } else {
-                this.queueZombieNextWave();
-            }
+        if (!state.isBossWave && state.zombies.length === 0) {
+            this.completeZombieWave();
+            return;
         }
 
         this.syncZombieHUD();
@@ -3510,13 +3850,7 @@ class Game {
             const ballSpeed = Math.max(ball.minSpeed, ball.getSpeed ? ball.getSpeed() : ball.vel.len());
 
             if (rageActive) {
-                zombie.dead = true;
-                state.kills++;
-                state.totalKills++;
-                this.addZombieScore(zombie.type.score);
-                this.screenFlash = Math.max(this.screenFlash, 0.2);
-                this.particles.spawnGodTierHit(zombie.x, zombie.y, zombie.type.eyeColor, ballSpeed);
-                this.audio?.zombieHit?.();
+                this.killZombie(zombie, ballSpeed);
                 rageHit = true;
                 continue;
             }
@@ -3545,16 +3879,7 @@ class Game {
             this.particles.spawnGodTierHit(zombie.x, zombie.y, zombie.type.eyeColor, ballSpeed);
 
             if (zombie.hp <= 0) {
-                zombie.dead = true;
-                state.kills++;
-                state.totalKills++;
-                this.addZombieScore(zombie.type.score);
-                this.screenFlash = Math.max(this.screenFlash, 0.2);
-
-                if (Math.random() < 0.18 && state.pickups.length < 2) {
-                    const lootTypes = ['rage', 'shield', 'slow'];
-                    this.spawnZombiePickup(lootTypes[Math.floor(Math.random() * lootTypes.length)]);
-                }
+                this.killZombie(zombie, ballSpeed);
             }
 
             break;
@@ -3573,6 +3898,7 @@ class Game {
         if (!this.isZombieWaveMode()) return;
 
         const state = this.zombieState;
+        this.renderZombieBarricade(ctx);
         for (let i = 0; i < state.pickups.length; i++) {
             this.renderZombiePickup(ctx, state.pickups[i]);
         }
@@ -3582,6 +3908,66 @@ class Game {
         for (let i = 0; i < state.spitBalls.length; i++) {
             this.renderZombieSpit(ctx, state.spitBalls[i]);
         }
+        this.renderZombiePopups(ctx);
+    }
+
+    // The line marching zombies must not reach: a dashed fence that turns red
+    // as the nearest one closes in. One stroke per frame.
+    renderZombieBarricade(ctx) {
+        const state = this.zombieState;
+        const x = this.getZombieBarricadeX();
+        let nearest = Infinity;
+        for (let i = 0; i < state.zombies.length; i++) {
+            const z = state.zombies[i];
+            if (z.typeKey === 'shambler' || z.typeKey === 'tank') nearest = Math.min(nearest, z.x - z.radius - x);
+        }
+        const danger = Math.max(0, Math.min(1, 1 - nearest / 220));
+        ctx.save();
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 12]);
+        ctx.strokeStyle = danger > 0
+            ? `rgba(255, ${Math.round(200 - danger * 120)}, ${Math.round(150 - danger * 90)}, ${0.22 + danger * 0.45})`
+            : 'rgba(140, 255, 170, 0.2)';
+        ctx.beginPath();
+        ctx.moveTo(x, 64);
+        ctx.lineTo(x, this.height - 10);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    updateZombiePopups(dt) {
+        const popups = this.zombieState.popups;
+        let w = 0;
+        for (let i = 0; i < popups.length; i++) {
+            const p = popups[i];
+            p.life -= dt;
+            p.y -= 46 * dt;
+            if (p.life > 0) popups[w++] = p;
+        }
+        popups.length = w;
+    }
+
+    renderZombiePopups(ctx) {
+        const popups = this.zombieState.popups;
+        if (!popups.length) return;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(4, 8, 6, 0.85)';
+        ctx.lineWidth = 4;
+        const base = Math.max(14, Math.round(this.height * 0.024));
+        for (let i = 0; i < popups.length; i++) {
+            const p = popups[i];
+            const t = p.life / p.maxLife;
+            const grow = t > 0.85 ? 0.8 + (1 - t) / 0.15 * 0.2 : 1;
+            ctx.globalAlpha = Math.min(1, t * 2.2);
+            ctx.font = `700 ${Math.round(base * p.size * grow)}px Orbitron, Audiowide, sans-serif`;
+            ctx.strokeText(p.text, p.x, p.y);
+            ctx.fillStyle = p.color;
+            ctx.fillText(p.text, p.x, p.y);
+        }
+        ctx.restore();
     }
 
     renderZombiePickup(ctx, pickup) {
@@ -5416,6 +5802,11 @@ class Game {
 
             if (this.paused) return;
 
+            if ((e.key === ' ' || e.key === 'Enter') && this.skipZombieWaveIntro()) {
+                e.preventDefault();
+                return;
+            }
+
             if (e.key === 'F2') {
                 this.togglePerfOverlay();
                 e.preventDefault();
@@ -5540,9 +5931,9 @@ class Game {
             const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
             set('pauseMode', (this.getModeDisplayName(this.gameMode) || '').toUpperCase());
             set('pauseLabelL', zombie ? 'SCORE' : (this.isMultiplayer ? 'P1' : 'PLAYER'));
-            set('pauseLabelR', zombie ? 'BREACHES' : (this.isMultiplayer ? 'P2' : 'AI'));
+            set('pauseLabelR', zombie ? `WAVE ${Math.min(z.wave || 1, z.maxWave || 10)} · BARRICADE` : (this.isMultiplayer ? 'P2' : 'AI'));
             set('pauseScoreL', this.scores.player);
-            set('pauseScoreR', zombie ? `${z.waveBreaches || 0}/${z.breachLimit || 0}` : this.scores.ai);
+            set('pauseScoreR', zombie ? `${z.lives ?? 0}/${z.maxLives ?? 5}` : this.scores.ai);
         }
         this.resetPauseConfirms(menu);
         if (open !== menu.classList.contains('open')) {
@@ -6445,6 +6836,7 @@ class Game {
         if (this.gameMode === 'speed') inc = 1.11;
         else if (this.gameMode === 'obstacle') inc = 1.04;
         else if (this.gameMode === 'classic') inc = 1.085;
+        else if (this.gameMode === 'zombie') inc = 1.07;
         if (this.isZombieWaveMode() && isPlayer && this.zombieState.powerups.rage > 0) inc *= 1.18;
         inc += Math.min(0.035, this.rallyCount * 0.0025);
         if (this.powerShotActive && isPlayer) inc *= 1.9;

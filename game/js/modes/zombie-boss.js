@@ -593,10 +593,14 @@ class ZombieBoss {
         this.recoveryTimer = 0;
     }
 
-    configureForWave(wave = 1, maxWave = 10) {
+    // armor > 0 marks a boss wave: each goal past the Warden breaks one plate,
+    // and the game ends the wave when the last one goes. Otherwise the Warden
+    // is an unbreakable gatekeeper and its armor bar stays hidden.
+    configureForWave(wave = 1, maxWave = 10, armor = 0) {
         this.wave = wave;
         this.maxWave = maxWave;
-        this.maxHealth = 92 + wave * 12;
+        this.isBossWave = armor > 0;
+        this.maxHealth = Math.max(1, armor);
         this.health = this.maxHealth;
         this.rageLevel = Math.min(0.92, 0.16 + (wave / Math.max(1, maxWave)) * 0.46);
         this.staggerTimer = 0;
@@ -615,11 +619,10 @@ class ZombieBoss {
         }
     }
 
-    registerGoalHit(damage = null) {
+    registerGoalHit(damage = 1) {
         if (this.isPvP) return;
 
-        const hitDamage = Number.isFinite(damage) ? damage : (14 + this.wave * 2);
-        this.health = Math.max(0, this.health - hitDamage);
+        this.health = Math.max(0, this.health - damage);
         this.rageLevel = Math.min(1, 1 - (this.health / Math.max(1, this.maxHealth)));
         this.screenShake = 0.28;
         this.screenShakeIntensity = 12;
@@ -633,22 +636,23 @@ class ZombieBoss {
             this.fireBreathingTimer = Math.max(1.1, 4 - this.wave * 0.1);
             this.resetPaddleSize();
             this.paddle.w = Math.max(this.originalPaddleWidth * 0.56, this.originalPaddleWidth - this.wave * 4);
-
-            if (this.game && typeof this.game.queueZombieNextWave === 'function' && this.game.isZombieWaveMode()) {
-                this.game.queueZombieNextWave();
-            }
         }
     }
 
     onPlayerScore() {
         if (this.game && typeof this.game.isZombieWaveMode === 'function' && this.game.isZombieWaveMode()) {
-            this.registerGoalHit(14 + this.wave * 2.5);
+            if (this.isBossWave) {
+                this.registerGoalHit(1);
+            } else {
+                this.screenShake = 0.22;
+                this.screenShakeIntensity = 9;
+            }
         }
     }
 
+    // A breach feeds the Warden's rage (faster fire breath) but never restores armor.
     onAIScore() {
         if (this.game && typeof this.game.isZombieWaveMode === 'function' && this.game.isZombieWaveMode()) {
-            this.health = Math.min(this.maxHealth, this.health + 8 + this.wave * 1.5);
             this.rageLevel = Math.min(1, Math.max(this.rageLevel, 0.22 + this.wave * 0.04));
             this.fireBreathingTimer = Math.max(0.8, this.fireBreathingTimer - 0.45);
             this.screenShake = 0.16;
@@ -1429,6 +1433,8 @@ class ZombieBoss {
     }
 
     renderHealthBar(ctx, now) {
+        // Wave mode shows the Warden's armor in the DOM objective HUD instead.
+        if (this.game && typeof this.game.isZombieWaveMode === 'function' && this.game.isZombieWaveMode()) return;
         const barWidth = 320;
         const barHeight = 28;
         const x = this.game.width / 2 - barWidth / 2;

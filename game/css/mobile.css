@@ -259,9 +259,22 @@ html.pp-mobile .speed-challenge .cockpit-panel { display: none; }
 html.pp-mobile .speed-challenge .challenge-title { font-size: clamp(1rem, 4.5vh, 1.6rem); }
 html.pp-mobile .zombie-wave-choice-panel { padding: 14px 16px; max-height: calc(100% - 16px); overflow-y: auto; }
 
-/* Zombie mode: the wave/breach pills repeat the scoreboard; on a phone the
-   court needs the room more. */
-html.pp-mobile .zombie-progress-overlay { display: none !important; }
+/* Zombie mode: on a phone keep only the wave line, its progress bar and the
+   chain, squeezed between the score and the MENU button. */
+html.pp-mobile .zombie-progress-overlay { top: max(4px, env(safe-area-inset-top)); }
+html.pp-mobile .zombie-hud-objective { right: calc(50% + 34px); width: auto; max-width: calc(50% - 120px); min-width: 120px; }
+html.pp-mobile .zombie-hud-status { left: calc(50% + 34px); max-width: calc(50% - 150px); }
+html.pp-mobile .zombie-hud-head { font-size: 10px; gap: 6px; }
+html.pp-mobile .zombie-hud-goal,
+html.pp-mobile .zombie-hud-boosts { display: none; }
+html.pp-mobile .zombie-hud-chain strong { font-size: 14px; }
+html.pp-mobile .zombie-hud-chain-timer { width: 40px; }
+html.pp-mobile .zombie-wave-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+html.pp-mobile .zombie-wave-choice-btn { min-height: 0; padding: 8px 10px; }
+html.pp-mobile .zombie-wave-banner-panel { padding: 12px 16px; max-height: calc(100% - 16px); overflow-y: auto; }
+html.pp-mobile .zombie-wave-banner-rules { font-size: 13px; margin-top: 8px; }
+html.pp-mobile .zombie-wave-banner-rules li { padding: 2px 0 2px 16px; }
+html.pp-mobile .zombie-wave-banner-rules li::before { top: 8px; }
 
 /* Customise: keep the header to one slim row so the settings get the screen. */
 html.pp-mobile .customise-overlay-header {
