@@ -1198,7 +1198,15 @@ class BackgroundRenderer {
                     grad.addColorStop(1, 'transparent');
                 }
                 ctx.fillStyle = grad;
-                ctx.fillRect(0, 0, w, h);
+                // Outside the radius the gradient is transparent, which leaves
+                // the destination untouched under 'overlay'. Filling only the
+                // circle's bounds gives the same image with far less blending
+                // (overlay reads the destination back on most GPUs).
+                const x0 = Math.max(0, Math.floor(light.x - radius) - 2);
+                const y0 = Math.max(0, Math.floor(light.y - radius) - 2);
+                const x1 = Math.min(w, Math.ceil(light.x + radius) + 2);
+                const y1 = Math.min(h, Math.ceil(light.y + radius) + 2);
+                if (x1 > x0 && y1 > y0) ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
 
             } else if (light.type === 'linear') {
                 const grad = ctx.createLinearGradient(

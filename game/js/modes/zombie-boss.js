@@ -840,7 +840,10 @@ class ZombieBoss {
         ctx.globalCompositeOperation = 'source-over';
 
         // === LAYER 3: Rock surface texture (noise approximation) ===
-        ctx.globalCompositeOperation = 'multiply';
+        // Black under 'multiply' gives exactly the same pixels as plain
+        // source-over, but multiply makes the GPU read back the destination for
+        // every one of these ~30 small rects.
+        ctx.globalCompositeOperation = 'source-over';
         const noiseStep = 6;
         for (let ny = p.pos.y; ny < p.pos.y + p.h; ny += noiseStep) {
             for (let nx = p.pos.x; nx < p.pos.x + p.w; nx += noiseStep) {
