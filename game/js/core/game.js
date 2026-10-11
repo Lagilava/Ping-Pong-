@@ -147,12 +147,7 @@ class Game {
         this.progression = new ProgressionSystem();
         this.speedChallenge = new SpeedChallenge(this);
         this.notifications = [];
-        this._tauntLayoutCache = {
-            text: '',
-            font: '',
-            maxWidth: 0,
-            lines: []
-        };
+        this._taunt = { el: null, text: '', k: 0, h: 0, opacity: '', x: NaN, y: NaN, visible: false };
         this._perfStats = {
             frameCount: 0,
             frameTimeMs: 0,
@@ -1162,6 +1157,7 @@ class Game {
             cancelAnimationFrame(this.rafId);
             this.rafId = null;
         }
+        this.hideTauntBubble();
         if (this.introRafId !== null) {
             cancelAnimationFrame(this.introRafId);
             this.introRafId = null;
@@ -6247,35 +6243,57 @@ class Game {
         }
     }
 
-    getTauntLayout(ctx, text, maxWidth) {
-        const font = ctx.font;
-        const cache = this._tauntLayoutCache;
-        if (cache.text === text && cache.font === font && cache.maxWidth === maxWidth) {
-            return cache.lines;
+    renderTauntBubble(H) {
+        const taunt = this.gameMode !== 'zombie' && this.ai && this.ai.getCurrentTaunt ? this.ai.getCurrentTaunt() : null;
+        const st = this._taunt;
+        if (!taunt || !taunt.text || !this.aiPaddle) {
+            this.hideTauntBubble();
+            return;
         }
+        if (!st.el) {
+            st.el = document.createElement('div');
+            st.el.className = 'ai-taunt';
+            st.el.setAttribute('aria-live', 'polite');
+            (this.canvas.parentElement || document.body).appendChild(st.el);
+        }
+        const el = st.el;
+        // Scale with screen height so the bubble stays proportionate on phones.
+        const k = Math.max(0.6, Math.min(1, H / 700));
+        if (st.text !== taunt.text || st.k !== k) {
+            st.text = taunt.text;
+            st.k = k;
+            el.textContent = taunt.text;
+            el.style.setProperty('--k', k.toFixed(3));
+            st.h = 0; // re-measured once it is visible
+        }
+        const opacity = String(taunt.opacity ?? 1);
+        if (st.opacity !== opacity) {
+            st.opacity = opacity;
+            el.style.opacity = opacity;
+        }
+        if (!st.visible) {
+            st.visible = true;
+            el.classList.add('is-visible');
+        }
+        if (!st.h) st.h = el.offsetHeight;
+        // Right edge 50px (scaled) left of the AI paddle, centred on it, but
+        // kept clear of the score bar and the bottom edge.
+        const half = st.h / 2;
+        const x = Math.round(this.aiPaddle.pos.x - 50 * k);
+        const y = Math.round(Math.max(64 + half, Math.min(H - 8 - half, this.aiPaddle.pos.y + this.aiPaddle.h / 2)));
+        if (x !== st.x || y !== st.y) {
+            st.x = x;
+            st.y = y;
+            el.style.transform = `translate(${x}px, ${y}px) translate(-100%, -50%)`;
+        }
+    }
 
-        const words = text.split(' ');
-        const lines = [];
-        let currentLine = words[0] || '';
-        for (let i = 1; i < words.length; i++) {
-            const word = words[i];
-            const candidate = currentLine ? `${currentLine} ${word}` : word;
-            if (ctx.measureText(candidate).width < maxWidth) {
-                currentLine = candidate;
-            } else {
-                lines.push(currentLine);
-                currentLine = word;
-            }
+    hideTauntBubble() {
+        const st = this._taunt;
+        if (st && st.visible && st.el) {
+            st.visible = false;
+            st.el.classList.remove('is-visible');
         }
-        if (currentLine) {
-            lines.push(currentLine);
-        }
-
-        cache.text = text;
-        cache.font = font;
-        cache.maxWidth = maxWidth;
-        cache.lines = lines;
-        return lines;
     }
 
     recordPerfSample(frameMs, physicsMs, renderMs) {
@@ -7747,46 +7765,9 @@ class Game {
         }
         this.particles.render(ctx);
 
-        // Skip taunt rendering in zombie mode
-        if (this.gameMode !== 'zombie') {
-            const taunt = this.ai && this.ai.getCurrentTaunt ? this.ai.getCurrentTaunt() : "";
-            if (taunt && taunt.text) {
-                ctx.save();
-                ctx.globalAlpha = taunt.opacity || 1;
-                const paddleX = this.aiPaddle.pos.x;
-                const paddleY = this.aiPaddle.pos.y + this.aiPaddle.h / 2;
-                // Scale with screen height so the bubble stays proportionate on phones.
-                const k = Math.max(0.6, Math.min(1, H / 700));
-                ctx.font = `${Math.round(16 * k)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-                const maxBubbleWidth = Math.round(220 * k);
-                const padding = Math.round(14 * k);
-                const maxTextWidth = maxBubbleWidth - padding * 2;
-                const lines = this.getTauntLayout(ctx, taunt.text, maxTextWidth);
-                const lineHeight = Math.round(20 * k);
-                const bubbleHeight = Math.max(36 * k, lines.length * lineHeight + padding);
-                const bubbleWidth = maxBubbleWidth;
-                const bubbleX = paddleX - bubbleWidth - 50 * k;
-                const bubbleY = paddleY - bubbleHeight / 2;
-                ctx.fillStyle = '#0088ff';
-                this.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 18 * k);
-                ctx.fill();
-                // Tail from the bubble's edge towards the paddle.
-                ctx.beginPath();
-                ctx.moveTo(paddleX - 30 * k, paddleY);
-                ctx.lineTo(paddleX - 50 * k, paddleY - 8 * k);
-                ctx.lineTo(paddleX - 50 * k, paddleY + 8 * k);
-                ctx.fill();
-                ctx.fillStyle = 'white';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                for (let index = 0; index < lines.length; index++) {
-                    const line = lines[index];
-                    const y = bubbleY + padding / 2 + (index + 0.5) * lineHeight;
-                    ctx.fillText(line, bubbleX + padding, y);
-                }
-                ctx.restore();
-            }
-        }
+        // Taunts live in a DOM bubble above the shader output so bloom and
+        // chromatic aberration can't smear the text (zombie mode has none).
+        this.renderTauntBubble(H);
         this.renderNotifications();
         if (shakeApplied) ctx.restore();
     }
@@ -7817,15 +7798,18 @@ class Game {
         // Don't run game logic if intro is active
         if (this.introActive) {
             this.lastTime = now;
+            this.hideTauntBubble();
             return;
         }
 
         if (!this.running) {
+            this.hideTauntBubble();
             return;
         }
 
         if (this.paused) {
             this.lastTime = now;
+            this.hideTauntBubble();
             return;
         }
 
