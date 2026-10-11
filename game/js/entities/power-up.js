@@ -918,18 +918,22 @@ class PowerUp {
         }
 
         // Reduced sparkle rendering when low opacity
-        if (particlesEnabled && opacity > 0.5) {
-            this.sparkles.forEach(sparkle => {
+        // Sparkles share one fill and shadow style, so they go out as a single
+        // path: one shadow blur pass for the whole ring instead of one each.
+        if (particlesEnabled && opacity > 0.5 && this.sparkles.length) {
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 5; // Reduced blur
+            ctx.beginPath();
+            for (let i = 0; i < this.sparkles.length; i++) {
+                const sparkle = this.sparkles[i];
                 const x = Math.cos(sparkle.angle + sparkle.phase) * sparkle.distance;
                 const y = Math.sin(sparkle.angle + sparkle.phase) * sparkle.distance;
-
-                ctx.fillStyle = '#ffffff';
-                ctx.shadowColor = this.color;
-                ctx.shadowBlur = 5; // Reduced blur
-                ctx.beginPath();
-                ctx.arc(x, y, sparkle.size * 0.8, 0, Math.PI * 2); // Reduced size
-                ctx.fill();
-            });
+                const r = sparkle.size * 0.8; // Reduced size
+                ctx.moveTo(x + r, y);
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+            }
+            ctx.fill();
         }
 
         // Custom SVG-style Icon Rendering
@@ -938,19 +942,19 @@ class PowerUp {
         // Simplified rarity stars
         if (this.rarity >= 4 && opacity > 0.7) {
             const starCount = this.rarity - 3;
+            ctx.fillStyle = '#ffff00';
+            ctx.shadowColor = '#ffff00';
+            ctx.shadowBlur = 5; // Reduced blur
+            ctx.beginPath();
             for (let i = 0; i < starCount; i++) {
                 const angle = (Date.now() * 0.001 + i * Math.PI * 2 / starCount) % (Math.PI * 2);
                 const distance = this.size + 8; // Reduced distance
                 const x = Math.cos(angle) * distance;
                 const y = Math.sin(angle) * distance;
-
-                ctx.fillStyle = '#ffff00';
-                ctx.shadowColor = '#ffff00';
-                ctx.shadowBlur = 5; // Reduced blur
-                ctx.beginPath();
+                ctx.moveTo(x + 2, y);
                 ctx.arc(x, y, 2, 0, Math.PI * 2); // Reduced size
-                ctx.fill();
             }
+            ctx.fill();
         }
 
         // Simplified neon border
