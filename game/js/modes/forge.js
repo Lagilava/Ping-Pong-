@@ -151,52 +151,110 @@
         ctx.save();
         ctx.translate(x, y);
         ctx.globalAlpha = opts.alpha ?? 1;
+        const glow = (color, blur) => { ctx.shadowColor = color; ctx.shadowBlur = blur; };
+        const noGlow = () => { ctx.shadowBlur = 0; };
         switch (it.t) {
             case 'wall':
             case 'gate': {
-                const len = it.s * H, th = Math.max(6, 0.026 * H);
+                const len = it.s * H, th = Math.max(7, 0.03 * H);
                 const vertical = !it.rot;
                 const w = vertical ? th : len, h = vertical ? len : th;
-                if (it.t === 'gate') {
+                const isGate = it.t === 'gate';
+                const main = isGate ? '#00ffd6' : '#ff8c66';
+                if (isGate) {
+                    // Rail the gate slides along, with end stops.
+                    const reach = len / 2 + 0.12 * H;
                     ctx.strokeStyle = 'rgba(0,255,214,0.35)';
                     ctx.setLineDash([6 * u, 6 * u]);
                     ctx.lineWidth = 2;
                     ctx.beginPath();
-                    if (vertical) { ctx.moveTo(0, -len / 2 - 0.12 * H); ctx.lineTo(0, len / 2 + 0.12 * H); } else { ctx.moveTo(-len / 2 - 0.12 * H, 0); ctx.lineTo(len / 2 + 0.12 * H, 0); }
+                    if (vertical) { ctx.moveTo(0, -reach); ctx.lineTo(0, reach); } else { ctx.moveTo(-reach, 0); ctx.lineTo(reach, 0); }
                     ctx.stroke();
                     ctx.setLineDash([]);
+                    ctx.fillStyle = 'rgba(0,255,214,0.6)';
+                    for (const sgn of [-1, 1]) {
+                        ctx.beginPath();
+                        if (vertical) ctx.roundRect(-th * 0.6, sgn * reach - 2, th * 1.2, 4, 2); else ctx.roundRect(sgn * reach - 2, -th * 0.6, 4, th * 1.2, 2);
+                        ctx.fill();
+                    }
                 }
-                ctx.fillStyle = it.t === 'gate' ? '#7df9ff' : '#ff8c66';
+                const g = vertical ? ctx.createLinearGradient(-w / 2, 0, w / 2, 0) : ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+                if (isGate) { g.addColorStop(0, '#0b6f66'); g.addColorStop(0.45, '#7df9ff'); g.addColorStop(1, '#06514a'); }
+                else { g.addColorStop(0, '#7a2e18'); g.addColorStop(0.45, '#ffb08f'); g.addColorStop(1, '#5c2010'); }
+                glow(main, 12 * u + 4);
+                ctx.fillStyle = g;
                 ctx.beginPath();
                 ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) / 2);
                 ctx.fill();
-                ctx.strokeStyle = it.t === 'gate' ? '#00ffd6' : '#ffd0b8';
-                ctx.lineWidth = 2;
+                noGlow();
+                ctx.strokeStyle = isGate ? '#c9fffa' : '#ffe0d2';
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
+                // Hazard chevrons along the body.
+                ctx.strokeStyle = isGate ? 'rgba(0,40,36,0.55)' : 'rgba(60,16,6,0.5)';
+                ctx.lineWidth = Math.max(1.5, th * 0.18);
+                const steps = Math.max(2, Math.floor(len / (th * 2.4)));
+                for (let i = 1; i < steps; i++) {
+                    const k = -len / 2 + (len * i) / steps;
+                    ctx.beginPath();
+                    if (vertical) { ctx.moveTo(-th * 0.3, k - th * 0.25); ctx.lineTo(th * 0.3, k + th * 0.25); }
+                    else { ctx.moveTo(k - th * 0.25, -th * 0.3); ctx.lineTo(k + th * 0.25, th * 0.3); }
+                    ctx.stroke();
+                }
                 break;
             }
             case 'bumper': {
                 const r = it.s * H;
-                ctx.fillStyle = '#7df9ff';
+                glow('#00d4ff', r * 0.8);
+                const body = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+                body.addColorStop(0, '#ffffff');
+                body.addColorStop(0.45, '#7df9ff');
+                body.addColorStop(1, '#0a6f8f');
+                ctx.fillStyle = body;
                 ctx.beginPath();
                 ctx.arc(0, 0, r, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.fillStyle = '#e8ffff';
+                noGlow();
+                ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                ctx.lineWidth = Math.max(1.5, r * 0.1);
                 ctx.beginPath();
-                ctx.arc(0, 0, r * 0.45, 0, Math.PI * 2);
+                ctx.arc(0, 0, r * 0.62, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, r * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.beginPath();
+                ctx.ellipse(-r * 0.38, -r * 0.45, r * 0.22, r * 0.12, -0.6, 0, Math.PI * 2);
                 ctx.fill();
                 break;
             }
             case 'spinner': {
-                const len = it.s * H, th = Math.max(6, 0.024 * H);
+                const len = it.s * H, th = Math.max(7, 0.026 * H);
+                ctx.strokeStyle = 'rgba(255,209,102,0.18)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, len / 2, 0, Math.PI * 2);
+                ctx.stroke();
                 ctx.rotate((opts.time || 0) * 1.6);
-                ctx.fillStyle = '#ffd166';
+                const g = ctx.createLinearGradient(0, -th / 2, 0, th / 2);
+                g.addColorStop(0, '#fff3c4');
+                g.addColorStop(0.5, '#ffc93a');
+                g.addColorStop(1, '#a8740a');
+                glow('#ffd166', 10 * u + 3);
+                ctx.fillStyle = g;
                 ctx.beginPath();
                 ctx.roundRect(-len / 2, -th / 2, len, th, th / 2);
                 ctx.fill();
+                noGlow();
+                ctx.fillStyle = '#4a3200';
+                ctx.beginPath();
+                ctx.arc(0, 0, th * 0.85, 0, Math.PI * 2);
+                ctx.fill();
                 ctx.fillStyle = '#fff5c7';
                 ctx.beginPath();
-                ctx.arc(0, 0, th * 0.7, 0, Math.PI * 2);
+                ctx.arc(0, 0, th * 0.45, 0, Math.PI * 2);
                 ctx.fill();
                 break;
             }
@@ -211,25 +269,49 @@
                 ctx.beginPath();
                 ctx.arc(0, 0, r * 2.2, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.strokeStyle = '#b48cff';
-                ctx.lineWidth = 2;
+                // Swirling accretion arms.
+                ctx.rotate(-(opts.time || 0) * 0.8);
+                ctx.lineCap = 'round';
+                for (let a = 0; a < 3; a++) {
+                    ctx.strokeStyle = a === 0 ? 'rgba(255,190,255,0.75)' : 'rgba(180,140,255,0.55)';
+                    ctx.lineWidth = Math.max(1.5, r * 0.08);
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r * (1.15 + a * 0.22), a * 2.1, a * 2.1 + 1.6);
+                    ctx.stroke();
+                }
+                glow('#b48cff', r * 0.5);
+                ctx.fillStyle = '#000';
                 ctx.beginPath();
-                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.arc(0, 0, r * 0.75, 0, Math.PI * 2);
+                ctx.fill();
+                noGlow();
+                ctx.strokeStyle = '#d9c4ff';
+                ctx.lineWidth = 1.5;
                 ctx.stroke();
                 break;
             }
             case 'pad': {
                 const w = 0.1 * H, h = 0.042 * H, dir = it.rot ? -1 : 1;
-                ctx.fillStyle = 'rgba(40,18,4,0.95)';
+                glow('#ff8c1e', h * 0.7);
+                const g = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+                g.addColorStop(0, '#4a2208');
+                g.addColorStop(1, '#1c0b02');
+                ctx.fillStyle = g;
                 ctx.strokeStyle = '#ff9a2e';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.roundRect(-w / 2, -h / 2, w, h, h / 2);
                 ctx.fill();
+                noGlow();
                 ctx.stroke();
                 ctx.lineWidth = 2.5;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                const pulse = ((opts.time || 0) * 2) % 1;
                 for (let i = -1; i <= 1; i++) {
                     const cx = i * w * 0.22;
+                    const lit = Math.abs(((i + 1) / 3) - (dir > 0 ? pulse : 1 - pulse)) < 0.34;
+                    ctx.strokeStyle = lit ? '#ffe2a8' : '#ff9a2e';
                     ctx.beginPath();
                     ctx.moveTo(cx - h * 0.18 * dir, -h * 0.3);
                     ctx.lineTo(cx + h * 0.14 * dir, 0);
@@ -239,33 +321,59 @@
                 break;
             }
             case 'block': {
-                const s = 0.06 * H;
-                ctx.fillStyle = '#ffb627';
+                const s = 0.06 * H, bob = Math.sin((opts.time || 0) * 2.4) * s * 0.04;
+                ctx.translate(0, bob);
+                glow('#ffaa28', s * 0.4);
+                const g = ctx.createLinearGradient(0, -s / 2, 0, s / 2);
+                g.addColorStop(0, '#ffd75a');
+                g.addColorStop(1, '#e07b00');
+                ctx.fillStyle = g;
                 ctx.strokeStyle = '#7a3a00';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = Math.max(1.5, s * 0.06);
                 ctx.beginPath();
                 ctx.roundRect(-s / 2, -s / 2, s, s, s * 0.14);
                 ctx.fill();
+                noGlow();
                 ctx.stroke();
-                ctx.fillStyle = '#fff4d0';
+                ctx.fillStyle = '#7a3a00';
+                const d = s * 0.11;
+                for (const [px, py] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+                    ctx.beginPath();
+                    ctx.arc(px * (s / 2 - d), py * (s / 2 - d), d * 0.4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
                 ctx.font = `900 ${Math.round(s * 0.62)}px Arial Black, Arial, sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#7a3a00';
+                ctx.fillText('?', s * 0.04, s * 0.08);
+                ctx.fillStyle = '#fff4d0';
                 ctx.fillText('?', 0, s * 0.04);
                 break;
             }
             case 'coin': {
                 const r = 0.018 * H;
-                ctx.fillStyle = '#ffd23f';
-                ctx.strokeStyle = '#8a5200';
-                ctx.lineWidth = 2;
+                const spin = Math.max(0.2, Math.abs(Math.cos((opts.time || 0) * 3 + it.x * 20)));
+                ctx.scale(spin, 1);
+                glow('#ffd23f', r * 0.8);
+                const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+                g.addColorStop(0, '#fff6c2');
+                g.addColorStop(0.45, '#ffd23f');
+                g.addColorStop(1, '#c47a00');
+                ctx.fillStyle = g;
                 ctx.beginPath();
                 ctx.arc(0, 0, r, 0, Math.PI * 2);
                 ctx.fill();
+                noGlow();
+                ctx.strokeStyle = '#8a5200';
+                ctx.lineWidth = Math.max(1.2, r * 0.14);
                 ctx.stroke();
+                ctx.fillStyle = '#fff3b0';
+                ctx.fillRect(-r * 0.12, -r * 0.55, r * 0.24, r * 1.1);
                 break;
             }
         }
+        noGlow();
         if (opts.selected) {
             const b = itemBounds(it, W, H);
             ctx.globalAlpha = 1;
