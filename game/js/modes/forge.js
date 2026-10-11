@@ -407,10 +407,25 @@
         return { x0: x - hw, y0: y - hh, x1: x + hw, y1: y + hh };
     }
 
-    function drawCourt(ctx, W, H) {
-        ctx.fillStyle = '#06101f';
-        ctx.fillRect(0, 0, W, H);
-        ctx.strokeStyle = 'rgba(120, 200, 255, 0.08)';
+    // The court is drawn over the match's selected background (a built-in
+    // world, an imported image or a code background) so the arena is built
+    // against what the match will look like.
+    function drawCourt(ctx, W, H, opts = {}) {
+        const bgs = window.CustomBackgrounds;
+        const game = window.game;
+        if (bgs && game?.customSettings) {
+            bgs.drawSelection(ctx, W, H, game.customSettings.backgroundMode || 'classic', {
+                filter: game.getCustomBackgroundToneFilter?.() || '',
+                static: !opts.live,
+            });
+            // A light veil keeps items and grid readable on busy pictures.
+            ctx.fillStyle = 'rgba(2, 6, 14, 0.28)';
+            ctx.fillRect(0, 0, W, H);
+        } else {
+            ctx.fillStyle = '#06101f';
+            ctx.fillRect(0, 0, W, H);
+        }
+        ctx.strokeStyle = 'rgba(160, 220, 255, 0.12)';
         ctx.lineWidth = 1;
         for (let i = 1; i < 16; i++) { ctx.beginPath(); ctx.moveTo(i * W / 16, 0); ctx.lineTo(i * W / 16, H); ctx.stroke(); }
         for (let i = 1; i < 9; i++) { ctx.beginPath(); ctx.moveTo(0, i * H / 9); ctx.lineTo(W, i * H / 9); ctx.stroke(); }
@@ -433,7 +448,7 @@
     function drawMap(canvas, items, opts = {}) {
         const ctx = canvas.getContext('2d');
         const W = canvas.width, H = canvas.height;
-        drawCourt(ctx, W, H);
+        drawCourt(ctx, W, H, { live: opts.live });
         for (const it of items) drawItem(ctx, it, W, H, { time: opts.time, selected: it === opts.selected });
     }
 
@@ -521,6 +536,7 @@
                 <div class="forge-editor-top">
                     <div class="forge-editor-title"><span class="forge-kicker">Forge</span><input class="forge-name" maxlength="32" aria-label="Map name"></div>
                     <div class="forge-editor-actions">
+                        <button type="button" data-act="background" class="forge-bg-btn" title="Choose or import the background">Background: <b class="forge-bg-name"></b></button>
                         <button type="button" data-act="mirror" class="forge-toggle" aria-pressed="true">Mirror</button>
                         <button type="button" data-act="snap" class="forge-toggle" aria-pressed="true">Snap</button>
                         <button type="button" data-act="smaller" title="Smaller (-)">&minus;</button>
@@ -575,6 +591,7 @@
                 if (act === 'clear') { this.pushHistory(); this.items = []; this.selected = null; }
                 if (act === 'save') this.ui.saveMapFromEditor(this.items, this.nameInput.value);
                 if (act === 'done') this.close(true);
+                if (act === 'background') this.ui.openBackgroundPicker();
             });
             const cv = this.canvas;
             cv.addEventListener('pointerdown', (e) => this.onDown(e));
@@ -599,6 +616,7 @@
             this.selected = null;
             this.el.classList.add('visible');
             this.setTool(this.tool);
+            this.syncBackgroundName();
             this.layout();
             window.addEventListener('keydown', this.onKey, true);
             const loop = (t) => {
@@ -608,7 +626,14 @@
             this.raf = requestAnimationFrame(loop);
         }
 
+        syncBackgroundName() {
+            const label = this.el?.querySelector('.forge-bg-name');
+            const mode = this.ui.game?.customSettings?.backgroundMode || 'classic';
+            if (label) label.textContent = window.CustomBackgrounds ? window.CustomBackgrounds.nameOf(mode) : mode;
+        }
+
         close(apply) {
+            window.CustomBackgrounds?.stopCode();
             cancelAnimationFrame(this.raf);
             window.removeEventListener('keydown', this.onKey, true);
             this.el.classList.remove('visible');
@@ -741,6 +766,7 @@
         }
 
         onKey(e) {
+            if (document.querySelector('.ppbg.open')) return;
             if (e.target === this.nameInput) {
                 if (e.key === 'Enter') this.nameInput.blur();
                 return;
@@ -759,7 +785,7 @@
         }
 
         draw(time) {
-            drawMap(this.canvas, this.items, { time, selected: this.selected });
+            drawMap(this.canvas, this.items, { time, selected: this.selected, live: true });
             const ctx = this.canvas.getContext('2d');
             if (this.mirror) {
                 ctx.fillStyle = 'rgba(0, 255, 214, 0.5)';
@@ -798,7 +824,14 @@
             document.getElementById('forgeShareBtn')?.addEventListener('click', () => this.share());
             document.getElementById('forgeImportBtn')?.addEventListener('click', () => this.importCode());
             document.getElementById('forgeDeleteBtn')?.addEventListener('click', () => this.deleteMap());
+            document.getElementById('forgeBgBtn')?.addEventListener('click', () => this.openBackgroundPicker());
             document.getElementById('customResetDefaultsBtn')?.addEventListener('click', () => setTimeout(() => this.refresh(), 0));
+            // Redraw the arena preview over the newly chosen or toned background.
+            ['customBackgroundMode', 'customBgBrightness', 'customBgSaturation', 'customBgContrast'].forEach((id) => {
+                document.getElementById(id)?.addEventListener('input', () => this.drawPreview());
+                document.getElementById(id)?.addEventListener('change', () => this.drawPreview());
+            });
+            window.addEventListener('pp-background-image-loaded', () => this.drawPreview());
             this.refresh();
         },
         persist() {
@@ -897,6 +930,27 @@
             if (input) input.value = '';
             this.persist();
             this.toast(`Loaded "${decoded.name}"`);
+        },
+        // Shared with the Custom screen's background selector.
+        openBackgroundPicker() {
+            const bgs = window.CustomBackgrounds;
+            if (!bgs) return;
+            bgs.openPicker({
+                current: this.game.customSettings.backgroundMode || 'classic',
+                onPick: (mode) => this.setBackground(mode),
+            });
+        },
+        setBackground(mode) {
+            const select = document.getElementById('customBackgroundMode');
+            if (select) {
+                select.innerHTML = window.CustomBackgrounds.optionsHtml(mode);
+                select.value = mode;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            this.game.customSettings.backgroundMode = mode;
+            this.game.saveCustomSettings?.();
+            this.editor?.syncBackgroundName();
+            this.drawPreview();
         },
         toast(text) {
             let el = document.getElementById('forgeToast');

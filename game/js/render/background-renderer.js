@@ -1055,6 +1055,9 @@ class BackgroundRenderer {
         const settings = game?.customSettings;
         const applyCustomTone = !!(game && game.gameMode === 'customise' && settings && !settings.previewModeActive);
 
+        // Custom match on an imported image or code background.
+        if (applyCustomTone && window.CustomBackgrounds?.drawMatchBackground(ctx, w, h, game)) return;
+
         if (this._renderCachedBackground(ctx, w, h, applyCustomTone)) {
             // Cached path handled the mode background; dynamic lighting below stays live.
         } else if (applyCustomTone) {

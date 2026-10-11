@@ -608,7 +608,10 @@ class Game {
 
     getActiveBackgroundMode() {
         if (this.gameMode === 'customise') {
-            return this.customSettings.backgroundMode || 'classic';
+            const mode = this.customSettings.backgroundMode || 'classic';
+            // Imported backgrounds are drawn by CustomBackgrounds on top of a
+            // classic base renderer.
+            return mode.startsWith('custom:') ? 'classic' : mode;
         }
         return this.gameMode || 'classic';
     }
@@ -1671,8 +1674,11 @@ class Game {
                 const width = Math.max(280, Math.floor((customLivePreview?.clientWidth || 620) * deviceScale));
                 const height = Math.max(90, Math.floor((customLivePreview?.clientHeight || 130) * deviceScale));
 
-                const previewEntry = this.getCustomPreviewBackgroundEntry(mode);
-                const resolvedSource = previewEntry?.source || this.getCustomPreviewImageMap()[mode] || this.getCustomPreviewImageMap().classic;
+                const imported = window.CustomBackgrounds?.isImported(mode) ? window.CustomBackgrounds.resolveSelection(mode).entry : null;
+                const previewEntry = imported ? { loaded: true } : this.getCustomPreviewBackgroundEntry(mode);
+                const resolvedSource = imported
+                    ? (imported.kind === 'image' ? imported.data : (imported.thumb || ''))
+                    : (previewEntry?.source || this.getCustomPreviewImageMap()[mode] || this.getCustomPreviewImageMap().classic);
 
                 if (customLiveBackgroundImage) {
                     customLiveBackgroundImage.style.opacity = '1';
@@ -5854,6 +5860,9 @@ class Game {
     // Leave the match and go straight back to the mode menu, in place (no
     // page reload). Starting a new match resets scores via setGameMode.
     returnToMenu() {
+        // Stop any code background's sandbox; it restarts with the next match.
+        window.CustomBackgrounds?.stopCode();
+        this._ppBgErrorShown = false;
         this.resetPauseConfirms();
         this.userPaused = false;
         this.challengePaused = false;
@@ -6755,6 +6764,7 @@ class Game {
 
     // A point was won: let it land before play resumes.
     onGoalScored(goalOnRight, y) {
+        this._lastGoalAt = performance.now();
         const x = goalOnRight ? this.width : 0;
         this.rumble(goalOnRight ? 'right' : 'left', 0.9, 260);
         this.rallyPop = 0;
@@ -6836,6 +6846,7 @@ class Game {
 
     // Juice for a paddle hit, scaled by how hard the ball was travelling.
     onPaddleImpact(ball, paddle, isPlayer, edgeHit) {
+        this._lastHitAt = performance.now();
         const impact = ball.lastImpact || 0;
         paddle.kick?.(isPlayer ? -1 : 1, 0.35 + impact * 0.9);
         ball.squashImpact?.(0, 0.3 + impact * 0.45);
