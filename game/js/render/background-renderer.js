@@ -70,8 +70,6 @@ class BackgroundRenderer {
         this._obstacleArenaState = null;
         this._customToneBaseCanvas = null;
         this._customToneBaseCtx = null;
-        this._customToneCanvas = null;
-        this._customToneCtx = null;
         this._backgroundRenderCache = {
             canvas: null,
             ctx: null,
@@ -1062,25 +1060,27 @@ class BackgroundRenderer {
         } else if (applyCustomTone) {
             this._ensureCustomToneBuffers(w, h);
             const baseCtx = this._customToneBaseCtx;
-            const toneCtx = this._customToneCtx;
             const baseCanvas = this._customToneBaseCanvas;
-            const toneCanvas = this._customToneCanvas;
 
-            if (baseCtx && toneCtx && baseCanvas && toneCanvas) {
+            if (baseCtx && baseCanvas) {
                 baseCtx.save();
                 baseCtx.setTransform(1, 0, 0, 1, 0, 0);
                 baseCtx.clearRect(0, 0, w, h);
                 this._renderModeBackground(baseCtx, w, h);
                 baseCtx.restore();
 
-                toneCtx.save();
-                toneCtx.setTransform(1, 0, 0, 1, 0, 0);
-                toneCtx.clearRect(0, 0, w, h);
-                toneCtx.filter = game.getCustomBackgroundToneFilter();
-                toneCtx.drawImage(baseCanvas, 0, 0, w, h);
-                toneCtx.restore();
-
-                ctx.drawImage(toneCanvas, 0, 0, w, h);
+                // Tone the background as it is drawn instead of through a second
+                // full-screen buffer, and skip the filter pass entirely when the
+                // sliders sit at their neutral values (the default).
+                const filter = game.getCustomBackgroundToneFilter();
+                if (filter) {
+                    ctx.save();
+                    ctx.filter = filter;
+                    ctx.drawImage(baseCanvas, 0, 0, w, h);
+                    ctx.restore();
+                } else {
+                    ctx.drawImage(baseCanvas, 0, 0, w, h);
+                }
             }
         } else {
             this._renderModeBackground(ctx, w, h);
@@ -1096,13 +1096,6 @@ class BackgroundRenderer {
             this._customToneBaseCanvas.width = w;
             this._customToneBaseCanvas.height = h;
             this._customToneBaseCtx = this._customToneBaseCanvas.getContext('2d');
-        }
-
-        if (!this._customToneCanvas || this._customToneCanvas.width !== w || this._customToneCanvas.height !== h) {
-            this._customToneCanvas = document.createElement('canvas');
-            this._customToneCanvas.width = w;
-            this._customToneCanvas.height = h;
-            this._customToneCtx = this._customToneCanvas.getContext('2d');
         }
     }
 

@@ -617,6 +617,8 @@ class Game {
         const brightness = Number(settings.backgroundBrightness ?? 1);
         const saturation = Number(settings.backgroundSaturation ?? 1);
         const contrast = Number(settings.backgroundContrast ?? 1);
+        // Neutral sliders mean no filter: callers can skip the filter pass.
+        if (brightness === 1 && saturation === 1 && contrast === 1) return '';
         return `brightness(${brightness}) saturate(${saturation}) contrast(${contrast})`;
     }
 
