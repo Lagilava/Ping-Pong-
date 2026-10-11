@@ -57,6 +57,50 @@ play, with nothing to install. You can play on your own PC at the same time.
 `python -m http.server 8080 --directory game`, then open
 <http://127.0.0.1:8080/>.
 
+### Play online with a friend
+
+Pick **Online** in the opponent dialog (or **🌐 Play Online** on the Custom
+screen). One player chooses **Host** and gets a five-letter room code plus an
+invite link; the other chooses **Join** and types the code or opens the link.
+The host picks Classic, Gravity, Obstacle or Custom and starts the match.
+
+- It is peer to peer over WebRTC: the two browsers talk directly, and PeerJS's
+  free public broker is only used to find each other. There's no game server
+  to run.
+- The host plays the left paddle, the guest the right; either can pause, and
+  both press **Play again** for a rematch. The lobby shows the ping.
+- Zombie and Speed stay offline. Local 1v1 on one keyboard still works in
+  every mode.
+- Some strict school, office or mobile networks block peer-to-peer
+  connections; the lobby says so and suggests another network (a phone
+  hotspot often works).
+
+### Settings
+
+**Settings** opens from the pause menu, the match setup dialog and the Custom
+screen, and saves as you change it. Tabs: Gameplay (computer skill, points to
+win, power-ups, intro length, replays, AI trash talk, auto-pause, paddle
+speed), Controls (key rebinding for both players, vibration), Display (screen
+shake, impact flash, particles, scoreboard size, FPS counter), Audio, and
+Accessibility (reduce motion, high-visibility ball, menu text size, inverted
+colours).
+
+### Custom backgrounds
+
+The **Forge** draws your arena over the match's selected background, and its
+**Background** button picks a built-in world or imports an image or code.
+Imported backgrounds also appear in the Custom screen's background menu. Code
+runs in a locked sandbox (no page access, storage or network). Two formats are
+accepted, and the import dialog has a ready-made prompt to paste into Claude,
+ChatGPT or Codex:
+
+- **Canvas 2D JavaScript:** `function draw(ctx, w, h, t, game) { ... }`, called
+  every frame. `game` has `ballX`, `ballY`, `speed`, `hit`, `goal`,
+  `scoreLeft`, `scoreRight`. Optional `setup(ctx, w, h)`.
+- **GLSL shader, Shadertoy style:** `void mainImage(out vec4 fragColor, in vec2
+  fragCoord)` with `iResolution`, `iTime`, `iBall`, `iSpeed`, `iHit`, `iGoal`,
+  `iScore`, `iMouse`. No textures.
+
 ### Getting 120 FPS on a laptop
 
 The game runs at your display's refresh rate and adapts its quality to hold it.

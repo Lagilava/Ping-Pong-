@@ -368,6 +368,11 @@ body.speed-transforming .speed-lines {
     inset: 0;
 }
 
+/* Keep the challenge title clear of the score HUD along the top edge. */
+.speed-challenge-content {
+    top: calc(56px + env(safe-area-inset-top, 0px));
+}
+
 .speed-challenge-content {
     display: flex;
     flex-direction: column;
@@ -1406,6 +1411,8 @@ body.obstacle-mode .mode-btn.active[data-mode="obstacle"] {
 }
 
 .speed-challenge::before {
+    /* The level already shows in the corner readout; this badge sat on top of the HUD score. */
+    display: none;
     content: 'LVL ' attr(data-level);
     position: absolute;
     top: max(10px, 2vmin);

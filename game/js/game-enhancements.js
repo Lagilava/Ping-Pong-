@@ -1944,9 +1944,9 @@
     gap: 8px;
 }
 .pp-score-label {
-    font: 600 9px/1 var(--cy-mono);
-    letter-spacing: 0.2em;
-    opacity: 0.45;
+    font: 700 11px/1 var(--cy-mono);
+    letter-spacing: 0.18em;
+    opacity: 0.8;
 }
 .player-side .pp-score-label { color: var(--cy-cyan); }
 .ai-side .pp-score-label { color: var(--cy-pink); }
