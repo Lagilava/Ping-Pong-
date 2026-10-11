@@ -527,6 +527,8 @@
 
     const shouldTriggerReplay = () => {
         if (game?.gameMode === 'zombie') return false;
+        // Settings > Gameplay > Instant replays; online matches never stop for one.
+        if (window.PPSettings?.get('replays') === 'off' || game?.online) return false;
         if (isReplayPending || isReplaying || isEndingReplay) return false;
         if (consecutiveReplays >= CFG.trigger.maxConsecutiveReplays) return false;
         if (Date.now() - lastReplayTime < CFG.trigger.minTimeSinceLastReplayMs) return false;
@@ -1905,7 +1907,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
                     score: { player: game.scores?.player ?? 0, ai: game.scores?.ai ?? 0 },
                 });
                 lastScoreTotal = total;
-                if (shouldTriggerReplay() && IS_MOBILE) {
+                if (shouldTriggerReplay() && (IS_MOBILE || window.PPSettings?.get('replays') === 'offer')) {
                     // Phones: never take the screen away mid-match. Freeze the
                     // clip and offer it; play carries on underneath.
                     offerReplay();

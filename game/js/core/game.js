@@ -59,7 +59,7 @@ class Game {
         this.scores = { player: 0, ai: 0 };
         this.rallyCount = 0;
         this.maxRally = 0;
-        this.maxScore = 11;
+        this.maxScore = this.getConfiguredMaxScore();
         this.running = false;
         this.paused = false;
         this.userPaused = false;
@@ -2140,7 +2140,8 @@ class Game {
         // that so rematches get to the action quickly. Click/Esc/Skip skips it.
         if (this.intro) {
             // Phones always get the short intro.
-            this.intro.duration = (this._introsPlayed || PerfGovernor.isMobile) ? 3.4 : Intro.DURATION;
+            const introPref = window.PPSettings?.get('intro');
+            this.intro.duration = (introPref === 'short' || this._introsPlayed || PerfGovernor.isMobile) ? 3.4 : Intro.DURATION;
             this._introsPlayed = (this._introsPlayed || 0) + 1;
         }
         const skipButton = document.getElementById('skipIntro');
@@ -2149,7 +2150,7 @@ class Game {
             skipButton.addEventListener('click', () => this.skipIntro());
         }
         // If intro was already played or explicitly skipped via query/session flags, skip intro playback.
-        if (this.introHasPlayed) {
+        if (this.introHasPlayed || window.PPSettings?.get('intro') === 'off') {
             this.finalizeIntro();
             return;
         }
@@ -2406,7 +2407,7 @@ class Game {
         this.matchEnding = false;
         this.rallyCount = 0;
         this.maxRally = 0;
-        this.maxScore = 11;
+        this.maxScore = this.getConfiguredMaxScore();
         this.running = false;
         this.userPaused = false;
         this.challengePaused = false;
@@ -5514,6 +5515,19 @@ class Game {
         this.difficultyDisplay.textContent = names[d];
     }
 
+    // Settings > Controls lets players rebind keys; the game itself keeps
+    // reading its built-in names (w/s/space, arrows/enter).
+    // Settings > Gameplay > Points to win. Custom (Forge rules) and Zombie
+    // (waves) set their own target.
+    getConfiguredMaxScore() {
+        const n = Number(window.PPSettings?.get('pointsToWin'));
+        return Number.isFinite(n) && n >= 1 ? n : 11;
+    }
+
+    translateKey(key) {
+        return window.PPSettings ? window.PPSettings.translateKey(key) : [key];
+    }
+
     setupInput() {
         this.canvas.addEventListener('mousemove', (e) => {
             if (this.paused) return;
@@ -5630,8 +5644,9 @@ class Game {
                 return;
             }
 
-            this.keys[e.key.toLowerCase()] = true;
-            if (e.key === ' ' || e.key === 'Enter') e.preventDefault();
+            const names = this.translateKey(e.key.toLowerCase());
+            for (let i = 0; i < names.length; i++) this.keys[names[i]] = true;
+            if (names.includes(' ') || names.includes('enter')) e.preventDefault();
 
             if (e.key === 'Escape') {
                 if (this.introActive && this.intro && this.intro.active) {
@@ -5646,10 +5661,20 @@ class Game {
                 }
             }
         });
-        window.addEventListener('keyup', e => { this.keys[e.key.toLowerCase()] = false; });
+        window.addEventListener('keyup', e => {
+            const names = this.translateKey(e.key.toLowerCase());
+            for (let i = 0; i < names.length; i++) this.keys[names[i]] = false;
+        });
         // Releasing a key while the window is unfocused never sends keyup, which
         // left paddles running away after alt-tab.
         window.addEventListener('blur', () => { for (const k in this.keys) this.keys[k] = false; });
+        // Settings > Auto-pause: switching tabs or windows pauses the match.
+        const autoPause = () => {
+            if (!window.PPSettings?.get('autoPause') || this.online) return;
+            if (this.isInMatch() && this.running && !this.introActive && !this.paused) this.setUserPaused(true);
+        };
+        window.addEventListener('blur', autoPause);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
         // (No tilt control: in a landscape grip the gyro reads constant tilt,
         // which drifted the paddle and fought the player's finger.)
 
@@ -5920,7 +5945,7 @@ class Game {
         this.matchEnding = false;
         this.rallyCount = 0;
         this.maxRally = 0;
-        this.maxScore = 11;
+        this.maxScore = this.getConfiguredMaxScore();
         this.running = false;
         this.userPaused = false;
         this.challengePaused = false;
@@ -6077,6 +6102,8 @@ class Game {
         if (!this.running || this.paused) return;
         // Disable powerups in zombie mode
         if (this.gameMode === 'zombie') return;
+        // Settings > Gameplay > Power-ups (Custom has its own list).
+        if (this.gameMode !== 'customise' && window.PPSettings?.get('powerUps') === false) return;
         const spawnScale = Math.max(0.25, Math.min(1, this.timeWarpFactor || 1));
         const isObstacleMode = this.gameMode === 'obstacle';
         const spawnChance = (isObstacleMode ? 0.0065 : 0.02) * spawnScale;
@@ -6452,7 +6479,8 @@ class Game {
     }
 
     renderTauntBubble(H) {
-        const taunt = this.gameMode !== 'zombie' && this.ai && this.ai.getCurrentTaunt ? this.ai.getCurrentTaunt() : null;
+        const tauntsOn = window.PPSettings?.get('taunts') !== false;
+        const taunt = tauntsOn && this.gameMode !== 'zombie' && this.ai && this.ai.getCurrentTaunt ? this.ai.getCurrentTaunt() : null;
         const st = this._taunt;
         if (!taunt || !taunt.text || !this.aiPaddle) {
             this.hideTauntBubble();
@@ -6604,6 +6632,7 @@ class Game {
 
     // side: 'left' | 'right' (which player's pad), strength 0..1
     rumble(side, strength, ms = 90) {
+        if (window.PPSettings?.get('padRumble') === false) return;
         const st = this.padState?.[side === 'right' ? 1 : 0];
         if (side === 'right' && !this.isMultiplayer) return;
         const act = st?.pad?.vibrationActuator;
@@ -7045,6 +7074,27 @@ class Game {
         balls.length = writeIndex;
     }
 
+    // Settings > Accessibility > High-visibility ball: a bold two-tone ring
+    // that reads against every arena background.
+    renderBallOutlines(ctx) {
+        const balls = [this.ball, ...this.additionalBalls];
+        ctx.save();
+        for (let i = 0; i < balls.length; i++) {
+            const b = balls[i];
+            if (!b || !b.pos) continue;
+            const r = (b.radius || 8) + 5;
+            ctx.beginPath();
+            ctx.arc(b.pos.x, b.pos.y, r, 0, Math.PI * 2);
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+            ctx.stroke();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#fff200';
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
     renderAdditionalBalls() {
         for (let i = 0; i < this.additionalBalls.length; i++) {
             const ball = this.additionalBalls[i];
@@ -7272,6 +7322,12 @@ class Game {
         }
     }
 
+    // Settings > Controls > Paddle speed (keyboard and gamepad).
+    getKeyboardPaddleSpeed() {
+        const pct = Number(window.PPSettings?.get('paddleSpeed'));
+        return Number.isFinite(pct) ? Math.max(0.6, Math.min(1.5, pct / 100)) : 1;
+    }
+
     updatePaddles(dt) {
         if (this.gameMode === 'customise') {
             this.enforceFairCustomisePaddles();
@@ -7286,7 +7342,7 @@ class Game {
             const pad1 = this.padState?.[0];
             if (pad1 && pad1.axis !== 0) p1MoveDir = pad1.axis;
             if (p1MoveDir !== 0) {
-                const speedMul = this.powerUpTimers.fastPaddle > 0 ? 1.5 : 1;
+                const speedMul = (this.powerUpTimers.fastPaddle > 0 ? 1.5 : 1) * this.getKeyboardPaddleSpeed();
                 const targetVelY = p1MoveDir * this.player.maxSpeed * speedMul;
                 this.player.vel.y += (targetVelY - this.player.vel.y) * 0.1;
             } else {
@@ -7308,7 +7364,7 @@ class Game {
                 const pad2 = this.padState?.[1];
                 if (pad2 && pad2.axis !== 0) p2MoveDir = pad2.axis;
                 if (p2MoveDir !== 0) {
-                    const speedMul = 1; // Standard speed for P2 for now
+                    const speedMul = this.getKeyboardPaddleSpeed();
                     const targetVelY = p2MoveDir * this.aiPaddle.maxSpeed * speedMul;
                     this.aiPaddle.vel.y += (targetVelY - this.aiPaddle.vel.y) * 0.1;
                 } else {
@@ -7408,9 +7464,9 @@ class Game {
                     // the challenge in single-player. In multiplayer start normally.
                     if (this.isMultiplayer) {
                         // Special Tiebreaker check: if score was 10-10 BEFORE this point was added
-                        if (this.scores.player > 10 && prevP2Score === 10) {
+                        if (this.scores.player > this.maxScore - 1 && prevP2Score === this.maxScore - 1) {
                             const actualP1Score = this.scores.player;
-                            this.scores.player = 10;
+                            this.scores.player = this.maxScore - 1;
                             this.speedChallenge.startChallenge();
                             this.scores.player = actualP1Score;
                         } else {
@@ -7459,9 +7515,9 @@ class Game {
                         // In single-player we only challenge the HUMAN player (which is correct here),
                         // so start the challenge. In multiplayer also start as before.
                         if (this.isMultiplayer) {
-                            if (this.scores.ai > 10 && prevP1Score === 10) {
+                            if (this.scores.ai > this.maxScore - 1 && prevP1Score === this.maxScore - 1) {
                                 const actualP2Score = this.scores.ai;
-                                this.scores.ai = 10;
+                                this.scores.ai = this.maxScore - 1;
                                 this.speedChallenge.startChallenge();
                                 this.scores.ai = actualP2Score;
                             } else {
@@ -7803,6 +7859,9 @@ class Game {
         } else if (this.screenShake) {
             shakeMag = this.screenShake;
         }
+        const shakeScale = window.PPSettings ? window.PPSettings.shakeScale() : 1;
+        shakeMag *= shakeScale;
+        if (shakeScale === 0) { kick.x = kick.y = kick.vx = kick.vy = 0; }
         if (shakeMag > 0.05 || Math.abs(kick.x) + Math.abs(kick.y) > 0.05) {
             shakeApplied = true;
             ctx.save();
@@ -7813,7 +7872,7 @@ class Game {
             const amp = trauma * trauma * 16;
             const nx = Math.sin(t * 47.3) * 0.6 + Math.sin(t * 83.1 + 1.7) * 0.4;
             const ny = Math.sin(t * 53.7 + 0.5) * 0.6 + Math.sin(t * 91.3 + 2.9) * 0.4;
-            ctx.translate(nx * amp + kick.x, ny * amp + kick.y);
+            ctx.translate(nx * amp + kick.x * shakeScale, ny * amp + kick.y * shakeScale);
             const roll = Math.sin(t * 37.1 + 4.2) * trauma * trauma * 0.006;
             if (roll) {
                 ctx.translate(W / 2, H / 2);
@@ -7821,7 +7880,7 @@ class Game {
                 ctx.translate(-W / 2, -H / 2);
             }
         }
-        if (this.screenFlash > 0.001) {
+        if (this.screenFlash > 0.001 && (!window.PPSettings || window.PPSettings.flashEnabled())) {
             ctx.save();
             ctx.globalAlpha = Math.min(this.screenFlash * 0.5, 0.5);
             ctx.fillStyle = '#ffffff';
@@ -7982,6 +8041,7 @@ class Game {
         }
         this.ball.render(ctx, interp);
         if (this.gameMode === 'gravity') this.gravitySlingshot?.renderBall(ctx, interp);
+        if (window.PPSettings?.get('ballOutline')) this.renderBallOutlines(ctx);
         this.renderServeTelegraph(ctx);
         this.renderRallyCounter(ctx, renderDt);
         this.renderPopTexts(ctx, renderDt);

@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="css/achievement-toasts-compact.css">
     <link rel="stylesheet" href="css/achievements-list.css">
     <link rel="stylesheet" href="css/mobile.css">
+    <link rel="stylesheet" href="css/settings.css">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js"></script>
 </head>
@@ -227,6 +228,7 @@
                     </div>
                 </div>
                 <div class="btns">
+                    <button class="btn-back btn-settings" type="button" data-open-panel="settings" aria-label="Settings">&#9881; SETTINGS</button>
                     <button class="btn-back" id="btnBack">BACK</button>
                     <button class="btn-go" id="btnGo">PLAY</button>
                 </div>
@@ -242,8 +244,12 @@
                 <p class="customise-overlay-subtitle">Tune both paddles, preview the result, and shape the background to
                     fit your style.</p>
             </div>
-            <button id="customiseBackBtn" class="customise-overlay-back-btn" type="button"
-                aria-label="Back to modes">Back to Modes</button>
+            <div class="customise-overlay-actions">
+                <button class="customise-overlay-back-btn customise-overlay-settings-btn" type="button"
+                    data-open-panel="settings">&#9881; Settings</button>
+                <button id="customiseBackBtn" class="customise-overlay-back-btn" type="button"
+                    aria-label="Back to modes">Back to Modes</button>
+            </div>
         </div>
         <div class="customise-overlay-content">
             <div class="customise-overlay-scrollable">
@@ -566,6 +572,7 @@
     <script src="js/physics/physics-binary.js"></script>
     <script src="js/physics/physics-core.js"></script>
     <script src="js/core/globals.js"></script>
+    <script src="js/systems/settings.js"></script>
     <script src="js/core/vec2.js"></script>
     <script src="js/render/background-renderer.js"></script>
     <script src="js/render/post-fx.js"></script>
@@ -585,6 +592,7 @@
     <script src="js/systems/progression.js"></script>
     <script src="js/modes/speed-challenge.js"></script>
     <script src="js/ui/match-intro.js"></script>
+    <script src="js/ui/settings-panel.js"></script>
     <script src="js/core/game.js"></script>
     <script src="js/vendor/anime.min.js"></script>
     <script src="js/game-enhancements.js"></script>

@@ -1,0 +1,331 @@
+/* Settings panel (js/ui/settings-panel.js) and the page-wide effects of
+   display and accessibility settings. Matches the pause menu's look. */
+
+:root { --pp-ui-zoom: 1; }
+
+/* game.css styles every <button> (uppercase, wide padding); reset here. */
+:where(.ppset) button { text-transform: none; letter-spacing: normal; padding: 0; font-family: inherit; }
+
+.ppset.pp-overlay-panel {
+    background: radial-gradient(ellipse at center, rgba(4, 10, 24, 0.7), rgba(2, 4, 12, 0.92));
+    padding: 16px;
+}
+
+.ppset-box {
+    zoom: var(--pp-ui-zoom);
+    width: min(720px, 100%);
+    max-height: min(680px, calc(100dvh - 32px) / var(--pp-ui-zoom));
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0, 255, 214, 0.35);
+    border-radius: 18px;
+    background: linear-gradient(170deg, rgba(10, 18, 36, 0.98), rgba(6, 8, 22, 0.98));
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    color: #e6faff;
+    font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    animation: ppsetIn 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+@keyframes ppsetIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+.ppset-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 12px;
+}
+.ppset-kicker {
+    font: 600 11px/1 'Share Tech Mono', monospace;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(150, 230, 255, 0.65);
+}
+.ppset-head h2 {
+    margin: 6px 0 0;
+    font: 900 26px/1 'Orbitron', 'Audiowide', sans-serif;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 0 14px rgba(0, 255, 214, 0.4);
+}
+.ppset-close {
+    width: 40px; height: 40px;
+    border: 1px solid rgba(120, 220, 255, 0.25);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #cfefff;
+    font: 400 26px/1 system-ui, sans-serif;
+    cursor: pointer;
+}
+.ppset-close:hover, .ppset-close:focus-visible { background: rgba(255, 60, 110, 0.16); border-color: rgba(255, 80, 120, 0.8); outline: none; }
+
+.ppset-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 0 20px 12px;
+    border-bottom: 1px solid rgba(120, 220, 255, 0.12);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.ppset-tabs::-webkit-scrollbar { display: none; }
+.ppset-tabs button {
+    flex: 0 0 auto;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(210, 240, 255, 0.7);
+    font: 700 12px/1 'Orbitron', system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ppset-tabs button:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
+.ppset-tabs button:focus-visible { outline: 2px solid rgba(0, 255, 214, 0.7); outline-offset: 1px; }
+.ppset-tabs button[aria-selected="true"] {
+    color: #001a16;
+    background: #00ffd6;
+    border-color: #00ffd6;
+    box-shadow: 0 0 14px rgba(0, 255, 214, 0.35);
+}
+
+.ppset-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 6px 24px 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 214, 0.4) transparent;
+}
+
+.ppset-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(120, 220, 255, 0.08);
+}
+.ppset-row:last-child { border-bottom: none; }
+.ppset-text { flex: 1; min-width: 0; }
+.ppset-label { font: 700 17px/1.2 'Rajdhani', system-ui, sans-serif; color: #f2fbff; letter-spacing: 0.02em; }
+.ppset-help { margin-top: 3px; font: 500 14px/1.35 'Rajdhani', system-ui, sans-serif; color: rgba(190, 220, 235, 0.68); }
+.ppset-control { flex: 0 0 auto; display: flex; justify-content: flex-end; }
+
+/* Segmented choice */
+.ppset-seg {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid rgba(120, 220, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.25);
+}
+.ppset-seg button {
+    min-width: 44px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: rgba(215, 240, 255, 0.75);
+    font: 700 14px/1 'Rajdhani', system-ui, sans-serif;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.ppset-seg button:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+.ppset-seg button:focus-visible { outline: 2px solid rgba(0, 255, 214, 0.7); }
+.ppset-seg button[aria-checked="true"] { background: rgba(0, 255, 214, 0.2); color: #fff; box-shadow: inset 0 0 0 1px rgba(0, 255, 214, 0.75); }
+
+/* On/off switch */
+.ppset-switch {
+    position: relative;
+    width: 52px; height: 30px;
+    padding: 0;
+    border: 1px solid rgba(120, 220, 255, 0.3);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s;
+}
+.ppset-switch i {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #9fb6c4;
+    transition: transform 0.18s cubic-bezier(0.3, 1.4, 0.5, 1), background 0.18s;
+}
+.ppset-switch[aria-checked="true"] { background: rgba(0, 255, 214, 0.28); border-color: #00ffd6; }
+.ppset-switch[aria-checked="true"] i { transform: translateX(22px); background: #00ffd6; box-shadow: 0 0 10px rgba(0, 255, 214, 0.6); }
+.ppset-switch:focus-visible { outline: 2px solid rgba(0, 255, 214, 0.7); outline-offset: 2px; }
+
+/* Slider */
+.ppset-range { display: flex; align-items: center; gap: 12px; width: min(280px, 42vw); }
+.ppset-range input {
+    --fill: 50%;
+    flex: 1;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #00ffd6 var(--fill), rgba(255, 255, 255, 0.12) var(--fill));
+    cursor: pointer;
+}
+.ppset-range input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #00ffd6;
+    box-shadow: 0 0 10px rgba(0, 255, 214, 0.55);
+}
+.ppset-range input::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid #00ffd6;
+}
+.ppset-range input:focus-visible { outline: 2px solid rgba(0, 255, 214, 0.7); outline-offset: 4px; }
+.ppset-range output { min-width: 48px; text-align: right; font: 700 15px/1 'Share Tech Mono', monospace; color: #00ffd6; }
+
+/* Buttons */
+.ppset-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.ppset-btn {
+    padding: 10px 16px;
+    border: 1px solid rgba(120, 220, 255, 0.28);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #dff7ff;
+    font: 700 12px/1 'Orbitron', system-ui, sans-serif;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.ppset-btn:hover, .ppset-btn:focus-visible { background: rgba(0, 255, 214, 0.12); border-color: rgba(0, 255, 214, 0.6); outline: none; }
+.ppset-btn.primary { background: rgba(0, 255, 214, 0.18); border-color: rgba(0, 255, 214, 0.7); color: #fff; min-width: 120px; }
+.ppset-btn.ghost { border-color: rgba(255, 255, 255, 0.14); color: rgba(220, 240, 255, 0.75); }
+.ppset-btn.ghost[data-armed] { background: rgba(255, 190, 60, 0.18); border-color: rgba(255, 200, 80, 0.85); color: #fff3cf; }
+
+/* Key bindings */
+.ppset-keys-row { align-items: flex-start; flex-direction: column; gap: 10px; }
+.ppset-keys { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ppset-keygroup {
+    padding: 12px;
+    border: 1px solid rgba(120, 220, 255, 0.14);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.025);
+}
+.ppset-keyside { margin-bottom: 8px; font: 700 13px/1.2 'Rajdhani', sans-serif; color: rgba(150, 230, 255, 0.8); letter-spacing: 0.04em; }
+.ppset-keyitem { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font: 600 15px/1 'Rajdhani', sans-serif; }
+.ppset-key {
+    min-width: 92px;
+    padding: 8px 10px;
+    border: 1px solid rgba(120, 220, 255, 0.3);
+    border-bottom-width: 3px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font: 700 13px/1 'Share Tech Mono', monospace;
+    cursor: pointer;
+}
+.ppset-key:hover, .ppset-key:focus-visible { border-color: #00ffd6; outline: none; }
+.ppset-key.listening { border-color: #ffd23f; color: #ffd23f; animation: ppsetBlink 0.9s ease-in-out infinite; }
+@keyframes ppsetBlink { 50% { opacity: 0.55; } }
+.ppset-keyreset { grid-column: 1 / -1; justify-self: start; }
+
+.ppset-note {
+    margin: 12px 0 6px;
+    padding: 12px 14px;
+    border-left: 3px solid rgba(0, 255, 214, 0.6);
+    border-radius: 8px;
+    background: rgba(0, 255, 214, 0.05);
+    font: 500 14px/1.45 'Rajdhani', sans-serif;
+    color: rgba(215, 240, 255, 0.85);
+}
+.ppset-note b { color: #fff; }
+
+.ppset-foot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px 18px;
+    border-top: 1px solid rgba(120, 220, 255, 0.12);
+}
+.ppset-saved { flex: 1; text-align: center; font: 500 13px/1 'Share Tech Mono', monospace; color: rgba(190, 220, 235, 0.5); transition: color 0.2s; }
+.ppset-saved.on { color: #00ffd6; }
+
+@media (max-width: 620px) {
+    .ppset-row { flex-direction: column; align-items: stretch; gap: 10px; }
+    .ppset-control { justify-content: flex-start; }
+    .ppset-range { width: 100%; }
+    .ppset-keys { grid-template-columns: 1fr; }
+    .ppset-head h2 { font-size: 20px; }
+    .ppset-saved { display: none; }
+    .ppset-foot { justify-content: space-between; }
+}
+@media (max-height: 520px) {
+    .ppset-head { padding: 12px 20px 8px; }
+    .ppset-head h2 { font-size: 18px; }
+    .ppset-row { padding: 9px 0; }
+}
+
+/* Page-wide: menu text size applies to the pause menu and panels. */
+.pause-card, .pp-panel-box { zoom: var(--pp-ui-zoom); }
+
+/* Page-wide: scoreboard size */
+body.pp-hud-small #pp-enhanced-hud > * { zoom: 0.8; }
+body.pp-hud-large #pp-enhanced-hud { height: 72px; }
+body.pp-hud-large #pp-enhanced-hud > * { zoom: 1.35; }
+
+/* Page-wide: reduce motion (game panels and overlays only) */
+body.pp-reduce-motion .pp-overlay-panel *,
+body.pp-reduce-motion .pause-menu,
+body.pp-reduce-motion .pause-menu *,
+body.pp-reduce-motion #pp-enhanced-hud *,
+body.pp-reduce-motion .achievements *,
+body.pp-reduce-motion .pp-replay-offer {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+}
+
+/* Settings shortcuts on the match setup dialog and Custom screen */
+.btn-settings { padding-left: 22px; padding-right: 22px; }
+.customise-overlay-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Game guide (Help) panel: same shell as Settings */
+.pphelp .ppset-body { padding-top: 14px; padding-bottom: 16px; }
+.pphelp-lead { margin: 0 0 12px; font: 600 17px/1.45 'Rajdhani', sans-serif; color: #f2fbff; }
+.pphelp-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.pphelp-list li { position: relative; padding-left: 18px; font: 500 15px/1.45 'Rajdhani', sans-serif; color: rgba(215, 240, 255, 0.85); }
+.pphelp-list li::before { content: ''; position: absolute; left: 2px; top: 0.6em; width: 7px; height: 7px; border-radius: 2px; background: #00ffd6; transform: rotate(45deg); }
+.pphelp-list b, .pphelp-defs dt { color: #fff; }
+.pphelp-defs { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 10px 16px; }
+.pphelp-defs dt { font: 700 15px/1.4 'Orbitron', sans-serif; font-size: 12px; letter-spacing: 0.06em; padding-top: 2px; color: #00ffd6; }
+.pphelp-defs dd { margin: 0; font: 500 15px/1.45 'Rajdhani', sans-serif; color: rgba(215, 240, 255, 0.85); }
+.pphelp-grid { grid-template-columns: max-content 1fr max-content 1fr; }
+.pphelp-keys { width: 100%; border-collapse: collapse; font: 500 15px/1.4 'Rajdhani', sans-serif; color: rgba(215, 240, 255, 0.88); }
+.pphelp-keys th { text-align: left; font: 700 12px/1 'Orbitron', sans-serif; letter-spacing: 0.06em; color: rgba(150, 230, 255, 0.8); padding: 0 0 10px; }
+.pphelp-keys td { padding: 7px 10px 7px 0; border-top: 1px solid rgba(120, 220, 255, 0.08); vertical-align: middle; }
+.pphelp-keys td:first-child { font-weight: 700; color: #fff; width: 90px; }
+.pphelp kbd, .pphelp-keys kbd {
+    display: inline-block;
+    min-width: 26px;
+    padding: 3px 7px;
+    border: 1px solid rgba(120, 220, 255, 0.35);
+    border-bottom-width: 3px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.35);
+    color: #fff;
+    font: 700 12px/1.2 'Share Tech Mono', monospace;
+    text-align: center;
+}
+.pphelp-note { margin: 12px 0 0; font: 500 14px/1.4 'Rajdhani', sans-serif; color: rgba(190, 220, 235, 0.65); }
+@media (max-width: 620px) {
+    .pphelp-grid { grid-template-columns: max-content 1fr; }
+    .pphelp-defs { grid-template-columns: 1fr; gap: 2px 0; }
+    .pphelp-defs dd { margin-bottom: 8px; }
+}
+.customise-overlay-settings-btn::before { content: none !important; display: none !important; }
+.pphelp .pphelp-lead { margin: 0 0 14px; font: 600 17px/1.45 'Rajdhani', sans-serif; color: #f2fbff; }
+.pphelp .ppset-tabs button { padding: 10px 13px; }

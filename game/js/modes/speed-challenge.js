@@ -290,7 +290,8 @@ class SpeedChallenge {
 
         // Special Rule: If both players are at 10, the combo must be exactly 10 keys
         // Using .ai for the right player score as defined in this.game.scores
-        if (parseInt(this.game.scores.player) === 10 && parseInt(this.game.scores.ai) === 10) {
+        const tie = (this.game.maxScore || 11) - 1;
+        if (parseInt(this.game.scores.player) === tie && parseInt(this.game.scores.ai) === tie) {
             comboLength = 10;
         }
 
@@ -1041,7 +1042,7 @@ class SpeedChallenge {
                 }
             } else {
                 // Multiplayer behaves like before
-                if (this.game.scores.player === 10 && this.game.scores.ai === 10) {
+                if (this.game.scores.player === (this.game.maxScore || 11) - 1 && this.game.scores.ai === (this.game.maxScore || 11) - 1) {
                     // tiebreaker: successful challenge gives point to the opponent (activePlayer)
                     this.game.scores[this.activePlayer] += 1;
                     const playerName = this.activePlayer === 'player' ? 'Player 1' : 'Player 2';

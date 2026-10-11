@@ -981,13 +981,7 @@
 
     function upgradeToGodAI() {
         if (!window.game?.ai || !window.game?.ball) return;
-        let percent = 50;
-        try {
-            const savedPrefs = JSON.parse(localStorage.getItem('pingpong-prefs-v6') || '{}');
-            percent = savedPrefs.aiDifficulty ?? 50;
-        } catch (e) { console.warn('Could not read saved AI difficulty preferences:', e); }
-
-        const targetLevel = Math.round((percent / 100) * 4);
+        const targetLevel = Math.max(0, Math.min(4, Math.round(window.PPSettings?.get('aiLevel') ?? 2)));
         const liveAI = window.game.ai;
         state.godAI = liveAI;
 
@@ -1064,24 +1058,18 @@
                 trailCtx: null,
                 particles: [],
             },
-            preferences: (() => {
-                const defaults = {
-                    showFps: false, aiDifficulty: 50, disableParticles: false,
-                    invertColors: false, masterVolume: 80, musicVolume: 60,
-                    sfxVolume: 100, voiceVolume: 100
-                };
-                try {
-                    const saved = JSON.parse(localStorage.getItem('pingpong-prefs-v6') || '{}');
-                    return { ...defaults, ...saved };
-                } catch (e) { return defaults; }
-            })(),
-            savePrefs: () => {
-                try { localStorage.setItem('pingpong-prefs-v6', JSON.stringify(state.preferences)); }
-                catch (e) { console.warn('Could not save preferences:', e); }
-            }
+            // Live view of the shared settings store (js/systems/settings.js).
+            preferences: {
+                get showFps() { return !!window.PPSettings?.get('showFps'); },
+                get disableParticles() { return window.PPSettings?.get('particles') === false; },
+                get invertColors() { return !!window.PPSettings?.get('invertColors'); },
+                get aiDifficulty() { return ((window.PPSettings?.get('aiLevel') ?? 2) / 4) * 100; },
+                get vibration() { return window.PPSettings?.get('phoneVibrate') !== false; },
+            },
+            savePrefs: () => {}
         };
 
-        let lastHelpSection = 'overview';
+        let lastHelpSection = 'basics';
 
         function applyParticlePreference(showFeedback = false) {
             const disabled = !!state.preferences.disableParticles;
@@ -1154,13 +1142,18 @@
         function showCyberBar() { openPauseMenu(); }
         function hideCyberBar() { /* legacy no-op: the bar is replaced by the pause menu */ }
 
-        const panelFor = (name) => ({ settings: state.ui.settingsPanel, audio: state.ui.audioPanel, help: state.ui.helpPanel })[name];
+        // Settings and Help are the two panels; "audio" opens Settings on its
+        // Audio tab.
+        const panelFor = (name) => ({ settings: state.ui.settingsPanel, audio: state.ui.settingsPanel, help: state.ui.helpPanel })[name];
 
         function setPanel(name, show) {
-            ['settings', 'audio', 'help'].forEach((n) => {
+            const target = name === 'audio' ? 'settings' : name;
+            ['settings', 'help'].forEach((n) => {
                 const el = panelFor(n);
-                if (el) el.style.display = (n === name && show) ? 'flex' : 'none';
+                if (el) el.style.display = (n === target && show) ? 'flex' : 'none';
             });
+            document.body.classList.toggle('pp-panel-open', !!show);
+            if (show && target === 'settings') window.PPSettingsPanel?.onOpen(name === 'audio' ? 'audio' : null);
         }
 
         function togglePanel(name) {
@@ -1177,7 +1170,7 @@
 
         window.ppOpenPanel = (name) => setPanel(name, true);
         window.ppCloseOpenPanel = () => {
-            const open = ['settings', 'audio', 'help'].find((n) => panelFor(n)?.style.display === 'flex');
+            const open = ['settings', 'help'].find((n) => panelFor(n)?.style.display === 'flex');
             if (!open) return false;
             setPanel(open, false);
             return true;
@@ -1385,165 +1378,17 @@
         // ==================================================================
         function createSettingsPanel() {
             if ($('#pp-settings')) return;
-            document.body.insertAdjacentHTML('beforeend', `
-                <div id="pp-settings" class="pp-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-                    <div class="pp-panel-box" id="pp-settings-box">
-                        <div class="pp-panel-header">
-                            <span class="pp-panel-icon">${SVG_ICONS.settings}</span>
-                            <h2 id="settings-title">GAME SETTINGS</h2>
-                            <button class="pp-panel-close" id="close-settings-x">${SVG_ICONS.close}</button>
-                        </div>
-
-                        <div class="pp-panel-content">
-                            <div class="pp-section">
-                                <div class="pp-section-title">DISPLAY</div>
-                                <label class="pp-check-row">
-                                    <input type="checkbox" id="fps-setting" ${state.preferences.showFps ? 'checked' : ''}>
-                                    <span class="pp-checkmark"></span>
-                                    <span class="pp-check-label">Show FPS Counter</span>
-                                </label>
-                                <label class="pp-check-row">
-                                    <input type="checkbox" id="disable-particles-setting" ${state.preferences.disableParticles ? 'checked' : ''}>
-                                    <span class="pp-checkmark"></span>
-                                    <span class="pp-check-label">Disable Particles</span>
-                                </label>
-                                <label class="pp-check-row">
-                                    <input type="checkbox" id="invert-colors-setting" ${state.preferences.invertColors ? 'checked' : ''}>
-                                    <span class="pp-checkmark"></span>
-                                    <span class="pp-check-label">Invert Colors</span>
-                                </label>
-                            </div>
-
-                            <div class="pp-section">
-                                <div class="pp-section-title">AI DIFFICULTY</div>
-                                <div class="pp-slider-row">
-                                    <span class="pp-slider-name">Skill Level</span>
-                                    <input type="range" class="pp-slider" id="ai-difficulty-setting" min="0" max="100" value="${state.preferences.aiDifficulty}">
-                                    <span class="pp-slider-val" id="ai-difficulty-value">${state.preferences.aiDifficulty}%</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="pp-panel-footer">
-                            <button id="close-settings-btn" class="pp-btn primary">
-                                ${SVG_ICONS.close} APPLY & CLOSE
-                            </button>
-                            <button id="quit-game-btn" class="pp-btn danger">
-                                ${SVG_ICONS.quit} QUIT GAME
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="pp-audio" class="pp-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="audio-title">
-                    <div class="pp-panel-box" id="pp-audio-box">
-                        <div class="pp-panel-header">
-                            <span class="pp-panel-icon">${SVG_ICONS.audio}</span>
-                            <h2 id="audio-title">AUDIO CONTROL</h2>
-                            <button class="pp-panel-close" id="close-audio-x">${SVG_ICONS.close}</button>
-                        </div>
-
-                        <div class="pp-panel-content">
-                            <div class="pp-section">
-                                <div class="pp-section-title">VOLUME MIXER</div>
-                                <div class="pp-slider-row">
-                                    <span class="pp-slider-name">Master</span>
-                                    <input type="range" class="pp-slider" id="master-vol" min="0" max="100" value="${state.preferences.masterVolume}">
-                                    <span class="pp-slider-val">${state.preferences.masterVolume}%</span>
-                                </div>
-                                <div class="pp-slider-row">
-                                    <span class="pp-slider-name">Music</span>
-                                    <input type="range" class="pp-slider" id="music-vol" min="0" max="100" value="${state.preferences.musicVolume}">
-                                    <span class="pp-slider-val">${state.preferences.musicVolume}%</span>
-                                </div>
-                                <div class="pp-slider-row">
-                                    <span class="pp-slider-name">SFX</span>
-                                    <input type="range" class="pp-slider" id="sfx-vol" min="0" max="100" value="${state.preferences.sfxVolume}">
-                                    <span class="pp-slider-val">${state.preferences.sfxVolume}%</span>
-                                </div>
-                                <div class="pp-slider-row">
-                                    <span class="pp-slider-name">Voice</span>
-                                    <input type="range" class="pp-slider" id="voice-vol" min="0" max="100" value="${state.preferences.voiceVolume}">
-                                    <span class="pp-slider-val">${state.preferences.voiceVolume}%</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="pp-panel-footer">
-                            <button id="close-audio-btn" class="pp-btn primary">${SVG_ICONS.close} CLOSE</button>
-                        </div>
-                    </div>
-                </div>
-            `);
-
-            state.ui.settingsPanel = $('#pp-settings');
-            state.ui.audioPanel = $('#pp-audio');
-
-            // Close on backdrop click
-            state.ui.settingsPanel.addEventListener('click', e => { if (e.target === state.ui.settingsPanel) toggleSettings(); });
-            state.ui.audioPanel.addEventListener('click', e => { if (e.target === state.ui.audioPanel) toggleAudio(); });
-
-            $('#close-settings-x').addEventListener('click', toggleSettings);
-            $('#close-settings-btn').addEventListener('click', toggleSettings);
-            $('#close-audio-x').addEventListener('click', toggleAudio);
-            $('#close-audio-btn').addEventListener('click', toggleAudio);
-            $('#quit-game-btn').addEventListener('click', quitGame);
-
-            // Volume sliders
-            const updateVol = (id, pref) => {
-                const el = $('#' + id);
-                el.addEventListener('input', e => {
-                    const val = parseInt(e.target.value);
-                    e.target.closest('.pp-slider-row').querySelector('.pp-slider-val').textContent = `${val}%`;
-                    state.preferences[pref] = val;
-                    const audio = window.game?.audio;
-                    if (audio) {
-                        const v = val / 100;
-                        if (pref === 'masterVolume') (audio.setMasterVolume || audio.setVolume)?.call(audio, v);
-                        if (pref === 'musicVolume') audio.setMusicVolume?.(v);
-                        if (pref === 'sfxVolume') audio.setSfxVolume?.(v);
-                        if (pref === 'voiceVolume') audio.setVoiceVolume?.(v);
-                    }
-                });
-                el.addEventListener('change', () => state.savePrefs());
-            };
-
-            updateVol('master-vol', 'masterVolume');
-            updateVol('music-vol', 'musicVolume');
-            updateVol('sfx-vol', 'sfxVolume');
-            updateVol('voice-vol', 'voiceVolume');
-
-            $('#fps-setting').addEventListener('change', e => {
-                state.preferences.showFps = e.target.checked;
-                state.savePrefs();
-                if (e.target.checked) { setupFpsCounter(); if (state.ui.fpsCounter) state.ui.fpsCounter.style.display = 'block'; }
-                else { if (state.ui.fpsCounter) state.ui.fpsCounter.style.display = 'none'; }
-                state.fps = { lastTime: performance.now(), frameCount: 0, value: 0 };
-            });
-
-            $('#disable-particles-setting').addEventListener('change', e => {
-                state.preferences.disableParticles = e.target.checked;
-                state.savePrefs();
-                applyParticlePreference(true);
-            });
-
-            $('#invert-colors-setting').addEventListener('change', e => {
-                state.preferences.invertColors = e.target.checked;
-                state.savePrefs();
-                applyColorPreference(true);
-            });
-
-            const aiDiffSlider = $('#ai-difficulty-setting');
-            const aiDiffVal = $('#ai-difficulty-value');
-            aiDiffSlider.addEventListener('input', e => {
-                const val = parseInt(e.target.value);
-                aiDiffVal.textContent = `${val}%`;
-                state.preferences.aiDifficulty = val;
-            });
-            aiDiffSlider.addEventListener('change', e => {
-                state.preferences.aiDifficulty = parseInt(e.target.value);
-                state.savePrefs();
-                updateAIDifficulty();
+            state.ui.settingsPanel = window.PPSettingsPanel.build();
+            state.ui.audioPanel = state.ui.settingsPanel;
+            window.PPSettings?.on((key) => {
+                if (key === 'particles' || key === '*') applyParticlePreference(false);
+                if (key === 'invertColors' || key === '*') applyColorPreference(false);
+                if (key === 'aiLevel' || key === '*') updateAIDifficulty(false);
+                if (key === 'showFps' || key === '*') {
+                    if (state.preferences.showFps) { setupFpsCounter(); if (state.ui.fpsCounter) state.ui.fpsCounter.style.display = 'block'; }
+                    else if (state.ui.fpsCounter) state.ui.fpsCounter.style.display = 'none';
+                    state.fps = { lastTime: performance.now(), frameCount: 0, value: 0 };
+                }
             });
         }
 
@@ -1552,78 +1397,83 @@
         // ==================================================================
         function createHelpOverlay() {
             if ($('#pp-help')) return;
+            const kb = (k) => `<kbd>${k}</kbd>`;
+            const sections = [
+                ['basics', 'Basics', `
+                    <p class="pphelp-lead">Hit the ball past your opponent to score. First to the winning total takes the match (11 by default, change it in Settings).</p>
+                    <ul class="pphelp-list">
+                        <li><b>Aim with the paddle edge.</b> Centre hits go flat; hits near the tip angle sharply.</li>
+                        <li><b>Move as you hit</b> to put spin on the ball. Spinning shots curve in flight.</li>
+                        <li><b>Rallies speed up</b> with every return, so long rallies get intense.</li>
+                        <li><b>Power-ups</b> float on the court. Hit one with the ball to grab it.</li>
+                    </ul>`],
+                ['modes', 'Modes', `
+                    <dl class="pphelp-defs">
+                        <dt>Classic</dt><dd>The straight duel: fast, clean, no gimmicks.</dd>
+                        <dt>Zombie</dt><dd>Hold the line for ten waves. Smash every zombie or knock out the boss to clear a wave. Five lives; the ball getting past you or a zombie reaching your barricade costs one.</dd>
+                        <dt>Gravity</dt><dd>Black holes bend the ball. Curve it around one to slingshot it out faster; each slingshot makes the point worth +1 (up to 3).</dd>
+                        <dt>Speed</dt><dd>The ball keeps accelerating. Concede a point and a quick target challenge gives you a chance to win it back.</dd>
+                        <dt>Obstacle</dt><dd>Moving gates and nodes carve up the court. Boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, and every 10 coins is a point.</dd>
+                        <dt>Custom</dt><dd>Your paddles, background, music and power-ups, on an arena you build in the Forge.</dd>
+                    </dl>`],
+                ['controls', 'Controls', `
+                    <table class="pphelp-keys">
+                        <tr><th></th><th>Player 1 (left)</th><th>Player 2 (right)</th></tr>
+                        <tr><td>Move</td><td>${kb('W')} ${kb('S')}</td><td>${kb('↑')} ${kb('↓')}</td></tr>
+                        <tr><td>Laser</td><td>${kb('Space')}</td><td>${kb('Enter')}</td></tr>
+                        <tr><td>Mouse</td><td colspan="2">Hold the button and drag on your half</td></tr>
+                        <tr><td>Touch</td><td colspan="2">Drag on your half; tap with a second finger to fire</td></tr>
+                        <tr><td>Gamepad</td><td colspan="2">Left stick moves, A fires, Start pauses. A second pad plays Player 2.</td></tr>
+                        <tr><td>Pause</td><td colspan="2">${kb('Esc')} (then ${kb('R')} restarts, ${kb('Q')} quits)</td></tr>
+                        <tr><td>Other</td><td colspan="2">${kb('F2')} performance readout, ${kb('Ctrl')}+${kb('Shift')}+${kb('A')} achievements</td></tr>
+                    </table>
+                    <p class="pphelp-note">Rebind any key in Settings &gt; Controls.</p>`],
+                ['powerups', 'Power-ups', `
+                    <dl class="pphelp-defs pphelp-grid">
+                        <dt>Slow Ball</dt><dd>Slows the ball for a few seconds.</dd>
+                        <dt>Fast Paddle</dt><dd>Both paddles move faster.</dd>
+                        <dt>Freeze AI</dt><dd>The opponent stops briefly.</dd>
+                        <dt>Double Points</dt><dd>Points count twice for a while.</dd>
+                        <dt>Big Paddle</dt><dd>Bigger paddles, easier hits.</dd>
+                        <dt>Small Ball</dt><dd>A smaller, harder-to-read ball.</dd>
+                        <dt>Multi-Ball</dt><dd>Up to three extra balls.</dd>
+                        <dt>Power Shot</dt><dd>Your next hit is a rocket.</dd>
+                        <dt>Time Warp</dt><dd>Everything slows to a crawl.</dd>
+                        <dt>Magnet</dt><dd>Your paddle pulls the ball in.</dd>
+                        <dt>Ghost Ball</dt><dd>The ball passes through obstacles.</dd>
+                        <dt>Laser</dt><dd>Fire with Space (or a second finger) to stun the other paddle.</dd>
+                        <dt>Tiny</dt><dd>Both paddles shrink.</dd>
+                        <dt>Shield</dt><dd>Blocks the next ball that gets past you.</dd>
+                        <dt>Chaos</dt><dd>Random effects every few seconds.</dd>
+                        <dt>Invincible</dt><dd>Your opponent can't score for a moment.</dd>
+                    </dl>`],
+                ['online', 'Versus', `
+                    <ul class="pphelp-list">
+                        <li><b>Local 1v1:</b> pick a mode, choose Local 1v1, and share the keyboard (or plug in two gamepads).</li>
+                    </ul>`],
+                ['progress', 'Progress', `
+                    <ul class="pphelp-list">
+                        <li><b>XP and levels:</b> every match earns XP; wins and long rallies earn more.</li>
+                        <li><b>Achievements:</b> 43 to unlock. ${kb('Ctrl')}+${kb('Shift')}+${kb('A')} shows them all.</li>
+                        <li><b>Win streaks</b> add bonus XP.</li>
+                        <li>Progress is saved in this browser.</li>
+                    </ul>`],
+            ];
             document.body.insertAdjacentHTML('beforeend', `
-                <div id="pp-help" class="pp-overlay-panel" role="dialog" aria-modal="true" aria-labelledby="help-title">
-                    <div class="pp-panel-box" id="pp-help-box">
-                        <div class="pp-panel-header">
-                            <span class="pp-panel-icon">${SVG_ICONS.help}</span>
-                            <h2 id="help-title">GAME GUIDE</h2>
-                            <button class="pp-panel-close" id="close-help-x">${SVG_ICONS.close}</button>
-                        </div>
-
-                        <div class="help-tabs" role="tablist">
-                            <button class="help-tab active" data-section="overview" role="tab">Overview</button>
-                            <button class="help-tab" data-section="modes" role="tab">Modes</button>
-                            <button class="help-tab" data-section="controls" role="tab">Controls</button>
-                            <button class="help-tab" data-section="powerups" role="tab">Power-ups</button>
-                            <button class="help-tab" data-section="advanced" role="tab">Advanced</button>
-                            <button class="help-tab" data-section="interface" role="tab">Interface</button>
-                        </div>
-
-                        <div class="pp-panel-content help-content" id="pp-help-content">
-                            <div class="help-section" data-section="overview">
-                                <p>A neon-saturated reimagining of classic ping-pong. You control the left paddle. Send the ball past the opponent to score; first to the winning total takes the match.</p>
-                                <ul class="help-list">
-                                    <li>Pick a mode from the start menu.</li>
-                                    <li>Move your paddle with keyboard, mouse, touch, or device tilt.</li>
-                                    <li>Grab power-ups that appear on the court.</li>
-                                    <li>Watch out for mode-specific hazards.</li>
-                                </ul>
-                            </div>
-                            <div class="help-section" data-section="modes" style="display:none">
-                                <div class="help-entry"><strong>Classic</strong> – Standard ping-pong. Ball speed increases gradually.</div>
-                                <div class="help-entry"><strong>Boss Mode</strong> – Supernatural boss with fire-breath and a canvas-darkening curse.</div>
-                                <div class="help-entry"><strong>Gravity</strong> – Black holes bend the ball. Curve it around one to slingshot it out faster; each slingshot makes the point worth +1 (up to 3).</div>
-                                <div class="help-entry"><strong>Obstacle</strong> – Clear glowing checkpoint routes while gates, rotors, magnets, and repulsors reshape the rally.</div>
-                                <div class="help-entry"><strong>Speed</strong> – Type scrolling words to keep the ball moving.</div>
-                            </div>
-                            <div class="help-section" data-section="controls" style="display:none">
-                                <div class="help-entry"><strong>W / S</strong> – Move paddle up / down</div>
-                                <div class="help-entry"><strong>↑ / ↓</strong> – Alternative paddle controls</div>
-                                <div class="help-entry"><strong>Mouse / Touch</strong> – Drag to position paddle</div>
-                                <div class="help-entry"><strong>SPACEBAR</strong> – Pause / Resume / fire laser</div>
-                                <div class="help-entry"><strong>ESC</strong> – Skip intro or close menus</div>
-                                <div class="help-entry"><strong>Device Tilt</strong> – Supported on mobile</div>
-                            </div>
-                            <div class="help-section" data-section="powerups" style="display:none">
-                                <div class="help-entry">• <strong>Slow Ball</strong> – Temporarily slows the ball</div>
-                                <div class="help-entry">• <strong>Fast Paddle</strong> – Boosts your paddle speed</div>
-                                <div class="help-entry">• <strong>Freeze AI</strong> – Stops the AI briefly</div>
-                                <div class="help-entry">• <strong>Multi-Ball</strong> – Adds up to 3 extra balls</div>
-                                <div class="help-entry">• <strong>Laser Paddle</strong> – Shoot the ball with SPACEBAR</div>
-                                <div class="help-entry">• <strong>Shield</strong> – Absorbs the next point against you</div>
-                                <div class="help-entry">• <strong>Chaos Mode</strong> – Random effects every few seconds</div>
-                                <div class="help-entry">• <strong>Ghost Ball</strong> – Ball passes through objects briefly</div>
-                            </div>
-                            <div class="help-section" data-section="advanced" style="display:none">
-                                <div class="help-entry">• <strong>Progression</strong> – Earn XP and level up to unlock skins and perks</div>
-                                <div class="help-entry">• <strong>Achievements</strong> – Complete challenges for bonus rewards</div>
-                                <div class="help-entry">• <strong>Win Streaks</strong> – Bonus XP for consecutive wins</div>
-                                <div class="help-entry">• <strong>Dynamic AI</strong> – Opponent adapts to your play style</div>
-                                <div class="help-entry">• <strong>Speed Challenge</strong> – Type faster as words accelerate</div>
-                            </div>
-                            <div class="help-section" data-section="interface" style="display:none">
-                                <div class="help-entry"><strong>MENU button</strong> – Open / close the control panel</div>
-                                <div class="help-entry"><strong>SETTINGS</strong> – FPS, AI difficulty and display options</div>
-                                <div class="help-entry"><strong>AUDIO</strong> – Volume mixer</div>
-                                <div class="help-entry"><strong>HELP</strong> – This guide</div>
-                                <div class="help-entry"><strong>QUIT</strong> – Return to main menu</div>
-                            </div>
-                        </div>
-
-                        <div class="pp-panel-footer">
-                            <button id="close-help-btn" class="pp-btn primary">${SVG_ICONS.close} GOT IT</button>
-                        </div>
+                <div id="pp-help" class="pp-overlay-panel ppset pphelp" role="dialog" aria-modal="true" aria-labelledby="help-title">
+                    <div class="ppset-box">
+                        <header class="ppset-head">
+                            <div><div class="ppset-kicker">How to play</div><h2 id="help-title">Game guide</h2></div>
+                            <button type="button" class="ppset-close" id="close-help-x" aria-label="Close guide">&times;</button>
+                        </header>
+                        <nav class="ppset-tabs" role="tablist">${sections.map(([id, label]) =>
+                            `<button type="button" role="tab" class="help-tab" data-section="${id}" aria-selected="false">${label}</button>`).join('')}</nav>
+                        <div class="ppset-body">${sections.map(([id, , html]) =>
+                            `<section class="help-section" data-section="${id}" role="tabpanel" hidden>${html}</section>`).join('')}</div>
+                        <footer class="ppset-foot">
+                            <span class="ppset-saved">Esc closes this guide</span>
+                            <button type="button" id="close-help-btn" class="ppset-btn primary">Got it</button>
+                        </footer>
                     </div>
                 </div>
             `);
@@ -1635,20 +1485,13 @@
 
             const helpTabs = $$('#pp-help .help-tab');
             const helpSections = $$('#pp-help .help-section');
-            helpTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    helpTabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    const section = tab.dataset.section;
-                    helpSections.forEach(s => { s.style.display = s.dataset.section === section ? 'block' : 'none'; });
-                    lastHelpSection = section;
-                });
-            });
-
-            if (lastHelpSection) {
-                const initTab = $(`#pp-help .help-tab[data-section="${lastHelpSection}"]`);
-                if (initTab) initTab.click();
-            }
+            const showSection = (section) => {
+                helpTabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.section === section)));
+                helpSections.forEach(sec => { sec.hidden = sec.dataset.section !== section; });
+                lastHelpSection = section;
+            };
+            helpTabs.forEach(tab => tab.addEventListener('click', () => showSection(tab.dataset.section)));
+            showSection(lastHelpSection);
         }
 
         // ==================================================================
@@ -1839,8 +1682,8 @@
         }
 
         function updateAIDifficulty(showFeedback = true) {
-            const percent = state.preferences.aiDifficulty ?? 50;
-            const level = Math.round((percent / 100) * 4);
+            const level = Math.max(0, Math.min(4, Math.round(window.PPSettings?.get('aiLevel') ?? 2)));
+            const percent = Math.round((level / 4) * 100);
             const ai = getLiveAIController();
             if (!ai) { console.warn("No AI instance found yet"); return; }
             if (typeof ai.setDifficulty === 'function') {
