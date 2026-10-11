@@ -125,6 +125,8 @@ class ZombieBoss {
         this.fireWarningIntensity = 0; // Magma blink warning intensity
         this.isBreathingFire = false; // Currently breathing fire
         this.fireBreathingUnlocked = false;
+        this.cannonDeploy = 0; // 0 = paddle, 1 = transformed into the fire cannon
+        this.cannonRecoil = 0; // Kick when the fire is released
 
         // Phase-based fire intervals
         this.phaseFireIntervals = {
@@ -247,6 +249,8 @@ class ZombieBoss {
             this.fireBreathingState = 'normal';
             this.fireWarningIntensity = 0;
             this.isBreathingFire = false;
+            this.cannonDeploy = 0;
+            this.cannonRecoil = 0;
             return;
         }
 
@@ -277,6 +281,7 @@ class ZombieBoss {
                 this.fireBreathingState = 'breathing';
                 this.fireBreathingTimer = this.fireBreathDuration;
                 this.isBreathingFire = true;
+                this.cannonRecoil = 1;
                 // Play release sound: Nuclear blast impact
                 if (window.game && window.game.audio && window.game.audio.fireBreathRelease) {
                     window.game.audio.fireBreathRelease();
@@ -301,6 +306,14 @@ class ZombieBoss {
             }
         }
 
+        // Transform: the paddle unfolds into a cannon during the warning, holds while
+        // breathing, then folds back. Deploys over ~0.9 s so the charge-up reads clearly.
+        const deployTarget = this.fireBreathingState === 'normal' ? 0 : 1;
+        const deployRate = deployTarget > this.cannonDeploy ? 1.15 : 2.2;
+        this.cannonDeploy += Math.sign(deployTarget - this.cannonDeploy)
+            * Math.min(Math.abs(deployTarget - this.cannonDeploy), deployRate * dt);
+        this.cannonRecoil = Math.max(0, this.cannonRecoil - dt * 4);
+
         // Update fire particles
         this.updateFireBreathingParticles(dt);
 
@@ -312,7 +325,7 @@ class ZombieBoss {
         if (!this.paddle) return;
 
         // Fire spawns from LEFT SIDE (boss on right), travels LEFT across screen
-        const ox = this.paddle.pos.x; // Origin X (flush with paddle edge)
+        const ox = this.paddle.pos.x - this.getCannonLength() * this.cannonDeploy; // Origin X (cannon muzzle)
         const oy = this.paddle.pos.y + this.paddle.h / 2; // Origin Y (paddle center)
 
         const baseAngle = Math.PI; // LEFT = 180°
@@ -605,6 +618,8 @@ class ZombieBoss {
         this.phase = wave >= 9 ? 3 : (wave >= 7 ? 2 : 1);
         this.fireBreathingState = 'normal';
         this.fireWarningIntensity = 0;
+        this.cannonDeploy = 0;
+        this.cannonRecoil = 0;
         this.fireBreathingTimer = this.fireBreathingUnlocked
             ? Math.max(2.4, 6.2 - wave * 0.22)
             : 9999;
@@ -1044,6 +1059,162 @@ class ZombieBoss {
         ctx.restore();
     }
 
+    getCannonLength() {
+        return this.paddle ? Math.max(34, this.paddle.w * 2.2) : 0;
+    }
+
+    // The paddle's transform into a fire cannon: armour plates split open, vents
+    // flare, a barrel slides out towards the player and its muzzle charges up.
+    // Plain fills and gradients only (no blur, no blend modes).
+    renderFireCannon(ctx) {
+        const p = this.paddle;
+        const d = this.cannonDeploy;
+        if (!p || d <= 0.001) return;
+
+        const seg = (a, b) => Math.max(0, Math.min(1, (d - a) / (b - a)));
+        const easeOutBack = (x) => { const c = 1.7; return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2; };
+        const plates = easeOutBack(seg(0, 0.35));
+        const vents = easeOutBack(seg(0.15, 0.5));
+        const barrel = easeOutBack(seg(0.3, 0.75));
+        const charge = seg(0.65, 1);
+        const breathing = this.fireBreathingState === 'breathing';
+        const flick = 0.75 + 0.25 * Math.sin(this.time * 38);
+
+        const kick = this.cannonRecoil * this.cannonRecoil * 9;
+        const x0 = p.pos.x + kick;
+        const cy = p.pos.y + p.h / 2;
+        const bh = Math.max(14, p.w * 1.15); // barrel bore height
+        const len = this.getCannonLength() * barrel;
+        const heat = breathing ? 1 : Math.max(charge, this.fireWarningIntensity * 0.6 * seg(0, 0.4));
+
+        ctx.save();
+
+        // --- Armour plates: the top and bottom thirds split away from the core ---
+        const gap = 10 * plates;
+        const plateH = p.h * 0.3;
+        const plateGrad = (y) => {
+            const g = ctx.createLinearGradient(x0, y, x0 + p.w, y);
+            g.addColorStop(0, '#5a5048');
+            g.addColorStop(0.45, '#2b2420');
+            g.addColorStop(1, '#151110');
+            return g;
+        };
+        if (plates > 0.01) {
+            // Glowing seams exposed between the plates and the core
+            ctx.fillStyle = `rgba(255, ${150 + Math.round(90 * heat)}, 40, ${0.55 + 0.4 * heat * flick})`;
+            ctx.fillRect(x0 + 2, p.pos.y + plateH, p.w - 4, Math.max(1, gap * 0.8));
+            ctx.fillRect(x0 + 2, p.pos.y + p.h - plateH - gap * 0.8, p.w - 4, Math.max(1, gap * 0.8));
+
+            for (const dir of [-1, 1]) {
+                const y = dir < 0 ? p.pos.y - gap : p.pos.y + p.h - plateH + gap;
+                ctx.fillStyle = plateGrad(y);
+                ctx.beginPath();
+                ctx.moveTo(x0 - 3 * plates, y);
+                ctx.lineTo(x0 + p.w + 2, y);
+                ctx.lineTo(x0 + p.w + 2, y + plateH);
+                ctx.lineTo(x0 - 3 * plates, y + plateH);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 140, 60, 0.55)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                // Rivets
+                ctx.fillStyle = '#b8a898';
+                for (let i = 0; i < 3; i++) {
+                    const ry = y + plateH * (0.2 + i * 0.3);
+                    ctx.fillRect(x0 + p.w * 0.5 - 1, ry - 1, 2, 2);
+                }
+            }
+        }
+
+        // --- Side vents fan out on the back edge, glowing with heat ---
+        if (vents > 0.01) {
+            const vx = x0 + p.w;
+            for (let i = 0; i < 4; i++) {
+                const vy = cy - p.h * 0.18 + i * p.h * 0.12;
+                const vw = (7 + i % 2 * 3) * vents;
+                ctx.fillStyle = '#2a201b';
+                ctx.beginPath();
+                ctx.moveTo(vx, vy - 3);
+                ctx.lineTo(vx + vw, vy - 5 * vents);
+                ctx.lineTo(vx + vw, vy + 1);
+                ctx.lineTo(vx, vy + 3);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = `rgba(255, ${120 + Math.round(100 * heat)}, 30, ${0.35 + 0.6 * heat * flick})`;
+                ctx.fillRect(vx, vy - 1, vw * 0.85, 1.5);
+            }
+        }
+
+        // --- Barrel slides out towards the player ---
+        if (len > 1) {
+            const bx = x0 - len;
+            const by = cy - bh / 2;
+            // Mount collar on the paddle face
+            ctx.fillStyle = '#3a302a';
+            ctx.fillRect(x0 - 6, by - 6 * barrel, 8, bh + 12 * barrel);
+
+            const bg = ctx.createLinearGradient(bx, by, bx, by + bh);
+            bg.addColorStop(0, '#6e625a');
+            bg.addColorStop(0.3, '#3a312c');
+            bg.addColorStop(0.7, '#1d1714');
+            bg.addColorStop(1, '#0d0a09');
+            ctx.fillStyle = bg;
+            ctx.fillRect(bx, by, len, bh);
+
+            // Heat bands that light up front to back as it charges
+            const bands = 4;
+            for (let i = 0; i < bands; i++) {
+                const t = (i + 1) / (bands + 1);
+                const lit = Math.max(0, Math.min(1, heat * (bands + 1) - (bands - 1 - i)));
+                ctx.fillStyle = `rgba(255, ${110 + Math.round(120 * lit)}, ${30 + Math.round(40 * lit)}, ${0.18 + 0.75 * lit * flick})`;
+                ctx.fillRect(bx + len * t - 1.5, by + 1, 3, bh - 2);
+            }
+
+            // Muzzle brake
+            const mw = 7;
+            ctx.fillStyle = '#4a3f38';
+            ctx.fillRect(bx - mw, by - 4, mw, bh + 8);
+            ctx.fillStyle = '#16110f';
+            ctx.fillRect(bx - mw, cy - bh * 0.3, mw * 0.5, bh * 0.6);
+            ctx.strokeStyle = 'rgba(255, 160, 80, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(bx - mw + 0.5, by - 3.5, mw - 1, bh + 7);
+
+            // Charging core at the muzzle
+            if (heat > 0.02 && barrel > 0.6) {
+                const mx = bx - mw;
+                const r = (bh * 0.55 + bh * 0.9 * heat) * (breathing ? 1.25 : (0.85 + 0.15 * flick));
+                const core = ctx.createRadialGradient(mx, cy, 0, mx, cy, r);
+                core.addColorStop(0, `rgba(255, 255, 230, ${0.95 * heat})`);
+                core.addColorStop(0.25, `rgba(255, 210, 90, ${0.8 * heat})`);
+                core.addColorStop(0.6, `rgba(255, 90, 20, ${0.35 * heat})`);
+                core.addColorStop(1, 'rgba(255, 40, 0, 0)');
+                ctx.fillStyle = core;
+                ctx.beginPath();
+                ctx.arc(mx, cy, r, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Energy being drawn into the muzzle while it charges
+                if (!breathing) {
+                    ctx.strokeStyle = `rgba(255, 200, 110, ${0.5 * heat})`;
+                    ctx.lineWidth = 1.5;
+                    for (let i = 0; i < 6; i++) {
+                        const a = i / 6 * Math.PI * 2 + this.time * 3;
+                        const f = 1 - ((this.time * 2.2 + i / 6) % 1);
+                        const rr = r * (0.9 + 1.4 * f);
+                        ctx.beginPath();
+                        ctx.moveTo(mx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+                        ctx.lineTo(mx + Math.cos(a) * rr * 0.55, cy + Math.sin(a) * rr * 0.55);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        ctx.restore();
+    }
+
     _genCrackNetwork(px, py, pw, ph) {
         const cracks = [];
         // Deterministic-ish seed from position
@@ -1424,6 +1595,7 @@ class ZombieBoss {
 
         // Render magma paddle (replaces normal paddle rendering)
         this.renderMagmaPaddle(ctx);
+        this.renderFireCannon(ctx);
 
         // Render fire breathing particles
         this.renderFireBreathingParticles(ctx, now);
@@ -1524,6 +1696,8 @@ class ZombieBoss {
         this.fireBreathingState = 'normal';
         this.fireWarningIntensity = 0;
         this.isBreathingFire = false;
+        this.cannonDeploy = 0;
+        this.cannonRecoil = 0;
 
         // Clear particle pool
         this.activeCount = 0;
