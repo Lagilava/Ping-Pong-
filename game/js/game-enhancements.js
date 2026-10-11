@@ -1583,7 +1583,7 @@
                             <div class="help-section" data-section="modes" style="display:none">
                                 <div class="help-entry"><strong>Classic</strong> – Standard ping-pong. Ball speed increases gradually.</div>
                                 <div class="help-entry"><strong>Boss Mode</strong> – Supernatural boss with fire-breath and a canvas-darkening curse.</div>
-                                <div class="help-entry"><strong>Gravity</strong> – Wells periodically warp ball trajectory.</div>
+                                <div class="help-entry"><strong>Gravity</strong> – Black holes bend the ball. Curve it around one to slingshot it out faster; each slingshot makes the point worth +1 (up to 3).</div>
                                 <div class="help-entry"><strong>Obstacle</strong> – Clear glowing checkpoint routes while gates, rotors, magnets, and repulsors reshape the rally.</div>
                                 <div class="help-entry"><strong>Speed</strong> – Type scrolling words to keep the ball moving.</div>
                             </div>

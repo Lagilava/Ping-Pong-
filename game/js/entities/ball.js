@@ -268,6 +268,7 @@ class Ball {
         const dir = Math.random() > 0.5 ? 1 : -1;
         PhysicsCore.reset(this, center.x, center.y, actualSpeed, angle, dir);
         this.lastHit = null;
+        this.slingCharge = 0;
         this.trailCount = 0;
         this.particles.length = 0; // Clear particles without reallocation
     }

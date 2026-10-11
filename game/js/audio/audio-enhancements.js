@@ -1007,7 +1007,7 @@ class EnhancedAudioEngine {
             'zombieWave', 'zombieHit', 'zombieSpit', 'zombieBreach', 'zombieChoice',
             'speedChallenge', 'speedChallengeSuccess', 'speedChallengeFail',
             'rallyMilestone', 'createSound', 'createScoreSound', 'createLevelUpSound',
-            'startGravityWellSound', 'stopGravityWellSound', 'laser',  // Added laser method
+            'startGravityWellSound', 'stopGravityWellSound', 'laser', 'slingshot',
             'stopAllGravityWellSounds', 'syncGravityWellAudioState',
             'toggleMusicMute', 'setMusicMuteState', 'applyMusicMuteState',
             'setSfxVolume', 'setMusicVolume', 'setVoiceVolume', 'setVoiceMute'  // Channel controls
@@ -1395,6 +1395,59 @@ class EnhancedAudioEngine {
             sub.stop(now + 0.15);
         }
         this.analytics.soundsPlayed++;
+    }
+
+    // Gravity slingshot: a rising whoosh past the black hole, then a chime
+    // that climbs with the charge (1 or 2) so the stakes are audible.
+    slingshot(charge = 1, pan = 0) {
+        this.ensureContext().then(() => {
+            if (!this.initialized || !this.enabled || !this.ctx) return;
+            const ctx = this.ctx;
+            const now = ctx.currentTime + 0.002;
+            const vol = Math.max(0, Math.min(1, this.sfxVolume));
+            let out = this.masterGain;
+            if (typeof ctx.createStereoPanner === 'function') {
+                const panner = ctx.createStereoPanner();
+                panner.pan.value = Math.max(-1, Math.min(1, pan));
+                panner.connect(this.masterGain);
+                out = panner;
+            }
+
+            const sweep = ctx.createOscillator();
+            const filter = ctx.createBiquadFilter();
+            const sg = ctx.createGain();
+            sweep.type = 'sawtooth';
+            sweep.frequency.setValueAtTime(90, now);
+            sweep.frequency.exponentialRampToValueAtTime(420, now + 0.28);
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(300, now);
+            filter.frequency.exponentialRampToValueAtTime(3200, now + 0.26);
+            filter.Q.value = 6;
+            sg.gain.setValueAtTime(0.0005, now);
+            sg.gain.linearRampToValueAtTime(vol * 0.32, now + 0.2);
+            sg.gain.exponentialRampToValueAtTime(0.0005, now + 0.36);
+            sweep.connect(filter); filter.connect(sg); sg.connect(out);
+            sweep.start(now);
+            sweep.stop(now + 0.38);
+            this.activeOscillators.add(sweep);
+            sweep.onended = () => this.activeOscillators.delete(sweep);
+
+            const notes = charge >= 2 ? [783.99, 1046.5, 1318.5] : [659.25, 987.77];
+            notes.forEach((f, i) => {
+                const t = now + 0.22 + i * 0.06;
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.type = 'triangle';
+                o.frequency.setValueAtTime(f, t);
+                g.gain.setValueAtTime(0.0005, t);
+                g.gain.linearRampToValueAtTime(vol * 0.22, t + 0.006);
+                g.gain.exponentialRampToValueAtTime(0.0005, t + 0.22);
+                o.connect(g); g.connect(out);
+                o.start(t);
+                o.stop(t + 0.24);
+            });
+            this.analytics.soundsPlayed++;
+        });
     }
 
     // strength 0..1, pan -1..1, side 'left' | 'right' (left is higher: ping… pong).

@@ -411,7 +411,7 @@
         modes: [
             { id: 'classic', name: 'CLASSIC', desc: 'Traditional fast-paced duel', col: 0xff3a5c, hex: '#ff3a5c', icon: 'classic' },
             { id: 'zombie', name: 'ZOMBIE', desc: 'Survive the undead horde', col: 0x6ddc4f, hex: '#6ddc4f', icon: 'zombie' },
-            { id: 'gravity', name: 'GRAVITY', desc: 'Zero-gravity chaos arena', col: 0x3d9eff, hex: '#3d9eff', icon: 'gravity' },
+            { id: 'gravity', name: 'GRAVITY', desc: 'Slingshot black holes for big points', col: 0x3d9eff, hex: '#3d9eff', icon: 'gravity' },
             { id: 'speed', name: 'SPEED', desc: 'Extreme velocity battles', col: 0xffbe00, hex: '#ffbe00', icon: 'speed' },
             { id: 'obstacle', name: 'OBSTACLE', desc: 'Navigate deadly hazards', col: 0xff7620, hex: '#ff7620', icon: 'obstacle' },
             { id: 'customise', name: 'CUSTOM', desc: 'Build your own rules', col: 0x00ffc8, hex: '#00ffc8', icon: 'custom' },

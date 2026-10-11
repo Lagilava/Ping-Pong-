@@ -77,7 +77,7 @@ prompt to unlock frame rates above 60 (expect some screen tearing).
 |---|---|
 | **Classic** | The straight duel: fast, clean, no gimmicks. |
 | **Zombie** | Survive ten waves of undead and a boss while still returning the ball. |
-| **Gravity** | Gravity wells bend the ball's path; use them to slingshot shots. |
+| **Gravity** | Black holes bend the ball. Curve it around one and it slingshots out faster, and each slingshot makes the point worth +1 (up to 3). |
 | **Speed** | The ball keeps accelerating; reaction challenges interrupt the rally. |
 | **Obstacle** | Moving gates and nodes carve up the court. |
 

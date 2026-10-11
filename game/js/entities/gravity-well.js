@@ -130,6 +130,9 @@ class GravityWell {
     set active(value) { this.#active = Boolean(value); }
     set strength(value) { this.#strength = Math.max(0, Number(value)); }
 
+    // Full excitement burst (the slingshot fired off this well).
+    flare() { this.#excitement = 1; }
+
     isBallInRange(ball) {
         if (!ball?.pos) return false;
         const dx = this.#pos.x - ball.pos.x;

@@ -5114,6 +5114,10 @@ class Game {
         this.obstacleCourse = null;
         Obstacle.groups = []; // Clear obstacle groups when changing modes
         this.gravityWells = [];
+        if (!this.gravitySlingshot && typeof GravitySlingshot === 'function') {
+            this.gravitySlingshot = new GravitySlingshot(this);
+        }
+        this.gravitySlingshot?.reset();
 
         // ensure the AI paddle has the correct skin when modes change
         if (this.aiPaddle && typeof this.aiPaddle.setZombieBossSkin === 'function') {
@@ -6470,6 +6474,7 @@ class Game {
         }
 
         b.lastHit = isPlayer ? 'player' : 'ai';
+        if (b === this.ball) this.gravitySlingshot?.onPaddleHit();
 
         const hitX = isPlayer ? p.pos.x + p.w : p.pos.x;
         this.particles.spawnGodTierHit(hitX, b.pos.y, p.color, speed);
@@ -6921,6 +6926,7 @@ class Game {
                 }
             }
 
+            this.gravitySlingshot?.update(dt);
             this.updateGravityInteractionState(dt);
         } else if (this.gameMode !== 'gravity') {
             this.gravityInteraction = {
@@ -7137,7 +7143,7 @@ class Game {
                     }
                     return true;
                 }
-                const points = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
+                const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeSlingshotBonus(ball);
                 const prevP2Score = this.scores.ai;
                 this.scores.player += points;
                 this.progression.recordPoint('player', points);
@@ -7224,7 +7230,7 @@ class Game {
                         }
                         return false;
                     }
-                    const points = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
+                    const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeSlingshotBonus(ball);
                     this.scores.ai += points;
                     this.progression.recordPoint('ai', points);
                     this.audio.score();
@@ -7262,6 +7268,18 @@ class Game {
             }
         }
         this.additionalBalls.length = writeIndex;
+    }
+
+    // Gravity mode: extra points a slingshot-charged ball carries into the goal.
+    takeSlingshotBonus(ball) {
+        const bonus = this.gravitySlingshot?.consumeGoalBonus(ball) || 0;
+        if (bonus > 0) {
+            const base = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
+            const y = Math.max(60, Math.min(this.height - 60, ball.pos.y));
+            const x = ball.pos.x > this.width * 0.5 ? this.width * 0.75 : this.width * 0.25;
+            this.gravitySlingshot.announceGoal(base + bonus, x, y);
+        }
+        return bonus;
     }
 
     updateGameUI() {
@@ -7610,6 +7628,7 @@ class Game {
             for (let i = 0; i < this.gravityWells.length; i++) {
                 this.gravityWells[i].render(ctx, gravityRenderTime);
             }
+            this.gravitySlingshot?.renderWellArcs(ctx);
         }
         if (this.gameMode === 'obstacle') {
             // Obstacle bodies and their background-linked visuals are rendered by the
@@ -7707,6 +7726,7 @@ class Game {
             }
         }
         this.ball.render(ctx, interp);
+        if (this.gameMode === 'gravity') this.gravitySlingshot?.renderBall(ctx, interp);
         this.renderServeTelegraph(ctx);
         this.renderRallyCounter(ctx, renderDt);
         this.renderPopTexts(ctx, renderDt);
