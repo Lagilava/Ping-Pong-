@@ -5226,6 +5226,7 @@ class Game {
         this.obstacles = [];
         this.obstacleCourse = null;
         Obstacle.groups = []; // Clear obstacle groups when changing modes
+        this.obstacleArcade?.setHudVisible(false);
         this.gravityWells = [];
         if (!this.gravitySlingshot && typeof GravitySlingshot === 'function') {
             this.gravitySlingshot = new GravitySlingshot(this);
@@ -5304,6 +5305,11 @@ class Game {
         Obstacle.groups = [];
         this.obstacleCourse = new ObstacleCourse(this);
         this.obstacleCourse.rebuild(true);
+        if (!this.obstacleArcade && typeof ObstacleArcade === 'function') {
+            this.obstacleArcade = new ObstacleArcade(this);
+        }
+        this.obstacleArcade?.reset();
+        this.obstacleArcade?.setHudVisible(true);
     }
 
     createGravityWells() {
@@ -6883,7 +6889,7 @@ class Game {
             if (ball.integrate(effectiveDt, this.height) & (PhysicsCore.EVT.WALL_TOP | PhysicsCore.EVT.WALL_BOTTOM)) {
                 this.audio.bounce();
             }
-            if (!this.ghostBallActive) {
+            if (!this.ghostBallActive && !this.obstacleArcade?.isStarActive()) {
                 for (let obstacleIndex = 0; obstacleIndex < this.obstacles.length; obstacleIndex++) {
                     const o = this.obstacles[obstacleIndex];
                     if (o.checkCollision(ball)) {
@@ -7039,6 +7045,7 @@ class Game {
                 this.obstacleCourse.rebuild(true);
             }
             this.obstacleCourse.update(dt);
+            this.obstacleArcade?.update(dt);
 
             if (this.bgRenderer && typeof this.bgRenderer.syncObstacleArenaState === 'function') {
                 this.bgRenderer.syncObstacleArenaState(this.obstacles, this.ball, this, dt);
@@ -7150,7 +7157,7 @@ class Game {
         this.checkPaddleCollision(this.player, true);
         this.checkPaddleCollision(this.aiPaddle, false);
         this.handleZombieBallCollisions(this.ball);
-        if (!this.ghostBallActive) {
+        if (!this.ghostBallActive && !(this.gameMode === 'obstacle' && this.obstacleArcade?.isStarActive())) {
             const ball = this.ball;
             for (let i = 0; i < this.obstacles.length; i++) {
                 if (this.obstacles[i].checkCollision(ball)) {
@@ -7385,6 +7392,7 @@ class Game {
             const goalOnRight = this.ball.pos.x > this.width * 0.5;
             const goalY = Math.max(0, Math.min(this.height, this.ball.pos.y));
             this.onGoalScored(goalOnRight, goalY);
+            if (this.gameMode === 'obstacle') this.obstacleArcade?.onGoal(goalOnRight ? 'player' : 'ai', this.ball);
             this.ball.reset(this.center);
             if (this.isZombieWaveMode() && Number.isFinite(this._zombieNextServeDirection)) {
                 const dir = this._zombieNextServeDirection >= 0 ? 1 : -1;
@@ -7771,7 +7779,9 @@ class Game {
         if (this.gameMode === 'obstacle') {
             // Obstacle bodies and their background-linked visuals are rendered by the
             // BackgroundRenderer to avoid duplicate draws. Keep fragment pool here.
+            this.obstacleArcade?.renderUnder(ctx);
             window.globalFragmentPool.renderAll(ctx, areParticleEffectsEnabled());
+            this.obstacleArcade?.render(ctx);
         }
 
         // Render powerups and their tooltips

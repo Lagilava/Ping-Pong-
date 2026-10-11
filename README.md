@@ -79,7 +79,7 @@ prompt to unlock frame rates above 60 (expect some screen tearing).
 | **Zombie** | Hold the line for ten waves: smash every zombie or knock out the boss to clear a wave. Five lives for the run; the ball getting past you or a zombie reaching your barricade costs one. Wave 10 is the boss fight. |
 | **Gravity** | Black holes bend the ball. Curve it around one and it slingshots out faster, and each slingshot makes the point worth +1 (up to 3). |
 | **Speed** | The ball keeps accelerating; reaction challenges interrupt the rally. |
-| **Obstacle** | Moving gates and nodes carve up the court. |
+| **Obstacle** | Moving gates and nodes carve up the court, with a Rocket League and Mario twist: boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, every 10 coins is a point, and goals explode in confetti. |
 
 Plus **Custom** (local 1v1 with your own paddles, background, music and
 power-ups), **Ball Forge** (a ball skin editor), local 1v1 for any mode, and a
@@ -168,7 +168,7 @@ game/                     Everything the browser loads
   js/
     core/                   Game class, globals + quality governor, vectors, boot
     entities/               Ball, paddles, power-ups, gravity wells
-    modes/                  Zombie boss, obstacle course, speed challenge
+    modes/                  Zombie boss, obstacle course + arcade layer, speed challenge
     render/                 Background renderer, WebGL post-processing
     menu/                   Three.js menu + menu bloom
     physics/                WebAssembly physics bridge (+ background simulation worker)
