@@ -12,6 +12,7 @@ class GravitySlingshot {
     static MIN_SPEED = 260;        // a ball crawling out of a well doesn't count
     static MAX_CHARGE = 2;
     static SPEED_KICK = 1.16;
+    static FREEZE_GAP = 0.9;      // seconds before another slingshot can freeze the game
     static COLORS = ['#ffd166', '#ff8a3d'];
 
     constructor(game) {
@@ -22,6 +23,8 @@ class GravitySlingshot {
     reset() {
         this.tracks = new Map();   // well -> { last, sweep }
         this.badgePop = 0;
+        this.clock = 0;
+        this.lastFreezeAt = undefined;
         this.introShown = false;
         const ball = this.game.ball;
         if (ball) ball.slingCharge = 0;
@@ -43,6 +46,7 @@ class GravitySlingshot {
         const ball = game.ball;
         if (!this.active || !ball?.pos) return;
         this.badgePop = Math.max(0, this.badgePop - dt * 3);
+        this.clock += dt;
 
         const moving = Math.abs(ball.vel.x) + Math.abs(ball.vel.y) > 1;
         if (!moving || game.serveHold > 0) return;
@@ -99,7 +103,12 @@ class GravitySlingshot {
         game.particles?.spawnGodTierHit(ball.pos.x, ball.pos.y, color, 900);
         game.postFx?.ripple(ball.pos.x, ball.pos.y, 0.7);
         game.postFx?.punch(0.55);
-        game.hitStop = Math.max(game.hitStop || 0, 0.035);
+        // One freeze per run of slingshots: a ball whipping through several
+        // wells in a row used to stall on every exit, which read as lag.
+        if (this.lastFreezeAt === undefined || this.clock - this.lastFreezeAt > GravitySlingshot.FREEZE_GAP) {
+            game.hitStop = Math.max(game.hitStop || 0, 0.035);
+            this.lastFreezeAt = this.clock;
+        }
         game.screenShake = Math.max(game.screenShake || 0, 5);
         game.audio?.slingshot?.(charge, game.panFor(ball.pos.x));
     }

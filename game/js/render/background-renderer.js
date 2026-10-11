@@ -2610,14 +2610,31 @@ class BackgroundRenderer {
             }
 
             const hueShift = Math.sin(this.modePhase * 0.3) * 20;
+            // Every star shares one of two hues per frame, so the colours are
+            // built once here and each star's alpha goes through globalAlpha
+            // (same pixels). Building and parsing four hsla() strings per star
+            // got expensive once the wells pulled most of the field.
+            const coldHue = 210 + hueShift, warmHue = 50 + hueShift;
+            const starColors = this._gravityStarColors || (this._gravityStarColors = { hueShift: NaN });
+            if (starColors.hueShift !== hueShift) {
+                starColors.hueShift = hueShift;
+                starColors.trail = [`hsla(${warmHue + 20}, 100%, 70%, 1)`, `hsla(${coldHue + 20}, 100%, 70%, 1)`];
+                starColors.line = [`hsla(${warmHue}, 100%, 80%, 1)`, `hsla(${coldHue}, 100%, 80%, 1)`];
+                starColors.core = [`hsla(${warmHue}, 85%, 75%, 1)`, `hsla(${coldHue}, 90%, 85%, 1)`];
+                starColors.bloom = [`hsla(${warmHue}, 100%, 60%, 1)`, `hsla(${coldHue}, 100%, 70%, 1)`];
+                starColors.halo = ['rgb(255,200,100)', 'rgb(150,190,255)'];
+            }
+            const baseAlpha = ctx.globalAlpha;
+            const alphaOf = (v) => baseAlpha * (v > 1 ? 1 : (v > 0 ? v : 0));
+            const activeWells = gravityInteraction?.activeWells || [];
             for (let i = 0; i < this.stars.length; i++) {
                 const s = this.stars[i];
                 const tw = (Math.sin(s.twinklePhase) + 1) / 2;
                 const a = s.alpha * (0.45 + tw * 0.55) * (1 + ambient * 0.24);
                 const size = s.size * (0.7 + tw * 0.4);
+                const tone = s.cold ? 1 : 0;
 
                 // Find the strongest pulling well for this specific star
-                const activeWells = gravityInteraction?.activeWells || [];
                 let bestDx = 0;
                 let bestDy = 0;
                 let bestPullAmount = 0;
@@ -2651,50 +2668,47 @@ class BackgroundRenderer {
                 const trailX = s.x + bestDx * pullAmount * 0.35;
                 const trailY = s.y + bestDy * pullAmount * 0.35;
 
-                // Star Core HSLA
-                const baseHue = s.cold ? 210 + hueShift : 50 + hueShift;
                 const glowA = a * pullAmount * 0.85;
 
                 if (pullAmount > 0.15) {
                     // Aberration/Glow Trail - simulates a stretched light effect
-                    ctx.fillStyle = `hsla(${baseHue + 20}, 100%, 70%, ${glowA * 0.6})`;
+                    ctx.globalAlpha = alphaOf(glowA * 0.6);
+                    ctx.fillStyle = starColors.trail[tone];
                     ctx.fillRect(trailX - size * 0.8, trailY - size * 0.8, size * 1.6, size * 1.6);
 
                     // Motion line
                     ctx.beginPath();
-                    ctx.strokeStyle = `hsla(${baseHue}, 100%, 80%, ${glowA * 0.4})`;
+                    ctx.globalAlpha = alphaOf(glowA * 0.4);
+                    ctx.strokeStyle = starColors.line[tone];
                     ctx.lineWidth = size * 0.5;
                     ctx.moveTo(s.x, s.y);
                     ctx.lineTo(drawX, drawY);
                     ctx.stroke();
                 }
 
-                ctx.fillStyle = s.cold
-                    ? `hsla(${baseHue}, 90%, 85%, ${a})`
-                    : `hsla(${baseHue}, 85%, 75%, ${a})`;
-
                 // Draw Star
+                ctx.globalAlpha = alphaOf(a);
+                ctx.fillStyle = starColors.core[tone];
                 ctx.fillRect(drawX - size * 0.5, drawY - size * 0.5, size, size);
 
                 // Pseudo-Bloom (CSS 'box-shadow' equivalent on Canvas)
                 if (s.size > 1.1 || pullAmount > 0.2) {
                     const bloomSize = size * (2 + pullAmount * 4);
-                    ctx.fillStyle = s.cold
-                        ? `hsla(${baseHue}, 100%, 70%, ${a * 0.22})`
-                        : `hsla(${baseHue}, 100%, 60%, ${a * 0.22})`;
+                    ctx.globalAlpha = alphaOf(a * 0.22);
+                    ctx.fillStyle = starColors.bloom[tone];
                     ctx.fillRect(drawX - bloomSize * 0.5, drawY - bloomSize * 0.5, bloomSize, bloomSize);
                 }
 
                 if (s.size > 1.3) {
-                    ctx.fillStyle = s.cold
-                        ? `rgba(150,190,255,${a * 0.25})`
-                        : `rgba(255,200,100,${a * 0.25})`;
+                    ctx.globalAlpha = alphaOf(a * 0.25);
+                    ctx.fillStyle = starColors.halo[tone];
 
                     const halo = s.size * (2.5 + pullAmount * 5);
                     ctx.fillRect(drawX - halo * 0.5, drawY - 0.6, halo, 1.2);
                     ctx.fillRect(drawX - 0.6, drawY - halo * 0.5, 1.2, halo);
                 }
             }
+            ctx.globalAlpha = baseAlpha;
         }
 
         const clusterX = clusterBaseX + (focusX - clusterBaseX) * focusBlend;

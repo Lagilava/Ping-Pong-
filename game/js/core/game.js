@@ -5507,6 +5507,26 @@ class Game {
         }
     }
 
+    // A pass through a black hole bends the ball's path but never costs it
+    // speed: the pull speeds it up on the way in, and climbing out can only
+    // slow it back to the speed it entered with. (The speed cap used to eat
+    // the gain on the way in, so a fast ball left every well slower.)
+    holdWellPassSpeed(ball, inWell, speedBefore) {
+        if (!ball?.vel) return;
+        if (!inWell) {
+            ball.wellEntrySpeed = 0;
+            return;
+        }
+        if (!ball.wellEntrySpeed) ball.wellEntrySpeed = speedBefore;
+        const floor = Math.min(ball.wellEntrySpeed, ball.maxSpeed || Infinity);
+        const speed = Math.hypot(ball.vel.x, ball.vel.y);
+        if (speed > 1 && speed < floor) {
+            const k = floor / speed;
+            ball.vel.x *= k;
+            ball.vel.y *= k;
+        }
+    }
+
     updateGravityInteractionState(dt) {
         const wells = Array.isArray(this.gravityWells) ? this.gravityWells : [];
         const ball = this.ball;
@@ -5556,31 +5576,35 @@ class Game {
 
         this.gravityInteractionPhase = (this.gravityInteractionPhase + dt * (1.1 + ambient * 2.2)) % (Math.PI * 2);
 
-        // Snapshot active gravity wells for precise background star-pulling
-        const activeWellSnapshots = [];
+        // Snapshot active gravity wells for precise background star-pulling.
+        // This runs every physics step (480 times a second), so the snapshot
+        // objects are reused instead of reallocated.
+        const pool = this._wellSnapshotPool || (this._wellSnapshotPool = []);
+        const activeWellSnapshots = this._wellSnapshots || (this._wellSnapshots = []);
+        activeWellSnapshots.length = 0;
         for (let i = 0; i < wells.length; i++) {
             const well = wells[i];
             if (well?.active && well?.pos) {
-                activeWellSnapshots.push({
-                    x: well.pos.x,
-                    y: well.pos.y,
-                    radius: well.radius || 1,
-                    excitement: well.excitement || 0,
-                    strength: well.strength || 0
-                });
+                const snap = pool[activeWellSnapshots.length] || (pool[activeWellSnapshots.length] = {});
+                snap.x = well.pos.x;
+                snap.y = well.pos.y;
+                snap.radius = well.radius || 1;
+                snap.excitement = well.excitement || 0;
+                snap.strength = well.strength || 0;
+                activeWellSnapshots.push(snap);
             }
         }
 
-        this.gravityInteraction = {
-            activeCount,
-            focusX: centerX,
-            focusY: centerY,
-            proximity,
-            ambient,
-            phase: this.gravityInteractionPhase,
-            activeWells: activeWellSnapshots,
-            nearestDistanceSq: Number.isFinite(nearestDistanceSq) ? nearestDistanceSq : null
-        };
+        const state = this._gravityInteractionState || (this._gravityInteractionState = {});
+        state.activeCount = activeCount;
+        state.focusX = centerX;
+        state.focusY = centerY;
+        state.proximity = proximity;
+        state.ambient = ambient;
+        state.phase = this.gravityInteractionPhase;
+        state.activeWells = activeWellSnapshots;
+        state.nearestDistanceSq = Number.isFinite(nearestDistanceSq) ? nearestDistanceSq : null;
+        this.gravityInteraction = state;
 
         return this.gravityInteraction;
     }
@@ -6271,6 +6295,7 @@ class Game {
         switch (type) {
             case 'slowBall':
                 this.ball.vel.mul(0.7);
+                this.ball.wellEntrySpeed = 0;
                 this.showNotification('Slow Ball!', 'Ball is slower', '#90caf9');
                 break;
             case 'fastPaddle':
@@ -7295,20 +7320,37 @@ class Game {
             const ball = this.ball;
             const additionalBalls = this.additionalBalls;
 
+            const serving = this.serveHold > 0 && !!this.pendingServe;
+            const ballSpeedBefore = Math.hypot(ball.vel.x, ball.vel.y);
+            let ballInWell = false;
+            for (let ballIndex = 0; ballIndex < additionalBalls.length; ballIndex++) {
+                const ab = additionalBalls[ballIndex];
+                ab._speedBeforeWells = Math.hypot(ab.vel.x, ab.vel.y);
+                ab._inWell = false;
+            }
             for (let i = 0; i < this.gravityWells.length; i++) {
                 const w = this.gravityWells[i];
                 w.update(dt, ball);
 
-                if (w.isBallInRange(ball)) {
+                // A ball waiting to be served stays put: a well pulling on it
+                // used to cancel the serve, so it drifted off at minimum speed.
+                if (!serving && w.isBallInRange(ball)) {
                     w.applyGravity(ball, dt, true);
+                    ballInWell = true;
                 }
 
                 for (let ballIndex = 0; ballIndex < additionalBalls.length; ballIndex++) {
                     const ab = additionalBalls[ballIndex];
                     if (w.isBallInRange(ab)) {
                         w.applyGravity(ab, dt, false);
+                        ab._inWell = true;
                     }
                 }
+            }
+            this.holdWellPassSpeed(ball, ballInWell, ballSpeedBefore);
+            for (let ballIndex = 0; ballIndex < additionalBalls.length; ballIndex++) {
+                const ab = additionalBalls[ballIndex];
+                this.holdWellPassSpeed(ab, ab._inWell, ab._speedBeforeWells);
             }
 
             if (this.gameMode === 'gravity') this.gravitySlingshot?.update(dt);
@@ -8233,12 +8275,11 @@ class Game {
         let physicsSteps = 0;
         const physicsStepDt = this.dt;
 
-        // FIXED: Support physics sub-stepping for smoother gravity mode.
-        // Avoid excessively heavy sub-stepping when the frame is already running slow.
-        let subSteps = (this.gameMode === 'gravity') ? 2 : 1;
-        if (this.gameMode === 'gravity' && frameTime > 0.04) {
-            subSteps = 1;
-        }
+        // Gravity mode sub-steps each physics step for smoother orbits. It
+        // stays at 2 even on a slow frame: the wells pull once per step with
+        // the sub-step's dt, so dropping to 1 doubled their pull exactly when
+        // the game was already struggling (the extra step costs ~0.1 ms).
+        const subSteps = (this.gameMode === 'gravity') ? 2 : 1;
         const subStepDt = physicsStepDt / subSteps;
 
         while (this.accumulator >= physicsStepDt && physicsSteps < 10) {
