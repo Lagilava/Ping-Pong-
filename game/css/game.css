@@ -5514,6 +5514,9 @@ html.pp-mobile .pause-menu { backdrop-filter: none !important; -webkit-backdrop-
 
 /* Phones held upright during a match: the court is a landscape playfield. */
 .rotate-hint { display: none; }
+/* Phone-only portrait blocker (shown by css/mobile.css); never on desktop,
+   where it would sit beside the game as a flex item and squeeze the court. */
+.pp-rotate-block { display: none; }
 @media (orientation: portrait) and (pointer: coarse) {
     body.pp-in-match .rotate-hint {
         position: fixed;
