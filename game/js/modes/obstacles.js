@@ -397,7 +397,8 @@ class ObstacleCourse {
             name: name || this.patternName,
             points: clean,
             color: options.color || '#ffffff',
-            checkpointRadius: options.checkpointRadius || 28,
+            // Checkpoints shrink less than hazards so routes stay hittable.
+            checkpointRadius: (options.checkpointRadius || 28) * Math.max(0.5, this.sizeScale),
             bonus: options.bonus || 2,
             timeout: options.timeout || 4.5,
             checkpointValue: options.checkpointValue ?? 0,
@@ -586,8 +587,23 @@ class ObstacleCourse {
         };
     }
 
+    // Hazard size multiplier: Obstacle mode's arena is 2.5x the normal size,
+    // so hazards keep their layout spots but are drawn and collide smaller.
+    get sizeScale() {
+        return this.game?.getObjectScale?.() || 1;
+    }
+
     makeGate(name, col, row, width, height, motion) {
         const p = this.node(col, row);
+        const k = this.sizeScale;
+        if (motion && k !== 1) {
+            // Builders give the travel range as top-left positions for the
+            // full-size gate; keep the same centre line for the smaller one.
+            const shift = motion.axis === 'x' ? width * (1 - k) / 2 : height * (1 - k) / 2;
+            motion = { ...motion, min: motion.min + shift, max: motion.max + shift };
+        }
+        width *= k;
+        height *= k;
         return new Obstacle(p.x - width / 2, p.y - height / 2, width, height, 'gate', {
             name,
             motion,
@@ -597,6 +613,7 @@ class ObstacleCourse {
 
     makeNode(name, col, row, radius, options = {}) {
         const p = this.node(col, row);
+        radius *= this.sizeScale;
         return new Obstacle(p.x - radius, p.y - radius, radius * 2, radius * 2, options.forcedType || 'node', {
             name,
             railColor: options.railColor || '#7df9ff',
@@ -608,6 +625,8 @@ class ObstacleCourse {
 
     makeRotor(name, path, width, height, speed, phase, rotationSpeed) {
         const p = path[0];
+        width *= this.sizeScale;
+        height *= this.sizeScale;
         return new Obstacle(p.x - width / 2, p.y - height / 2, width, height, 'rotor', {
             name,
             path,
@@ -620,6 +639,8 @@ class ObstacleCourse {
 
     makeSpinner(name, path, width, height, speed, phase, rotationSpeed) {
         const p = path[0];
+        width *= this.sizeScale;
+        height *= this.sizeScale;
         return new Obstacle(p.x - width / 2, p.y - height / 2, width, height, 'spinner', {
             name,
             path,
@@ -631,6 +652,8 @@ class ObstacleCourse {
     }
 
     makeWall(name, x, y, width, height, options = {}) {
+        width *= this.sizeScale;
+        height *= this.sizeScale;
         return new Obstacle(x - width / 2, y - height / 2, width, height, 'wall', {
             name,
             motion: options.motion,
@@ -995,7 +1018,7 @@ class ObstacleCourse {
 
             ctx.globalAlpha = 0.07 + this.courseRouteFlash * 0.08;
             ctx.strokeStyle = route.color || '#ffffff';
-            ctx.lineWidth = Math.max(24, (route.checkpointRadius || 28) * 1.65);
+            ctx.lineWidth = Math.max(24 * this.sizeScale, (route.checkpointRadius || 28) * 1.65);
             ctx.shadowBlur = 26;
             ctx.shadowColor = route.color || '#ffffff';
             ctx.beginPath();
@@ -1234,8 +1257,9 @@ class Obstacle {
             const dy = ball.pos.y - this.cy;
             const dist = Math.hypot(dx, dy);
             const r = Math.min(this.w, this.h) / 2;
-            if (dist < r + ball.r + 20) {
-                const force = (1 - dist / (r + ball.r + 40)) * 600;
+            const reach = window.game?.getObjectScale?.() || 1;
+            if (dist < r + ball.r + 20 * reach) {
+                const force = (1 - dist / (r + ball.r + 40 * reach)) * 600;
                 const nx = dx / (dist || 1);
                 const ny = dy / (dist || 1);
                 ball.vel.x += nx * force * 0.1;
@@ -1996,8 +2020,9 @@ class Obstacle {
             const dy = ball.pos.y - this.cy;
             const dist = Math.hypot(dx, dy);
             const r = Math.min(this.w, this.h) / 2;
-            if (dist < r + ball.r + 20) {
-                const force = (1 - dist / (r + ball.r + 40)) * 600;
+            const reach = window.game?.getObjectScale?.() || 1;
+            if (dist < r + ball.r + 20 * reach) {
+                const force = (1 - dist / (r + ball.r + 40 * reach)) * 600;
                 const nx = dx / (dist || 1);
                 const ny = dy / (dist || 1);
                 ball.vel.x += nx * force * 0.1;

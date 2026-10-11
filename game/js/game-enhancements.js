@@ -815,7 +815,10 @@
                 const pressureFactor = ballMovingToAI ? 0.85 : 1.2;
                 this.nextTrackingUpdate = simNow + reactionBase * pressureFactor;
 
-                const noiseMagnitude = (8 + this.inaccuracy * 120) * (ballMovingToAI ? 0.7 : 1.0);
+                // Aim error is in pixels; on Obstacle mode's big arena the
+                // paddles are smaller, so the AI aims proportionally tighter.
+                const arenaK = window.game?.getObjectScale?.() || 1;
+                const noiseMagnitude = (8 + this.inaccuracy * 120) * (ballMovingToAI ? 0.7 : 1.0) * arenaK;
                 const noise = (Math.random() - 0.5) * noiseMagnitude;
                 const clampedTarget = Math.max(this.paddle.h * 0.5, Math.min(this.canvasH - this.paddle.h * 0.5, targetY + noise));
                 this.predictedY += (clampedTarget - this.predictedY) * (0.24 + this.smoothing * 0.8);
@@ -827,11 +830,11 @@
 
             const error = this.predictedY - (this.paddle.pos.y + this.paddle.h / 2);
             const maxPaddleSpeed = (this.paddle.maxSpeed || 900) * this.maxSpeedMul;
-            const desiredSpeed = Math.max(-maxPaddleSpeed, Math.min(maxPaddleSpeed, error * 5.5));
+            const desiredSpeed = Math.max(-maxPaddleSpeed, Math.min(maxPaddleSpeed, error * 5.5 / (window.game?.getObjectScale?.() || 1)));
             const response = ballMovingToAI ? 0.22 : 0.14;
             this.paddle.vel.y += (desiredSpeed - this.paddle.vel.y) * response;
 
-            if (Math.abs(error) < 6) this.paddle.vel.y *= 0.72;
+            if (Math.abs(error) < 6 * (window.game?.getObjectScale?.() || 1)) this.paddle.vel.y *= 0.72;
 
             if (this.currentTaunt && now > this.tauntFadeTime) this.currentTaunt = "";
 

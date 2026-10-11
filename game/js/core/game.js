@@ -1,4 +1,7 @@
 class Game {
+    // Obstacle mode's arena is this many times the normal size (see getArenaScale).
+    static OBSTACLE_ARENA_SCALE = 2.5;
+
     // Per-mode colour grade, applied inside the existing post-process pass
     // (a few extra multiply-adds per pixel; no extra passes or texture reads).
     //   sat/contrast: global punch; shadow/highlight: split-tone offsets added
@@ -853,6 +856,35 @@ class Game {
         this.aiPaddle.clampTo(this.height);
     }
 
+    // Obstacle mode is played on an arena 2.5x the normal size: the camera
+    // sits further back, so paddles, ball, hazards and pickups are all drawn
+    // at 1/2.5 scale, while the ball keeps its usual on-screen speed.
+    getArenaScale() {
+        return this.gameMode === 'obstacle' ? Game.OBSTACLE_ARENA_SCALE : 1;
+    }
+
+    getObjectScale() {
+        return 1 / this.getArenaScale();
+    }
+
+    getDefaultBallRadius() {
+        const minBallSize = Math.max(5, Math.min(12, Math.floor(Math.min(this.width, this.height) * 0.008)));
+        const maxBallSize = Math.max(15, Math.min(28, Math.floor(Math.min(this.width, this.height) * 0.025)));
+        const size = Math.max(minBallSize, Math.min(maxBallSize, Math.floor(this.height * 0.015)));
+        const k = this.getObjectScale();
+        return k === 1 ? size : Math.max(5, Math.round(size * k));
+    }
+
+    // Re-fit paddles and ball to the current mode's arena scale (setGameMode
+    // keeps the existing objects, so leaving Obstacle mode restores them).
+    applyArenaObjectScale() {
+        if (!this.player || !this.aiPaddle) return;
+        const metrics = this.getResponsivePaddleMetrics();
+        this.applyPaddleViewportState(this.player, metrics, metrics.margin, 0.5);
+        this.applyPaddleViewportState(this.aiPaddle, metrics, this.width - metrics.margin - metrics.width, 0.5);
+        if (this.ball) this.ball.r = this.getDefaultBallRadius();
+    }
+
     getResponsivePaddleMetrics() {
         const aspectRatio = this.width / this.height;
         let paddleHFactor = 0.18;
@@ -871,11 +903,12 @@ class Game {
             paddleWFactor = 0.014;
         }
 
+        const k = this.getObjectScale();
         return {
             height: Math.round(Math.max(50, Math.min(160, Math.floor(this.height * paddleHFactor))) *
-                (this.isForgeArenaActive?.() ? (this.customSettings.forge?.rules?.paddleSize || 1) : 1)),
-            width: Math.max(10, Math.min(35, Math.floor(this.width * paddleWFactor))),
-            margin: Math.max(16, Math.min(40, this.width * 0.025))
+                (this.isForgeArenaActive?.() ? (this.customSettings.forge?.rules?.paddleSize || 1) : 1) * k),
+            width: Math.round(Math.max(10, Math.min(35, Math.floor(this.width * paddleWFactor))) * k),
+            margin: Math.max(16, Math.min(40, this.width * 0.025)) * k
         };
     }
 
@@ -953,10 +986,51 @@ class Game {
         const rect = this.canvas.getBoundingClientRect();
         if (!rect.width || !rect.height) return null;
 
+        const x = (clientX - rect.left) * (this.width / rect.width);
+        const y = (clientY - rect.top) * (this.height / rect.height);
+        // Undo the opening camera move so the paddle follows the pointer.
+        const zoom = this.arenaRevealZoom || 1;
+        if (zoom === 1) return { x, y };
         return {
-            x: (clientX - rect.left) * (this.width / rect.width),
-            y: (clientY - rect.top) * (this.height / rect.height)
+            x: this.width / 2 + (x - this.width / 2) / zoom,
+            y: this.height / 2 + (y - this.height / 2) / zoom
         };
+    }
+
+    // Obstacle mode opens with the camera close in, at normal scale, then
+    // pulls back to reveal the whole 2.5x arena while the first serve waits.
+    beginArenaReveal() {
+        const scale = this.getArenaScale();
+        if (scale <= 1 || !this.ball) {
+            this.arenaReveal = null;
+            this.arenaRevealZoom = 1;
+            return;
+        }
+        this.arenaReveal = { t: 0, hold: 0.35, dur: 2.2, from: scale };
+        this.arenaRevealZoom = scale;
+        if (!(this.serveHold > 0)) this.holdServe(this.arenaReveal.hold + this.arenaReveal.dur);
+    }
+
+    updateArenaReveal(dt) {
+        const r = this.arenaReveal;
+        if (!r) return 1;
+        r.t += Math.min(dt, 1 / 20);
+        const k = Math.max(0, Math.min(1, (r.t - r.hold) / r.dur));
+        const ease = k * k * k * (k * (k * 6 - 15) + 10);
+        this.arenaRevealZoom = r.from + (1 - r.from) * ease;
+        if (k >= 1) {
+            this.arenaReveal = null;
+            this.arenaRevealZoom = 1;
+            this.bgRenderer?._invalidateBackgroundRenderCache?.();
+        }
+        return this.arenaRevealZoom;
+    }
+
+    applyArenaRevealTransform(ctx, zoom) {
+        const cx = this.width / 2, cy = this.height / 2;
+        ctx.translate(cx, cy);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-cx, -cy);
     }
 
     getPointerTarget(canvasX) {
@@ -1365,9 +1439,7 @@ class Game {
         }
 
         // Ball size: scale based on available space, accounting for aspect ratio
-        const minBallSize = Math.max(5, Math.min(12, Math.floor(Math.min(this.width, this.height) * 0.008)));
-        const maxBallSize = Math.max(15, Math.min(28, Math.floor(Math.min(this.width, this.height) * 0.025)));
-        const ballSize = Math.max(minBallSize, Math.min(maxBallSize, Math.floor(this.height * 0.015)));
+        const ballSize = this.getDefaultBallRadius();
         this.ball = new Ball(this.width / 2, this.height / 2, ballSize);
         this.ball.reset(this.center);
         this.applyBallStudioConfig();
@@ -2240,6 +2312,8 @@ class Game {
             const skipBtn = document.getElementById('skipIntro');
             if (skipBtn) skipBtn.classList.add('hidden');
 
+            this.beginArenaReveal();
+
             // Call AI game start callback
             if (this.ai && typeof this.ai.onGameStart === 'function') {
                 this.ai.onGameStart();
@@ -2392,6 +2466,8 @@ class Game {
 
         // Set the new mode first
         this.gameMode = mode;
+        this.arenaReveal = null;
+        this.arenaRevealZoom = 1;
         this.postFx?.setGrade(Game.MODE_GRADES[mode] || Game.MODE_GRADES.classic);
         if (mode === 'customise') {
             this.isMultiplayer = true;
@@ -2459,6 +2535,7 @@ class Game {
 
         // Initialize game mode BEFORE resetting ball
         this.initializeGameMode();
+        this.applyArenaObjectScale();
 
         // Reset ball with correct baseSpeed
         this.ball.reset(this.center);
@@ -6136,7 +6213,14 @@ class Game {
             const type = types[Math.floor(Math.random() * types.length)];
             const x = this.width / 2 + (Math.random() - 0.5) * this.width * 0.6;
             const y = this.height / 2 + (Math.random() - 0.5) * this.height * 0.6;
-            this.powerUps.push(new PowerUp(x, y, type));
+            const powerUp = new PowerUp(x, y, type);
+            const k = this.getObjectScale();
+            if (k !== 1) {
+                for (const key of ['size', 'baseSize', 'auraRadius', 'innerGlowSize', 'outerRingSize', 'orbitRadius']) {
+                    if (typeof powerUp[key] === 'number') powerUp[key] *= k;
+                }
+            }
+            this.powerUps.push(powerUp);
         }
     }
 
@@ -6351,7 +6435,7 @@ class Game {
                         this.player.resetSize();
                     }
                     if (type === 'smallBall') {
-                        this.ball.r = Math.max(8, this.height * 0.012);
+                        this.ball.r = this.getDefaultBallRadius();
                     }
                     if (type === 'shrinkOpponent') {
                         this.aiPaddle.resetSize();
@@ -7851,7 +7935,16 @@ class Game {
                 }
             }
         };
-        renderBackgroundLayer();
+        const revealZoom = this.updateArenaReveal(renderDt);
+        const revealing = revealZoom > 1.0001;
+        if (revealing) {
+            ctx.save();
+            this.applyArenaRevealTransform(ctx, revealZoom);
+            renderBackgroundLayer();
+            ctx.restore();
+        } else {
+            renderBackgroundLayer();
+        }
         // Camera: smooth multi-sine shake (no per-frame white noise) plus a
         // spring-damped directional kick that pushes along the impact.
         let shakeApplied = false;
@@ -7890,6 +7983,11 @@ class Game {
                 ctx.rotate(roll);
                 ctx.translate(-W / 2, -H / 2);
             }
+        }
+        // World layers zoom with the opening camera move; HUD text doesn't.
+        if (revealing) {
+            ctx.save();
+            this.applyArenaRevealTransform(ctx, revealZoom);
         }
         if (this.screenFlash > 0.001 && (!window.PPSettings || window.PPSettings.flashEnabled())) {
             ctx.save();
@@ -8054,7 +8152,12 @@ class Game {
         if (this.gameMode === 'gravity') this.gravitySlingshot?.renderBall(ctx, interp);
         if (window.PPSettings?.get('ballOutline')) this.renderBallOutlines(ctx);
         this.renderServeTelegraph(ctx);
+        if (revealing) ctx.restore();
         this.renderRallyCounter(ctx, renderDt);
+        if (revealing) {
+            ctx.save();
+            this.applyArenaRevealTransform(ctx, revealZoom);
+        }
         this.renderPopTexts(ctx, renderDt);
         if (this.shieldActive) {
             ctx.save();
@@ -8068,6 +8171,7 @@ class Game {
             ctx.restore();
         }
         this.particles.render(ctx);
+        if (revealing) ctx.restore();
 
         // Taunts live in a DOM bubble above the shader output so bloom and
         // chromatic aberration can't smear the text (zombie mode has none).

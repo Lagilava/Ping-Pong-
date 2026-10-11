@@ -1003,6 +1003,9 @@ class BackgroundRenderer {
 
     _renderCachedBackground(ctx, w, h, applyCustomTone) {
         if (applyCustomTone) return false;
+        // During Obstacle mode's opening camera move the background is drawn
+        // magnified, so draw it directly rather than stretching the cache.
+        if ((window.game?.arenaRevealZoom || 1) > 1) return false;
 
         const cache = this._backgroundRenderCache;
         if (!cache) return false;
@@ -3322,7 +3325,7 @@ class BackgroundRenderer {
             ctx.strokeStyle = '#7df9ff';
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.arc(ball.pos.x, ball.pos.y, Math.max(16, ball.r * 2.2), 0, Math.PI * 2);
+            ctx.arc(ball.pos.x, ball.pos.y, Math.max(16 * (game.getObjectScale?.() || 1), ball.r * 2.2), 0, Math.PI * 2);
             ctx.stroke();
             ctx.globalAlpha = 1;
         }

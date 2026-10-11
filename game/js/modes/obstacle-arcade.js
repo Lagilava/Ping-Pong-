@@ -57,15 +57,17 @@ class ObstacleArcade {
         const key = Math.round(unit);
         if (this.sprites && this.sprites.key === key) return this.sprites;
         // Baked at 2x and drawn at logical size so sprites stay crisp on
-        // high-DPI screens.
+        // high-DPI screens; on the big Obstacle arena they're baked denser
+        // still, so the opening camera move (which starts close in) is sharp.
+        const bake = 2 * (this.game.getArenaScale?.() || 1);
         const make = (w, h, draw) => {
             const c = document.createElement('canvas');
-            c.width = Math.ceil(w * 2);
-            c.height = Math.ceil(h * 2);
-            c.lw = c.width / 2;
-            c.lh = c.height / 2;
+            c.width = Math.ceil(w * bake);
+            c.height = Math.ceil(h * bake);
+            c.lw = c.width / bake;
+            c.lh = c.height / bake;
             const ctx = c.getContext('2d');
-            ctx.scale(2, 2);
+            ctx.scale(bake, bake);
             draw(ctx, c.lw, c.lh);
             return c;
         };
@@ -172,7 +174,7 @@ class ObstacleArcade {
         const course = game.obstacleCourse;
         const g = course?.grid;
         if (!g) return;
-        const unit = Math.max(18, Math.min(g.cellW, g.cellH) * 0.42);
+        const unit = Math.max(18, Math.min(g.cellW, g.cellH) * 0.42) * (course.sizeScale || 1);
         const s = this.ensureSprites(unit);
         const rand = course.createRng((course.courseSeed ^ 0x5bd1e995) >>> 0);
 
