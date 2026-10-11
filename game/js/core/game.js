@@ -166,11 +166,11 @@ class Game {
         };
         this.modeSpeeds = {
             classic: { ballBase: 940, ballMax: 1650, paddleMax: 940 },
-            zombie: { ballBase: 860, ballMax: 1500, paddleMax: 820 },
-            gravity: { ballBase: 860, ballMax: 1500, paddleMax: 850 },
-            obstacle: { ballBase: 920, ballMax: 1680, paddleMax: 880 },
+            zombie: { ballBase: 900, ballMax: 1600, paddleMax: 900 },
+            gravity: { ballBase: 920, ballMax: 1650, paddleMax: 920 },
+            obstacle: { ballBase: 940, ballMax: 1700, paddleMax: 940 },
             speed: { ballBase: 900, ballMax: 1800, paddleMax: 1000 },
-            customise: { ballBase: 860, ballMax: 1500, paddleMax: 870 }
+            customise: { ballBase: 940, ballMax: 1650, paddleMax: 940 }
         };
         this.lastRallyMilestone = 0;
         this.zombieState = this.createZombieModeState();
@@ -6443,14 +6443,13 @@ class Game {
 
     // Per-hit speed multiplier. Rallies speed up gradually rather than doubling,
     // so long exchanges build tension without instantly maxing the ball out.
-    // Air drag costs the ball roughly 6-7% per crossing, so Classic hits add
-    // more than that: every rally gets visibly quicker from the first return
-    // and long rallies reach top speed instead of plateauing.
+    // Air drag costs the ball roughly 6-7% per crossing, so every hit adds
+    // more than that: rallies get visibly quicker from the first return and
+    // long rallies reach top speed instead of plateauing.
     getPaddleSpeedIncrease(isPlayer) {
-        let inc = 1.045;
+        let inc = 1.085;
         if (this.gameMode === 'speed') inc = 1.11;
-        else if (this.gameMode === 'obstacle') inc = 1.04;
-        else if (this.gameMode === 'classic') inc = 1.085;
+        else if (this.gameMode === 'zombie') inc = 1.08;
         if (this.isZombieWaveMode() && isPlayer && this.zombieState.powerups.rage > 0) inc *= 1.18;
         inc += Math.min(0.035, this.rallyCount * 0.0025);
         if (this.powerShotActive && isPlayer) inc *= 1.9;
