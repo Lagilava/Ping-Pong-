@@ -293,6 +293,7 @@ class ObstacleCourse {
             return this.obstacles;
         }
 
+        const isNewCourse = !force && this.patternIndex >= 0 && nextPattern !== this.patternIndex;
         this.patternIndex = nextPattern;
         this.scoreStamp = courseBand;
         this.grid = this.createGrid(game.width, game.height);
@@ -336,6 +337,9 @@ class ObstacleCourse {
         }
 
         game.obstacles = this.obstacles;
+        if (isNewCourse) {
+            game.showNotification?.('New Course', `${this.patternName}: the course changes every 4 points`, '#00ffd6');
+        }
         return this.obstacles;
     }
 
@@ -427,6 +431,13 @@ class ObstacleCourse {
             return;
         }
 
+        // A route belongs to whoever's shot started it. If the other side
+        // touches the ball mid-route, the run starts over for them.
+        const owner = ball.vel.x >= 0 ? 'player' : 'ai';
+        if (this.courseRouteIndex > 0 && owner !== this.courseRouteOwner) {
+            this.resetCourseRoute('steal');
+        }
+
         const index = Math.min(this.courseRouteIndex, route.points.length - 1);
         const target = route.points[index];
         const dx = target.x - ball.pos.x;
@@ -436,6 +447,7 @@ class ObstacleCourse {
         const radius = route.checkpointRadius + Math.min(18, ball.r * 0.6);
 
         if (dist <= radius && approach > -1200) {
+            if (this.courseRouteIndex === 0) this.courseRouteOwner = owner;
             this.courseRouteIndex += 1;
             this.courseRouteTimer = 0;
             this.courseRouteFlash = 1;
@@ -453,13 +465,16 @@ class ObstacleCourse {
             ball.vel.x = directionX * Math.max(Math.abs(ball.vel.x), flowBoost * 0.72);
             ball.vel.y += (target.y - ball.pos.y) * 0.025;
             this.game.screenShake = Math.max(this.game.screenShake || 0, 1.25);
-            this.game.showNotification(route.name, `Checkpoint ${this.courseRouteIndex}/${route.points.length}`, route.color);
+            const who = this.getSideLabel(owner);
+            this.game.showNotification(route.name, `${who}: checkpoint ${this.courseRouteIndex}/${route.points.length}`, route.color);
 
             if (this.courseRouteIndex >= route.points.length) {
                 this.courseRouteClears += 1;
-                this.game.scores.player += route.bonus;
-                this.game.progression?.recordPoint?.('player', route.bonus);
-                this.game.showNotification(`${route.name} cleared`, `+${route.bonus} course points`, '#ffd166');
+                // A full route is worth one point, like a goal.
+                this.game.scores[owner] += 1;
+                this.game.progression?.recordPoint?.(owner, 1);
+                this.game.showNotification(`${route.name} cleared!`, `+1 point for ${who}`, '#ffd166');
+                this.game.audio?.levelUp?.();
                 this.courseRouteIndex = 0;
                 this.courseRouteTimer = 0;
                 this.courseRouteCombo = 0;
@@ -469,10 +484,18 @@ class ObstacleCourse {
         }
     }
 
+    getSideLabel(side) {
+        if (this.game?.isMultiplayer) return side === 'player' ? 'P1' : 'P2';
+        return side === 'player' ? 'You' : 'AI';
+    }
+
     resetCourseRoute(reason = 'reset') {
         if (!this.courseRoute) return;
         if (reason === 'timeout' && this.courseRouteIndex > 0) {
             this.game?.showNotification?.(this.courseRoute.name, 'Route reset - keep the ball moving', '#ff8c66');
+        }
+        if (reason === 'steal' && this.courseRouteIndex > 0) {
+            this.game?.showNotification?.(this.courseRoute.name, 'Route broken: the other side touched the ball', '#ff8c66');
         }
         this.courseRouteIndex = 0;
         this.courseRouteTimer = 0;

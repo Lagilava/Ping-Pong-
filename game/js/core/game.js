@@ -2679,6 +2679,10 @@ class Game {
             this._dismissZombieBriefing();
             this.setChallengePaused(false);
         }
+        if (this._dismissModeBriefing) {
+            this._dismissModeBriefing();
+            this.setChallengePaused(false);
+        }
         this.zombieState = this.createZombieModeState();
         this._zombieNextServeDirection = null;
         this.syncZombieHUD();
@@ -2697,6 +2701,42 @@ class Game {
             this.zombieWaveChoice.classList.remove('visible');
             this.zombieWaveChoice.setAttribute('aria-hidden', 'true');
         }
+    }
+
+    // First-run rules card for a mode (same panel style as Zombie's). Pauses
+    // the match until dismissed; returns true while it is up.
+    showModeBriefing(id, storageKey) {
+        const el = document.getElementById(id);
+        let seen = false;
+        try { seen = localStorage.getItem(storageKey) === '1'; } catch (_) { /* ignore */ }
+        if (!el || seen) return false;
+        const onKey = (e) => {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                close();
+            }
+        };
+        const dismiss = () => {
+            el.classList.remove('visible');
+            el.setAttribute('aria-hidden', 'true');
+            window.removeEventListener('keydown', onKey, true);
+            this._dismissModeBriefing = null;
+        };
+        const close = () => {
+            if (!el.classList.contains('visible')) return;
+            dismiss();
+            try { localStorage.setItem(storageKey, '1'); } catch (_) { /* ignore */ }
+            this.setChallengePaused(false);
+            this.lastTime = performance.now() / 1000;
+        };
+        this._dismissModeBriefing = dismiss;
+        el.querySelector('.zombie-briefing-start').onclick = close;
+        window.addEventListener('keydown', onKey, true);
+        el.classList.add('visible');
+        el.setAttribute('aria-hidden', 'false');
+        this.setChallengePaused(true);
+        return true;
     }
 
     // First run only: a short rules card before wave 1. Returns true while it is up.
@@ -5354,6 +5394,7 @@ class Game {
         }
         this.obstacleArcade?.clearFixedLayout();
         this.obstacleArcade?.setHudVisible(true);
+        this._obstacleBriefed = false;
     }
 
     createGravityWells() {
@@ -7084,6 +7125,10 @@ class Game {
             }
         }
         this.powerUps.length = powerUpWriteIndex;
+        if (this.gameMode === 'obstacle' && !this._obstacleBriefed) {
+            this._obstacleBriefed = true;
+            if (this.showModeBriefing('obstacleBriefing', 'pp-obstacle-briefing-v1')) return;
+        }
         if (this.isForgeArenaActive()) {
             for (let i = 0; i < this.obstacles.length; i++) this.obstacles[i].update(dt);
             if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.update(dt);

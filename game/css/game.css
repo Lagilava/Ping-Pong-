@@ -7620,3 +7620,9 @@ body.pp-lowfx .achievements * {
     opacity: 1;
     transform: translate(-50%, 0);
 }
+
+.obstacle-briefing .zombie-wave-choice-panel { border-color: rgba(255, 166, 60, 0.3); }
+.obstacle-briefing .zombie-wave-choice-kicker,
+.obstacle-briefing .zombie-briefing-rules strong { color: #ffc46b; }
+.obstacle-briefing .zombie-briefing-rules li { background: rgba(40, 24, 8, 0.7); border-color: rgba(255, 180, 90, 0.16); }
+.obstacle-briefing .zombie-briefing-start { background: linear-gradient(180deg, #ffb340, #d9730a); border-color: rgba(255, 210, 140, 0.7); color: #1a0c00; }
