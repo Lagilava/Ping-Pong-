@@ -1121,10 +1121,20 @@ class BackgroundRenderer {
             ctx.shadowColor = `rgba(200,225,255,${(0.50 * alpha).toFixed(3)})`;
             ctx.strokeStyle = `rgba(140,200,255,${(0.36 * alpha).toFixed(3)})`;
             ctx.lineWidth = outerWidth;
-            ctx.beginPath();
-            ctx.moveTo(points[0].x, points[0].y);
-            for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-            ctx.stroke();
+            // Shadowed stroke under 'screen': drawShadowUnderBlend avoids a
+            // full-canvas layer per bolt and branch with the same pixels.
+            let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+            for (const pt of points) {
+                if (pt.x < x0) x0 = pt.x; if (pt.x > x1) x1 = pt.x;
+                if (pt.y < y0) y0 = pt.y; if (pt.y > y1) y1 = pt.y;
+            }
+            const half = outerWidth * 0.5 + 1;
+            drawShadowUnderBlend(ctx, { x0: x0 - half, y0: y0 - half, x1: x1 + half, y1: y1 + half }, (c) => {
+                c.beginPath();
+                c.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i++) c.lineTo(points[i].x, points[i].y);
+                c.stroke();
+            });
 
             ctx.shadowBlur = 0;
             ctx.strokeStyle = `rgba(255,255,255,${(0.90 * alpha).toFixed(3)})`;
