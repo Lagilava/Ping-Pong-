@@ -837,9 +837,7 @@ class PowerUp {
 
         // Electric arcs with reduced quality when opacity is low
         if (particlesEnabled && opacity > 0.3) {
-            this.electricArcs.forEach(arc => {
-                this.renderElectricArc(ctx, arc, opacity);
-            });
+            this.renderElectricArcsGlowed(ctx, opacity);
         }
 
         // Outer ring - simplified for performance
@@ -969,7 +967,49 @@ class PowerUp {
         ctx.restore();
     }
 
-    renderElectricArc(ctx, arc, opacity) {
+    // All arcs share colour, alpha and glow, and fan out from the orb without
+    // overlapping, so they are stroked into one device-aligned scratch layer
+    // and that layer is drawn once with the glow: one blur per power-up
+    // instead of one per arc.
+    renderElectricArcsGlowed(ctx, opacity) {
+        const arcs = this.electricArcs;
+        if (!arcs.length) return;
+        const m = ctx.getTransform();
+        const reach = this.size * 3 + 4;
+        const scale = Math.hypot(m.a, m.b) + Math.hypot(m.c, m.d);
+        const pad = Math.ceil(reach * scale * 0.5 + 2);
+        const cw = ctx.canvas.width, ch = ctx.canvas.height;
+        const bx0 = Math.max(0, Math.floor(m.e) - pad), by0 = Math.max(0, Math.floor(m.f) - pad);
+        const bx1 = Math.min(cw, Math.ceil(m.e) + pad), by1 = Math.min(ch, Math.ceil(m.f) + pad);
+        const bw = bx1 - bx0, bh = by1 - by0;
+        if (bw <= 0 || bh <= 0) return;
+
+        let layer = PowerUp._arcLayer;
+        if (!layer) {
+            const canvas = document.createElement('canvas');
+            layer = PowerUp._arcLayer = { canvas, ctx: canvas.getContext('2d') };
+        }
+        if (layer.canvas.width < bw || layer.canvas.height < bh) {
+            layer.canvas.width = Math.max(layer.canvas.width, bw);
+            layer.canvas.height = Math.max(layer.canvas.height, bh);
+        }
+        const l = layer.ctx;
+        l.setTransform(1, 0, 0, 1, 0, 0);
+        l.globalAlpha = 1;
+        l.clearRect(0, 0, bw, bh);
+        l.setTransform(m.a, m.b, m.c, m.d, m.e - bx0, m.f - by0);
+        for (const arc of arcs) this.renderElectricArc(l, arc, opacity, false);
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 5;
+        ctx.drawImage(layer.canvas, 0, 0, bw, bh, bx0, by0, bw, bh);
+        ctx.restore();
+    }
+
+    renderElectricArc(ctx, arc, opacity, glow = true) {
         // OPTIMIZED: Skip rendering low-opacity arcs
         if (opacity < 0.3) return;
 
@@ -977,8 +1017,10 @@ class PowerUp {
         ctx.globalAlpha = opacity * 0.6; // Reduced opacity
         ctx.strokeStyle = this.color;
         ctx.lineWidth = arc.width * 0.8; // Reduced width
-        ctx.shadowColor = this.color;
-        ctx.shadowBlur = 5; // Reduced blur
+        if (glow) {
+            ctx.shadowColor = this.color;
+            ctx.shadowBlur = 5; // Reduced blur
+        }
         ctx.lineCap = 'round';
 
         // Simplified arc with fewer segments for performance
