@@ -2720,18 +2720,25 @@ class BackgroundRenderer {
         return ((n >> 16) ^ n) >>> 0;
     }
 
-    renderSpeed(ctx, w, h) {
-        const t = this.time;
-        const roadY = this.roadY;   // h * 0.80
-        const vx = w * 0.50;
-        const vy = roadY;
+    _drawSpeedStaticSky(ctx, w, h, roadY, vx, pollA, sat) {
+        const m = ctx.getTransform();
+        const sx = Math.hypot(m.a, m.b), sy = Math.hypot(m.c, m.d);
+        const pw = Math.max(1, Math.round(w * sx)), ph = Math.max(1, Math.round(h * sy));
+        const key = `${w}|${h}|${roadY}|${pollA}|${sat}|${pw}|${ph}`;
+        if (this._speedSkyKey !== key || !this._speedSkyCanvas) {
+            const canvas = this._speedSkyCanvas || document.createElement('canvas');
+            canvas.width = pw;
+            canvas.height = ph;
+            const sctx = canvas.getContext('2d');
+            sctx.setTransform(pw / w, 0, 0, ph / h, 0, 0);
+            this._paintSpeedStaticSky(sctx, w, h, roadY, vx, pollA, sat);
+            this._speedSkyCanvas = canvas;
+            this._speedSkyKey = key;
+        }
+        ctx.drawImage(this._speedSkyCanvas, 0, 0, w, h);
+    }
 
-        // Convenience aliases for baked settings
-        const pollA = this._speedPollutionAmt;  // 1.00
-        const bloom = this._speedBloomAmt;      // 0.25
-        const sat = this._speedSaturation;    // 0.00
-
-        // Saturation scale helper — sat=0 collapses all colours toward grey
+    _paintSpeedStaticSky(ctx, w, h, roadY, vx, pollA, sat) {
         const sSat = (s) => (s * sat).toFixed(1);
 
         // ── 1. SKY — sodium light-pollution palette ───────────────────
@@ -2780,6 +2787,26 @@ class BackgroundRenderer {
         fHaze.addColorStop(1, 'rgba(16,11,12,0.74)');
         ctx.fillStyle = fHaze;
         ctx.fillRect(0, roadY * 0.70, w, roadY * 0.30);
+    }
+
+    renderSpeed(ctx, w, h) {
+        const t = this.time;
+        const roadY = this.roadY;   // h * 0.80
+        const vx = w * 0.50;
+        const vy = roadY;
+
+        // Convenience aliases for baked settings
+        const pollA = this._speedPollutionAmt;  // 1.00
+        const bloom = this._speedBloomAmt;      // 0.25
+        const sat = this._speedSaturation;    // 0.00
+
+        // Saturation scale helper — sat=0 collapses all colours toward grey
+        const sSat = (s) => (s * sat).toFixed(1);
+
+        // ── 1-2. SKY, FAR CITY, FAR HAZE ────────────────────────────────
+        // None of this moves, so it is baked once at the target's device
+        // resolution: the far skyline alone is ~35 shadowBlur fills a frame.
+        this._drawSpeedStaticSky(ctx, w, h, roadY, vx, pollA, sat);
 
         // Window colour palettes — mixed colour temperatures
         const WIN_PALETTE = [
@@ -3845,6 +3872,8 @@ class BackgroundRenderer {
     }
 
     _cleanupSpeedCache() {
+        this._speedSkyCanvas = null;
+        this._speedSkyKey = null;
         this._buildingData = null;
         this._windowList = null;
         this._neonSigns = null;
