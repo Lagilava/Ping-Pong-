@@ -1892,7 +1892,8 @@ class Obstacle {
         // Slight silhouette to give weight inside the court
         if (this.active) {
             ctx.save();
-            ctx.globalCompositeOperation = 'multiply';
+            // Plain source-over: identical to 'multiply' for a black fill, without
+            // the GPU destination read that multiply needs.
             ctx.globalAlpha = 0.06 + Math.min(0.9, this.glowIntensity) * 0.18;
             ctx.fillStyle = '#000000';
             ctx.beginPath();
