@@ -762,12 +762,53 @@ class Game {
 
         if (this.gameMode === 'customise') {
             if (!previewOnly) {
+                this.applyForgeArena();
                 this.enforceFairCustomisePaddles();
             }
             this.updateCustomPowerUpVisibility();
         }
 
         this.applyCustomiseHudRestrictions();
+    }
+
+    // Builds the Forge arena (walls, bumpers, black holes, pads, blocks,
+    // coins) and applies the Forge rules to a Custom match. Safe to call
+    // repeatedly: everything is rebuilt from the saved map and rules.
+    applyForgeArena() {
+        if (!window.Forge || !this.ball || !this.player || !this.aiPaddle) return;
+        const arena = window.Forge.buildArena(this);
+        const rules = arena.forge.rules;
+        this.obstacles = arena.obstacles;
+        this.gravityWells = arena.wells;
+        this.maxScore = rules.scoreToWin;
+        const speeds = this._modeBallSpeeds || { base: this.ball.baseSpeed, max: this.ball.maxSpeed };
+        this.ball.baseSpeed = Math.round(speeds.base * rules.ballSpeed);
+        this.ball.maxSpeed = Math.round(speeds.max * rules.ballSpeed);
+        this.forgeGravity = window.Forge.getGravityAccel(this);
+
+        const metrics = this.getResponsivePaddleMetrics();
+        for (const paddle of [this.player, this.aiPaddle]) {
+            // getResponsivePaddleMetrics already applies the Forge paddle size.
+            paddle.originalHeight = metrics.height;
+            paddle.resetSize();
+        }
+
+        const items = arena.arcadeItems;
+        const hasArcade = items.pads.length || items.blocks.length || items.coins.length;
+        if (hasArcade && !this.obstacleArcade && typeof ObstacleArcade === 'function') {
+            this.obstacleArcade = new ObstacleArcade(this);
+        }
+        if (hasArcade) {
+            this.obstacleArcade.setFixedLayout(items);
+            this.obstacleArcade.setHudVisible(items.blocks.length > 0 || items.coins.length > 0);
+        } else if (this.obstacleArcade) {
+            this.obstacleArcade.clearFixedLayout();
+            this.obstacleArcade.setHudVisible(false);
+        }
+    }
+
+    isForgeArenaActive() {
+        return this.gameMode === 'customise' && !this.customSettings?.previewModeActive;
     }
 
     disablePowerUpsForCustomise() {
@@ -828,7 +869,8 @@ class Game {
         }
 
         return {
-            height: Math.max(50, Math.min(160, Math.floor(this.height * paddleHFactor))),
+            height: Math.round(Math.max(50, Math.min(160, Math.floor(this.height * paddleHFactor))) *
+                (this.isForgeArenaActive?.() ? (this.customSettings.forge?.rules?.paddleSize || 1) : 1)),
             width: Math.max(10, Math.min(35, Math.floor(this.width * paddleWFactor))),
             margin: Math.max(16, Math.min(40, this.width * 0.025))
         };
@@ -5219,6 +5261,8 @@ class Game {
         this.ball.baseSpeed = scaledBase;
         this.ball.maxSpeed = scaledMax;
         this.ball.minSpeed = allowedMin;
+        this._modeBallSpeeds = { base: scaledBase, max: scaledMax };
+        this.forgeGravity = 0;
         this.player.maxSpeed = scaledPaddleMax;
         this.aiPaddle.maxSpeed = scaledPaddleMax;
         this.player.resetSize();
@@ -5308,7 +5352,7 @@ class Game {
         if (!this.obstacleArcade && typeof ObstacleArcade === 'function') {
             this.obstacleArcade = new ObstacleArcade(this);
         }
-        this.obstacleArcade?.reset();
+        this.obstacleArcade?.clearFixedLayout();
         this.obstacleArcade?.setHudVisible(true);
     }
 
@@ -6567,6 +6611,7 @@ class Game {
         let inc = 1.085;
         if (this.gameMode === 'speed') inc = 1.11;
         else if (this.gameMode === 'zombie') inc = 1.08;
+        else if (this.gameMode === 'customise' && window.Forge) inc = window.Forge.getRuleSpeedIncrease(this);
         if (this.isZombieWaveMode() && isPlayer && this.zombieState.powerups.rage > 0) inc *= 1.18;
         inc += Math.min(0.035, this.rallyCount * 0.0025);
         if (this.powerShotActive && isPlayer) inc *= 1.9;
@@ -7039,6 +7084,10 @@ class Game {
             }
         }
         this.powerUps.length = powerUpWriteIndex;
+        if (this.isForgeArenaActive()) {
+            for (let i = 0; i < this.obstacles.length; i++) this.obstacles[i].update(dt);
+            if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.update(dt);
+        }
         if (this.gameMode === 'obstacle') {
             if (!this.obstacleCourse) {
                 this.obstacleCourse = new ObstacleCourse(this);
@@ -7051,7 +7100,8 @@ class Game {
                 this.bgRenderer.syncObstacleArenaState(this.obstacles, this.ball, this, dt);
             }
         }
-        if (this.gameMode === 'gravity' && updateGravityWells) {
+        const forgeWells = this.isForgeArenaActive() && this.gravityWells.length > 0;
+        if ((this.gameMode === 'gravity' || forgeWells) && updateGravityWells) {
             const ball = this.ball;
             const additionalBalls = this.additionalBalls;
 
@@ -7071,7 +7121,7 @@ class Game {
                 }
             }
 
-            this.gravitySlingshot?.update(dt);
+            if (this.gameMode === 'gravity') this.gravitySlingshot?.update(dt);
             this.updateGravityInteractionState(dt);
         } else if (this.gameMode !== 'gravity') {
             this.gravityInteraction = {
@@ -7135,6 +7185,9 @@ class Game {
                 if (!wasAttracted) this.progression.incrementAchievementProgress('magnetMaster');
             }
         }
+        if (this.forgeGravity && this.gameMode === 'customise') {
+            ball.vel.y += this.forgeGravity * dt;
+        }
         const events = ball.integrate(dt, this.height);
         if (events & (PhysicsCore.EVT.WALL_TOP | PhysicsCore.EVT.WALL_BOTTOM)) {
             this.onBallWallHit(ball, events);
@@ -7157,7 +7210,7 @@ class Game {
         this.checkPaddleCollision(this.player, true);
         this.checkPaddleCollision(this.aiPaddle, false);
         this.handleZombieBallCollisions(this.ball);
-        if (!this.ghostBallActive && !(this.gameMode === 'obstacle' && this.obstacleArcade?.isStarActive())) {
+        if (!this.ghostBallActive && !((this.gameMode === 'obstacle' || this.obstacleArcade?.fixedLayout) && this.obstacleArcade?.isStarActive())) {
             const ball = this.ball;
             for (let i = 0; i < this.obstacles.length; i++) {
                 if (this.obstacles[i].checkCollision(ball)) {
@@ -7392,7 +7445,9 @@ class Game {
             const goalOnRight = this.ball.pos.x > this.width * 0.5;
             const goalY = Math.max(0, Math.min(this.height, this.ball.pos.y));
             this.onGoalScored(goalOnRight, goalY);
-            if (this.gameMode === 'obstacle') this.obstacleArcade?.onGoal(goalOnRight ? 'player' : 'ai', this.ball);
+            if (this.gameMode === 'obstacle' || (this.isForgeArenaActive() && this.obstacleArcade?.fixedLayout)) {
+                this.obstacleArcade?.onGoal(goalOnRight ? 'player' : 'ai', this.ball);
+            }
             this.ball.reset(this.center);
             if (this.isZombieWaveMode() && Number.isFinite(this._zombieNextServeDirection)) {
                 const dir = this._zombieNextServeDirection >= 0 ? 1 : -1;
@@ -7775,6 +7830,13 @@ class Game {
                 this.gravityWells[i].render(ctx, gravityRenderTime);
             }
             this.gravitySlingshot?.renderWellArcs(ctx);
+        }
+        if (this.isForgeArenaActive()) {
+            const wellTime = performance.now() * 0.001;
+            for (let i = 0; i < this.gravityWells.length; i++) this.gravityWells[i].render(ctx, wellTime);
+            if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.renderUnder(ctx);
+            for (let i = 0; i < this.obstacles.length; i++) this.obstacles[i].render(ctx);
+            if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.render(ctx);
         }
         if (this.gameMode === 'obstacle') {
             // Obstacle bodies and their background-linked visuals are rendered by the

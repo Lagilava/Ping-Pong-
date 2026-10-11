@@ -264,13 +264,15 @@ class ObstacleArcade {
         const game = this.game;
         const course = game.obstacleCourse;
         const ball = game.ball;
-        if (!course?.grid || !ball) return;
+        if (!ball || (!this.fixedLayout && !course?.grid)) return;
         this.time += dt;
 
-        const key = `${course.patternIndex}:${course.scoreStamp}:${game.width}x${game.height}`;
-        if (key !== this.layoutKey) {
-            this.layoutKey = key;
-            this.layout();
+        if (!this.fixedLayout) {
+            const key = `${course.patternIndex}:${course.scoreStamp}:${game.width}x${game.height}`;
+            if (key !== this.layoutKey) {
+                this.layoutKey = key;
+                this.layout();
+            }
         }
         const s = this.sprites;
         if (!s) return;
@@ -389,7 +391,26 @@ class ObstacleArcade {
         }
     }
 
+    // Custom (Forge) arenas place pads, blocks and coins themselves.
+    setFixedLayout(items) {
+        this.reset();
+        this.fixedLayout = true;
+        this.ensureSprites(Math.max(18, this.game.height * 0.034));
+        this.pads = items.pads;
+        this.blocks = items.blocks;
+        this.coins = items.coins;
+    }
+
+    clearFixedLayout() {
+        this.fixedLayout = false;
+        this.reset();
+    }
+
     layoutCoinsAgain() {
+        if (this.fixedLayout) {
+            this.coins.forEach(c => { c.x = c.homeX ?? c.x; c.y = c.homeY ?? c.y; });
+            return;
+        }
         const course = this.game.obstacleCourse;
         if (course) course.courseSeed = (course.courseSeed * 1664525 + 1013904223) >>> 0;
         const blocks = this.blocks.map(b => ({ ...b }));

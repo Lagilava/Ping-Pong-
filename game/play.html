@@ -375,6 +375,39 @@
                         </div>
                     </div>
 
+                    <div class="customise-forge" id="customForge">
+                        <div class="customise-controls-heading">
+                            <p class="customise-kicker">Forge</p>
+                            <h3>Build your arena, set the rules</h3>
+                        </div>
+                        <div class="forge-layout">
+                            <div class="forge-arena-card">
+                                <div class="forge-arena-head">
+                                    <select id="forgeMapSelect" aria-label="Arena map"></select>
+                                    <span id="forgeArenaCount" class="forge-arena-count"></span>
+                                </div>
+                                <canvas id="forgeArenaPreview" class="forge-arena-preview" width="640" height="360"></canvas>
+                                <div class="forge-arena-row">
+                                    <button id="forgeEditBtn" type="button" class="forge-primary">Open Forge editor</button>
+                                    <button id="forgeDeleteBtn" type="button">Delete map</button>
+                                </div>
+                                <div class="forge-arena-row">
+                                    <button id="forgeShareBtn" type="button">Copy share code</button>
+                                    <input id="forgeImportInput" type="text" placeholder="Paste a share code" aria-label="Share code">
+                                    <button id="forgeImportBtn" type="button">Import</button>
+                                </div>
+                            </div>
+                            <div class="forge-rules">
+                                <label class="forge-rule"><span>Score to win</span><select id="forgeRule-scoreToWin"></select></label>
+                                <label class="forge-rule"><span>Ball speed</span><select id="forgeRule-ballSpeed"></select></label>
+                                <label class="forge-rule"><span>Rally speed-up</span><select id="forgeRule-hitSpeedup"></select></label>
+                                <label class="forge-rule"><span>Paddle size</span><select id="forgeRule-paddleSize"></select></label>
+                                <label class="forge-rule"><span>Arena gravity</span><select id="forgeRule-gravity"></select></label>
+                                <p class="forge-rules-note">Coins and ? blocks in your arena add a coin counter: every 10 coins is a point.</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="customise-powerups-panel">
                         <p class="customise-powerups-title">Allowed Power-Ups In Custom Match</p>
                         <div id="customPowerupsGrid" class="customise-powerups-grid">
@@ -411,8 +444,8 @@
                     </div>
 
                     <p id="customModeNotice" class="custom-mode-note">
-                        Customise stays in local PvP classic gameplay: no AI opponent, no speed challenge, no gravity
-                        wells, no obstacles, no XP, no achievements.
+                        Custom matches are local two-player games on your Forge arena: no AI opponent, no speed
+                        challenge, no XP, no achievements.
                     </p>
                     <div class="customise-actions">
                         <button id="customStartMatchBtn" type="button" class="customise-start-btn">Start Custom
@@ -531,6 +564,7 @@
     <script src="js/entities/paddle.js"></script>
     <script src="js/modes/obstacles.js"></script>
     <script src="js/modes/obstacle-arcade.js"></script>
+    <script src="js/modes/forge.js"></script>
     <script src="js/modes/zombie-boss.js"></script>
     <script src="js/audio/ai-voice.js"></script>
     <script src="js/entities/power-up.js"></script>

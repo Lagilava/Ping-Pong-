@@ -87,6 +87,11 @@ class GravityWell {
         }
     }
 
+    // Forge arenas place wells by hand: keep them where the builder put them.
+    pin() {
+        this.#speed = 0;
+    }
+
     #createParticle() {
         const angle = Math.random() * Math.PI * 2;
         const dist = this.#baseRadius * (1.5 + Math.random() * 2);

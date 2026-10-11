@@ -7367,3 +7367,256 @@ body.pp-lowfx .achievements * {
     color: rgba(255, 243, 196, 0.5);
     font-size: 12px;
 }
+
+/* ── Forge (Custom mode arena builder) ─────────────────────────────── */
+.customise-forge {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(0, 255, 200, 0.2);
+    border-radius: 20px;
+    padding: 1.25rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.26);
+}
+
+.forge-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr);
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+@media (max-width: 760px) {
+    .forge-layout { grid-template-columns: 1fr; }
+}
+
+.forge-arena-card,
+.forge-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.forge-arena-head,
+.forge-arena-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.forge-arena-preview {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    background: #06101f;
+}
+
+.forge-arena-count {
+    color: rgba(200, 240, 255, 0.6);
+    font-size: 0.8rem;
+}
+
+.customise-forge select,
+.customise-forge input[type="text"],
+.forge-editor input {
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    padding: 0.55rem 0.8rem;
+    font: inherit;
+    font-size: 0.9rem;
+    min-width: 0;
+}
+
+.customise-forge input[type="text"] {
+    flex: 1 1 140px;
+}
+
+.customise-forge button,
+.forge-editor button {
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 10px;
+    background: rgba(0, 40, 60, 0.6);
+    color: #dff9ff;
+    padding: 0.55rem 0.9rem;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.customise-forge button:hover,
+.forge-editor button:hover {
+    border-color: #00ffd6;
+}
+
+.customise-forge button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.customise-forge .forge-primary,
+.forge-editor .forge-primary {
+    background: linear-gradient(180deg, #00e6c3, #009e88);
+    color: #00140f;
+    border-color: #00ffd6;
+}
+
+.forge-rule {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.85);
+}
+
+.forge-rules-note {
+    margin: 0.3rem 0 0;
+    font-size: 0.8rem;
+    color: rgba(220, 245, 255, 0.6);
+}
+
+.forge-editor {
+    position: fixed;
+    inset: 0;
+    z-index: 100010;            /* above the customise overlay */
+    display: none;
+    flex-direction: column;
+    background: #020812;
+    color: #e8fbff;
+    padding: 12px 16px;
+    gap: 10px;
+    font-family: inherit;
+}
+
+.forge-editor.visible {
+    display: flex;
+}
+
+.forge-editor-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.forge-editor-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.forge-kicker {
+    font-family: 'Orbitron', 'Audiowide', sans-serif;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    color: #00ffd6;
+    text-transform: uppercase;
+}
+
+.forge-editor-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.forge-editor .forge-toggle[aria-pressed="true"] {
+    background: rgba(0, 255, 214, 0.18);
+    border-color: #00ffd6;
+}
+
+.forge-editor-body {
+    flex: 1;
+    display: flex;
+    gap: 12px;
+    min-height: 0;
+}
+
+.forge-palette {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    width: 112px;
+    flex-shrink: 0;
+}
+
+.forge-editor .forge-tool {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    font-size: 0.72rem;
+}
+
+.forge-editor .forge-tool canvas {
+    width: 44px;
+    height: 44px;
+}
+
+.forge-editor .forge-tool.active {
+    background: rgba(0, 255, 214, 0.2);
+    border-color: #00ffd6;
+}
+
+.forge-stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 0;
+}
+
+.forge-canvas {
+    border-radius: 12px;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    touch-action: none;
+    cursor: crosshair;
+}
+
+.forge-editor-hint {
+    font-size: 0.8rem;
+    color: rgba(220, 245, 255, 0.65);
+    text-align: center;
+}
+
+.forge-count {
+    color: #00ffd6;
+    font-weight: 700;
+}
+
+@media (max-width: 760px) {
+    .forge-editor-body { flex-direction: column; }
+    .forge-palette { flex-direction: row; width: auto; overflow-x: auto; overflow-y: hidden; }
+    .forge-editor .forge-tool { min-width: 72px; }
+}
+
+.forge-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 32px;
+    transform: translate(-50%, 12px);
+    z-index: 100020;
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: rgba(0, 30, 40, 0.92);
+    border: 1px solid rgba(0, 255, 214, 0.5);
+    color: #e8fffa;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.forge-toast.visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}

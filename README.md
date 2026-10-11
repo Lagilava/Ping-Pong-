@@ -82,8 +82,11 @@ prompt to unlock frame rates above 60 (expect some screen tearing).
 | **Obstacle** | Moving gates and nodes carve up the court, with a Rocket League and Mario twist: boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, every 10 coins is a point, and goals explode in confetti. |
 
 Plus **Custom** (local 1v1 with your own paddles, background, music and
-power-ups), **Ball Forge** (a ball skin editor), local 1v1 for any mode, and a
-persistent level / XP / achievement system.
+power-ups, played on an arena you build in the **Forge**: place walls, bumpers,
+spinners, moving gates, black holes, boost pads, ? blocks and coins, set the
+rules (score to win, ball speed, rally speed-up, paddle size, arena gravity),
+save maps and share them as codes), **Ball Forge** (a ball skin editor), local
+1v1 for any mode, and a persistent level / XP / achievement system.
 
 <table>
 <tr>
