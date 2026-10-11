@@ -76,7 +76,7 @@ prompt to unlock frame rates above 60 (expect some screen tearing).
 | Mode | What changes |
 |---|---|
 | **Classic** | The straight duel: fast, clean, no gimmicks. |
-| **Zombie** | Survive ten waves of undead and a boss while still returning the ball. |
+| **Zombie** | Hold the line for ten waves: smash every zombie or knock out the boss to clear a wave. Five lives for the run; the ball getting past you or a zombie reaching your barricade costs one. Wave 10 is the boss fight. |
 | **Gravity** | Black holes bend the ball. Curve it around one and it slingshots out faster, and each slingshot makes the point worth +1 (up to 3). |
 | **Speed** | The ball keeps accelerating; reaction challenges interrupt the rally. |
 | **Obstacle** | Moving gates and nodes carve up the court. |

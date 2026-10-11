@@ -6096,7 +6096,7 @@ body.pp-lowfx .achievements * {
 
 .zombie-wave-choice-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
     margin-top: 18px;
 }
@@ -6181,6 +6181,23 @@ body.pp-lowfx .achievements * {
     text-transform: uppercase;
     text-align: left;
     backdrop-filter: blur(8px);
+}
+
+.zombie-wave-choice-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+}
+
+.zombie-progress-pill.empty {
+    display: none;
+}
+
+.zombie-progress-pill .zombie-hearts {
+    color: #ff5a6e;
+    font-family: 'Segoe UI Symbol', 'Arial Unicode MS', sans-serif;
+    font-size: 15px;
+    letter-spacing: 0.18em;
 }
 
 .zombie-progress-pill strong {
@@ -7247,4 +7264,59 @@ body.pp-lowfx .achievements * {
     border-width: calc(8px * var(--k)) 0 calc(8px * var(--k)) calc(21px * var(--k));
     border-color: transparent transparent transparent #0b6fd8;
     transform: translateY(-50%);
+}
+
+@media (max-width: 640px) {
+    .zombie-wave-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* First-run rules card for Zombie mode (reuses the wave-reward panel). */
+.zombie-briefing-rules {
+    list-style: none;
+    margin: 18px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+    text-align: left;
+}
+
+.zombie-briefing-rules li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(20, 40, 26, 0.7);
+    border: 1px solid rgba(140, 255, 180, 0.14);
+    color: rgba(235, 255, 238, 0.9);
+    font-size: clamp(13px, 1.9vw, 15px);
+    line-height: 1.45;
+}
+
+.zombie-briefing-rules strong {
+    color: #9fffab;
+}
+
+.zombie-briefing-rules .choice-icon {
+    font-size: 20px;
+    line-height: 1.2;
+}
+
+.zombie-briefing-start {
+    margin-top: 18px;
+    padding: 12px 34px;
+    border-radius: 999px;
+    border: 1px solid rgba(159, 255, 171, 0.6);
+    background: linear-gradient(180deg, #3ddc6a, #1f8f42);
+    color: #04140a;
+    font-family: 'Orbitron', 'Audiowide', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.zombie-briefing-start:hover,
+.zombie-briefing-start:focus-visible {
+    filter: brightness(1.12);
 }

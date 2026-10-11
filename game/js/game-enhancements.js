@@ -1310,13 +1310,13 @@
             state.ui.hudAiLabel = hud.querySelector('.ai-side .pp-score-label');
         }
 
-        // Zombie waves have no AI score: show points and the breach count instead.
+        // Zombie waves have no AI score: show points and lives left instead.
         function getHudScoreView(game) {
             if (typeof game.isZombieWaveMode === 'function' && game.isZombieWaveMode() && game.zombieState) {
                 const z = game.zombieState;
                 return {
                     leftLabel: 'SCORE', left: game.scores.player,
-                    rightLabel: 'BREACHES', right: `${z.waveBreaches || 0}/${z.breachLimit}`,
+                    rightLabel: 'LIVES', right: `${Math.max(0, z.hearts)}/${z.maxHearts}`,
                 };
             }
             return {

@@ -1439,9 +1439,10 @@ class ZombieBoss {
 
     renderHealthBar(ctx, now) {
         const barWidth = 320;
-        const barHeight = 28;
+        const barHeight = 22;
         const x = this.game.width / 2 - barWidth / 2;
-        const y = 20;
+        // Sits under the top HUD bar so it never covers the menu button.
+        const y = 72;
         const healthRatio = this.health / this.maxHealth;
 
         ctx.fillStyle = '#220022';
@@ -1476,10 +1477,26 @@ class ZombieBoss {
             ctx.strokeRect(x - 3, y - 3, barWidth + 6, barHeight + 6);
         }
 
+        ctx.font = 'bold 13px Arial';
+        ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 22px Arial';
+        ctx.strokeStyle = 'rgba(30, 6, 6, 0.75)';
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        const pct = `${Math.ceil(Math.max(0, healthRatio) * 100)}%`;
+        ctx.textAlign = 'left';
+        ctx.strokeText('ZOMBIE BOSS', x + 10, y + barHeight / 2 + 1);
+        ctx.fillText('ZOMBIE BOSS', x + 10, y + barHeight / 2 + 1);
+        ctx.textAlign = 'right';
+        ctx.strokeText(pct, x + barWidth - 10, y + barHeight / 2 + 1);
+        ctx.fillText(pct, x + barWidth - 10, y + barHeight / 2 + 1);
+        ctx.fillStyle = 'rgba(255, 244, 230, 0.86)';
         ctx.textAlign = 'center';
-        ctx.fillText(`ZOMBIE BOSS – ${Math.ceil(Math.max(0, healthRatio) * 100)}%`, this.game.width / 2, y + barHeight + 35);
+        ctx.textBaseline = 'alphabetic';
+        const hint = this.bossDisabled
+            ? 'KNOCKED OUT'
+            : (this.wave >= this.maxWave ? 'FINAL WAVE · SCORE PAST THE BOSS TO WIN' : 'SCORE PAST THE BOSS TO KNOCK IT OUT');
+        ctx.fillText(hint, this.game.width / 2, y + barHeight + 18);
     }
 
     getPhaseDescription() {

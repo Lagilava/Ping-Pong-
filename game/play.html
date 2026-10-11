@@ -21,7 +21,8 @@
         <div class="speed-lines" id="speedLines"></div>
         <div class="zombie-progress-overlay" id="zombieProgressOverlay" aria-hidden="true">
             <div class="zombie-progress-pill" id="zombieProgressWave">Wave <strong>1/10</strong></div>
-            <div class="zombie-progress-pill" id="zombieProgressBreaches">Breaches <strong>0/7</strong></div>
+            <div class="zombie-progress-pill" id="zombieProgressBreaches">Lives <strong class="zombie-hearts">&#9829;&#9829;&#9829;&#9829;&#9829;</strong></div>
+            <div class="zombie-progress-pill empty" id="zombieProgressBoosts"></div>
         </div>
         <div class="hud" id="hud">
             <div class="score-container">
@@ -131,8 +132,26 @@
                         <span class="choice-label">Slow</span>
                         <span class="choice-desc">Cripple the horde</span>
                     </button>
+                    <button class="zombie-wave-choice-btn" data-powerup="repair">
+                        <span class="choice-icon">❤️</span>
+                        <span class="choice-label">Repair</span>
+                        <span class="choice-desc">Win back a life</span>
+                    </button>
                 </div>
                 <div class="zombie-wave-choice-timer" id="zombieWaveChoiceTimer">Auto-pick in 8s</div>
+            </div>
+        </div>
+        <div class="zombie-wave-choice zombie-briefing" id="zombieBriefing" aria-hidden="true">
+            <div class="zombie-wave-choice-panel">
+                <div class="zombie-wave-choice-kicker">Zombie Mode</div>
+                <h3>Hold the line</h3>
+                <ul class="zombie-briefing-rules">
+                    <li><span class="choice-icon">🧟</span><span><strong>Clear each wave</strong> by smashing every zombie with the ball, or by scoring past the boss until its health bar is empty.</span></li>
+                    <li><span class="choice-icon">❤️</span><span><strong>5 lives for the whole run.</strong> You lose one when the ball gets past you or a zombie reaches your barricade.</span></li>
+                    <li><span class="choice-icon">🎁</span><span><strong>Pick a reward</strong> after every wave. Grab glowing orbs with the ball for bonus powers.</span></li>
+                    <li><span class="choice-icon">👑</span><span><strong>Wave 10 is the boss fight.</strong> Knock the boss out to win.</span></li>
+                </ul>
+                <button class="zombie-briefing-start" id="zombieBriefingStart">Start wave 1</button>
             </div>
         </div>
     </div>
