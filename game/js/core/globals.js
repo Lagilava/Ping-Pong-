@@ -213,4 +213,87 @@ const PerfGovernor = {
     },
 };
 window.PerfGovernor = PerfGovernor;
+
+// Canvas 2D draws a shadowed shape under any blend other than source-over by
+// compositing through a layer the size of the whole canvas, which makes one
+// small glowing dot cost as much as a full-screen pass. drawShadowUnderBlend()
+// produces the same picture with small buffers: the shadow is rendered alone
+// into a scratch canvas aligned to the device-pixel grid and composited with
+// the current blend, then the shape itself is drawn with the blend and no
+// shadow (the order the spec defines: shadow first, then shape).
+//   bounds: user-space box {x0, y0, x1, y1} that contains the shape (strokes
+//           included); draw(c) issues the path and its fill/stroke on c.
+const _shadowScratch = { canvas: null, ctx: null };
+function drawShadowUnderBlend(ctx, bounds, draw) {
+    const blur = ctx.shadowBlur;
+    const op = ctx.globalCompositeOperation;
+    if (op === 'source-over' || !(blur > 0)) { draw(ctx); return; }
+
+    const m = ctx.getTransform();
+    const xs = [bounds.x0, bounds.x1], ys = [bounds.y0, bounds.y1];
+    let dx0 = Infinity, dy0 = Infinity, dx1 = -Infinity, dy1 = -Infinity;
+    for (const x of xs) for (const y of ys) {
+        const px = m.a * x + m.c * y + m.e, py = m.b * x + m.d * y + m.f;
+        if (px < dx0) dx0 = px; if (px > dx1) dx1 = px;
+        if (py < dy0) dy0 = py; if (py > dy1) dy1 = py;
+    }
+    const offX = ctx.shadowOffsetX, offY = ctx.shadowOffsetY;
+    const pad = Math.ceil(blur * 1.5) + 3;
+    const cw = ctx.canvas.width, ch = ctx.canvas.height;
+    const bx0 = Math.max(0, Math.floor(Math.min(dx0, dx0 + offX)) - pad);
+    const by0 = Math.max(0, Math.floor(Math.min(dy0, dy0 + offY)) - pad);
+    const bx1 = Math.min(cw, Math.ceil(Math.max(dx1, dx1 + offX)) + pad);
+    const by1 = Math.min(ch, Math.ceil(Math.max(dy1, dy1 + offY)) + pad);
+    const bw = bx1 - bx0, bh = by1 - by0;
+
+    if (bw > 0 && bh > 0) {
+        if (!_shadowScratch.canvas) {
+            _shadowScratch.canvas = document.createElement('canvas');
+            _shadowScratch.ctx = _shadowScratch.canvas.getContext('2d');
+        }
+        const sc = _shadowScratch.canvas;
+        if (sc.width < bw || sc.height < bh) {
+            sc.width = Math.max(sc.width, bw);
+            sc.height = Math.max(sc.height, bh);
+        }
+        const s = _shadowScratch.ctx;
+        s.setTransform(1, 0, 0, 1, 0, 0);
+        s.globalCompositeOperation = 'source-over';
+        s.globalAlpha = 1;
+        s.shadowColor = 'rgba(0,0,0,0)';
+        s.clearRect(0, 0, bw, bh);
+        s.globalAlpha = ctx.globalAlpha;
+        s.fillStyle = ctx.fillStyle;
+        s.strokeStyle = ctx.strokeStyle;
+        s.lineWidth = ctx.lineWidth;
+        s.lineCap = ctx.lineCap;
+        s.lineJoin = ctx.lineJoin;
+        s.miterLimit = ctx.miterLimit;
+        s.setLineDash(ctx.getLineDash());
+        s.lineDashOffset = ctx.lineDashOffset;
+        // Keep the shape itself off the scratch canvas: shift it left by `far`
+        // device pixels and offset only its shadow back into place.
+        const far = bw + Math.abs(dx1 - dx0) + pad * 2;
+        s.shadowColor = ctx.shadowColor;
+        s.shadowBlur = blur;
+        s.shadowOffsetX = far + offX;
+        s.shadowOffsetY = offY;
+        s.setTransform(m.a, m.b, m.c, m.d, m.e - bx0 - far, m.f - by0);
+        draw(s);
+        s.shadowColor = 'rgba(0,0,0,0)';
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.shadowColor = 'rgba(0,0,0,0)';
+        ctx.drawImage(sc, 0, 0, bw, bh, bx0, by0, bw, bh);
+        ctx.restore();
+    }
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0)';
+    draw(ctx);
+    ctx.restore();
+}
+window.drawShadowUnderBlend = drawShadowUnderBlend;
 PerfGovernor.initForDevice();

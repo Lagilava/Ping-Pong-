@@ -1880,9 +1880,14 @@ class BackgroundRenderer {
             ctx.shadowBlur = 8;
             ctx.strokeStyle = 'rgba(180,225,255,0.3)';
             ctx.lineWidth = 1.2;
-            ctx.beginPath();
-            ctx.ellipse(0, -40, 40 * state.scale, 72 * state.scale, -0.14, 0, Math.PI * 2);
-            ctx.stroke();
+            // Under 'lighter' a shadowed stroke would otherwise go through a
+            // full-canvas layer; drawShadowUnderBlend gives the same pixels.
+            const er = 72 * state.scale + 1;
+            drawShadowUnderBlend(ctx, { x0: -er, y0: -40 - er, x1: er, y1: -40 + er }, (c) => {
+                c.beginPath();
+                c.ellipse(0, -40, 40 * state.scale, 72 * state.scale, -0.14, 0, Math.PI * 2);
+                c.stroke();
+            });
             ctx.restore();
         }
 

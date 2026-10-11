@@ -918,18 +918,25 @@ class ZombieBoss {
             const alpha = Math.max(0, 0.85 - progress * 1.4);
             const r = drip.size * (1 - progress * 0.3);
             const dFlicker = 0.7 + Math.sin(t * 5 + drip.phase) * 0.2;
-            ctx.beginPath();
-            ctx.arc(drip.x, dropY, r, 0, Math.PI * 2);
+            // Shadowed draws under 'screen' go through drawShadowUnderBlend
+            // (core/globals.js): same pixels, no full-canvas layer each.
             ctx.fillStyle = `rgba(255, ${Math.floor(130 + dFlicker * 90)}, 20, ${alpha * dFlicker})`;
             ctx.shadowBlur = 10;
             ctx.shadowColor = 'rgba(255,80,0,0.9)';
-            ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(drip.x, p.pos.y + p.h);
-            ctx.lineTo(drip.x, dropY - r);
+            drawShadowUnderBlend(ctx, { x0: drip.x - r, y0: dropY - r, x1: drip.x + r, y1: dropY + r }, (c) => {
+                c.beginPath();
+                c.arc(drip.x, dropY, r, 0, Math.PI * 2);
+                c.fill();
+            });
             ctx.strokeStyle = `rgba(255,70,10,${alpha * 0.45})`;
             ctx.lineWidth = r * 0.6;
-            ctx.stroke();
+            const half = r * 0.3 + 1;
+            drawShadowUnderBlend(ctx, { x0: drip.x - half, y0: p.pos.y + p.h - half, x1: drip.x + half, y1: dropY - r + half }, (c) => {
+                c.beginPath();
+                c.moveTo(drip.x, p.pos.y + p.h);
+                c.lineTo(drip.x, dropY - r);
+                c.stroke();
+            });
         }
         ctx.shadowBlur = 0;
         ctx.globalCompositeOperation = 'source-over';
@@ -1015,7 +1022,9 @@ class ZombieBoss {
         ctx.lineWidth = 2;
         ctx.shadowBlur = 14;
         ctx.shadowColor = 'rgba(255, 70, 0, 0.85)';
-        ctx.strokeRect(p.pos.x + 0.5, p.pos.y + 0.5, p.w - 1, p.h - 1);
+        drawShadowUnderBlend(ctx, { x0: p.pos.x - 1.5, y0: p.pos.y - 1.5, x1: p.pos.x + p.w + 1.5, y1: p.pos.y + p.h + 1.5 }, (c) => {
+            c.strokeRect(p.pos.x + 0.5, p.pos.y + 0.5, p.w - 1, p.h - 1);
+        });
         ctx.shadowBlur = 0;
         ctx.globalCompositeOperation = 'source-over';
 

@@ -3802,17 +3802,21 @@ class Game {
         ctx.shadowBlur = radius * (0.24 + threat * 0.2);
         ctx.shadowColor = palette.eye;
         ctx.fillStyle = this._colorWithAlpha(palette.eye, 0.9);
+        // Glow under 'screen' goes through drawShadowUnderBlend (core/globals.js):
+        // same pixels, without a full-canvas layer per eye.
+        const eye = (x, y, rx, ry, rot) => {
+            const r = Math.max(rx, ry);
+            drawShadowUnderBlend(ctx, { x0: x - r, y0: y - r, x1: x + r, y1: y + r }, (c) => {
+                c.beginPath();
+                c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2);
+                c.fill();
+            });
+        };
         if (single) {
-            ctx.beginPath();
-            ctx.ellipse(0, eyeY, radius * (0.18 + threat * 0.04), radius * 0.08 * blink, -0.08, 0, Math.PI * 2);
-            ctx.fill();
+            eye(0, eyeY, radius * (0.18 + threat * 0.04), radius * 0.08 * blink, -0.08);
         } else {
-            ctx.beginPath();
-            ctx.ellipse(-spread, eyeY, radius * 0.12, radius * 0.055 * blink, -0.18, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.ellipse(spread * 0.82, eyeY + radius * 0.02, radius * 0.11, radius * 0.05 * blink, 0.16, 0, Math.PI * 2);
-            ctx.fill();
+            eye(-spread, eyeY, radius * 0.12, radius * 0.055 * blink, -0.18);
+            eye(spread * 0.82, eyeY + radius * 0.02, radius * 0.11, radius * 0.05 * blink, 0.16);
         }
         ctx.shadowBlur = 0;
         ctx.restore();
