@@ -14,16 +14,16 @@
     'use strict';
 
     const C = {
-        RANGE: 0.40,          // reach in front of the paddle, fraction of court width (< 0.5)
-        HALF_BAND: 0.24,      // reach above and below the paddle centre, fraction of court height
-        DRAIN: 0.5,           // energy per second while pulling (2 s from full)
-        REGEN: 0.3,           // energy per second while idle
-        REGEN_DELAY: 0.45,    // seconds after letting go before it recharges
-        MIN_START: 0.18,      // energy needed to start a pull
-        PULL_SPEED: 260,      // px/s at 720p, close to the paddle
+        RANGE: 0.44,          // reach in front of the paddle, fraction of court width (< 0.5)
+        HALF_BAND: 0.28,      // reach above and below the paddle centre, fraction of court height
+        DRAIN: 0.42,           // energy per second while pulling (2 s from full)
+        REGEN: 0.45,           // energy per second while idle
+        REGEN_DELAY: 0.35,    // seconds after letting go before it recharges
+        MIN_START: 0.12,      // energy needed to start a pull
+        PULL_SPEED: 320,      // px/s at 720p, close to the paddle
         TAG_TIME: 1.1,        // a zombie stays "pulled" this long after leaving the field
-        KILL_SCORE: 0.6,      // share of the normal kill score for a barricade kill
-        MASS: { shambler: 1, runner: 0.8, spitter: 0.9, tank: 0.5 },
+        KILL_SCORE: 0.75,      // share of the normal kill score for a barricade kill
+        MASS: { shambler: 1, runner: 0.8, spitter: 0.9, tank: 0.62 },
     };
 
     const TAU = Math.PI * 2;
@@ -40,6 +40,7 @@
             this.motes = [];
             for (let i = 0; i < 16; i++) this.motes.push({ u: Math.random(), v: (Math.random() - 0.5) * 2, s: 0.4 + Math.random() * 0.8, a: 0 });
             this.tethers = [];
+            this.eaten = [];
         }
 
         reset() {
@@ -52,8 +53,10 @@
             this.snap = 0;          // ring when the pull is released
             this.time = 0;
             this.beat = 0;
+            this.spin = 0;
             this.sfxTimer = 0;
             this.rings = [];
+            this.eaten = [];
             this.band = { x0: 0, y0: 0, range: 0, half: 0 };
         }
 
@@ -111,6 +114,11 @@
                 if (this.rings[i].age > 0.5) this.rings.splice(i, 1);
             }
             this.beat += dt * (this.active ? 9 : 0);
+            this.spin += dt * (1.5 + 5 * this.ramp);
+            for (let i = this.eaten.length - 1; i >= 0; i--) {
+                this.eaten[i].t += dt / 0.28;
+                if (this.eaten[i].t >= 1) this.eaten.splice(i, 1);
+            }
 
             // Band geometry (world px), tracking the paddle.
             const p = g.player;
@@ -155,6 +163,8 @@
         devour(zombie) {
             const g = this.game, st = g.zombieState;
             zombie.dead = true;
+            // Keep a copy that spirals into the maw for a moment.
+            if (this.eaten.length < 8) this.eaten.push({ z: Object.assign({}, zombie), t: 0, x: zombie.x, y: zombie.y });
             st.kills++;
             st.totalKills++;
             g.addZombieScore(Math.round(zombie.type.score * C.KILL_SCORE));
@@ -233,8 +243,33 @@
                 ctx.strokeStyle = `rgba(214,255,200,${0.75 * a})`;
                 ctx.lineWidth = 2;
                 ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(mx, my, ex, ey); ctx.stroke();
+                // Beads of light running down the tether into the paddle.
+                ctx.fillStyle = `rgba(240,255,225,${0.95 * a})`;
+                for (let k = 0; k < 4; k++) {
+                    const u = 1 - ((t * 1.6 + k / 4 + i * 0.13) % 1);
+                    const iu = 1 - u;
+                    const bx = iu * iu * sx + 2 * iu * u * mx + u * u * ex;
+                    const by = iu * iu * sy + 2 * iu * u * my + u * u * ey;
+                    ctx.beginPath(); ctx.arc(bx, by, 2.6 * (0.4 + u), 0, TAU); ctx.fill();
+                }
             }
             ctx.restore();
+            // Zombies being swallowed: shrink and spiral into the maw.
+            const g = this.game;
+            for (let i = 0; i < this.eaten.length; i++) {
+                const e = this.eaten[i];
+                const k = e.t, ease = k * k;
+                const tx = b.x0 + 4, ty = b.y0;
+                ctx.save();
+                ctx.translate(tx + (e.x - tx) * (1 - ease), ty + (e.y - ty) * (1 - ease));
+                ctx.rotate(k * 7);
+                const sc = Math.max(0.05, 1 - ease * 0.95);
+                ctx.scale(sc, sc);
+                ctx.globalAlpha = 1 - k * 0.4;
+                e.z.x = 0; e.z.y = 0; e.z.vx = 0; e.z.vy = 0; e.z.pullAmt = 0; e.z.flash = 0.6 * (1 - k);
+                g.renderZombieEnemy(ctx, e.z);
+                ctx.restore();
+            }
         }
 
         // The paddle's body transform: it breathes, braces before the pull and
@@ -310,9 +345,9 @@
             ctx.setLineDash([]);
 
             // Tendrils: three thin feelers waving out of the maw.
-            for (let i = 0; i < 3; i++) {
-                const dir = i - 1;
-                const len = h * (0.55 + 0.15 * (i % 2)) * r;
+            for (let i = 0; i < 5; i++) {
+                const dir = (i - 2) * 0.75;
+                const len = h * (0.6 + 0.18 * (i % 2)) * r;
                 const sway = Math.sin(t * 5 + i * 2.1) * h * 0.1;
                 ctx.strokeStyle = `rgba(214,255,200,${0.7 * r * flicker})`;
                 ctx.lineWidth = 2.2 - Math.abs(dir) * 0.5;
@@ -320,6 +355,26 @@
                 ctx.moveTo(front, cy + dir * h * 0.12);
                 ctx.bezierCurveTo(front + len * 0.35, cy + dir * h * 0.2 + sway, front + len * 0.7, cy + dir * h * 0.3 - sway, front + len, cy + dir * h * 0.38 + sway * 0.6);
                 ctx.stroke();
+                // glowing tip
+                ctx.fillStyle = `rgba(230,255,200,${0.9 * r * flicker})`;
+                ctx.beginPath(); ctx.arc(front + len, cy + dir * h * 0.38 + sway * 0.6, 2.4, 0, TAU); ctx.fill();
+            }
+
+            // Rune ring turning around the maw.
+            if (r > 0.05) {
+                const rr = h * 0.34 * (0.6 + 0.4 * r);
+                ctx.strokeStyle = `rgba(190,140,255,${0.8 * r * flicker})`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([h * 0.05, h * 0.045]);
+                ctx.lineDashOffset = -this.spin * 14;
+                ctx.beginPath(); ctx.ellipse(front, cy, rr * 0.55, rr, 0, 0, TAU); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.strokeStyle = `rgba(157,255,106,${0.7 * r * flicker})`;
+                for (let k = 0; k < 4; k++) {
+                    const a = this.spin + k * Math.PI / 2;
+                    const px = front + Math.cos(a) * rr * 0.55, py = cy + Math.sin(a) * rr;
+                    ctx.beginPath(); ctx.moveTo(px, py - 4); ctx.lineTo(px + 3, py); ctx.lineTo(px, py + 4); ctx.lineTo(px - 3, py); ctx.closePath(); ctx.stroke();
+                }
             }
 
             // The maw: a slit down the front edge that opens and has teeth.

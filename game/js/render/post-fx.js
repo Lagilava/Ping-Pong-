@@ -405,6 +405,18 @@ class PostFX {
                     float mask = inX * inY;
                     float near = 1.0 - clamp(dx, 0.0, 1.0);
 
+                    // Vortex: the scene swirls around the maw, strongest right at it.
+                    {
+                        vec2 vq = vec2((uv.x - uFieldA.x) * aspect.x, uv.y - uFieldA.y);
+                        float vr = length(vq) / (uFieldA.w * aspect.x);
+                        float swirl = (1.0 - smoothstep(0.0, 0.35, vr)) * k * 0.9;
+                        float ang = swirl * sin(uTime * 3.0 + 1.0);
+                        float cs = cos(ang), sn2 = sin(ang);
+                        vec2 rq = vec2(cs * vq.x - sn2 * vq.y, sn2 * vq.x + cs * vq.y);
+                        uv = vec2(uFieldA.x + rq.x / aspect.x, uFieldA.y + rq.y);
+                        fieldCol += (1.0 - smoothstep(0.0, 0.1, vr)) * k * vec3(0.5, 0.9, 0.5) * (0.6 + 0.4 * sin(uTime * 18.0));
+                    }
+
                     // Refraction: a wave rolling towards the paddle, plus a funnel.
                     float wave = sin(dx * 34.0 + uTime * 11.0 + sin(dy * 5.0 + uTime) * 1.5);
                     vec2 pull = vec2(0.018 * near + 0.004 * wave, -(dy * uFieldB.x) * 0.16 * near);
