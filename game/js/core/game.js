@@ -8509,6 +8509,12 @@ class Game {
             physicsTimeMs += performance.now() - physicsStepStartMs;
         }
 
+        // Drop whole steps left by the cap so a stalled frame cannot make
+        // later frames replay stale physics time or extrapolate rendering.
+        if (this.accumulator >= physicsStepDt) {
+            this.accumulator %= physicsStepDt;
+        }
+
         const alpha = this.accumulator / physicsStepDt;
         const renderStartMs = performance.now();
         this.render(alpha);
