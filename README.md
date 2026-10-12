@@ -88,7 +88,8 @@ colours).
 
 Paddle designs: Classic, Satelliten, World Shield, AI Rebel and Prizma. In
 online matches each side shows the design its own player picked; the Zombie
-boss keeps its own look.
+boss keeps its own look: a horned magma demon whose jaws slide out and prise
+open as it charges its fire breath.
 
 ### Custom backgrounds
 
