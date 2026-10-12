@@ -35,7 +35,7 @@
         reduceMotion: false,
         ballOutline: false,       // high-visibility ring around the ball
         uiScale: 100,             // menus and panels, percent
-        invertColors: false,
+        noir: false,              // black-and-white film look for the whole game
         // Audio
         muteInBackground: true,
         // Online
@@ -73,9 +73,9 @@
                 if (typeof old.aiDifficulty === 'number') saved.aiLevel = Math.round((old.aiDifficulty / 100) * 4);
                 if (typeof old.showFps === 'boolean') saved.showFps = old.showFps;
                 if (typeof old.disableParticles === 'boolean') saved.particles = !old.disableParticles;
-                if (typeof old.invertColors === 'boolean') saved.invertColors = old.invertColors;
             } catch (e) { /* no old settings */ }
         }
+        delete saved.invertColors; // replaced by Noir
         const merged = { ...DEFAULTS, ...saved };
         merged.bindings = { ...DEFAULT_BINDINGS, ...(saved.bindings || {}) };
         if (!saved.paddles) {

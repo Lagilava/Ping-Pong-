@@ -381,3 +381,24 @@ body.pp-reduce-motion .pp-replay-offer {
 .customise-overlay-settings-btn::before { content: none !important; display: none !important; }
 .pphelp .pphelp-lead { margin: 0 0 14px; font: 600 17px/1.45 'Rajdhani', sans-serif; color: #f2fbff; }
 .pphelp .ppset-tabs button { padding: 10px 13px; }
+
+/* ── Noir mode (Settings > Accessibility) ──
+   The court is graded in the post-process shader (js/render/post-fx.js);
+   everything drawn as HTML around it goes black-and-white here. */
+body.pp-noir > :not(.game-container):not(script):not(svg),
+body.pp-noir .game-container > :not(#c):not(#fx) {
+    filter: grayscale(1) contrast(1.1) brightness(1.15);
+}
+/* No shader (no WebGL, or the lowest quality tier): grade the canvas itself. */
+body.pp-noir #c:not(.fx-source) {
+    filter: grayscale(1) contrast(1.35) brightness(0.95);
+}
+/* Old-film texture over the menu screen: scanlines and an iris vignette. */
+body.pp-noir .overlay::after {
+    background:
+        repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px),
+        radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.6) 100%);
+    z-index: 40;
+}
+/* Magenta reads as dark grey in black-and-white; keep both scores equally legible. */
+body.pp-noir #pp-enhanced-hud .ai-side { filter: brightness(1.9); }

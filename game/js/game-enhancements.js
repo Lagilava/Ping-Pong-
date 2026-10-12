@@ -129,7 +129,6 @@
             preferences: {
                 get showFps() { return !!window.PPSettings?.get('showFps'); },
                 get disableParticles() { return window.PPSettings?.get('particles') === false; },
-                get invertColors() { return !!window.PPSettings?.get('invertColors'); },
                 get aiDifficulty() { return ((window.PPSettings?.get('aiLevel') ?? 2) / 4) * 100; },
                 get vibration() { return window.PPSettings?.get('phoneVibrate') !== false; },
             },
@@ -184,12 +183,6 @@
                 }
             }
             if (showFeedback) showNeonNotification(disabled ? 'All particle effects disabled' : 'Particle effects enabled', 'info', 1800);
-        }
-
-        function applyColorPreference(showFeedback = false) {
-            const inverted = !!state.preferences.invertColors;
-            document.documentElement.style.filter = inverted ? 'invert(1) hue-rotate(180deg)' : '';
-            if (showFeedback) showNeonNotification(inverted ? 'Color inversion active' : 'Normal colors restored', 'info', 1800);
         }
 
         const $ = (s, el = document) => el.querySelector(s);
@@ -455,7 +448,6 @@
             state.ui.audioPanel = state.ui.settingsPanel;
             window.PPSettings?.on((key) => {
                 if (key === 'particles' || key === '*') applyParticlePreference(false);
-                if (key === 'invertColors' || key === '*') applyColorPreference(false);
                 if (key === 'aiLevel' || key === '*') updateAIDifficulty(false);
                 if (key === 'showFps' || key === '*') {
                     if (state.preferences.showFps) { setupFpsCounter(); if (state.ui.fpsCounter) state.ui.fpsCounter.style.display = 'block'; }
@@ -1543,7 +1535,6 @@ canvas {
 
             if (state.preferences.showFps) setupFpsCounter();
             applyParticlePreference(false);
-            applyColorPreference(false);
             updateEnhancedScoreHUD(game);
             createPerfectPaddles();
             enhanceAI();

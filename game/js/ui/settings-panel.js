@@ -22,7 +22,7 @@
     // actions, volume, note.
     const ROWS = {
         gameplay: [
-            { type: 'seg', key: 'aiLevel', label: 'Computer skill', help: 'How well the AI opponent reads and returns the ball.',
+            { type: 'seg', key: 'aiLevel', label: 'Computer skill', help: 'How well the computer reads, aims and fakes its returns. Changes apply straight away. The Zombie boss gets tougher each wave instead.',
                 options: [[0, 'Rookie'], [1, 'Easy'], [2, 'Normal'], [3, 'Hard'], [4, 'Insane']] },
             { type: 'seg', key: 'pointsToWin', label: 'Points to win', help: 'Classic, Gravity, Speed and Obstacle. Custom uses its Forge rules; Zombie plays in waves. Starts with the next match.',
                 options: [[5, '5'], [7, '7'], [11, '11'], [15, '15'], [21, '21']] },
@@ -69,7 +69,7 @@
             { type: 'toggle', key: 'ballOutline', label: 'High-visibility ball', help: 'A bold yellow ring around every ball.' },
             { type: 'seg', key: 'uiScale', label: 'Menu text size', help: 'Pause menu, settings and other panels.',
                 options: [[90, 'S'], [100, 'M'], [115, 'L'], [130, 'XL']] },
-            { type: 'toggle', key: 'invertColors', label: 'Invert colors', help: 'Flips the whole screen to inverted colors.' },
+            { type: 'toggle', key: 'noir', label: 'Noir mode', help: 'Plays the whole game as an old black-and-white film: high contrast, grain, flicker and scanlines.' },
         ],
     };
 
@@ -321,7 +321,8 @@
         const a = audio();
         if (!a) return;
         if (id === 'sound') {
-            if (a.enabled) a.disable?.();
+            if (a.setSoundOn) a.setSoundOn(!a.enabled).catch(() => {});
+            else if (a.enabled) a.disable?.();
             else Promise.resolve(a.enable?.()).catch(() => {});
         }
         if (id === 'musicOn') (a.setMusicMuteState ? a.setMusicMuteState(!a.musicMuted) : a.toggleMusicMute?.());
@@ -451,6 +452,8 @@
         body.classList.toggle('pp-hud-small', S.get('hudSize') === 'small');
         body.classList.toggle('pp-hud-large', S.get('hudSize') === 'large');
         body.classList.toggle('pp-reduce-motion', !!S.get('reduceMotion'));
+        body.classList.toggle('pp-noir', !!S.get('noir'));
+        window.game?.refreshPausedFrame?.();
         document.documentElement.style.setProperty('--pp-ui-zoom', String((Number(S.get('uiScale')) || 100) / 100));
     }
 

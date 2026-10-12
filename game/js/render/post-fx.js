@@ -36,6 +36,7 @@ class PostFX {
         this.punchAmount = 0;
         this.ripples = [];         // { x, y (uv), age, strength }
         this.grade = { tint: [1, 1, 1], shadow: [0, 0, 0], highlight: [0, 0, 0], sat: 1.1, contrast: 1.04 };
+        this.noir = 0;             // 0..1 blend into the Noir look (Settings > Accessibility)
 
         const canvas = document.createElement('canvas');
         canvas.id = 'fx';
@@ -132,6 +133,9 @@ class PostFX {
         if (!this.active || !gl) return;
         this.time += dt;
         this.punchAmount *= Math.exp(-dt * 9);
+        const noirTarget = window.PPSettings?.get('noir') ? 1 : 0;
+        this.noir += (noirTarget - this.noir) * Math.min(1, dt * 5);
+        if (Math.abs(noirTarget - this.noir) < 0.002) this.noir = noirTarget;
         for (let i = this.ripples.length - 1; i >= 0; i--) {
             const r = this.ripples[i];
             r.age += dt;
@@ -176,6 +180,7 @@ class PostFX {
             uSat: this.grade.sat,
             uContrast: this.grade.contrast,
             uDetail: this.quality === 0 ? 1.0 : 0.5,
+            uNoir: this.noir,
         });
     }
 
@@ -332,7 +337,7 @@ class PostFX {
         this.progComposite = this._compile(`
             uniform sampler2D uScene, uBloomA, uBloomB, uDirt;
             uniform vec2 uRes;
-            uniform float uTime, uBloom, uBloomWide, uPunch, uDetail;
+            uniform float uTime, uBloom, uBloomWide, uPunch, uDetail, uNoir;
             uniform vec4 uRip[6];
             uniform vec3 uTint, uShadow, uHighlight;
             uniform float uSat, uContrast;
@@ -342,6 +347,9 @@ class PostFX {
             void main() {
                 vec2 uv = vUv;
                 vec2 aspect = vec2(uRes.x / uRes.y, 1.0);
+                // Noir: film frames tick at 24 fps; the gate weaves slightly.
+                float frame = floor(mod(uTime * 24.0, 997.0));
+                uv.y += uNoir * (hash(vec2(frame, 3.1)) - 0.5) * 0.0014;
 
                 // Impact shockwaves: a travelling ring that refracts the scene.
                 vec2 off = vec2(0.0);
@@ -383,13 +391,35 @@ class PostFX {
                 col *= uTint;
                 col += uPunch * 0.05;
 
-                // Vignette.
-                float v = smoothstep(1.25, 0.32, length(cc * vec2(aspect.x * 0.78, 1.0)));
-                col *= mix(1.0, v, 0.55);
+                // Noir: black-and-white film. Panchromatic luminance, a hard
+                // S-curve (crushed blacks, bright silver highlights), halation
+                // from the bloom, cool shadows and warm highlights, projector
+                // flicker, the odd scratch and dust speck.
+                if (uNoir > 0.001) {
+                    float L = dot(col, vec3(0.36, 0.52, 0.12)) * 1.18;
+                    float n = smoothstep(-0.04, 0.86, L);
+                    n = mix(L, n * n * (3.0 - 2.0 * n), 0.7);
+                    n += dot(bloom, vec3(0.333)) * 0.14 * uBloom;
+                    vec3 silver = mix(vec3(0.84, 0.88, 0.95), vec3(1.05, 1.02, 0.95), clamp(n, 0.0, 1.0));
+                    vec3 noir = n * silver;
+                    noir *= 1.0 + (hash(vec2(frame, 7.0)) - 0.5) * 0.07;
+                    float sx = hash(vec2(frame, 1.3));
+                    float scratch = (1.0 - smoothstep(0.0, 0.0011, abs(vUv.x - sx))) * step(0.55, hash(vec2(frame, 9.1)));
+                    noir += scratch * 0.13 * (0.6 + 0.4 * sin(vUv.y * 40.0 + frame));
+                    float dust = step(0.99935, hash(floor(gl_FragCoord.xy / 3.0) + frame * 1.37));
+                    noir = mix(noir, vec3(0.03), dust * 0.75);
+                    col = mix(col, noir, uNoir);
+                }
 
-                // Fine scanlines and animated film grain give the image texture.
+                // Vignette (heavier, iris-like in Noir).
+                float v = smoothstep(1.25, 0.32, length(cc * vec2(aspect.x * 0.78, 1.0)));
+                col *= mix(1.0, v, 0.55 + 0.3 * uNoir);
+
+                // Fine scanlines and animated film grain give the image texture;
+                // Noir adds coarser retro scanlines and heavier grain.
                 col *= 1.0 - 0.035 * uDetail * (0.5 + 0.5 * sin(gl_FragCoord.y * 3.14159));
-                col += (hash(gl_FragCoord.xy + fract(uTime * 13.7) * 91.0) - 0.5) * 0.035 * uDetail;
+                col *= 1.0 - 0.07 * uNoir * (0.5 + 0.5 * sin(gl_FragCoord.y * 1.5708));
+                col += (hash(gl_FragCoord.xy + fract(uTime * 13.7) * 91.0) - 0.5) * (0.035 * uDetail + 0.06 * uNoir);
 
                 gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
             }`);

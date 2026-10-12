@@ -339,6 +339,10 @@ class EnhancedAudioEngine {
         this.musicVolume = typeof fromStorage.musicVolume === 'number' ? Math.max(0, Math.min(1, fromStorage.musicVolume)) : this.musicVolume;
         this.voiceVolume = typeof fromStorage.voiceVolume === 'number' ? Math.max(0, Math.min(1, fromStorage.voiceVolume)) : this.voiceVolume;
         this.voiceMuted = !!fromStorage.voiceMuted;
+        // Settings > Audio > Sound off is remembered, and the click-to-unlock
+        // code must not switch it back on.
+        this.userDisabled = !!fromStorage.soundOff;
+        if (this.userDisabled) this.enabled = false;
     }
 
     saveControlState() {
@@ -349,7 +353,8 @@ class EnhancedAudioEngine {
                 sfxVolume: this.sfxVolume,
                 musicVolume: this.musicVolume,
                 voiceVolume: this.voiceVolume,
-                voiceMuted: this.voiceMuted
+                voiceMuted: this.voiceMuted,
+                soundOff: !!this.userDisabled
             }));
         } catch (_) {
             // Ignore storage issues
@@ -2454,7 +2459,16 @@ class EnhancedAudioEngine {
     }
 
     // Mobile-optimized enable with user gesture
+    // The Sound switch in Settings. Off stays off until the player turns it
+    // back on; enable() alone (audio unlock on click) won't override it.
+    setSoundOn(on) {
+        this.userDisabled = !on;
+        this.saveControlState();
+        return on ? Promise.resolve(this.enable()) : Promise.resolve(this.disable());
+    }
+
     enable() {
+        if (this.userDisabled) return Promise.resolve(this);
         if (this.isMobile && !this.initialized) {
             return Promise.resolve().then(() => {
                 return this.init();

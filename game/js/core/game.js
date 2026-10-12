@@ -1498,7 +1498,7 @@ class Game {
         this.applyBallStudioConfig();
 
         // Default AI difficulty (0-4)
-        const aiDifficulty = 2; // Medium difficulty
+        const aiDifficulty = this.getAILevel(); // Settings > Computer skill
 
         // Mode-specific initialization
         if (this.gameMode === 'zombie') {
@@ -1571,6 +1571,8 @@ class Game {
         if (diffSlider && typeof this.updateDifficultyDisplay === 'function') {
             diffSlider.addEventListener('input', e => {
                 const d = Number(e.target.value);
+                // Keep the old HUD slider and Settings > Computer skill in step.
+                window.PPSettings?.set('aiLevel', d);
                 if (this.ai && typeof this.ai.setDifficulty === 'function') {
                     this.ai.setDifficulty(d);
                 }
@@ -2648,7 +2650,7 @@ class Game {
         } else if (this.gameMode === 'customise') {
             this.ai = null;
         } else {
-            const aiDifficulty = 2; // Medium difficulty
+            const aiDifficulty = this.getAILevel(); // Settings > Computer skill
             this.ai = new AIController(
                 this.aiPaddle,
                 this.ball,
@@ -6239,7 +6241,7 @@ class Game {
         } else if (this.gameMode === 'customise') {
             this.ai = null;
         } else {
-            const aiDifficulty = 2; // Medium difficulty for consistency
+            const aiDifficulty = this.getAILevel(); // Settings > Computer skill
             this.ai = new AIController(
                 this.aiPaddle,
                 this.ball,
@@ -7568,6 +7570,20 @@ class Game {
                 }
             }
         }
+    }
+
+    // A display setting changed while the loop isn't presenting (paused, or
+    // on a menu over the court): re-run the post-process on the last frame
+    // so the change shows straight away. dt 0.25 completes the Noir blend.
+    refreshPausedFrame() {
+        if (!this.postFx?.active || (this.running && !this.paused)) return;
+        this.postFx.present(0.25);
+    }
+
+    // Settings > Gameplay > Computer skill, 0 (Rookie) .. 4 (Insane).
+    getAILevel() {
+        const n = Math.round(Number(window.PPSettings?.get('aiLevel')));
+        return Number.isFinite(n) ? Math.max(0, Math.min(4, n)) : 2;
     }
 
     // Settings > Controls > Paddle speed (keyboard and gamepad).

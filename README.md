@@ -83,8 +83,9 @@ win, power-ups, replays, AI trash talk, auto-pause), Paddles (a paddle
 design for each mode, for your paddle and your opponent's), Controls (paddle
 speed, key rebinding for both players, vibration), Display (screen
 shake, impact flash, particles, scoreboard size, FPS counter), Audio, and
-Accessibility (reduce motion, high-visibility ball, menu text size, inverted
-colours).
+Accessibility (reduce motion, high-visibility ball, menu text size, Noir
+mode: the whole game as a black-and-white film with grain, flicker and
+scanlines).
 
 Paddle designs: Classic, Satelliten, World Shield, AI Rebel and Prizma. In
 online matches each side shows the design its own player picked; the Zombie
