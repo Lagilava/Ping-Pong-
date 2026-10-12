@@ -409,11 +409,11 @@
     // ─────────────────────────────────────────────────────────────────
     const MENU_CONFIG = {
         modes: [
-            { id: 'classic', name: 'CLASSIC', desc: 'Traditional fast-paced duel', col: 0xff3a5c, hex: '#ff3a5c', icon: 'classic', tags: ['VS AI', '1v1'], online: true },
-            { id: 'zombie', name: 'ZOMBIE', desc: 'Survive the undead horde', col: 0x6ddc4f, hex: '#6ddc4f', icon: 'zombie', tags: ['Solo', '10 waves'] },
+            { id: 'classic', name: 'CLASSIC', desc: 'Clean, fast one-on-one', col: 0xff3a5c, hex: '#ff3a5c', icon: 'classic', tags: ['VS AI', '1v1'], online: true },
+            { id: 'zombie', name: 'ZOMBIE', desc: 'Ten waves of undead, five lives', col: 0x6ddc4f, hex: '#6ddc4f', icon: 'zombie', tags: ['Solo', '10 waves'] },
             { id: 'gravity', name: 'GRAVITY', desc: 'Slingshot black holes for big points', col: 0x3d9eff, hex: '#3d9eff', icon: 'gravity', tags: ['VS AI', '1v1'], online: true },
-            { id: 'speed', name: 'SPEED', desc: 'Extreme velocity battles', col: 0xffbe00, hex: '#ffbe00', icon: 'speed', tags: ['VS AI', '1v1'] },
-            { id: 'obstacle', name: 'OBSTACLE', desc: 'Navigate deadly hazards', col: 0xff7620, hex: '#ff7620', icon: 'obstacle', tags: ['VS AI', '1v1'], online: true },
+            { id: 'speed', name: 'SPEED', desc: 'The ball never stops speeding up', col: 0xffbe00, hex: '#ffbe00', icon: 'speed', tags: ['VS AI', '1v1'] },
+            { id: 'obstacle', name: 'OBSTACLE', desc: 'Gates, boost pads and coins', col: 0xff7620, hex: '#ff7620', icon: 'obstacle', tags: ['VS AI', '1v1'], online: true },
             { id: 'customise', name: 'CUSTOM', desc: 'Build your own rules', col: 0x00ffc8, hex: '#00ffc8', icon: 'custom', tags: ['Forge', '1v1'], online: true },
         ],
         // Lower-end devices (as classified by PerfGovernor) start at 1x.
@@ -429,14 +429,14 @@
     // ─────────────────────────────────────────────────────────────────
     function svgIcon(id) {
         const s = {
-            classic: `<circle cx="50" cy="50" r="28" fill="none" stroke="currentColor" stroke-width="5.5"/><line x1="28" y1="50" x2="72" y2="50" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><circle cx="50" cy="50" r="9" fill="currentColor"/>`,
+            classic: `<rect x="16" y="28" width="9" height="44" rx="4" fill="currentColor"/><rect x="75" y="28" width="9" height="44" rx="4" fill="currentColor"/><line x1="50" y1="18" x2="50" y2="82" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="6 7"/><circle cx="62" cy="42" r="7" fill="currentColor"/>`,
             zombie: `<path d="M50 16 L74 30 L74 58 L50 72 L26 58 L26 30Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><circle cx="39" cy="42" r="4" fill="currentColor"/><circle cx="61" cy="42" r="4" fill="currentColor"/><path d="M38 58 Q50 64 62 58" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>`,
             gravity: `<circle cx="50" cy="50" r="26" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="50" cy="50" r="10" fill="none" stroke="currentColor" stroke-width="4" stroke-dasharray="14 8"/><circle cx="68" cy="32" r="5" fill="currentColor"/><circle cx="32" cy="68" r="5" fill="currentColor"/><line x1="50" y1="24" x2="50" y2="12" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>`,
             speed: `<path d="M56 14 L28 52 L48 52 L44 86 L72 44 L52 44Z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/><line x1="18" y1="36" x2="30" y2="36" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><line x1="14" y1="50" x2="26" y2="50" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><line x1="18" y1="64" x2="30" y2="64" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>`,
-            obstacle: `<rect x="20" y="20" width="60" height="60" rx="8" fill="none" stroke="currentColor" stroke-width="5"/><line x1="34" y1="34" x2="66" y2="66" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><line x1="66" y1="34" x2="34" y2="66" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>`,
-            custom: `<circle cx="50" cy="50" r="28" fill="none" stroke="currentColor" stroke-width="5"/><path d="M50 22 v56 M22 50 h56 M33 33 l34 34 M67 33 l-34 34" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><circle cx="50" cy="50" r="7" fill="currentColor"/>`,
+            obstacle: `<rect x="36" y="14" width="10" height="34" rx="4" fill="none" stroke="currentColor" stroke-width="5"/><rect x="58" y="52" width="10" height="34" rx="4" fill="none" stroke="currentColor" stroke-width="5"/><path d="M16 74 Q30 60 41 66 Q52 72 54 50 Q56 30 82 30" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="1 8"/><circle cx="82" cy="30" r="7" fill="currentColor"/>`,
+            custom: `<g stroke="currentColor" stroke-width="5" stroke-linecap="round"><line x1="20" y1="30" x2="80" y2="30"/><line x1="20" y1="50" x2="80" y2="50"/><line x1="20" y1="70" x2="80" y2="70"/></g><g fill="#0b1018" stroke="currentColor" stroke-width="5"><circle cx="36" cy="30" r="7"/><circle cx="64" cy="50" r="7"/><circle cx="44" cy="70" r="7"/></g>`,
         };
-        return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${s[id]}</svg>`;
+        return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">${s[id]}</svg>`;
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -500,6 +500,9 @@
             const span = oneRow ? (last.right - first.left) : row.scrollWidth;
             const fits = span <= hud.clientWidth - 24;
             hud.classList.toggle('cards-fit', fits);
+            // The scroll hint only makes sense when some cards are off screen.
+            const hint = document.querySelector('#ui .hint');
+            if (hint) hint.hidden = fits;
             if (fits && menuOffset && !isNativeCardScroll(row)) {
                 menuOffset = 0;
                 row.style.transform = '';
@@ -550,6 +553,13 @@
         m.style.setProperty('--modal-primary-strong', hexToRgba(color, 0.65));
         m.style.setProperty('--modal-primary-glow', hexToRgba(color, 0.45));
         m.style.setProperty('--modal-title-shadow', hexToRgba(color, 0.65));
+        // Online is only offered for the modes that support it (Zombie and Speed stay offline).
+        const online = m.querySelector('.opt-online');
+        if (online) {
+            const onlineModes = window.PPOnline?.modes;
+            online.hidden = !!onlineModes && !onlineModes.includes(menuSelected);
+            if (online.hidden && online.classList.contains('sel')) m.querySelector('.opt[data-mp="false"]')?.click();
+        }
         m.querySelectorAll('.opt').forEach(opt => {
             opt.style.setProperty('--modal-primary', color);
             opt.style.setProperty('--modal-primary-soft', hexToRgba(color, 0.12));
@@ -1556,8 +1566,9 @@
             const optEls = document.querySelectorAll('.opt');
             optEls.forEach(o => {
                 o.addEventListener('click', function () {
-                    optEls.forEach(x => x.classList.remove('sel'));
+                    optEls.forEach(x => { x.classList.remove('sel'); x.setAttribute('aria-checked', 'false'); });
                     this.classList.add('sel');
+                    this.setAttribute('aria-checked', 'true');
                     menuIsMP = this.dataset.mp === 'true';
                 }, false);
             });
