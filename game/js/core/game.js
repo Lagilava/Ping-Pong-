@@ -6710,7 +6710,19 @@ class Game {
         // kept clear of the score bar and the bottom edge.
         const half = st.h / 2;
         const x = Math.round(this.aiPaddle.pos.x - 50 * k);
-        const y = Math.round(Math.max(64 + half, Math.min(H - 8 - half, this.aiPaddle.pos.y + this.aiPaddle.h / 2)));
+        // Stay below an achievement toast in the top-right corner instead of
+        // sliding under it. The toast box is re-read at most 4 times a second.
+        const now = performance.now();
+        if (!(now - (st.toastReadAt || 0) < 250)) {
+            st.toastReadAt = now;
+            const box = document.querySelector('.achievement-notifications-container');
+            const r = box && box.childElementCount ? box.getBoundingClientRect() : null;
+            st.toastBottom = r && r.height ? r.bottom : 0;
+            st.toastLeft = r ? r.left : 0;
+        }
+        let minY = 64 + half;
+        if (st.toastBottom && x > st.toastLeft) minY = Math.max(minY, st.toastBottom + 10 + half);
+        const y = Math.round(Math.max(minY, Math.min(H - 8 - half, this.aiPaddle.pos.y + this.aiPaddle.h / 2)));
         if (x !== st.x || y !== st.y) {
             st.x = x;
             st.y = y;

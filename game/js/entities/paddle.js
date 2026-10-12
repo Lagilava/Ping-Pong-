@@ -1137,6 +1137,13 @@ class Paddle {
             const weaponY = -this.h / 2 - 40;
             const hotY = -this.h / 2 - 10;
 
+            // The label is wider than the paddle: when the paddle hugs the left
+            // edge, slide it right so "WEAPON" isn't cut off by the screen edge.
+            ctx.font = 'bold 48px "Transformers", "Arial Black", sans-serif';
+            const labelHalf = ctx.measureText('WEAPON').width / 2 + 16;
+            const edgeShift = Math.max(0, labelHalf - (this.pos.x + this.w / 2));
+            if (edgeShift) ctx.translate(edgeShift, 0);
+
             // ===== WEAPON TEXT IS ACTIVE (RED) =====
             // Back glow layer - massive
             ctx.shadowColor = '#FF0033';

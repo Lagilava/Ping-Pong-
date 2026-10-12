@@ -172,6 +172,11 @@
       min-width: 330px;
     }
 
+    /* Status spans the row; Image and Effect sit side by side under it. */
+    .hero-stats .stat:first-child {
+      grid-column: 1 / -1;
+    }
+
     .stat {
       border: 1px solid var(--line);
       border-radius: var(--radius-sm);
@@ -648,20 +653,16 @@
   <div class="app-shell">
     <header class="hero">
       <div class="hero-copy">
-        <div class="eyebrow">Developer Ball Studio</div>
-        <h1>Ball Forge</h1>
-        <p>Build a ball skin with color, image cover, and custom canvas effects. The preview renders your draft in real time, and you can save finished work as named presets or publish the active skin to the game.</p>
+        <div class="eyebrow">Custom matches</div>
+        <h1>Ball Studio</h1>
+        <p>Pick the ball's colors, add a picture and a glow effect, and watch it in the preview. Save to Game uses this ball in your Custom matches; presets keep looks you want to come back to.</p>
       </div>
       <div class="hero-actions">
         <button class="btn primary back" id="backToMenuBtn" type="button">Back to Menu</button>
       </div>
       <div class="hero-stats">
         <div class="stat">
-          <span class="stat-label">Storage Key</span>
-          <div class="stat-value">pp-ball-studio-v1</div>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Live State</span>
+          <span class="stat-label">Status</span>
           <div class="stat-value" id="liveStateValue">Ready</div>
         </div>
         <div class="stat">
@@ -678,12 +679,12 @@
     <main class="workspace">
       <section class="panel">
         <div class="panel-head">
-          <h2>Visual Controls</h2>
-          <div class="hint">Color, image, blend</div>
+          <h2>Look</h2>
+          <div class="hint">Colors and picture</div>
         </div>
         <div class="panel-body stack">
           <div class="group">
-            <div class="group-title">Base Look</div>
+            <div class="group-title">Colors</div>
             <label class="control">
               <span><strong>Ball Color</strong><small id="ballColorValue"></small></span>
               <input id="ballColor" type="color">
@@ -699,7 +700,7 @@
           </div>
 
           <div class="group">
-            <div class="group-title">Surface Image</div>
+            <div class="group-title">Picture</div>
             <label class="control">
               <span><strong>Image Opacity</strong><small id="imageOpacityValue"></small></span>
               <input id="imageOpacity" type="range" min="0" max="1" step="0.01">
@@ -709,39 +710,39 @@
               <input id="imageScale" type="range" min="0.75" max="2.5" step="0.01">
             </label>
             <label class="control">
-              <span><strong>Blend Mode</strong><small>draw mode</small></span>
+              <span><strong>Blend Mode</strong><small>how the picture mixes in</small></span>
               <select id="imageBlendMode">
-                <option value="source-over">source-over</option>
-                <option value="multiply">multiply</option>
-                <option value="screen">screen</option>
-                <option value="overlay">overlay</option>
-                <option value="soft-light">soft-light</option>
-                <option value="hard-light">hard-light</option>
-                <option value="lighter">lighter</option>
+                <option value="source-over">Normal</option>
+                <option value="multiply">Multiply</option>
+                <option value="screen">Screen</option>
+                <option value="overlay">Overlay</option>
+                <option value="soft-light">Soft light</option>
+                <option value="hard-light">Hard light</option>
+                <option value="lighter">Add</option>
               </select>
             </label>
             <label class="control">
-              <span><strong>Fit</strong><small>cover or contain</small></span>
+              <span><strong>Fit</strong></span>
               <select id="imageFit">
-                <option value="cover">cover</option>
-                <option value="contain">contain</option>
+                <option value="cover">Fill the ball</option>
+                <option value="contain">Fit inside</option>
               </select>
             </label>
             <div class="dropzone" id="imageDropzone" role="button" tabindex="0" aria-label="Import ball image">
               <strong>Import Image</strong>
-              <div>Drop a PNG, JPG, WEBP, or click to browse. The file is stored as a data URL and sent to the game.</div>
+              <div>Drop a PNG, JPG or WEBP here, or click to browse.</div>
             </div>
             <input class="hidden-input" id="imageInput" type="file" accept="image/*">
             <div class="footer-actions spaced">
-              <button class="btn warn" id="clearImageBtn">Clear Image</button>
+              <button class="btn warn" id="clearImageBtn" type="button">Clear Image</button>
             </div>
           </div>
 
           <div class="group">
-            <div class="group-title">Preview Health</div>
-            <div class="status" id="statusBox">
+            <div class="group-title">Status</div>
+            <div class="status" id="statusBox" role="status">
               <strong>Ready</strong>
-              <div>All controls are active. Change a field to recompile the effect or refresh the preview.</div>
+              <div>Changes show in the preview straight away.</div>
             </div>
           </div>
         </div>
@@ -749,15 +750,15 @@
 
       <section class="panel preview-shell">
         <div class="panel-head">
-          <h2>Live Preview</h2>
-          <div class="hint">Canvas updates on every valid edit</div>
+          <h2>Preview</h2>
+          <div class="hint">Updates as you edit</div>
         </div>
         <div class="panel-body preview-pad">
           <div class="preview-frame">
             <canvas id="previewCanvas" width="1280" height="900" aria-label="Ball live preview"></canvas>
             <div class="preview-overlay">
               <div class="chip" id="previewChipOne">Ball skin</div>
-              <div class="chip" id="previewChipTwo">No syntax errors</div>
+              <div class="chip" id="previewChipTwo">Live render</div>
             </div>
           </div>
           <div class="preview-meta spaced">
@@ -769,13 +770,13 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>Effect Code</h2>
-          <div class="hint">Raw canvas code body</div>
+          <h2>Glow Effect</h2>
+          <div class="hint">JavaScript canvas drawing</div>
         </div>
         <div class="panel-body split">
           <div class="effects-toolbar">
             <div class="preset-row">
-              <button class="btn primary" id="addEffectBtn">Custom Effect</button>
+              <button class="btn primary" id="addEffectBtn" type="button">Insert example effect</button>
             </div>
           </div>
           <div class="group">
@@ -791,24 +792,24 @@
               </select>
             </label>
             <div class="preset-row">
-              <button class="btn primary" id="savePresetBtn">Save Preset</button>
-              <button class="btn danger" id="deletePresetBtn">Delete Selected</button>
+              <button class="btn primary" id="savePresetBtn" type="button">Save Preset</button>
+              <button class="btn danger" id="deletePresetBtn" type="button">Delete Selected</button>
             </div>
           </div>
           <div class="textarea-wrap">
             <textarea id="effectCode" spellcheck="false" placeholder="Paste raw canvas code here. The variables ctx, ball, time, and api are available."></textarea>
             <div class="code-actions">
-              <button class="btn primary" id="applyBtn">Apply</button>
-              <button class="btn" id="saveBtn">Save to Game</button>
-              <button class="btn" id="copyJsonBtn">Copy JSON</button>
-              <button class="btn danger" id="resetBtn">Reset Defaults</button>
+              <button class="btn primary" id="applyBtn" type="button">Apply</button>
+              <button class="btn" id="saveBtn" type="button">Save to Game</button>
+              <button class="btn" id="copyJsonBtn" type="button">Copy JSON</button>
+              <button class="btn danger" id="resetBtn" type="button">Reset Defaults</button>
             </div>
           </div>
           <div class="group">
-            <div class="group-title">Config Snapshot</div>
+            <div class="group-title">Settings as JSON</div>
             <div class="json-box" id="jsonBox"></div>
           </div>
-          <p class="footnote">Tip: the code is compiled with <code>new Function</code> for local preview only. Keep the body focused on drawing commands and helper calls like <code>api.drawImageCover()</code>, <code>api.drawImageContain()</code>, or your own canvas paths.</p>
+          <p class="footnote">Tip: the code runs every frame with <code>ctx</code>, <code>ball</code>, <code>time</code> and <code>api</code>. Stick to drawing: canvas paths and helpers like <code>api.drawImageCover()</code> or <code>api.drawImageContain()</code>.</p>
         </div>
       </section>
     </main>
@@ -1180,7 +1181,7 @@
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
           window.dispatchEvent(new CustomEvent('pp-ball-studio-updated', { detail: payload }));
-          setStatus('ok', 'Saved and broadcast', 'The main game can pick up this config immediately if it is open in another tab.');
+          setStatus('ok', 'Saved to game', 'Your Custom matches now use this ball, even in a game that is already open in another tab.');
           if (force) {
             updateSnapshot();
           }
@@ -1835,8 +1836,7 @@
 
         const backButton = document.getElementById('backToMenuBtn');
         if (backButton) {
-          backButton.textContent = fromCustomise ? 'Back to Customise' : 'Back to Menu';
-          backButton.setAttribute('aria-label', fromCustomise ? 'Back to customise' : 'Back to menu');
+          backButton.textContent = fromCustomise ? 'Back to Custom' : 'Back to Menu';
           backButton.addEventListener('click', returnToMenu);
         }
 

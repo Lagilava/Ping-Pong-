@@ -1,3 +1,6 @@
+// XP awarded for every achievement unlock (also shown on the toast).
+const ACHIEVEMENT_XP = 75;
+
 class ProgressionSystem {
     constructor() {
         this.level = 1;
@@ -535,7 +538,7 @@ class ProgressionSystem {
         }
 
         this.queueNotification(title, desc);
-        this.addXP(75);
+        this.addXP(ACHIEVEMENT_XP);
         this.updateAchievementSidebar();
         this.saveProgress();
         // If this was the final unlocked achievement, show the completion overlay
@@ -784,9 +787,7 @@ class ProgressionSystem {
                     <div class="xbox-header-text">ACHIEVEMENT UNLOCKED</div>
                     <div class="xbox-title-text">${title}</div>
                 </div>
-                <div class="xbox-gamerscore">
-                    <span class="gs-icon">G</span> 50
-                </div>
+                <div class="xbox-gamerscore">+${ACHIEVEMENT_XP} XP</div>
             </div>
         `;
 

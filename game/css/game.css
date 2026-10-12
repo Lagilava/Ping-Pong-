@@ -7757,3 +7757,9 @@ body.pp-lowfx .achievements * {
 @media (max-width: 640px) {
     .customise-overlay .customise-ball-studio-field { grid-template-columns: 1fr; row-gap: 0.6rem; }
 }
+
+/* The wave/lives pills wait until the match intro is over: they sat under
+   the Skip intro button and read "0 left" before the wave had spawned. */
+body:has(#skipIntro:not(.hidden)) .zombie-progress-overlay.visible {
+    opacity: 0;
+}

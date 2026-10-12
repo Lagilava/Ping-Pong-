@@ -136,7 +136,7 @@ Plus **Custom** (local 1v1 with your own paddles, background, music and
 power-ups, played on an arena you build in the **Forge**: place walls, bumpers,
 spinners, moving gates, black holes, boost pads, ? blocks and coins, set the
 rules (score to win, ball speed, rally speed-up, paddle size, arena gravity),
-save maps and share them as codes), **Ball Forge** (a ball skin editor), local
+save maps and share them as codes), **Ball Studio** (a ball skin editor), local
 1v1 for any mode, and a persistent level / XP / achievement system.
 
 <table>
@@ -217,7 +217,7 @@ Share Online (PC + Mobile).bat   Public link + QR code so remote testers can pla
 game/                     Everything the browser loads
   index.html                Intro / boot screen
   play.html                 Menu + game
-  ball-studio.html          Ball Forge skin editor
+  ball-studio.html          Ball Studio skin editor
   css/                      Stylesheets (incl. locally bundled fonts)
   js/
     core/                   Game class, globals + quality governor, vectors, boot

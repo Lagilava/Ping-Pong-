@@ -108,18 +108,23 @@ body:has(.overlay:not(.hidden)) .achievement-notifications-container,
     color: #ffffff;
     font-size: 15px;
     font-weight: 600;
-    white-space: nowrap;
+    /* Up to two lines: short titles were being cut to 'Speed ...'. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.2;
     font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
 .xbox-gamerscore {
     flex-shrink: 0;
     margin-left: 12px;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.82);
     font-weight: 700;
     font-size: 13px;
+    white-space: nowrap;
     display: flex;
     align-items: center;
 }
