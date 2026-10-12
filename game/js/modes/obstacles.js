@@ -970,109 +970,23 @@ class ObstacleCourse {
         const g = this.grid;
         if (!g) return;
 
+        // Every course shares one objective colour. The decorative course
+        // lines are no longer drawn: they traced the same path as the route
+        // and doubled up every dashed line on screen.
+        const ROUTE = '#00ffd6';
+
         ctx.save();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
 
-        for (let i = 0; i < this.courseLines.length; i++) {
-            const line = this.courseLines[i];
-            if (!line?.points?.length) continue;
-
-            const pulse = line.pulse ? 0.88 + Math.sin(this.phase * line.pulse + i * 0.45) * 0.12 : 1;
-            ctx.save();
-            ctx.strokeStyle = line.color || '#00ffd6';
-            ctx.globalAlpha = (line.alpha ?? 0.14) * pulse;
-            ctx.lineWidth = line.width || 2;
-            ctx.setLineDash(line.dash || []);
-            ctx.shadowBlur = (line.width || 2) * 2.4;
-            ctx.shadowColor = line.color || '#00ffd6';
-            ctx.beginPath();
-            ctx.moveTo(line.points[0].x, line.points[0].y);
-            for (let j = 1; j < line.points.length; j++) {
-                ctx.lineTo(line.points[j].x, line.points[j].y);
-            }
-            ctx.stroke();
-
-            if ((line.nodeAlpha ?? 0) > 0) {
-                ctx.shadowBlur = 0;
-                ctx.setLineDash([]);
-                ctx.globalAlpha = line.nodeAlpha * pulse;
-                for (const point of line.points) {
-                    ctx.beginPath();
-                    ctx.arc(point.x, point.y, 2.4, 0, Math.PI * 2);
-                    ctx.fillStyle = line.color || '#00ffd6';
-                    ctx.fill();
-                }
-            }
-
-            ctx.restore();
-        }
-
-        if (this.courseRoute?.points?.length) {
-            const route = this.courseRoute;
-            const activeIndex = Math.min(this.courseRouteIndex, route.points.length - 1);
-
-            ctx.save();
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-
-            ctx.globalAlpha = 0.07 + this.courseRouteFlash * 0.08;
-            ctx.strokeStyle = route.color || '#ffffff';
-            ctx.lineWidth = Math.max(24 * this.sizeScale, (route.checkpointRadius || 28) * 1.65);
-            ctx.shadowBlur = 26;
-            ctx.shadowColor = route.color || '#ffffff';
-            ctx.beginPath();
-            ctx.moveTo(route.points[0].x, route.points[0].y);
-            for (let i = 1; i < route.points.length; i++) {
-                ctx.lineTo(route.points[i].x, route.points[i].y);
-            }
-            ctx.stroke();
-
-            ctx.globalAlpha = 0.22 + this.courseRouteFlash * 0.24;
-            ctx.strokeStyle = route.color || '#ffffff';
-            ctx.lineWidth = 3;
-            ctx.shadowBlur = 12;
-            ctx.beginPath();
-            ctx.moveTo(route.points[0].x, route.points[0].y);
-            for (let i = 1; i < route.points.length; i++) {
-                ctx.lineTo(route.points[i].x, route.points[i].y);
-            }
-            ctx.stroke();
-
-            if (activeIndex > 0) {
-                ctx.globalAlpha = 0.45 + this.courseRouteFlash * 0.28;
-                ctx.lineWidth = 5;
-                ctx.beginPath();
-                ctx.moveTo(route.points[0].x, route.points[0].y);
-                for (let i = 1; i <= activeIndex; i++) {
-                    ctx.lineTo(route.points[i].x, route.points[i].y);
-                }
-                ctx.stroke();
-            }
-
-            for (let i = 0; i < route.points.length; i++) {
-                const point = route.points[i];
-                const isActive = i === activeIndex;
-                const isCleared = i < activeIndex;
-                ctx.beginPath();
-                ctx.fillStyle = isActive ? route.color : (isCleared ? 'rgba(255, 255, 255, 0.36)' : 'rgba(255,255,255,0.18)');
-                ctx.strokeStyle = route.color;
-                ctx.lineWidth = isActive ? 3 : (isCleared ? 2 : 1.5);
-                ctx.shadowBlur = isActive ? 24 : (isCleared ? 14 : 8);
-                ctx.shadowColor = route.color;
-                ctx.arc(point.x, point.y, (route.checkpointRadius || 28) * (isActive ? 0.82 : 0.56), 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
-
+        // Hazard tracks: one thin neutral guide so you can read where
+        // things travel. Danger only warms the line, it never recolours it.
+        ctx.strokeStyle = '#9fc4d8';
         for (const obstacle of this.obstacles) {
             if (!obstacle?.active) continue;
-            const color = obstacle.activeRailColor || obstacle.railColor || '#00ffd6';
-            ctx.strokeStyle = color;
-            ctx.globalAlpha = 0.12 + obstacle.hitFlash * 0.08 + (obstacle.dangerLevel || 0) * 0.12;
-            ctx.lineWidth = 2 + (obstacle.dangerLevel || 0) * 1.2;
+            ctx.globalAlpha = 0.07 + (obstacle.dangerLevel || 0) * 0.08;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([3, 7]);
 
             if (obstacle.motion?.axis === 'y') {
                 const x = obstacle.originalPos.x + obstacle.w / 2;
@@ -1092,6 +1006,65 @@ class ObstacleCourse {
                 for (let i = 1; i < obstacle.path.length; i++) ctx.lineTo(obstacle.path[i].x, obstacle.path[i].y);
                 if (obstacle.path.length > 2) ctx.lineTo(obstacle.path[0].x, obstacle.path[0].y);
                 ctx.stroke();
+            }
+        }
+        ctx.setLineDash([]);
+
+        const route = this.courseRoute;
+        if (route?.points?.length) {
+            const pts = route.points;
+            const activeIndex = Math.min(this.courseRouteIndex, pts.length - 1);
+            const flash = this.courseRouteFlash;
+            const r = route.checkpointRadius || 28;
+            const trace = (to) => {
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i <= to; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                ctx.stroke();
+            };
+
+            // Remaining path: thin, dashed and quiet.
+            ctx.strokeStyle = ROUTE;
+            ctx.globalAlpha = 0.16 + flash * 0.1;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 9]);
+            trace(pts.length - 1);
+            ctx.setLineDash([]);
+
+            // Completed stretch: solid.
+            if (activeIndex > 0) {
+                ctx.globalAlpha = 0.5 + flash * 0.3;
+                ctx.lineWidth = 3;
+                trace(activeIndex);
+            }
+
+            // Checkpoints: only the next one is bright, the rest are rings.
+            ctx.font = `600 ${Math.max(11, Math.round(r * 0.55))}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                const isActive = i === activeIndex;
+                const isCleared = i < activeIndex;
+                const pulse = isActive ? 1 + Math.sin(this.phase * 4) * 0.06 : 1;
+                const rad = r * (isActive ? 0.7 : 0.46) * pulse;
+
+                ctx.globalAlpha = isActive ? 0.16 + flash * 0.15 : 0.05;
+                ctx.fillStyle = ROUTE;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.globalAlpha = isActive ? 0.95 : (isCleared ? 0.55 : 0.3);
+                ctx.strokeStyle = ROUTE;
+                ctx.lineWidth = isActive ? 2.5 : 1.5;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.globalAlpha = isActive ? 1 : (isCleared ? 0.55 : 0.4);
+                ctx.fillStyle = isActive ? '#ffffff' : ROUTE;
+                ctx.fillText(isCleared ? '✓' : String(i + 1), p.x, p.y + 0.5);
             }
         }
 
@@ -1136,26 +1109,29 @@ class Obstacle {
         this.pathSpeed = Number.isFinite(options.pathSpeed) ? options.pathSpeed : 0;
         this.pathPhase = Number.isFinite(options.pathPhase) ? options.pathPhase : 0;
         this.pathProgress = this.pathPhase;
-        this.railColor = options.railColor || '#00ffd6';
-        this.activeRailColor = this.railColor;
         this.courseSpeedMultiplier = 1;
         this.dangerLevel = 0;
 
-        // Colour per type
+        // One colour per role so the whole course reads as a single system:
+        // amber = moving/solid hazards, ice = bumpers and nodes, red = the
+        // repulsor, lilac-white = the magnet. Per-builder rail colours are
+        // ignored on purpose; they were what made courses look patchwork.
         const palette = {
-            gate: { primary: '#d9fff8', glow: '#00ffd6', accent: '#7df9ff' },
-            node: { primary: '#f8fbff', glow: '#00d4ff', accent: '#c9fff7' },
-            rotor: { primary: '#ffe8a3', glow: '#ffd166', accent: '#fff5c7' },
-            bumper: { primary: '#f4fbff', glow: '#7df9ff', accent: '#c9fff7' },
-            wall: { primary: '#fff0de', glow: '#ff8c66', accent: '#ffd0b8' },
-            spinner: { primary: '#fff0b6', glow: '#ffd166', accent: '#fff5c7' },
-            magnet: { primary: '#ffe2ff', glow: '#f5bfff', accent: '#ffd8ff' },
+            gate: { primary: '#ffe3b0', glow: '#ffb347', accent: '#ffd08a' },
+            rotor: { primary: '#ffe3b0', glow: '#ffb347', accent: '#ffd08a' },
+            spinner: { primary: '#ffe3b0', glow: '#ffb347', accent: '#ffd08a' },
+            wall: { primary: '#ffe3b0', glow: '#ffb347', accent: '#ffd08a' },
+            node: { primary: '#e8fbff', glow: '#7df9ff', accent: '#c9fff7' },
+            bumper: { primary: '#e8fbff', glow: '#7df9ff', accent: '#c9fff7' },
+            magnet: { primary: '#ecf4ff', glow: '#a9c8ff', accent: '#d4e4ff' },
             repulsor: { primary: '#ffe5e5', glow: '#ff6e6e', accent: '#ffd0c4' },
         };
         const col = palette[this.obstacleType] || palette.gate;
         this.colorPrimary = col.primary;
         this.colorGlow = col.glow;
         this.colorAccent = col.accent;
+        this.railColor = col.glow;
+        this.activeRailColor = this.railColor;
 
         // Particles spawned on hit
         this.hitParticles = [];
@@ -1511,17 +1487,21 @@ class Obstacle {
         }
 
         // Core
+        ctx.globalAlpha = 1;
         ctx.shadowBlur = 10 + glow * 20;
         ctx.shadowColor = activeColor;
-        ctx.fillStyle = glow > 0.1 ? '#ffffff' : 'rgba(255, 50, 50, 0.9)';
+        ctx.fillStyle = glow > 0.1 ? '#ffffff' : 'rgba(58, 14, 18, 0.95)';
+        ctx.strokeStyle = activeColor;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
         ctx.arc(0, 0, r * pulse, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
 
         // Crosshair symbol
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 3;
-        ctx.globalAlpha = 0.8;
+        ctx.strokeStyle = activeColor;
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.9;
         ctx.beginPath();
         ctx.moveTo(-r * 0.6, 0); ctx.lineTo(r * 0.6, 0);
         ctx.moveTo(0, -r * 0.6); ctx.lineTo(0, r * 0.6);
@@ -1539,7 +1519,7 @@ class Obstacle {
         ctx.globalAlpha = 0.96;
         ctx.shadowBlur = (glow > 0.05 || this.dangerLevel > 0.2) ? 6 + glow * 10 + this.dangerLevel * 8 : 0;
         ctx.shadowColor = activeColor;
-        ctx.fillStyle = glow > 0.15 ? '#f8ffff' : 'rgba(9, 34, 48, 0.92)';
+        ctx.fillStyle = glow > 0.15 ? '#fff8ec' : 'rgba(40, 28, 12, 0.94)';
         ctx.strokeStyle = activeColor;
         ctx.lineWidth = 2 + this.dangerLevel * 1.1;
         if (typeof ctx.roundRect === 'function') {
@@ -1595,7 +1575,7 @@ class Obstacle {
         ctx.rotate(this.rotation);
         ctx.shadowBlur = (glow > 0.05 || this.dangerLevel > 0.2) ? 6 + glow * 10 + this.dangerLevel * 8 : 0;
         ctx.shadowColor = activeColor;
-        ctx.fillStyle = glow > 0.15 ? '#ffffff' : 'rgba(52, 39, 12, 0.95)';
+        ctx.fillStyle = glow > 0.15 ? '#fff8ec' : 'rgba(40, 28, 12, 0.94)';
         ctx.strokeStyle = activeColor;
         ctx.lineWidth = 2 + this.dangerLevel * 1.1;
         if (typeof ctx.roundRect === 'function') {
@@ -1650,73 +1630,40 @@ class Obstacle {
         const cx = this.cx;
         const cy = this.cy;
         const radius = Math.min(this.w, this.h) / 2;
-        const pulse = 0.85 + Math.sin(this.pulsePhase * 1.8) * 0.15;
-        const glow = this.glowIntensity;
-        const dmgPct = this.damageLevel / this.maxDamage;
+        const pulse = 1 + Math.sin(this.pulsePhase * 1.8) * 0.04;
+        const glow = Math.max(this.glowIntensity, this.hitFlash);
+        const color = this.activeRailColor || this.colorGlow;
 
         ctx.save();
+        ctx.translate(cx, cy);
 
-        // Outer glow halo
-        const halo = ctx.createRadialGradient(cx, cy, radius * 0.5, cx, cy, radius * 2.4);
-        halo.addColorStop(0, `${this.colorGlow}55`);
-        halo.addColorStop(1, 'transparent');
-        ctx.fillStyle = halo;
-        ctx.globalAlpha = 0.4 + glow * 0.6;
+        // Soft ground ring
+        ctx.globalAlpha = 0.16 + glow * 0.3;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(cx, cy, radius * 2.4, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(0, 0, radius * (1.7 + glow * 0.3), 0, Math.PI * 2);
+        ctx.stroke();
 
-        // Body gradient
-        const body = ctx.createRadialGradient(cx - radius * 0.3, cy - radius * 0.3, radius * 0.1, cx, cy, radius * pulse);
-        body.addColorStop(0, this.hitFlash > 0 ? '#ffffff' : '#fefefe');
-        body.addColorStop(0.45, this.colorAccent);
-        body.addColorStop(1, `${this.colorGlow}dd`);
+        // Body: flat dark disc like the nodes, bright edge
         ctx.globalAlpha = 1;
-        ctx.fillStyle = body;
-        ctx.shadowBlur = 18 + glow * 24;
-        ctx.shadowColor = this.colorGlow;
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius * pulse, 0, Math.PI * 2);
-        ctx.fill();
-        if (this.forgeSurface) window.SurfaceTextures?.paint(ctx, 'alloy', cx - radius * pulse, cy - radius * pulse, radius * pulse * 2, radius * pulse * 2, 0.65 * (1 - this.hitFlash));
-
-        // Subtle ping-pong seam
-        ctx.globalAlpha = 0.95;
-        ctx.strokeStyle = 'rgba(5, 30, 55, 0.35)';
-        ctx.lineWidth = Math.max(1.5, radius * 0.12);
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius * 0.72, Math.PI * 0.2, Math.PI * 1.15);
-        ctx.stroke();
-
-        // Damage cracks (rings)
-        if (dmgPct > 0) {
-            ctx.globalAlpha = dmgPct * 0.7;
-            ctx.strokeStyle = 'rgba(255,78,205,0.78)';
-            ctx.lineWidth = 2;
-            for (let i = 0; i < Math.ceil(dmgPct * 3); i++) {
-                const crackAngle = (i / 3) * Math.PI * 2 + this.pulsePhase;
-                ctx.beginPath();
-                ctx.arc(cx, cy, radius * (0.55 + i * 0.18), crackAngle, crackAngle + 0.9);
-                ctx.stroke();
-            }
-        }
-
-        // Inner ring
-        ctx.globalAlpha = 0.8;
-        ctx.strokeStyle = this.colorAccent;
+        ctx.shadowBlur = glow > 0.05 ? 8 + glow * 12 : 0;
+        ctx.shadowColor = color;
+        ctx.fillStyle = glow > 0.15 ? '#ffffff' : 'rgba(12, 42, 58, 0.95)';
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2.5;
-        ctx.shadowBlur = 10;
         ctx.beginPath();
-        ctx.arc(cx, cy, radius * 0.55, 0, Math.PI * 2);
+        ctx.arc(0, 0, radius * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        if (this.forgeSurface) window.SurfaceTextures?.paint(ctx, 'alloy', -radius, -radius, radius * 2, radius * 2, 0.65 * (1 - this.hitFlash));
         ctx.stroke();
 
-        // Centre dot
-        ctx.fillStyle = '#ffffff';
+        // Core dot
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 0.9;
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = '#ffffff';
+        ctx.fillStyle = this.colorAccent;
         ctx.beginPath();
-        ctx.arc(cx, cy, radius * 0.18, 0, Math.PI * 2);
+        ctx.arc(0, 0, radius * 0.3, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -1727,115 +1674,35 @@ class Obstacle {
         const y = this.pos.y + this.floatOffset;
         const w = this.w;
         const h = this.h;
-        const glow = this.glowIntensity;
-        const dmgPct = this.damageLevel / this.maxDamage;
+        const glow = Math.max(this.glowIntensity, this.hitFlash);
+        const color = this.activeRailColor || this.colorGlow;
 
         ctx.save();
+        ctx.shadowBlur = (glow > 0.05 || this.dangerLevel > 0.2) ? 6 + glow * 10 + this.dangerLevel * 8 : 0;
+        ctx.shadowColor = color;
+        ctx.fillStyle = glow > 0.15 ? '#fff8ec' : 'rgba(40, 28, 12, 0.94)';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2 + this.dangerLevel * 1.1;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(x, y, w, h, Math.min(6, w * 0.35));
+        else ctx.rect(x, y, w, h);
+        ctx.fill();
+        if (this.forgeSurface) window.SurfaceTextures?.paint(ctx, 'metal', x, y, w, h, 0.65 * (1 - this.hitFlash));
+        ctx.stroke();
 
-        // Shadow / glow backdrop
-        ctx.fillStyle = `${this.colorGlow}28`;
-        ctx.shadowBlur = 20 + glow * 30;
-        ctx.shadowColor = this.colorGlow;
-        ctx.fillRect(x - 6, y - 6, w + 12, h + 12);
-
-        // Body
-        const grad = ctx.createLinearGradient(x, y, x + w, y + h);
-        grad.addColorStop(0, this.hitFlash > 0 ? '#ffffff' : '#f8fbff');
-        grad.addColorStop(0.48, this.colorPrimary);
-        grad.addColorStop(1, this.colorGlow);
-        ctx.fillStyle = grad;
-        ctx.globalAlpha = 1;
-        ctx.shadowBlur = 14 + glow * 20;
-        if (typeof ctx.roundRect === 'function') {
-            ctx.beginPath();
-            ctx.roundRect(x, y, w, h, Math.min(h * 0.35, 10));
-            ctx.fill();
-            if (this.forgeSurface) window.SurfaceTextures?.paint(ctx, 'metal', x, y, w, h, 0.65 * (1 - this.hitFlash));
-        } else {
-            ctx.fillRect(x, y, w, h);
-        }
-
-        // Paddle edge tape
-        ctx.globalAlpha = 0.35 + dmgPct * 0.12;
-        ctx.fillStyle = 'rgba(255,255,255,0.82)';
-        ctx.fillRect(x + 3, y + 3, w - 6, Math.max(3, h * 0.12));
-        ctx.fillStyle = 'rgba(255,78,205,0.34)';
-        ctx.fillRect(x + 3, y + h - Math.max(4, h * 0.14) - 3, w - 6, Math.max(3, h * 0.12));
-
-        // Border
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = this.colorAccent;
-        ctx.lineWidth = 2;
-        if (typeof ctx.roundRect === 'function') {
-            ctx.beginPath();
-            ctx.roundRect(x + 1, y + 1, w - 2, h - 2, Math.min(h * 0.32, 8));
-            ctx.stroke();
-        } else {
-            ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
-        }
-
-        // Damage cracks
-        if (dmgPct > 0) {
-            ctx.globalAlpha = dmgPct * 0.8;
-            ctx.strokeStyle = 'rgba(255,211,74,0.92)';
-            ctx.lineWidth = 1.5;
-            for (let i = 0; i < Math.ceil(dmgPct * 4); i++) {
-                const cx2 = x + (i + 0.5) * (w / 4);
-                ctx.beginPath();
-                ctx.moveTo(cx2, y + 2);
-                ctx.lineTo(cx2 + (Math.random() - 0.5) * 8, y + h * 0.5);
-                ctx.lineTo(cx2 + (Math.random() - 0.5) * 12, y + h - 2);
-                ctx.stroke();
-            }
-        }
+        // Centre inlay, same language as the gate
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 0.45 + glow * 0.35;
+        ctx.fillStyle = this.colorAccent;
+        if (h >= w) ctx.fillRect(x + w * 0.35, y + 4, Math.max(2, w * 0.3), h - 8);
+        else ctx.fillRect(x + 4, y + h * 0.35, w - 8, Math.max(2, h * 0.3));
 
         ctx.restore();
     }
 
     _renderSpinner(ctx) {
-        const cx = this.cx;
-        const cy = this.cy;
-        const len = this.w / 2;
-        const glow = this.glowIntensity;
-
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(this.rotation);
-
-        // Glow trail
-        ctx.shadowBlur = 16 + glow * 28;
-        ctx.shadowColor = this.colorGlow;
-
-        // Rod body
-        const rodGrad = ctx.createLinearGradient(-len, 0, len, 0);
-        rodGrad.addColorStop(0, `${this.colorGlow}aa`);
-        rodGrad.addColorStop(0.5, this.hitFlash > 0 ? '#ffffff' : this.colorPrimary);
-        rodGrad.addColorStop(1, `${this.colorGlow}aa`);
-        ctx.fillStyle = rodGrad;
-        ctx.beginPath();
-        ctx.roundRect(-len, -this.h / 2, len * 2, this.h, this.h / 2);
-        ctx.fill();
-
-        // End caps (bright)
-        for (const ex of [-len, len]) {
-            const cap = ctx.createRadialGradient(ex, 0, 0, ex, 0, this.h);
-            cap.addColorStop(0, '#ffffff');
-            cap.addColorStop(1, this.colorPrimary);
-            ctx.fillStyle = cap;
-            ctx.beginPath();
-            ctx.arc(ex, 0, this.h * 0.75, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Centre hub
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(0, 0, this.h * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.restore();
+        // Same capsule as the rotor, so moving blades read as one family.
+        this._renderRotor(ctx);
     }
 
     _renderMagnet(ctx) {
@@ -1861,40 +1728,31 @@ class Obstacle {
             ctx.stroke();
         }
 
-        // Body
-        const body = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r * pulse);
-        body.addColorStop(0, this.hitFlash > 0 ? '#ffffff' : '#fffde7');
-        body.addColorStop(0.46, this.colorPrimary);
-        body.addColorStop(1, this.colorGlow);
+        // Body: flat dark disc with a bright edge, like the nodes
         ctx.globalAlpha = 1;
-        ctx.fillStyle = body;
-        ctx.shadowBlur = 18 + glow * 24;
+        ctx.fillStyle = this.hitFlash > 0.15 ? '#ffffff' : 'rgba(14, 30, 58, 0.95)';
+        ctx.strokeStyle = this.colorGlow;
+        ctx.lineWidth = 2.5;
+        ctx.shadowBlur = glow > 0.05 ? 8 + glow * 12 : 0;
         ctx.shadowColor = this.colorGlow;
         ctx.beginPath();
         ctx.arc(cx, cy, r * pulse, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
 
-        // Target ring core
-        ctx.globalAlpha = 0.95;
-        ctx.strokeStyle = 'rgba(5, 20, 42, 0.8)';
-        ctx.lineWidth = Math.max(2, r * 0.13);
-        ctx.lineCap = 'round';
+        // Target rings
         ctx.shadowBlur = 0;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r * 0.64, 0, Math.PI * 2);
-        ctx.stroke();
-
         ctx.strokeStyle = this.colorAccent;
-        ctx.lineWidth = Math.max(1.5, r * 0.07);
+        ctx.globalAlpha = 0.7;
+        ctx.lineWidth = Math.max(1.5, r * 0.08);
         ctx.beginPath();
-        ctx.arc(cx, cy, r * 0.38, 0, Math.PI * 2);
+        ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = '#ffffff';
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = this.colorAccent;
         ctx.beginPath();
-        ctx.arc(cx, cy, r * 0.11, 0, Math.PI * 2);
+        ctx.arc(cx, cy, r * 0.14, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();

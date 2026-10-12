@@ -176,7 +176,7 @@ class Game {
             zombie: { ballBase: 900, ballMax: 1600, paddleMax: 900 },
             gravity: { ballBase: 920, ballMax: 1650, paddleMax: 920 },
             obstacle: { ballBase: 752, ballMax: 1360, paddleMax: 940 },
-            speed: { ballBase: 900, ballMax: 1800, paddleMax: 1000 },
+            speed: { ballBase: 1010, ballMax: 1950, paddleMax: 1080 },
             customise: { ballBase: 940, ballMax: 1650, paddleMax: 940 }
         };
         this.lastRallyMilestone = 0;
@@ -6972,7 +6972,7 @@ class Game {
     // long rallies reach top speed instead of plateauing.
     getPaddleSpeedIncrease(isPlayer) {
         let inc = 1.085;
-        if (this.gameMode === 'speed') inc = 1.11;
+        if (this.gameMode === 'speed') inc = 1.12;
         else if (this.gameMode === 'zombie') inc = 1.08;
         else if (this.gameMode === 'customise' && window.Forge) inc = window.Forge.getRuleSpeedIncrease(this);
         if (this.isZombieWaveMode() && isPlayer && this.zombieState.powerups.rage > 0) inc *= 1.18;
