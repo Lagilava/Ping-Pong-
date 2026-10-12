@@ -1258,7 +1258,7 @@
             const b = document.createElement('button');
             b.type = 'button';
             b.className = 'customise-online-btn';
-            b.innerHTML = '&#127760; Play Online';
+            b.innerHTML = '<svg class="btn-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"><circle cx="24" cy="24" r="17"/><path d="M7 24h34M24 7c-5 5-7 11-7 17s2 12 7 17M24 7c5 5 7 11 7 17s-2 12-7 17"/></g></svg> Play online';
             b.addEventListener('click', () => {
                 window.__ppSyncCustomSettingsFromControls?.();
                 window.game?.saveCustomSettings?.();

@@ -248,37 +248,27 @@
     <div id="customiseOverlay" class="customise-overlay" aria-hidden="true">
         <div class="customise-overlay-header">
             <div>
-                <h2 class="customise-overlay-title">Customise Your Match</h2>
-                <p class="customise-overlay-subtitle">Tune both paddles, preview the result, and shape the background to
-                    fit your style.</p>
+                <h2 class="customise-overlay-title">Custom Match</h2>
+                <p class="customise-overlay-subtitle">Pick the paddles, ball, music and background, then build the arena
+                    and set the rules.</p>
             </div>
             <div class="customise-overlay-actions">
                 <button class="customise-overlay-back-btn customise-overlay-settings-btn" type="button"
                     data-open-panel="settings">&#9881; Settings</button>
-                <button id="customiseBackBtn" class="customise-overlay-back-btn" type="button"
-                    aria-label="Back to modes">Back to Modes</button>
+                <button id="customiseBackBtn" class="customise-overlay-back-btn" type="button">Back to modes</button>
             </div>
         </div>
         <div class="customise-overlay-content">
             <div class="customise-overlay-scrollable">
                 <div id="customisePanel" class="customise-panel" aria-label="Custom mode settings">
-                    <div class="customise-hero">
-                        <div class="customise-hero-copy">
-                            <p class="customise-kicker">Quick setup</p>
-                            <h3>Make it yours in a few taps</h3>
-                            <p>Choose a background, set each paddle color independently, and preview the result before
-                                starting the match.</p>
-                        </div>
-                    </div>
-
                     <div class="customise-hero-summary">
                         <div class="customise-summary-card">
-                            <span class="customise-summary-label">Left Paddle Preview</span>
+                            <span class="customise-summary-label">Left paddle</span>
                             <canvas id="customPreviewLeftPaddle" class="customise-summary-swatch"
                                 aria-label="Left paddle preview"></canvas>
                         </div>
                         <div class="customise-summary-card">
-                            <span class="customise-summary-label">Right Paddle Preview</span>
+                            <span class="customise-summary-label">Right paddle</span>
                             <canvas id="customPreviewRightPaddle" class="customise-summary-swatch"
                                 aria-label="Right paddle preview"></canvas>
                         </div>
@@ -286,12 +276,12 @@
 
                     <div class="customise-color-controls">
                         <div class="customise-controls-heading">
-                            <p class="customise-kicker">Colors & Visuals</p>
-                            <h3>Paddle Customization</h3>
+                            <p class="customise-kicker">Paddles and ball</p>
+                            <h3>Look</h3>
                         </div>
                         <div class="customise-grid">
                             <div class="customise-field">
-                                <label for="customPaddleStyle">Paddle design (both paddles)</label>
+                                <label for="customPaddleStyle">Paddle design (both sides)</label>
                                 <select id="customPaddleStyle">
                                     <option value="classic">Classic</option>
                                     <option value="neonBlade">Satelliten</option>
@@ -301,47 +291,48 @@
                                 </select>
                             </div>
                             <div class="customise-field">
-                                <label for="customLeftPaddleColor">Left Paddle Color</label>
+                                <label for="customLeftPaddleColor">Left paddle color</label>
                                 <input id="customLeftPaddleColor" type="color" value="#00ffd6">
                             </div>
                             <div class="customise-field">
-                                <label for="customRightPaddleColor">Right Paddle Color</label>
+                                <label for="customRightPaddleColor">Right paddle color</label>
                                 <input id="customRightPaddleColor" type="color" value="#ff0044">
                             </div>
                             <div class="customise-field customise-ball-studio-field">
-                                <label>Ball Studio</label>
-                                <p class="customise-field-copy">Use the dedicated studio to customise the ball skin,
-                                    image, and effect code. Changes made here will only affect custom matches and not
-                                    the other modes.</p>
-                                <button id="openBallStudioBtn" class="btn primary" type="button">Open Ball
-                                    Studio</button>
+                                <label for="openBallStudioBtn">Ball</label>
+                                <p class="customise-field-copy">Design the ball's color, picture and glow in the Ball
+                                    Studio. It is only used in Custom matches.</p>
+                                <button id="openBallStudioBtn" class="btn primary" type="button">Open Ball Studio</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="customise-audio-controls">
                         <div class="customise-controls-heading">
-                            <p class="customise-kicker">Audio</p>
-                            <h3>Match Music Selection</h3>
+                            <p class="customise-kicker">Music</p>
+                            <h3>Match music</h3>
                         </div>
                         <div class="customise-grid">
                             <div class="customise-field">
-                                <label for="customAudioTrack">Match Audio Track</label>
+                                <label for="customAudioTrack">Track</label>
                                 <select id="customAudioTrack">
-                                    <option value="" selected>Select a track</option>
-                                    <option value="assets/audio/axel-f.mp3">axel-f.mp3</option>
-                                    <option value="assets/audio/zombies.mp3">zombies.mp3</option>
-                                    <option value="assets/audio/space.mp3">space.mp3</option>
-                                    <option value="assets/audio/speed.mp3">speed.mp3</option>
-                                    <option value="assets/audio/obstacles.mp3">obstacles.mp3</option>
+                                    <option value="" selected>Default (Axel F)</option>
+                                    <option value="assets/audio/axel-f.mp3">Axel F (Classic)</option>
+                                    <option value="assets/audio/zombies.mp3">She Is Not There (Zombie)</option>
+                                    <option value="assets/audio/space.mp3">Just Blue (Gravity)</option>
+                                    <option value="assets/audio/speed.mp3">I Luv U Baby (Speed)</option>
+                                    <option value="assets/audio/obstacles.mp3">Can You Deal With This (Obstacle)</option>
                                 </select>
                             </div>
                             <div class="customise-field">
-                                <label for="customAudioCustomPath">Or Custom Audio Path</label>
-                                <input id="customAudioCustomPath" type="text"
-                                    placeholder="Choose a local file or type a valid path">
+                                <label for="customAudioCustomPath">Or your own music</label>
+                                <div class="customise-file-row">
+                                    <input id="customAudioCustomPath" type="text"
+                                        placeholder="Audio file path or web address">
+                                    <button id="customAudioPickBtn" type="button" class="customise-file-btn">Choose file&hellip;</button>
+                                </div>
                                 <input type="file" id="customAudioFilePicker" class="hidden-file-picker"
-                                    accept="audio/*">
+                                    accept="audio/*" tabindex="-1" aria-hidden="true">
                             </div>
                         </div>
                     </div>
@@ -349,13 +340,11 @@
                     <div class="customise-background-studio">
                         <div class="customise-background-controls">
                             <div class="customise-studio-heading">
-                                <p class="customise-kicker">Background studio</p>
-                                <h3>Shape the backdrop beside the live preview</h3>
-                                <p>These controls update the background preview and the actual in-game custom background
-                                    together.</p>
+                                <p class="customise-kicker">Background</p>
+                                <h3>Backdrop and tone</h3>
                             </div>
                             <div class="customise-field">
-                                <label for="customBackgroundMode">Background Preset</label>
+                                <label for="customBackgroundMode">World</label>
                                 <select id="customBackgroundMode">
                                     <option value="classic">Classic</option>
                                     <option value="zombie">Zombie</option>
@@ -365,35 +354,30 @@
                                 </select>
                             </div>
                             <div class="customise-field">
-                                <label for="customBgBrightness">Background Brightness</label>
+                                <label for="customBgBrightness">Brightness</label>
                                 <input id="customBgBrightness" type="range" min="0.5" max="1.6" step="0.05" value="1">
                                 <div class="customise-slider-row"><span>Dim</span><span
-                                        id="customBgBrightnessValue">1.00</span><span>Bright</span></div>
+                                        id="customBgBrightnessValue">100%</span><span>Bright</span></div>
                             </div>
                             <div class="customise-field">
-                                <label for="customBgSaturation">Background Saturation</label>
+                                <label for="customBgSaturation">Saturation</label>
                                 <input id="customBgSaturation" type="range" min="0.5" max="1.8" step="0.05" value="1">
                                 <div class="customise-slider-row"><span>Muted</span><span
-                                        id="customBgSaturationValue">1.00</span><span>Rich</span></div>
+                                        id="customBgSaturationValue">100%</span><span>Rich</span></div>
                             </div>
                             <div class="customise-field">
-                                <label for="customBgContrast">Background Contrast</label>
+                                <label for="customBgContrast">Contrast</label>
                                 <input id="customBgContrast" type="range" min="0.6" max="1.7" step="0.05" value="1">
                                 <div class="customise-slider-row"><span>Soft</span><span
-                                        id="customBgContrastValue">1.00</span><span>Sharp</span></div>
+                                        id="customBgContrastValue">100%</span><span>Sharp</span></div>
                             </div>
                         </div>
                         <div class="customise-live-preview-wrapper">
                             <div class="customise-live-preview-header">
-                                <div>
-                                    <p class="customise-kicker">Live background preview</p>
-                                    <h3>See the selected world with your tone settings applied</h3>
-                                </div>
-                                <p class="customise-live-preview-note">Use the sliders to tune the exact look of the
-                                    background before the match starts.</p>
+                                <p class="customise-kicker">Preview</p>
                             </div>
                             <div id="customiseLivePreview" class="customise-live-preview"
-                                aria-label="Live game preview">
+                                aria-label="Background preview">
                                 <img id="customLiveBackgroundImage" class="customise-live-bg-image"
                                     alt="Selected background preview">
                                 <canvas id="customLiveBackgroundCanvas" class="customise-live-bg-canvas" width="620"
@@ -437,7 +421,7 @@
                     </div>
 
                     <div class="customise-powerups-panel">
-                        <p class="customise-powerups-title">Allowed Power-Ups In Custom Match</p>
+                        <p class="customise-powerups-title">Power-ups in this match</p>
                         <div id="customPowerupsGrid" class="customise-powerups-grid">
                             <label class="customise-powerup-option"><input type="checkbox" value="slowBall">Slow
                                 Ball</label>
@@ -472,14 +456,12 @@
                     </div>
 
                     <p id="customModeNotice" class="custom-mode-note">
-                        Custom matches are local two-player games on your Forge arena: no AI opponent, no speed
-                        challenge, no XP, no achievements.
+                        Custom matches are two-player games on your Forge arena, on one screen or online. There is no
+                        computer opponent, Speed challenge, XP or achievements.
                     </p>
                     <div class="customise-actions">
-                        <button id="customStartMatchBtn" type="button" class="customise-start-btn">Start Custom
-                            Match</button>
-                        <button id="customResetDefaultsBtn" type="button" class="customise-reset-btn">Reset
-                            Defaults</button>
+                        <button id="customStartMatchBtn" type="button" class="customise-start-btn">Start match</button>
+                        <button id="customResetDefaultsBtn" type="button" class="customise-reset-btn">Reset to defaults</button>
                     </div>
                 </div>
             </div>

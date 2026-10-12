@@ -4976,7 +4976,9 @@ button {
     display: grid;
     grid-template-columns: minmax(300px, 0.65fr) minmax(0, 1.35fr);
     gap: 1.5rem;
-    align-items: stretch;
+    /* The preview card ends under the preview instead of stretching into an
+       empty box beside the taller slider column. */
+    align-items: start;
 }
 
 .customise-background-controls,
@@ -5111,7 +5113,11 @@ button {
 }
 
 .customise-overlay .customise-live-preview {
-    height: 340px;
+    /* Same shape as the match, so the preview fills its card instead of
+       floating in the middle of it. */
+    height: auto;
+    aspect-ratio: 16 / 9;
+    max-width: none;
     border: 2px solid rgba(0, 212, 255, 0.28);
     border-radius: 18px;
     background: #050a14;
@@ -5120,11 +5126,53 @@ button {
 }
 
 .customise-overlay .customise-live-preview-wrapper {
-    padding: 1.8rem;
+    padding: 1.6rem;
     border-radius: 20px;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
+}
+
+/* The Ball card spans the row: text on the left, button on the right. */
+.customise-overlay .customise-ball-studio-field {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 1.25rem;
+}
+.customise-overlay .customise-ball-studio-field label { grid-column: 1 / -1; }
+.customise-overlay .customise-ball-studio-field .customise-field-copy { margin: 0; }
+
+.customise-file-row {
+    display: flex;
+    gap: 0.6rem;
+}
+.customise-file-row input[type="text"] { flex: 1; min-width: 0; }
+.customise-file-btn {
+    flex: 0 0 auto;
+    border: 1px solid rgba(0, 212, 255, 0.35);
+    border-radius: 12px;
+    background: rgba(0, 212, 255, 0.08);
+    color: #e8fcff;
+    padding: 0 1rem;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.customise-file-btn:hover,
+.customise-file-btn:focus-visible {
+    border-color: #00d4ff;
+    background: rgba(0, 212, 255, 0.16);
+    outline: none;
+}
+
+.btn-icon {
+    width: 1.1em;
+    height: 1.1em;
+    vertical-align: -0.2em;
+    margin-right: 0.35em;
 }
 
 .customise-overlay .customise-live-preview-wrapper:hover .customise-live-preview {
@@ -7705,3 +7753,7 @@ body.pp-lowfx .achievements * {
 .obstacle-briefing .zombie-briefing-rules strong { color: #ffc46b; }
 .obstacle-briefing .zombie-briefing-rules li { background: rgba(40, 24, 8, 0.7); border-color: rgba(255, 180, 90, 0.16); }
 .obstacle-briefing .zombie-briefing-start { background: linear-gradient(180deg, #ffb340, #d9730a); border-color: rgba(255, 210, 140, 0.7); color: #1a0c00; }
+
+@media (max-width: 640px) {
+    .customise-overlay .customise-ball-studio-field { grid-template-columns: 1fr; row-gap: 0.6rem; }
+}

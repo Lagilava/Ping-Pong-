@@ -1621,6 +1621,11 @@
         const customBgTintA = document.getElementById('customBgTintA');
         const customBgTintB = document.getElementById('customBgTintB');
         const customPowerupsGrid = document.getElementById('customPowerupsGrid');
+        const customAudioTrack = document.getElementById('customAudioTrack');
+        const customAudioCustomPath = document.getElementById('customAudioCustomPath');
+        const customAudioPickBtn = document.getElementById('customAudioPickBtn');
+        const customAudioFilePicker = document.getElementById('customAudioFilePicker');
+        const customResetDefaultsBtn = document.getElementById('customResetDefaultsBtn');
 
         // The background beside the tone sliders is drawn the same way as the
         // Forge's arena preview and the match: built-in worlds by the live
@@ -1720,6 +1725,8 @@
             setVal(customBgTintA, cs.backgroundTintA);
             setVal(customBgTintB, cs.backgroundTintB);
             setVal(customPaddleStyle, window.PPSettings?.getPaddle?.('customise', 'left') || cs.paddleStyle);
+            if (customAudioTrack) customAudioTrack.value = cs.audioTrack || '';
+            if (customAudioCustomPath) customAudioCustomPath.value = window.game.customAudioRuntimeLabel || cs.audioCustomPath || '';
             if (customPowerupsGrid && Array.isArray(cs.enabledPowerUps)) {
                 const on = new Set(cs.enabledPowerUps);
                 customPowerupsGrid.querySelectorAll('input[type="checkbox"]').forEach((i) => { i.checked = on.has(i.value); });
@@ -1759,6 +1766,10 @@
                 next.rightPaddleColor = customRightPaddleColor?.value || next.rightPaddleColor || '#ff0044';
                 next.backgroundTintA = customBgTintA?.value || next.backgroundTintA || '#0f6eff';
                 next.backgroundTintB = customBgTintB?.value || next.backgroundTintB || '#00142f';
+                next.audioTrack = customAudioTrack?.value || '';
+                // A file picked from disk plays from memory; only typed paths are saved.
+                const typedPath = (customAudioCustomPath?.value || '').trim();
+                next.audioCustomPath = game.customAudioRuntimeSource && typedPath === game.customAudioRuntimeLabel ? '' : typedPath;
                 if (customPowerupsGrid) {
                     const checked = Array.from(customPowerupsGrid.querySelectorAll('input[type="checkbox"]:checked')).map(i => i.value);
                     if (typeof game.getDefaultCustomPowerUps === 'function') {
@@ -1796,7 +1807,17 @@
                 customBackgroundMode, customBgBrightness, customBgSaturation, customBgContrast,
                 customPaddleStyle, customLeftPaddleColor, customRightPaddleColor, customBgTintA, customBgTintB
             ];
+            // The numbers under the tone sliders follow the sliders.
+            const updateToneLabels = () => {
+                [[customBgBrightness, 'customBgBrightnessValue'], [customBgSaturation, 'customBgSaturationValue'], [customBgContrast, 'customBgContrastValue']]
+                    .forEach(([input, id]) => {
+                        const out = document.getElementById(id);
+                        if (input && out) out.textContent = `${Math.round(Number(input.value) * 100)}%`;
+                    });
+            };
+            updateToneLabels();
             const syncAndRefresh = () => {
+                updateToneLabels();
                 if (typeof window.__ppSyncCustomSettingsFromControls === 'function') window.__ppSyncCustomSettingsFromControls();
                 else { manualSync(); window.game?.applyCustomiseSettings?.(true); }
                 if (typeof window.__ppRefreshCustomPreviewNow === 'function') window.__ppRefreshCustomPreviewNow();
@@ -1816,6 +1837,71 @@
                     inp.addEventListener('change', syncAndRefresh);
                     inp.dataset.ppCustomiseOverlayBound = '1';
                 });
+            }
+
+            // Music: a listed track, or the player's own file / path (which wins).
+            const dropPickedFile = () => {
+                const game = window.game;
+                if (!game?.customAudioRuntimeSource) return;
+                try { URL.revokeObjectURL(game.customAudioRuntimeSource); } catch (_) { }
+                game.customAudioRuntimeSource = '';
+                game.customAudioRuntimeLabel = '';
+            };
+            const musicChanged = () => {
+                syncAndRefresh();
+                window.game?.preloadCustomMatchAudio?.();
+            };
+            if (customAudioTrack && customAudioTrack.dataset.ppCustomiseOverlayBound !== '1') {
+                customAudioTrack.addEventListener('change', () => {
+                    // Choosing a listed track replaces your own file.
+                    dropPickedFile();
+                    if (customAudioCustomPath) customAudioCustomPath.value = '';
+                    musicChanged();
+                });
+                customAudioTrack.dataset.ppCustomiseOverlayBound = '1';
+            }
+            if (customAudioCustomPath && customAudioCustomPath.dataset.ppCustomiseOverlayBound !== '1') {
+                customAudioCustomPath.addEventListener('input', () => {
+                    if (customAudioCustomPath.value.trim() !== (window.game?.customAudioRuntimeLabel || '')) dropPickedFile();
+                });
+                customAudioCustomPath.addEventListener('change', musicChanged);
+                customAudioCustomPath.dataset.ppCustomiseOverlayBound = '1';
+            }
+            if (customAudioPickBtn && customAudioFilePicker && customAudioPickBtn.dataset.ppCustomiseOverlayBound !== '1') {
+                customAudioPickBtn.addEventListener('click', () => { customAudioFilePicker.value = ''; customAudioFilePicker.click(); });
+                customAudioFilePicker.addEventListener('change', () => {
+                    const file = customAudioFilePicker.files?.[0];
+                    const game = window.game;
+                    if (!file || !game) return;
+                    dropPickedFile();
+                    game.customAudioRuntimeSource = URL.createObjectURL(file);
+                    game.customAudioRuntimeLabel = file.name;
+                    if (customAudioCustomPath) customAudioCustomPath.value = file.name;
+                    musicChanged();
+                });
+                customAudioPickBtn.dataset.ppCustomiseOverlayBound = '1';
+            }
+            if (customResetDefaultsBtn && customResetDefaultsBtn.dataset.ppCustomiseOverlayBound !== '1') {
+                customResetDefaultsBtn.addEventListener('click', () => {
+                    const game = window.game;
+                    if (!game?.resetCustomSettings) return;
+                    game.resetCustomSettings();
+                    game.customAudioRuntimeLabel = '';
+                    if (customAudioFilePicker) customAudioFilePicker.value = '';
+                    window.PPSettings?.setPaddle?.('customise', 'left', 'classic');
+                    window.PPSettings?.setPaddle?.('customise', 'right', 'classic');
+                    if (customBackgroundMode && window.CustomBackgrounds?.optionsHtml) {
+                        customBackgroundMode.innerHTML = window.CustomBackgrounds.optionsHtml('classic');
+                    }
+                    applySettingsToControls();
+                    if (customBgBrightness) customBgBrightness.value = '1';
+                    if (customBgSaturation) customBgSaturation.value = '1';
+                    if (customBgContrast) customBgContrast.value = '1';
+                    [customBgBrightness, customBgSaturation, customBgContrast].forEach((el) => el?.dispatchEvent(new Event('input', { bubbles: true })));
+                    window.Forge?.UI?.refresh?.();
+                    syncAndRefresh();
+                });
+                customResetDefaultsBtn.dataset.ppCustomiseOverlayBound = '1';
             }
 
             if (customStartMatchBtn && customStartMatchBtn.dataset.ppCustomStartBound !== '1') {

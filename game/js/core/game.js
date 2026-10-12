@@ -546,8 +546,8 @@ class Game {
                     : [],
                 paddleStyle: migrated.paddleStyle === 'human' ? 'classic' : (migrated.paddleStyle || defaults.paddleStyle),
                 audioSource: '',
-                audioTrack: '',
-                audioCustomPath: '',
+                audioTrack: typeof migrated.audioTrack === 'string' ? migrated.audioTrack : '',
+                audioCustomPath: typeof migrated.audioCustomPath === 'string' ? migrated.audioCustomPath : '',
                 backgroundBrightness: Number(migrated.backgroundBrightness ?? defaults.backgroundBrightness),
                 backgroundSaturation: Number(migrated.backgroundSaturation ?? defaults.backgroundSaturation),
                 backgroundContrast: Number(migrated.backgroundContrast ?? defaults.backgroundContrast),
@@ -565,8 +565,6 @@ class Game {
             const payload = {
                 ...this.customSettings,
                 audioSource: '',
-                audioTrack: '',
-                audioCustomPath: '',
                 paddleStyle: this.customSettings.paddleStyle || 'classic',
                 previewModeActive: false,
                 enabledPowerUps: Array.isArray(this.customSettings.enabledPowerUps)
