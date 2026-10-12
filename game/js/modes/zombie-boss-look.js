@@ -424,6 +424,80 @@
         ctx.restore();
     }
 
+    // ── Breath jet ────────────────────────────────────────────────────
+    // The fire particles ignite some way out from the mouth (the emitter's
+    // ignition distance), so this draws the jet of burning fuel that joins
+    // the jaws to them. While breathing it is redrawn at the mouth every
+    // frame, so it stays attached however the demon moves. When the breath
+    // stops, the jet is cut off at the mouth and its tail flies on and burns
+    // out where it was, instead of vanishing. The distance mirrors ignD in
+    // fireBreathingEmission (read only; that code is unchanged).
+    function jetLength(boss) {
+        const spool = Math.min(1, boss.fireBreathingIntensity || 0.8);
+        const courtW = boss.game?.width || 800;
+        return (22 + (1 - spool) * 52) * (courtW / 100) * 0.95;
+    }
+
+    function drawJet(ctx, x0, y0, jetLen, t, cut, alpha) {
+        const steps = 26;
+        const f0 = clamp(cut / jetLen, 0, 1);
+        if (f0 >= 0.98 || alpha <= 0.01) return;
+        const layers = [
+            { w0: 7, w1: 26, col: 'rgba(255,70,10,', a: 0.5 },
+            { w0: 4.5, w1: 15, col: 'rgba(255,170,40,', a: 0.7 },
+            { w0: 2.2, w1: 6, col: 'rgba(255,248,215,', a: 0.95 },
+        ];
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (const L of layers) {
+            const top = [], bot = [];
+            for (let i = 0; i <= steps; i++) {
+                const f = f0 + (1 - f0) * (i / steps);
+                const x = x0 - f * jetLen;
+                const wob = Math.sin(f * 9 - t * 38) * 2.2 * f + Math.sin(f * 23 + t * 61) * 1.3 * f;
+                const half = (L.w0 + (L.w1 - L.w0) * f) * (0.85 + 0.15 * Math.sin(f * 17 - t * 47));
+                top.push([x, y0 + wob - half]);
+                bot.push([x, y0 + wob + half]);
+            }
+            const g = ctx.createLinearGradient(x0, 0, x0 - jetLen, 0);
+            g.addColorStop(0, L.col + L.a + ')');
+            g.addColorStop(0.55, L.col + (L.a * 0.85) + ')');
+            g.addColorStop(1, L.col + '0)');
+            ctx.fillStyle = g;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.moveTo(top[0][0], top[0][1]);
+            for (let i = 1; i < top.length; i++) ctx.lineTo(top[i][0], top[i][1]);
+            for (let i = bot.length - 1; i >= 0; i--) ctx.lineTo(bot[i][0], bot[i][1]);
+            ctx.closePath();
+            ctx.fill();
+        }
+        // Flame tongues licking off the jet.
+        for (let i = 0; i < 9; i++) {
+            const f = f0 + (1 - f0) * ((t * 2.6 + i * 0.137) % 1);
+            const x = x0 - f * jetLen;
+            const y = y0 + Math.sin(i * 7.3 + t * 9) * (4 + f * 14);
+            ctx.globalAlpha = (1 - f) * 0.55 * alpha;
+            ctx.fillStyle = f < 0.35 ? '#ffd27a' : '#ff6a1a';
+            ctx.beginPath(); ctx.arc(x, y, 3 + f * 9, 0, TAU); ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    function renderJet(boss, ctx, mouthX, mouthY) {
+        const t = boss.time || 0;
+        const J = boss._lookJet || (boss._lookJet = { alpha: 0, cut: 0, x: 0, y: 0, at: t });
+        const dt = clamp(t - J.at, 0, 0.1);
+        J.at = t;
+        if (boss.fireBreathingState === 'breathing' && mouthX != null) {
+            J.alpha = 1; J.cut = 0; J.x = mouthX; J.y = mouthY; J.len = jetLength(boss);
+        } else if (J.alpha > 0) {
+            J.cut += dt * 900;              // the tail flies on at about jet speed
+            J.alpha = Math.max(0, J.alpha - dt * 2.6);
+        }
+        if (J.alpha > 0) drawJet(ctx, J.x, J.y, J.len, t, J.cut, J.alpha);
+    }
+
     // ── Maw: the fire breath animation ────────────────────────────────
     function jawShape(len, depth) {
         // Upper jaw in hinge space: the hinge is at (0,0), the jaw reaches
@@ -438,7 +512,7 @@
         const p = boss.paddle;
         if (!p) return;
         const { d, breathing, charge } = chargeState(boss);
-        if (d <= 0.001) return;
+        if (d <= 0.001) { renderJet(boss, ctx, null, null); return; }
         const t = boss.time || 0;
 
         // The jaws end where the fire comes out: cannon length times deploy.
@@ -559,6 +633,9 @@
                 ctx.fillRect(x - r, y - r, r * 2, r * 2);
             }
         }
+        if (ext > 0.6) renderJet(boss, ctx, mx, my);
+        else renderJet(boss, ctx, null, null);
+
         // Ball of fire gathering between the fangs.
         if (heat > 0.05 && ext > 0.6) {
             const r = (6 + heat * 14) * (breathing ? 1.3 : 0.9 + 0.1 * Math.sin(t * 40));
