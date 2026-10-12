@@ -6947,6 +6947,15 @@ class Game {
 
         b.lastHit = isPlayer ? 'player' : 'ai';
         if (b === this.ball) this.gravitySlingshot?.onPaddleHit();
+        // The AI opponent studies how each shot was struck (contact point and
+        // paddle swipe) to plan its returns and call out your habits.
+        if (b === this.ball && !this.isMultiplayer && typeof this.ai?.onPaddleHit === 'function') {
+            this.ai.onPaddleHit(isPlayer, {
+                rel: (b.pos.y - (p.pos.y + p.h / 2)) / (p.h / 2 + b.r),
+                pvy: p.vel?.y || 0,
+                edge: hit === 2,
+            });
+        }
 
         const hitX = isPlayer ? p.pos.x + p.w : p.pos.x;
         this.particles.spawnGodTierHit(hitX, b.pos.y, p.color, speed);

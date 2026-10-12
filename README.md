@@ -192,6 +192,13 @@ is unavailable.
   steps so they stay smooth on 144/165 Hz screens.
 - The AI predicts the ball with the exact same C++ integrator, so it reads
   curving shots; difficulty limits how far ahead it can see.
+- **The AI plays shots on purpose** ([`game/js/ai/ai-opponent.js`](game/js/ai/ai-opponent.js)):
+  it picks where on its paddle to take the ball to aim away from you,
+  fakes one angle and sweeps to the other, swipes for curve, and learns
+  which side you miss on. Each match it has a style (corners, tricks,
+  wall or bully) and it changes plan when a tactic stops working. It eases
+  off with a big lead. Its trash talk reacts to what you actually did:
+  moving the wrong way, freezing, falling for a fake, edge hits, spin.
 
 ## Graphics
 

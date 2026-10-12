@@ -1374,4 +1374,4 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = { ZombieBoss, SpriteFireRenderer };
 }
 
-// AI Controller is now loaded from game-enhancements.js
+// AI Controller is loaded from js/ai/ai-opponent.js
