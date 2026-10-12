@@ -13,6 +13,9 @@ class SpeedChallenge {
         this.timeDisplay = document.getElementById('challengeTimeDisplay');
         this.status = document.getElementById('challengeStatus');
         this.difficultyDisplay = document.getElementById('targetDifficulty');
+        this.countDisplay = document.getElementById('challengeCount');
+        this.lastPointer = null;
+        this.hoverFrame = null;
         // Query for target-container within the speedChallenge div for specificity
         this.targetContainer = this.challengeUI?.querySelector('.target-container') || document.querySelector('.speed-challenge .target-container');
 
@@ -59,6 +62,7 @@ class SpeedChallenge {
         this.paused = false;
 
         this.cockpitHUD = null;
+        this.scene = null;
 
         // Visual effects elements
         this.distractionElements = [];
@@ -73,7 +77,10 @@ class SpeedChallenge {
         // Event listeners
         this.eventHandlers = {
             keydown: null,
-            resize: null
+            resize: null,
+            pointerdown: null,
+            pointermove: null,
+            pointerleave: null
         };
 
         this.setupEventListeners();
@@ -143,6 +150,7 @@ class SpeedChallenge {
         const now = performance.now();
         this.paused = paused;
         this.challengeUI?.classList.toggle('paused', paused);
+        this.scene?.setPaused(paused);
 
         if (paused) {
             this.clearTimer();
@@ -212,9 +220,11 @@ class SpeedChallenge {
         this.game.showNotification(`${playerName}'s Turn!`, this.isMultiplayer ? 'Press the key combo!' : 'Complete the challenge!', '#00ffd6');
 
         // Calculate difficulty with more balanced progression
+        // Players never start on easy: level 1 plays at difficulty 8 and
+        // difficulty keeps rising one step per player level from there.
         const level = this.game.progression.level;
         const challengeBonus = this.challengesCompleted * 0.15;
-        const effectiveLevel = level + challengeBonus;
+        const effectiveLevel = SpeedChallenge.BASE_DIFFICULTY - 1 + level + challengeBonus;
 
         // Apply difficulty settings with improved scaling
         this.applyDifficultySettings(effectiveLevel);
@@ -227,12 +237,13 @@ class SpeedChallenge {
         this.resetComboState();
 
         // Reset challenge state
-        // single-player speed challenge should always use a fixed 7 second limit
-        // regardless of difficulty level; multiplayer uses the same fairness window
-        this.timeLimit = 5.6;
-        this.timeRemaining = this.timeLimit;
+        // 5.6s base window (also the multiplayer fairness window); extra targets
+        // beyond 7 each add a little time so late-game counts stay possible.
         this.targetsClicked = 0;
         this.totalTargets = this.targetSettings.count;
+        this.timeLimit = this.isMultiplayer ? 5.6 : 5.6 + Math.max(0, this.totalTargets - 7) * 0.35;
+        this.timeRemaining = this.timeLimit;
+        this.updateCount();
 
         this.challengeUI.classList.toggle('cockpit-mode', !this.isMultiplayer);
 
@@ -244,6 +255,7 @@ class SpeedChallenge {
         // Update UI
         this.challengeUI.setAttribute('data-level', level);
         this.difficultyDisplay.textContent = `Level ${level} • ${this.targetSettings.count} targets • ${this.timeLimit.toFixed(1)}s`;
+        this.challengeUI.classList.toggle('pvp-mode', this.isMultiplayer);
 
         // Mark active before visual effects so their callbacks are allowed to run.
         if (typeof this.game.setChallengePaused === 'function') {
@@ -433,8 +445,8 @@ class SpeedChallenge {
             };
         }
 
-        // Size decreases with level but with a reasonable minimum
-        this.targetSettings.size = Math.max(36, 86 - effectiveLevel * 2.25);
+        // Size shrinks with level but stays comfortably clickable
+        this.targetSettings.size = Math.max(56, 86 - effectiveLevel * 2.25);
 
         // Target count increases with level
         this.targetSettings.count = Math.min(10, 2 + Math.floor(effectiveLevel * 0.65));
@@ -466,13 +478,36 @@ class SpeedChallenge {
         const hud = document.createElement('div');
         hud.className = 'cockpit-hud';
         hud.innerHTML = `
-            <div class="cockpit-panel left">TARGET LINK: ONLINE<br>THREAT LVL: ${level}</div>
-            <div class="cockpit-panel right">MODE: SINGLE PILOT<br>WEAPONS: PRIMARY</div>
-            <div class="cockpit-bottom">LOCK AND FIRE</div>
+            <div class="cockpit-panel left">LEVEL ${level}</div>
+            <div class="cockpit-panel right">CLICK NEAR A TARGET</div>
+            <div class="cockpit-pillar left"></div>
+            <div class="cockpit-pillar right"></div>
+            <div class="cockpit-dash"><i></i><i></i><i></i></div>
         `;
 
         this.targetContainer.appendChild(hud);
         this.cockpitHUD = hud;
+
+        if (typeof SpeedCockpitScene === 'function') {
+            if (!this.scene) this.scene = new SpeedCockpitScene(this.targetContainer);
+            this.scene.setLevel(level);
+            this.scene.start();
+            this.scene.setPaused(this.paused);
+        }
+    }
+
+    stopScene() {
+        if (this.scene) {
+            this.scene.stop();
+        }
+    }
+
+    // Empty the arena but keep the animated cockpit background canvas.
+    emptyTargetContainer() {
+        const keep = this.scene?.canvas;
+        Array.from(this.targetContainer.children).forEach(child => {
+            if (child !== keep) child.remove();
+        });
     }
 
     removeCockpitOverlay() {
@@ -755,7 +790,6 @@ class SpeedChallenge {
         targetWrapper.className = 'target-wrapper';
 
         let targetHTML = `
-    <div class="target-meta">${targetType === 'moving' ? 'MOVING' : 'STATIC'} / ${index + 1}</div>
     <div class="target-outer-ring"></div>
     <div class="target-inner-circle">
         <div class="target-number">${index + 1}</div>
@@ -820,6 +854,81 @@ class SpeedChallenge {
         this.startMovementLoop();
     }
 
+    updateCount() {
+        if (this.countDisplay) {
+            this.countDisplay.textContent = `${this.targetsClicked}/${this.totalTargets}`;
+        }
+    }
+
+    // Aim assist: a click counts for the nearest target as long as it lands
+    // within a generous margin of the target's edge, so players don't need
+    // pixel-perfect accuracy (especially on moving targets).
+    findAssistTarget(clientX, clientY) {
+        let best = null;
+        let bestGap = Infinity;
+
+        this.activeTargets.forEach(target => {
+            if (!target.parentNode || target.classList.contains('clicked')) return;
+            const rect = target.getBoundingClientRect();
+            const radius = rect.width / 2;
+            const dist = Math.hypot(clientX - (rect.left + radius), clientY - (rect.top + rect.height / 2));
+            const gap = dist - radius;
+            if (gap < bestGap) {
+                best = target;
+                bestGap = gap;
+            }
+        });
+
+        if (!best) return null;
+        const size = parseFloat(best.dataset.size) || this.targetSettings.size;
+        const slop = Math.max(34, size * 0.75);
+        return bestGap <= slop ? best : null;
+    }
+
+    handleContainerPointerDown(event) {
+        if (this.paused || !this.isActive || this.isMultiplayer) return;
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+
+        const target = this.findAssistTarget(event.clientX, event.clientY);
+        if (target) {
+            event.preventDefault();
+            this.targetHit(target);
+        } else {
+            this.showMissRipple(event.clientX, event.clientY);
+        }
+    }
+
+    handleContainerPointerMove(event) {
+        if (event.pointerType !== 'mouse') return;
+        this.lastPointer = { x: event.clientX, y: event.clientY };
+        if (this.hoverFrame) return;
+        this.hoverFrame = requestAnimationFrame(() => {
+            this.hoverFrame = null;
+            this.updateLockedTarget();
+        });
+    }
+
+    updateLockedTarget() {
+        const pointer = this.lastPointer;
+        const locked = pointer && this.isActive && !this.paused
+            ? this.findAssistTarget(pointer.x, pointer.y)
+            : null;
+        this.activeTargets.forEach(target => {
+            target.classList.toggle('locked', target === locked);
+        });
+    }
+
+    showMissRipple(clientX, clientY) {
+        if (!this.targetContainer) return;
+        const rect = this.targetContainer.getBoundingClientRect();
+        const ripple = document.createElement('div');
+        ripple.className = 'miss-ripple';
+        ripple.style.left = `${clientX - rect.left}px`;
+        ripple.style.top = `${clientY - rect.top}px`;
+        ripple.addEventListener('animationend', () => ripple.remove(), { once: true });
+        this.targetContainer.appendChild(ripple);
+    }
+
     handleTargetClick(event, target) {
         if (this.paused) return;
         event.preventDefault();
@@ -857,6 +966,7 @@ class SpeedChallenge {
 
         // Update progress
         this.targetsClicked++;
+        this.updateCount();
 
         // Update status
         const remaining = this.totalTargets - this.targetsClicked;
@@ -864,6 +974,8 @@ class SpeedChallenge {
 
         // Accessibility announcement
         this.announcer.textContent = `Target ${this.targetsClicked} of ${this.totalTargets} hit. ${remaining} remaining.`;
+
+        this.scene?.kick(isSpecial ? 'gold' : 'cyan', isSpecial ? 1 : 0.6);
 
         // Play appropriate sound
         if (isSpecial) {
@@ -1080,6 +1192,7 @@ class SpeedChallenge {
                 this.game.audio.speedChallengeFail?.();
                 this.game.showNotification('Time\'s Up!', 'AI keeps the point', '#ff4444');
             }
+            this.scene?.kick('red', 1);
             this.announcer.textContent = 'Challenge failed! Time ran out.';
         }
 
@@ -1103,7 +1216,7 @@ class SpeedChallenge {
     }
 
     startResurrectionCountdown() {
-        this.targetContainer.innerHTML = '';
+        this.emptyTargetContainer();
         // The last timer warning ("Time running out!") would otherwise sit
         // under the countdown.
         this.updateStatus('Back to the rally in a moment.');
@@ -1188,6 +1301,7 @@ class SpeedChallenge {
             this.game.paused = false;
         }
         this.isActive = false;
+        this.stopScene();
         this.serveBall();
     }
 
@@ -1207,6 +1321,7 @@ class SpeedChallenge {
         }
 
         this.isActive = false;
+        this.stopScene();
         if (typeof this.game.setChallengePaused === 'function') {
             this.game.setChallengePaused(false);
         } else {
@@ -1238,6 +1353,7 @@ class SpeedChallenge {
         }
 
         this.isActive = false;
+        this.stopScene();
         this.challengeUI.classList.remove('active', 'pulse-active', 'pulse-highlight', 'time-warning', 'cockpit-mode');
         this.challengeUI.style.transition = '';
         this.challengeUI.style.transform = '';
@@ -1266,7 +1382,7 @@ class SpeedChallenge {
             this.clearTargetIntervals(target);
         });
 
-        this.targetContainer.innerHTML = '';
+        this.emptyTargetContainer();
         this.activeTargets.clear();
         this.stopMovementLoop();
         this.removeCockpitOverlay();
@@ -1288,6 +1404,16 @@ class SpeedChallenge {
             }
         };
         document.addEventListener('keydown', this.eventHandlers.keydown);
+
+        this.eventHandlers.pointerdown = (e) => this.handleContainerPointerDown(e);
+        this.eventHandlers.pointermove = (e) => this.handleContainerPointerMove(e);
+        this.eventHandlers.pointerleave = () => {
+            this.lastPointer = null;
+            this.updateLockedTarget();
+        };
+        this.targetContainer?.addEventListener('pointerdown', this.eventHandlers.pointerdown);
+        this.targetContainer?.addEventListener('pointermove', this.eventHandlers.pointermove);
+        this.targetContainer?.addEventListener('pointerleave', this.eventHandlers.pointerleave);
 
         this.eventHandlers.resize = () => {
             if (this.isActive && this.activeTargets.size > 0) {
@@ -1318,6 +1444,7 @@ class SpeedChallenge {
     }
 
     destroy() {
+        this.stopScene();
         this.clearAllTargets();
         this.clearVisualNoise();
         this.clearTimer();
@@ -1325,6 +1452,12 @@ class SpeedChallenge {
         this.clearTrackedTimeouts();
         if (this.intervals.pulse) clearInterval(this.intervals.pulse);
         document.removeEventListener('keydown', this.eventHandlers.keydown);
+        this.targetContainer?.removeEventListener('pointerdown', this.eventHandlers.pointerdown);
+        this.targetContainer?.removeEventListener('pointermove', this.eventHandlers.pointermove);
+        this.targetContainer?.removeEventListener('pointerleave', this.eventHandlers.pointerleave);
+        if (this.hoverFrame) cancelAnimationFrame(this.hoverFrame);
         window.removeEventListener('resize', this.eventHandlers.resize);
     }
 }
+
+SpeedChallenge.BASE_DIFFICULTY = 8;

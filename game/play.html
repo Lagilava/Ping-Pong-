@@ -16,6 +16,8 @@
     <link rel="stylesheet" href="css/online.css">
     <link rel="stylesheet" href="css/results.css">
     <link rel="stylesheet" href="css/textures.css">
+    <link rel="stylesheet" href="css/achievement-redesign.css">
+    <link rel="stylesheet" href="css/speed-challenge-redesign.css">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js"></script>
 </head>
@@ -108,6 +110,7 @@
                 <div class="challenge-timer">
                     <div class="challenge-timer-fill" id="challengeTimerFill"></div>
                     <div class="challenge-time-display" id="challengeTimeDisplay">0.0s</div>
+                    <div class="challenge-count" id="challengeCount">0/0</div>
                 </div>
 
                 <!-- Status message -->
@@ -600,8 +603,10 @@
     <script src="js/audio/ai-voice.js"></script>
     <script src="js/entities/power-up.js"></script>
     <script src="js/fx/neon-particles.js"></script>
+    <script src="js/systems/achievement-icons.js"></script>
     <script src="js/systems/progression.js"></script>
     <script src="js/systems/profile.js"></script>
+    <script src="js/modes/speed-cockpit-scene.js"></script>
     <script src="js/modes/speed-challenge.js"></script>
     <script src="js/ui/match-intro.js"></script>
     <script src="js/ui/settings-panel.js"></script>

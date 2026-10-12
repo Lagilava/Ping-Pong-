@@ -14,7 +14,6 @@ class ProgressionSystem {
             firstBlood: {
                 name: 'First Blood',
                 description: 'Score your first point in any match.',
-                icon: '🩸',
                 joke: 'Congrats, you discovered that the ball can, in fact, cross the line.',
                 unlocked: false
             },
@@ -22,7 +21,6 @@ class ProgressionSystem {
             comeback: {
                 name: 'The Comeback',
                 description: 'Win a match after trailing by 3 or more points.',
-                icon: '🔄',
                 joke: 'You were losing for dramatic effect. Totally planned.',
                 unlocked: false
             },
@@ -30,7 +28,6 @@ class ProgressionSystem {
             perfectGame: {
                 name: 'Perfect Game',
                 description: 'Win a match while conceding 0 points.',
-                icon: '💎',
                 joke: 'The opponent filed a missing persons report for their offense.',
                 unlocked: false
             },
@@ -38,7 +35,6 @@ class ProgressionSystem {
             speedDemon: {
                 name: 'Speed Demon',
                 description: 'Reach ball speed of 1000 in a match.',
-                icon: '⚡',
                 joke: 'Blink and you miss it. Blink twice and it already scored.',
                 unlocked: false
             },
@@ -46,7 +42,6 @@ class ProgressionSystem {
             rallyMaster: {
                 name: 'Rally Master',
                 description: 'Reach a rally of 20 hits in a match.',
-                icon: '🏸',
                 joke: 'At this point it is less a rally and more a custody battle.',
                 unlocked: false
             },
@@ -54,7 +49,6 @@ class ProgressionSystem {
             powerPlayer: {
                 name: 'Power Player',
                 description: 'Use 8 power-ups in total.',
-                icon: '🔥',
                 joke: 'Raw skill is cool, but random glowing buffs are cooler.',
                 unlocked: false
             },
@@ -62,7 +56,6 @@ class ProgressionSystem {
             obstacleCourse: {
                 name: 'Obstacle Course',
                 description: 'Win 1 match in obstacle mode.',
-                icon: '🚧',
                 joke: 'You beat both the opponent and the furniture.',
                 unlocked: false
             },
@@ -70,7 +63,6 @@ class ProgressionSystem {
             gravityMaster: {
                 name: 'Gravity Master',
                 description: 'Win 1 match in gravity mode.',
-                icon: '🪐',
                 joke: 'Newton would like to unsubscribe from this timeline.',
                 unlocked: false
             },
@@ -78,7 +70,6 @@ class ProgressionSystem {
             zombieSurvivor: {
                 name: 'Zombie Survivor',
                 description: 'Survive a full zombie match.',
-                icon: '🧟',
                 joke: 'You survived. Brain cells uncertain.',
                 unlocked: false
             },
@@ -86,7 +77,6 @@ class ProgressionSystem {
             zombieWaveRunner: {
                 name: 'Wave Runner',
                 description: 'Clear 5 zombie waves.',
-                icon: '🌊',
                 joke: 'You turned wave clearance into a habit.',
                 unlocked: false,
                 progress: 0,
@@ -96,7 +86,6 @@ class ProgressionSystem {
             zombieShieldBearer: {
                 name: 'Shield Bearer',
                 description: 'Block 3 zombie attacks with Shield.',
-                icon: '🛡️',
                 joke: 'Your shield has seen things and survived them.',
                 unlocked: false,
                 progress: 0,
@@ -106,7 +95,6 @@ class ProgressionSystem {
             zombieTactician: {
                 name: 'Zombie Tactician',
                 description: 'Choose 5 wave rewards.',
-                icon: '🧠',
                 joke: 'Strategic greed is still strategy.',
                 unlocked: false,
                 progress: 0,
@@ -116,7 +104,6 @@ class ProgressionSystem {
             speedRunner: {
                 name: 'Speed Runner',
                 description: 'Win 1 match in speed mode.',
-                icon: '💨',
                 joke: 'Your strategy: panic, but in high definition.',
                 unlocked: false
             },
@@ -124,7 +111,6 @@ class ProgressionSystem {
             speedChallenger: {
                 name: 'Speed Challenger',
                 description: 'Complete 3 speed challenges.',
-                icon: '🚀',
                 joke: 'You volunteered for timed stress and called it fun.',
                 unlocked: false
             },
@@ -132,7 +118,6 @@ class ProgressionSystem {
             speedMaster: {
                 name: 'Speed Master',
                 description: 'Complete 7 speed challenges.',
-                icon: '👑',
                 joke: 'Your reaction time now qualifies as suspicious.',
                 unlocked: false
             },
@@ -140,7 +125,6 @@ class ProgressionSystem {
             pongOverlord: {
                 name: 'Pong Overlord',
                 description: 'Reach level 2.',
-                icon: '🎭',
                 joke: 'One level gained and the ego patch is already installed.',
                 unlocked: false
             },
@@ -148,7 +132,6 @@ class ProgressionSystem {
             chaoticSpeed: {
                 name: 'Chaotic Speed',
                 description: 'Reach level 3.',
-                icon: '🌀',
                 joke: 'Control is temporary, chaos is forever.',
                 unlocked: false
             },
@@ -156,7 +139,6 @@ class ProgressionSystem {
             spaghettiHands: {
                 name: 'Spaghetti Hands',
                 description: 'Reach level 4.',
-                icon: '🍝',
                 joke: 'Motor skills are optional when confidence is maxed.',
                 unlocked: false
             },
@@ -164,7 +146,6 @@ class ProgressionSystem {
             laserFocus: {
                 name: 'Laser Focus',
                 description: 'Reach level 7.',
-                icon: '🎯',
                 joke: 'You ignored the world and married the ball trajectory.',
                 unlocked: false
             },
@@ -172,7 +153,6 @@ class ProgressionSystem {
             brainMelter: {
                 name: 'Brain Melter',
                 description: 'Reach level 10.',
-                icon: '🧠',
                 joke: 'Therapist: show me where the velocity touched you.',
                 unlocked: false
             },
@@ -180,7 +160,6 @@ class ProgressionSystem {
             level10: {
                 name: 'Veteran',
                 description: 'Reach level 5.',
-                icon: '🎖️',
                 joke: 'Five levels in and already giving unsolicited tips.',
                 unlocked: false
             },
@@ -188,7 +167,6 @@ class ProgressionSystem {
             unstoppable: {
                 name: 'Unstoppable',
                 description: 'Win 4 matches in a row.',
-                icon: '⚔️',
                 joke: 'Momentum acquired. Humility misplaced.',
                 unlocked: false
             },
@@ -197,7 +175,6 @@ class ProgressionSystem {
             multiBallMaster: {
                 name: 'Multi-Ball Master',
                 description: 'Handle 3 extra balls in total.',
-                icon: '🍡',
                 joke: 'One ball was too mainstream for your brand.',
                 unlocked: false,
                 progress: 0,
@@ -207,7 +184,6 @@ class ProgressionSystem {
             ghostBallSurvivor: {
                 name: 'Ghost Ball Survivor',
                 description: 'Survive 60 seconds with ghost ball active.',
-                icon: '👻',
                 joke: 'You fought what you could not really see. Very normal behavior.',
                 unlocked: false,
                 progress: 0,
@@ -217,7 +193,6 @@ class ProgressionSystem {
             timeWarpWizard: {
                 name: 'Time Warp Wizard',
                 description: 'Use time warp 6 times.',
-                icon: '⏳',
                 joke: 'You bent time and still almost fumbled.',
                 unlocked: false,
                 progress: 0,
@@ -227,7 +202,6 @@ class ProgressionSystem {
             magnetMaster: {
                 name: 'Magnet Master',
                 description: 'Attract the ball 15 times with magnet paddle.',
-                icon: '🧲',
                 joke: 'Physics called. It wants its integrity back.',
                 unlocked: false,
                 progress: 0,
@@ -237,7 +211,6 @@ class ProgressionSystem {
             powerUpCollector: {
                 name: 'Power-Up Collector',
                 description: 'Use 25 power-ups.',
-                icon: '🎁',
                 joke: 'You collect buffs like a dragon hoards treasure.',
                 unlocked: false,
                 progress: 0,
@@ -247,7 +220,6 @@ class ProgressionSystem {
             rallyLegend: {
                 name: 'Rally Legend',
                 description: 'Reach a rally of 15 hits.',
-                icon: '🥁',
                 joke: 'At this length it counts as cardio and emotional damage.',
                 unlocked: false,
                 progress: 0,
@@ -257,7 +229,6 @@ class ProgressionSystem {
             speedLegend: {
                 name: 'Speed Legend',
                 description: 'Reach ball speed of 1400 units.',
-                icon: '🌠',
                 joke: 'You were no longer playing Pong. You were forecasting weather.',
                 unlocked: false,
                 progress: 0,
@@ -267,7 +238,6 @@ class ProgressionSystem {
             obstacleNavigator: {
                 name: 'Obstacle Navigator',
                 description: 'Win 3 obstacle mode matches.',
-                icon: '🧱',
                 joke: 'Congratulations on your diploma in traffic cone studies.',
                 unlocked: false,
                 progress: 0,
@@ -277,7 +247,6 @@ class ProgressionSystem {
             gravityDefier: {
                 name: 'Gravity Defier',
                 description: 'Win 2 gravity mode matches.',
-                icon: '🛰️',
                 joke: 'Gravity had one job and still lost.',
                 unlocked: false,
                 progress: 0,
@@ -287,7 +256,6 @@ class ProgressionSystem {
             gameStarter: {
                 name: 'Getting Started',
                 description: 'Play 3 matches.',
-                icon: '🕹️',
                 joke: 'Three matches in and already writing your memoir.',
                 unlocked: false,
                 progress: 0,
@@ -297,7 +265,6 @@ class ProgressionSystem {
             regularPlayer: {
                 name: 'Regular Player',
                 description: 'Play 10 matches.',
-                icon: '📅',
                 joke: 'You do this often enough to worry your calendar.',
                 unlocked: false,
                 progress: 0,
@@ -307,7 +274,6 @@ class ProgressionSystem {
             marathonSession: {
                 name: 'Marathon Session',
                 description: 'Play 25 matches.',
-                icon: '🏃',
                 joke: 'Hydration optional, rematch mandatory.',
                 unlocked: false,
                 progress: 0,
@@ -317,7 +283,6 @@ class ProgressionSystem {
             tenWins: {
                 name: 'Ten Wins',
                 description: 'Win 10 matches.',
-                icon: '🏅',
                 joke: 'A double-digit number, finally proof for the doubters.',
                 unlocked: false,
                 progress: 0,
@@ -327,7 +292,6 @@ class ProgressionSystem {
             twentyWins: {
                 name: 'Twenty Wins',
                 description: 'Win 20 matches.',
-                icon: '🏆',
                 joke: 'At this point, the AI knows your footsteps.',
                 unlocked: false,
                 progress: 0,
@@ -337,7 +301,6 @@ class ProgressionSystem {
             pointCollector: {
                 name: 'Point Collector',
                 description: 'Score 50 points total.',
-                icon: '💯',
                 joke: 'Every point carefully harvested from the fields of chaos.',
                 unlocked: false,
                 progress: 0,
@@ -347,7 +310,6 @@ class ProgressionSystem {
             pointBank: {
                 name: 'Point Bank',
                 description: 'Score 150 points total.',
-                icon: '🏦',
                 joke: 'Interest rate: one panic rally per minute.',
                 unlocked: false,
                 progress: 0,
@@ -357,7 +319,6 @@ class ProgressionSystem {
             closeCallWinner: {
                 name: 'Close Call',
                 description: 'Win 2 matches by one point.',
-                icon: '😅',
                 joke: 'Victory by exactly one heartbeat.',
                 unlocked: false,
                 progress: 0,
@@ -367,7 +328,6 @@ class ProgressionSystem {
             dominantDisplay: {
                 name: 'Dominant Display',
                 description: 'Win 3 matches by 5+ points.',
-                icon: '📈',
                 joke: 'You call it balance. The scoreboard disagrees.',
                 unlocked: false,
                 progress: 0,
@@ -377,7 +337,6 @@ class ProgressionSystem {
             tidyDefense: {
                 name: 'Tidy Defense',
                 description: 'Win 3 matches while allowing 2 or fewer points.',
-                icon: '🛡️',
                 joke: 'You allowed exactly enough hope to keep it interesting.',
                 unlocked: false,
                 progress: 0,
@@ -387,7 +346,6 @@ class ProgressionSystem {
             modeExplorer: {
                 name: 'Mode Explorer',
                 description: 'Win in 2 different special modes.',
-                icon: '🗺️',
                 joke: 'Tourist behavior, but with competitive intent.',
                 unlocked: false,
                 progress: 0,
@@ -397,12 +355,19 @@ class ProgressionSystem {
             modeConqueror: {
                 name: 'Mode Conqueror',
                 description: 'Win in all 4 special modes.',
-                icon: '🌍',
                 joke: 'You touched every mode and left fingerprints everywhere.',
                 unlocked: false,
                 progress: 0,
                 maxProgress: 4
-            }
+            },
+            fiveWins: { name: 'On a Roll', description: 'Win 5 matches.', joke: 'The rematch button is getting nervous.', unlocked: false, progress: 0, maxProgress: 5 },
+            fiftyWins: { name: 'Arena Legend', description: 'Win 50 matches.', joke: 'The arena knows your name now.', unlocked: false, progress: 0, maxProgress: 50 },
+            hundredMatches: { name: 'Centurion', description: 'Play 100 matches.', joke: 'You have officially made this a lifestyle.', unlocked: false, progress: 0, maxProgress: 100 },
+            fiveHundredPoints: { name: 'Point Machine', description: 'Score 500 points total.', joke: 'The scoreboard has run out of excuses.', unlocked: false, progress: 0, maxProgress: 500 },
+            clutchKing: { name: 'Clutch King', description: 'Win 10 matches by one point.', joke: 'Every win comes with a side of palpitations.', unlocked: false, progress: 0, maxProgress: 10 },
+            powerSurge: { name: 'Power Surge', description: 'Use 50 power-ups.', joke: 'At this point you might be made of electricity.', unlocked: false, progress: 0, maxProgress: 50 },
+            modeVeteran: { name: 'Mode Veteran', description: 'Win in 3 different special modes.', joke: 'You have a favorite mode, but will not admit it.', unlocked: false, progress: 0, maxProgress: 3 },
+            speedAddict: { name: 'Speed Addict', description: 'Complete 15 speed challenges.', joke: 'You now measure time in near misses.', unlocked: false, progress: 0, maxProgress: 15 }
         };
 
 
@@ -527,9 +492,9 @@ class ProgressionSystem {
 
         this.achievements[id].unlocked = true;
 
-        const { name: title, description: desc, icon } = this.achievements[id];
+        const { name: title, description: desc } = this.achievements[id];
 
-        this.recentlyUnlocked.push({ id, title, desc, icon });
+        this.recentlyUnlocked.push({ id, title, desc });
         this.recentUnlocks = [id, ...this.recentUnlocks.filter((x) => x !== id)].slice(0, 8);
 
         // Update menu achievements display
@@ -537,7 +502,7 @@ class ProgressionSystem {
             window.ppUpdateMenuAchievements();
         }
 
-        this.queueNotification(title, desc);
+        this.queueNotification(title, desc, id);
         this.addXP(ACHIEVEMENT_XP);
         this.updateAchievementSidebar();
         this.saveProgress();
@@ -740,8 +705,8 @@ class ProgressionSystem {
     }
 
     // Queue system to show notifications one by one
-    queueNotification(title, description) {
-        this.notificationQueue.push({ title, description });
+    queueNotification(title, description, id = null) {
+        this.notificationQueue.push({ title, description, id });
         this.processNotificationQueue();
     }
 
@@ -749,8 +714,8 @@ class ProgressionSystem {
         // Only show if nothing is currently being displayed
         if (this.activeNotifications.size > 0 || this.notificationQueue.length === 0) return;
 
-        const { title, description } = this.notificationQueue.shift();
-        this.showSubtleAchievement(title, description);
+        const { title, description, id } = this.notificationQueue.shift();
+        this.showSubtleAchievement(title, description, id);
     }
 
     // (container setup removed - enhanced system will handle notifications)
@@ -762,7 +727,7 @@ class ProgressionSystem {
         document.body.appendChild(this.notificationContainer);
     }
 
-    showSubtleAchievement(title, description) {
+    showSubtleAchievement(title, description, id = null) {
 
         // Ensure container exists
         if (!this.notificationContainer) {
@@ -780,7 +745,7 @@ class ProgressionSystem {
             <div class="achievement-notification-inner">
                 <div class="xbox-icon-container">
                     <div class="xbox-trophy-circle">
-                        🏆
+                        ${ppAchievementIcon(id)}
                     </div>
                 </div>
                 <div class="xbox-text-container">
@@ -832,8 +797,8 @@ class ProgressionSystem {
         if (this.activeNotifications.size >= this.maxNotifications) return;
         if (!this.notificationQueue.length) return;
 
-        const { title, description } = this.notificationQueue.shift();
-        this.showSubtleAchievement(title, description);
+        const { title, description, id } = this.notificationQueue.shift();
+        this.showSubtleAchievement(title, description, id);
     }
 
     handleNotificationStacking() {
@@ -893,108 +858,55 @@ class ProgressionSystem {
     showEndGameAchievementSummary() {
         if (!this.recentlyUnlocked.length) return;
 
+        const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
         const modal = document.createElement('div');
         modal.className = 'achievement-summary-modal';
-        modal.style.cssText = `
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.88); backdrop-filter: blur(10px);
-    z-index: 200000; display: flex; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity 0.35s ease;
-`;
-
-        const itemsHTML = this.recentlyUnlocked.map(a => `
-    <div class="summary-item" style="
-        display: flex; align-items: center; gap: 14px; padding: 14px;
-        background: rgba(255,255,255,0.06); border-radius: 10px; margin-bottom: 10px;
-        opacity: 0; transform: translateX(-16px); transition: all 0.4s ease;
-    ">
-        <div class="summary-icon" style="
-            width: 36px; height: 36px; background: rgba(255,215,0,0.18);
-            border-radius: 50%; font-size: 18px; color: #ffd700;
-            display: flex; align-items: center; justify-content: center;
-        ">🏆</div>
-        <div class="summary-content" style="flex:1;">
-            <div class="summary-title" style="font-size:15px; font-weight:600; color:#fff; margin-bottom:3px;">${a.title}</div>
-            <div class="summary-desc" style="font-size:12.5px; color:rgba(255,255,255,0.78);">${a.desc}</div>
-        </div>
-        <div class="summary-xp" style="color:#ffd700; font-weight:600; font-size:13px;">+75 XP</div>
-    </div>
-`).join('');
-
         modal.innerHTML = `
-    <div class="achievement-summary-content" style="
-        background: linear-gradient(135deg, rgba(15,20,45,0.96), rgba(25,30,55,0.98));
-        border-radius: 16px; padding: 24px; max-width: 460px; width: 92%;
-        max-height: 82vh; overflow-y: auto; box-shadow: 0 16px 50px rgba(0,0,0,0.7);
-        border: 1px solid rgba(255,215,0,0.25); transform: translateY(24px);
-        transition: transform 0.4s ease;
-    ">
-        <div class="summary-header" style="text-align:center; margin-bottom:20px;">
-            <h3 style="font-size:22px; color:#ffd700; margin:0 0 6px 0; text-transform:uppercase; letter-spacing:1px;">
-                Achievements Unlocked
-            </h3>
-            <span style="
-                background: rgba(255,215,0,0.2); color:#ffd700; padding:4px 10px;
-                border-radius:16px; font-size:13px; font-weight:600;
-            ">${this.recentlyUnlocked.length}</span>
-        </div>
-        ${itemsHTML}
-        <div style="text-align:center; margin-top:20px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.55); font-size:12.5px;">
-            To view the achievements again press Ctrl + Shift + A<br>
-            Click anywhere or press ESC to continue
-        </div>
-    </div>
-`;
+            <div class="achievement-summary-content" role="dialog" aria-modal="true" aria-labelledby="achievement-summary-title">
+                <div class="summary-kicker">MATCH REWARDS</div>
+                <div class="summary-heading">
+                    <div>
+                        <h3 id="achievement-summary-title">New achievements</h3>
+                        <p>${this.recentlyUnlocked.length === 1 ? 'A new mark for the collection.' : 'A remarkable run. Add these to your collection.'}</p>
+                    </div>
+                    <span class="summary-count">${this.recentlyUnlocked.length} unlocked</span>
+                </div>
+                <div class="summary-items">${this.recentlyUnlocked.map((a, index) => `
+                    <div class="summary-item" style="--item-index:${index}">
+                        <div class="summary-icon">${ppAchievementIcon(a.id)}</div>
+                        <div class="summary-content">
+                            <div class="summary-title">${escapeHtml(a.title)}</div>
+                            <div class="summary-desc">${escapeHtml(a.desc)}</div>
+                        </div>
+                        <div class="summary-xp">+${ACHIEVEMENT_XP}<small> XP</small></div>
+                    </div>
+                `).join('')}</div>
+                <div class="summary-footer">
+                    <span>View the full collection with Ctrl + Shift + A</span>
+                    <button type="button" class="summary-continue">Continue</button>
+                </div>
+            </div>`;
 
         document.body.appendChild(modal);
-
-        requestAnimationFrame(() => {
-            modal.style.opacity = '1';
-            modal.style.pointerEvents = 'all';
-            modal.querySelector('.achievement-summary-content').style.transform = 'translateY(0)';
-
-            modal.querySelectorAll('.summary-item').forEach((item, i) => {
-                setTimeout(() => {
-                    item.style.opacity = '1';
-                    item.style.transform = 'translateX(0)';
-                }, 60 + i * 70);
-            });
-        });
-
+        requestAnimationFrame(() => modal.classList.add('show'));
         const menuAchievementsStrip = document.getElementById('menuRecentAchievements');
-        if (menuAchievementsStrip) {
-            menuAchievementsStrip.style.display = 'none';
-        }
-        try { window.__ppTraceMenuAchievements('showEndGameAchievementSummary:open'); } catch (_) { }
-
+        if (menuAchievementsStrip) menuAchievementsStrip.style.display = 'none';
         const close = () => {
-            try { window.__ppTraceMenuAchievements('showEndGameAchievementSummary:close:start'); } catch (_) { }
-            modal.style.opacity = '0';
-            modal.style.pointerEvents = 'none';
-            modal.querySelector('.achievement-summary-content').style.transform = 'translateY(24px)';
-
+            if (modal.classList.contains('closing')) return;
+            modal.classList.add('closing');
+            document.removeEventListener('keydown', escHandler);
             setTimeout(() => {
-                try { window.__ppTraceMenuAchievements('showEndGameAchievementSummary:close:before-clear'); } catch (_) { }
                 modal.remove();
                 this.clearRecentlyUnlocked();
-                try { window.__ppTraceMenuAchievements('showEndGameAchievementSummary:close:after-clear'); } catch (_) { }
-                if (menuAchievementsStrip) {
-                    menuAchievementsStrip.style.display = '';
-                }
+                if (menuAchievementsStrip) menuAchievementsStrip.style.display = '';
                 window.ppUpdateMenuAchievements?.();
-                try { window.__ppTraceMenuAchievements('showEndGameAchievementSummary:close:after-update'); } catch (_) { }
-            }, 400);
+            }, 260);
         };
-
-        modal.addEventListener('click', close);
-
-        const escHandler = e => {
-            if (e.key === 'Escape') {
-                close();
-                document.removeEventListener('keydown', escHandler);
-            }
-        };
+        const escHandler = (event) => { if (event.key === 'Escape') close(); };
         document.addEventListener('keydown', escHandler);
+        modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
+        modal.querySelector('.summary-continue')?.addEventListener('click', close);
+        modal.querySelector('.summary-continue')?.focus();
     }
 
     /**
@@ -1008,7 +920,7 @@ class ProgressionSystem {
             .slice(0, limit)
             .map((id) => {
                 const a = this.achievements[id];
-                return { id, title: a.name, desc: a.description, icon: a.icon, isNew: fresh.has(id) };
+                return { id, title: a.name, desc: a.description, isNew: fresh.has(id) };
             });
     }
 
@@ -1128,6 +1040,7 @@ class ProgressionSystem {
 
     recordSpeedChallenge() {
         this.speedChallengesCompleted++;
+        this.syncProgressAchievement('speedAddict', this.speedChallengesCompleted);
         if (this.speedChallengesCompleted >= 3 && !this.achievements.speedChallenger.unlocked) {
             this.unlockAchievement('speedChallenger');
         }
@@ -1141,6 +1054,7 @@ class ProgressionSystem {
         this.powerUpsUsed++;
         // progress-based achievement
         this.incrementAchievementProgress('powerUpCollector');
+        this.syncProgressAchievement('powerSurge', this.powerUpsUsed);
 
         if (this.powerUpsUsed >= 8 && !this.achievements.powerPlayer.unlocked) {
             this.unlockAchievement('powerPlayer');
@@ -1167,14 +1081,19 @@ class ProgressionSystem {
         this.syncProgressAchievement('gameStarter', this.gamesPlayed);
         this.syncProgressAchievement('regularPlayer', this.gamesPlayed);
         this.syncProgressAchievement('marathonSession', this.gamesPlayed);
+        this.syncProgressAchievement('hundredMatches', this.gamesPlayed);
 
+        this.syncProgressAchievement('fiveWins', this.gamesWon);
         this.syncProgressAchievement('tenWins', this.gamesWon);
         this.syncProgressAchievement('twentyWins', this.gamesWon);
+        this.syncProgressAchievement('fiftyWins', this.gamesWon);
 
         this.syncProgressAchievement('pointCollector', this.totalPointsScored);
         this.syncProgressAchievement('pointBank', this.totalPointsScored);
+        this.syncProgressAchievement('fiveHundredPoints', this.totalPointsScored);
 
         this.syncProgressAchievement('closeCallWinner', this.closeWins);
+        this.syncProgressAchievement('clutchKing', this.closeWins);
         this.syncProgressAchievement('dominantDisplay', this.bigWins);
         this.syncProgressAchievement('tidyDefense', this.tidyWins);
         this.syncProgressAchievement('zombieWaveRunner', this.zombieWavesCleared);
@@ -1184,6 +1103,7 @@ class ProgressionSystem {
         const specialModeCount = ['speed', 'obstacle', 'gravity', 'zombie']
             .reduce((count, mode) => count + (this.specialModeWins[mode] > 0 ? 1 : 0), 0);
         this.syncProgressAchievement('modeExplorer', specialModeCount);
+        this.syncProgressAchievement('modeVeteran', specialModeCount);
         this.syncProgressAchievement('modeConqueror', specialModeCount);
     }
 
@@ -1204,13 +1124,13 @@ class ProgressionSystem {
         sidebar.innerHTML = `
 <div class="sidebar-header">
     <div class="header-content">
-        <span class="header-icon">🏆</span>
-        <h3>Achievements</h3>
+        <span class="header-icon">${ppAchievementIcon('twentyWins')}</span>
+        <div><span class="sidebar-eyebrow">THE COLLECTION</span><h3>Achievements</h3></div>
     </div>
     <button class="close-sidebar" aria-label="Close">×</button>
 </div>
 <div class="sidebar-search-container">
-    <input type="text" class="sidebar-search" placeholder="Search achievements…">
+    <input type="search" class="sidebar-search" aria-label="Search achievements" placeholder="Search the collection…">
 </div>
 <div class="achievement-list" id="sidebarAchievements"></div>
 <div class="sidebar-footer">
@@ -1292,12 +1212,12 @@ class ProgressionSystem {
                 <div class="ach-main">
                     <div class="ach-icon-frame">
                         <div class="ach-icon-inner ${ach.unlocked ? 'shine' : ''}">
-                            ${ach.unlocked ? (ach.icon || '🏆') : '🔒'}
+                            ${ppAchievementIcon(key)}
                         </div>
                     </div>
                     <div class="ach-content">
                         <div class="ach-name">${ach.name}</div>
-                        <div class="ach-desc">${ach.unlocked ? ach.description : 'Secret Achievement'}</div>
+                        <div class="ach-desc">${ach.description}</div>
                         ${progressHTML}
                     </div>
                 </div>
@@ -1352,7 +1272,7 @@ class ProgressionSystem {
             <div class="achievement-detail-card" role="dialog" aria-modal="true" aria-label="Achievement details">
                 <button class="achievement-detail-close" aria-label="Close">×</button>
                 <div class="achievement-detail-header">
-                    <div class="achievement-detail-icon">${ach.unlocked ? (ach.icon || '🏆') : '🔒'}</div>
+                    <div class="achievement-detail-icon">${ppAchievementIcon(achievementId)}</div>
                     <div>
                         <h4>${ach.name}</h4>
                         <div class="achievement-detail-state ${ach.unlocked ? 'is-unlocked' : 'is-locked'}">${ach.unlocked ? 'Unlocked' : 'Locked'}</div>

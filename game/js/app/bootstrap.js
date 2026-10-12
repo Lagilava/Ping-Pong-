@@ -156,9 +156,9 @@
             const items = prog.getRecentUnlocks?.(3) || [];
             const html = items.length
                 ? items.map((a) => `
-                    <li class="menu-achievement-item${a.isNew ? ' is-new' : ''}" data-ach="${escapeHtml(a.id)}" title="${escapeHtml(a.desc)}" tabindex="0" role="button">
-                        <span class="menu-achievement-icon">${escapeHtml(a.icon || '★')}</span>
-                        <span class="menu-achievement-name">${escapeHtml(a.title)}</span>
+                    <li class="menu-achievement-item${a.isNew ? ' is-new' : ''}" data-ach="${escapeHtml(a.id)}" title="${escapeHtml(a.desc)}" tabindex="0" role="button" aria-label="View ${escapeHtml(a.title)} achievement">
+                        <span class="menu-achievement-icon">${ppAchievementIcon(a.id)}</span>
+                        <span class="menu-achievement-copy"><span class="menu-achievement-name">${escapeHtml(a.title)}</span><span class="menu-achievement-desc">${escapeHtml(a.desc)}</span></span>
                         ${a.isNew ? '<span class="menu-achievement-new">NEW</span>' : ''}
                     </li>`).join('')
                 : '<li class="menu-achievements-empty">No achievements yet: win a match to earn your first. <span>Ctrl + Shift + A shows them all.</span></li>';
@@ -172,6 +172,12 @@
         // Clicking a recent achievement opens the full list.
         document.addEventListener('click', (e) => {
             if (e.target.closest?.('#menuAchievementsList .menu-achievement-item')) {
+                window.game?.progression?.toggleAchievementSidebar?.();
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('#menuAchievementsList .menu-achievement-item')) {
+                e.preventDefault();
                 window.game?.progression?.toggleAchievementSidebar?.();
             }
         });

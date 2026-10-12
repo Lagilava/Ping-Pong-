@@ -15,7 +15,10 @@ class ObstacleArcade {
         this.rings = [];
         this.trail = [];
         this.wallet = { player: 0, ai: 0 };
-        this.coinsPerPoint = 10;
+        this.shieldSeconds = 10;
+        this.shield = { player: 0, ai: 0 };
+        this.starOwner = 'player';
+        this.hudShield = { player: -1, ai: -1 };
         this.starTime = 0;
         this.boostTime = 0;
         this.layoutKey = '';
@@ -36,11 +39,20 @@ class ObstacleArcade {
         this.trail.length = 0;
         this.wallet.player = 0;
         this.wallet.ai = 0;
+        this.shield.player = 0;
+        this.shield.ai = 0;
+        this.hudShield.player = this.hudShield.ai = -1;
         this.starTime = 0;
         this.boostTime = 0;
         this.layoutKey = '';
         this.respawnTimer = 0;
         this.syncHud();
+    }
+
+    // A side is safe from conceding while its coin shield runs, or while
+    // it holds the Star (invincible until the Star runs out).
+    hasShield(side) {
+        return this.shield[side] > 0 || (this.starTime > 0 && this.starOwner === side);
     }
 
     setHudVisible(visible) {
@@ -285,6 +297,9 @@ class ObstacleArcade {
 
         this.starTime = Math.max(0, this.starTime - dt);
         this.boostTime = Math.max(0, this.boostTime - dt);
+        this.shield.player = Math.max(0, this.shield.player - dt);
+        this.shield.ai = Math.max(0, this.shield.ai - dt);
+        this.syncHud();
         const owner = ball.vel.x >= 0 ? 'player' : 'ai';
 
         // Boost trail samples (fixed-size ring buffer).
@@ -304,8 +319,9 @@ class ObstacleArcade {
             if (this.starTime > 0) {
                 const dx = ball.pos.x - coin.x, dy = ball.pos.y - coin.y;
                 const d = Math.hypot(dx, dy);
-                if (d < 220 && d > 1) {
-                    const pull = Math.min(d, 520 * dt);
+                if (d < 520 && d > 1) {
+                    // Magnet: the closer the coin, the harder it is dragged in.
+                    const pull = Math.min(d, (500 + 900 * (1 - d / 520)) * dt);
                     coin.x += dx / d * pull;
                     coin.y += dy / d * pull;
                 }
@@ -434,15 +450,12 @@ class ObstacleArcade {
         game.audio?.createOscillatorSound?.(988, 'square', 0.07, 0.18);
         setTimeout(() => game.audio?.createOscillatorSound?.(1319, 'square', 0.22, 0.16), 70);
         this.wallet[side] += count;
-        while (this.wallet[side] >= this.coinsPerPoint) {
-            this.wallet[side] -= this.coinsPerPoint;
-            game.scores[side] += 1;
-            game.progression?.recordPoint?.(side, 1);
-            game.updateScoreUI?.();
+        // Coins pay out a free shield instead of points.
+        if (this.shield[side] <= 0) {
             const who = side === 'player' ? (game.isMultiplayer ? 'P1' : 'You') : (game.isMultiplayer ? 'P2' : 'AI');
-            game.showNotification('1-UP!', `${who} turned ${this.coinsPerPoint} coins into a point`, '#ffd23f');
-            game.audio?.levelUp?.();
+            game.showNotification('Shield!', `${who} got a free goal shield for ${this.shieldSeconds}s`, '#00bcd4');
         }
+        this.shield[side] = this.shieldSeconds;
         this.syncHud();
     }
 
@@ -453,8 +466,9 @@ class ObstacleArcade {
         const roll = Math.random();
         if (roll < 0.22) {
             this.starTime = 6;
+            this.starOwner = owner;
             this.pops.push({ kind: 'star', x: block.x, y: block.y - this.sprites.blockS * 0.6, vx: 0, vy: -380, t: 0, life: 0.7 });
-            game.showNotification('Star Power!', 'The ball smashes through hazards and pulls in coins', '#ffe14d');
+            game.showNotification('Star Power!', 'Invincible, smashes hazards and magnetises coins', '#ffe14d');
             [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => game.audio?.createOscillatorSound?.(f, 'square', 0.1, 0.14), i * 70));
         } else if (roll < 0.42) {
             this.boost(game.ball, 1.3);
@@ -579,6 +593,21 @@ class ObstacleArcade {
                 ctx.stroke();
             }
         }
+        // Shielded goal lines.
+        for (const side of ['player', 'ai']) {
+            if (!this.hasShield(side)) continue;
+            const left = side === 'player';
+            const left10 = this.shield[side] > 0 && this.shield[side] < 2 && Math.floor(t * 8) % 2 === 0;
+            if (left10) continue;
+            ctx.globalAlpha = 0.65 + Math.sin(t * 5) * 0.25;
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#00bcd4';
+            ctx.beginPath();
+            ctx.moveTo(left ? 2 : game.width - 2, 0);
+            ctx.lineTo(left ? 2 : game.width - 2, game.height);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
         if (this.starTime > 0) {
             const b = game.ball;
             const blink = this.starTime < 1.5 && Math.floor(t * 10) % 2 === 0;
@@ -651,6 +680,14 @@ class ObstacleArcade {
         const l = String(this.wallet.player), r = String(this.wallet.ai);
         if (this.hudLeft.textContent !== l) this.hudLeft.textContent = l;
         if (this.hudRight.textContent !== r) this.hudRight.textContent = r;
+        // The "/10" slot now shows the remaining shield time.
+        const goals = this.hud.querySelectorAll('.coin-goal');
+        ['player', 'ai'].forEach((side, i) => {
+            const secs = Math.ceil(this.shield[side]);
+            if (this.hudShield[side] === secs || !goals[i]) return;
+            this.hudShield[side] = secs;
+            goals[i].textContent = secs > 0 ? ` 🛡${secs}s` : '';
+        });
     }
 }
 

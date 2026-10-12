@@ -175,7 +175,7 @@ class Game {
             classic: { ballBase: 940, ballMax: 1650, paddleMax: 940 },
             zombie: { ballBase: 900, ballMax: 1600, paddleMax: 900 },
             gravity: { ballBase: 920, ballMax: 1650, paddleMax: 920 },
-            obstacle: { ballBase: 940, ballMax: 1700, paddleMax: 940 },
+            obstacle: { ballBase: 752, ballMax: 1360, paddleMax: 940 },
             speed: { ballBase: 900, ballMax: 1800, paddleMax: 1000 },
             customise: { ballBase: 940, ballMax: 1650, paddleMax: 940 }
         };
@@ -2271,6 +2271,9 @@ class Game {
         // Hide skip button
         const skipBtn = document.getElementById('skipIntro');
         if (skipBtn) skipBtn.classList.add('hidden');
+
+        // Obstacle mode: zoom out and hold the serve, as after a full intro.
+        this.beginArenaReveal();
 
         // Call AI game start callback
         if (this.ai && typeof this.ai.onGameStart === 'function') {
@@ -7323,7 +7326,7 @@ class Game {
             this.checkPaddleCollision(this.player, true, ball);
             this.checkPaddleCollision(this.aiPaddle, false, ball);
             if (ball.pos.x < -50) {
-                if (this.invincibleTime > 0 || (this.isMultiplayer ? this.shieldActive.player : this.shieldActive)) {
+                if (this.invincibleTime > 0 || this.obstacleArcade?.hasShield('player') || (this.isMultiplayer ? this.shieldActive.player : this.shieldActive)) {
                     ball.pos.x = ball.r + 10;
                     ball.vel.x = Math.abs(ball.vel.x) * 1.1;
                     this.audio.bounce();
@@ -7816,7 +7819,7 @@ class Game {
             }
 
             if (ball.pos.x > this.width + 50 + (this.net ? this.net.goalGrace(ball) : 0)) {
-                if (this.invincibleTime > 0 || (this.isMultiplayer && this.shieldActive.ai)) {
+                if (this.invincibleTime > 0 || this.obstacleArcade?.hasShield('ai') || (this.isMultiplayer && this.shieldActive.ai)) {
                     ball.pos.x = this.width - ball.r - 10;
                     ball.vel.x = -Math.abs(ball.vel.x) * 1.1;
                     this.audio.bounce();
@@ -7862,7 +7865,7 @@ class Game {
                 return false;
             }
             if (ball.pos.x < -50) {
-                if (this.invincibleTime > 0 || (this.isMultiplayer ? this.shieldActive.player : this.shieldActive)) {
+                if (this.invincibleTime > 0 || this.obstacleArcade?.hasShield('player') || (this.isMultiplayer ? this.shieldActive.player : this.shieldActive)) {
                     ball.pos.x = ball.r + 10;
                     ball.vel.x = Math.abs(ball.vel.x) * 1.1;
                     this.audio.bounce();
