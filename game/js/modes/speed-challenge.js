@@ -276,7 +276,7 @@ class SpeedChallenge {
         if (titleEl && !this.isMultiplayer) {
             titleEl.textContent = isSave ? 'SAVE THE POINT!' : 'BONUS ROUND';
         }
-        this.timeLimit = this.isMultiplayer ? 5.6 : 5.6 + Math.max(0, this.totalTargets - 7) * 0.35;
+        this.timeLimit = this.isMultiplayer ? 5.6 : 6.2 + Math.max(0, this.totalTargets - 7) * 0.4;
         this.timeRemaining = this.timeLimit;
         this.updateCount();
 
@@ -547,8 +547,8 @@ class SpeedChallenge {
         this.targetSettings.visualNoise = Math.min(0.6, effectiveLevel * 0.05);
 
         // Mechanics unlock past the starting difficulty
-        this.targetSettings.decoys = effectiveLevel >= 9 ? Math.min(3, 1 + Math.floor((effectiveLevel - 9) / 3)) : 0;
-        this.targetSettings.armoredChance = effectiveLevel >= 10 ? Math.min(0.3, 0.1 + (effectiveLevel - 10) * 0.03) : 0;
+        this.targetSettings.decoys = effectiveLevel >= 10 ? Math.min(3, 1 + Math.floor((effectiveLevel - 10) / 3)) : 0;
+        this.targetSettings.armoredChance = effectiveLevel >= 11 ? Math.min(0.3, 0.1 + (effectiveLevel - 11) * 0.03) : 0;
 
         // Define target types based on level
         this.targetSettings.targetTypes = this.determineTargetTypes(effectiveLevel);
@@ -1293,7 +1293,13 @@ class SpeedChallenge {
                 if (this.context.type === 'concede') {
                     const pts = this.context.points || 1;
                     this.game.scores.ai = Math.max(0, this.game.scores.ai - pts);
-                    this.game.showNotification('Point saved!', 'The AI point is cancelled', '#4CAF50');
+                    // A clean, fast save is free: the spent charge comes back
+                    if (this.timeRemaining / this.timeLimit >= 0.35) {
+                        this.grantSave();
+                        this.game.showNotification('Clean save!', `AI point cancelled, charge refunded (${this.saves})`, '#4CAF50');
+                    } else {
+                        this.game.showNotification('Point saved!', 'The AI point is cancelled', '#4CAF50');
+                    }
                 } else {
                     this.grantSave();
                     this.game.showNotification('Bonus cleared!', `+1 save charge (${this.saves})`, '#4CAF50');
@@ -1338,9 +1344,6 @@ class SpeedChallenge {
                 this.game.audio.speedChallengeFail?.();
                 if (this.context.type === 'concede') {
                     this.game.showNotification('Time\'s Up!', 'AI keeps the point', '#ff4444');
-                } else if (this.saves > 0) {
-                    this.saves--;
-                    this.game.showNotification('Bonus failed', `Lost a save charge (${this.saves})`, '#ff4444');
                 } else {
                     this.game.showNotification('Bonus failed', 'No penalty', '#ffaa33');
                 }
@@ -1616,5 +1619,5 @@ class SpeedChallenge {
 }
 
 SpeedChallenge.BASE_DIFFICULTY = 8;
-SpeedChallenge.START_SAVES = 2;
-SpeedChallenge.MAX_SAVES = 3;
+SpeedChallenge.START_SAVES = 3;
+SpeedChallenge.MAX_SAVES = 4;
