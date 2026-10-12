@@ -140,6 +140,12 @@ rules (score to win, ball speed, rally speed-up, paddle size, arena gravity),
 save maps and share them as codes), **Ball Studio** (a ball skin editor), local
 1v1 for any mode, and a persistent level / XP / achievement system.
 
+In Custom Match, paste a YouTube, Spotify, SoundCloud, or Apple Music URL in
+the music field and choose **Play link**. The provider's player remains
+available during the match; use its controls if the browser blocks autoplay.
+Direct audio URLs and local audio files also work. The Forge editor has an
+object inspector, duplicate/delete controls, and undo/redo.
+
 <table>
 <tr>
 <td width="50%"><img src="docs/screenshots/classic.jpg" alt="Classic mode" /><br/><sub><b>Classic</b></sub></td>

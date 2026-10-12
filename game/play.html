@@ -261,7 +261,15 @@
                         </div>
                     </div>
 
-                    <div class="customise-color-controls">
+                    <nav class="customise-section-nav" aria-label="Custom match sections">
+                        <a href="#customLookSection">Look</a>
+                        <a href="#customMusicSection">Music</a>
+                        <a href="#customBackgroundSection">Background</a>
+                        <a href="#customForge">Forge</a>
+                        <a href="#customPowerupsSection">Power-ups</a>
+                    </nav>
+
+                    <div class="customise-color-controls" id="customLookSection">
                         <div class="customise-controls-heading">
                             <p class="customise-kicker">Paddles and ball</p>
                             <h3>Look</h3>
@@ -294,7 +302,7 @@
                         </div>
                     </div>
 
-                    <div class="customise-audio-controls">
+                    <div class="customise-audio-controls" id="customMusicSection">
                         <div class="customise-controls-heading">
                             <p class="customise-kicker">Music</p>
                             <h3>Match music</h3>
@@ -312,19 +320,21 @@
                                 </select>
                             </div>
                             <div class="customise-field">
-                                <label for="customAudioCustomPath">Or your own music</label>
+                                <label for="customAudioCustomPath">Your music link or file</label>
                                 <div class="customise-file-row">
                                     <input id="customAudioCustomPath" type="text"
-                                        placeholder="Audio file path or web address">
+                                        placeholder="Paste YouTube, Spotify, SoundCloud, Apple Music, or audio URL">
                                     <button id="customAudioPickBtn" type="button" class="customise-file-btn">Choose file&hellip;</button>
+                                    <button id="customMusicPreviewBtn" type="button" class="customise-file-btn">Play link</button>
                                 </div>
                                 <input type="file" id="customAudioFilePicker" class="hidden-file-picker"
                                     accept="audio/*" tabindex="-1" aria-hidden="true">
+                                <p id="customMusicLinkStatus" class="customise-music-status" role="status" aria-live="polite">Streaming links open a player you can control during the match.</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="customise-background-studio">
+                    <div class="customise-background-studio" id="customBackgroundSection">
                         <div class="customise-background-controls">
                             <div class="customise-studio-heading">
                                 <p class="customise-kicker">Background</p>
@@ -407,7 +417,7 @@
                         </div>
                     </div>
 
-                    <div class="customise-powerups-panel">
+                    <div class="customise-powerups-panel" id="customPowerupsSection">
                         <p class="customise-powerups-title">Power-ups in this match</p>
                         <div id="customPowerupsGrid" class="customise-powerups-grid">
                             <label class="customise-powerup-option"><input type="checkbox" value="slowBall">Slow
@@ -558,6 +568,7 @@
     <script src="js/render/post-fx.js"></script>
     <script src="js/fx/particles.js"></script>
     <script src="js/audio/audio-engine.js"></script>
+    <script src="js/audio/music-links.js"></script>
     <script src="js/entities/gravity-well.js"></script>
     <script src="js/modes/gravity-slingshot.js"></script>
     <script src="js/entities/ball.js"></script>

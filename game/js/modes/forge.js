@@ -533,6 +533,7 @@
             this.selected = null;
             this.drag = null;
             this.history = [];
+            this.future = [];
             this.raf = 0;
             this.onKey = this.onKey.bind(this);
         }
@@ -554,6 +555,7 @@
                         <button type="button" data-act="bigger" title="Bigger (+)">+</button>
                         <button type="button" data-act="turn" title="Turn (R)">Turn</button>
                         <button type="button" data-act="undo">Undo</button>
+                        <button type="button" data-act="redo">Redo</button>
                         <button type="button" data-act="clear">Clear</button>
                         <button type="button" data-act="save">Save map</button>
                         <button type="button" data-act="done" class="forge-primary">Done</button>
@@ -562,8 +564,19 @@
                 <div class="forge-editor-body">
                     <div class="forge-palette">${TOOLS.map(t => `<button type="button" class="forge-tool" data-tool="${t.id}" title="${t.hint} (${t.key})"><canvas width="44" height="44"></canvas><span>${t.label}</span></button>`).join('')}</div>
                     <div class="forge-stage"><canvas class="forge-canvas"></canvas></div>
+                    <div class="forge-inspector" aria-live="polite">
+                        <span class="forge-kicker">Object</span>
+                        <strong class="forge-object-name">Select an object</strong>
+                        <p class="forge-object-hint">Choose any object on the court to edit it.</p>
+                        <div class="forge-object-properties"><span class="forge-object-position"></span><span class="forge-object-size"></span></div>
+                        <div class="forge-inspector-actions">
+                            <button type="button" data-act="smaller">Smaller</button><button type="button" data-act="bigger">Larger</button>
+                            <button type="button" data-act="turn">Turn</button><button type="button" data-act="duplicate">Duplicate</button>
+                            <button type="button" data-act="delete">Delete</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="forge-editor-hint"><span class="forge-count"></span> Click to place &middot; drag to move &middot; scroll or +/- to resize &middot; R turns walls and pads &middot; right-click or Delete removes &middot; Ctrl+Z undo</div>`;
+                <div class="forge-editor-hint"><span class="forge-count"></span> Click to place &middot; drag to move &middot; scroll or +/- to resize &middot; R turns walls, gates and pads &middot; right-click or Delete removes &middot; Ctrl+Z undo &middot; Ctrl+Y redo</div>`;
             document.body.appendChild(el);
             this.el = el;
             this.canvas = el.querySelector('.forge-canvas');
@@ -590,16 +603,19 @@
                 }
                 btn.addEventListener('click', () => this.setTool(t));
             });
-            el.querySelector('.forge-editor-actions').addEventListener('click', (e) => {
+            el.addEventListener('click', (e) => {
                 const act = e.target.closest('button')?.dataset.act;
                 if (!act) return;
                 if (act === 'mirror') { this.mirror = !this.mirror; e.target.setAttribute('aria-pressed', String(this.mirror)); }
                 if (act === 'snap') { this.snap = !this.snap; e.target.setAttribute('aria-pressed', String(this.snap)); }
                 if (act === 'undo') this.undo();
-                if (act === 'smaller' && this.selected) { this.pushHistory(); this.resize(this.selected, -1); }
-                if (act === 'bigger' && this.selected) { this.pushHistory(); this.resize(this.selected, 1); }
+                if (act === 'redo') this.redo();
+                if (act === 'smaller' && this.selected && SIZE_RANGE[this.selected.t]) { this.pushHistory(); this.resize(this.selected, -1); }
+                if (act === 'bigger' && this.selected && SIZE_RANGE[this.selected.t]) { this.pushHistory(); this.resize(this.selected, 1); }
                 if (act === 'turn') this.rotate(this.selected);
-                if (act === 'clear') { this.pushHistory(); this.items = []; this.selected = null; }
+                if (act === 'duplicate') this.duplicate(this.selected);
+                if (act === 'delete') this.remove(this.selected);
+                if (act === 'clear' && this.items.length) { this.pushHistory(); this.items = []; this.selected = null; }
                 if (act === 'save') this.ui.saveMapFromEditor(this.items, this.nameInput.value);
                 if (act === 'done') this.close(true);
                 if (act === 'background') this.ui.openBackgroundPicker();
@@ -614,6 +630,8 @@
                 const it = this.hit(e) || this.selected;
                 if (!it) return;
                 e.preventDefault();
+                if (!SIZE_RANGE[it.t]) return;
+                this.pushHistory();
                 this.resize(it, e.deltaY < 0 ? 1 : -1);
             }, { passive: false });
             window.addEventListener('resize', () => this.layout());
@@ -624,6 +642,7 @@
             this.items = clone(map.items);
             this.nameInput.value = map.name || 'My arena';
             this.history = [];
+            this.future = [];
             this.selected = null;
             this.el.classList.add('visible');
             this.setTool(this.tool);
@@ -703,11 +722,28 @@
         pushHistory() {
             this.history.push(clone(this.items));
             if (this.history.length > 60) this.history.shift();
+            this.future = [];
         }
 
         undo() {
             const prev = this.history.pop();
-            if (prev) { this.items = prev; this.selected = null; }
+            if (prev) { this.future.push(clone(this.items)); this.items = prev; this.selected = null; }
+        }
+
+        redo() {
+            const next = this.future.pop();
+            if (next) { this.history.push(clone(this.items)); this.items = next; this.selected = null; }
+        }
+
+        duplicate(it) {
+            if (!it) return;
+            const twin = this.mirrorOf(it);
+            const copies = twin ? [it, twin] : [it];
+            if (this.items.length + copies.length > MAX_ITEMS) { this.ui.toast(`Arena is full (${MAX_ITEMS} items)`); return; }
+            this.pushHistory();
+            const shifted = copies.map(o => ({ ...o, x: clamp(o.x + (o.x > 0.5 ? -0.035 : 0.035), BUILD_MIN_X, BUILD_MAX_X), y: clamp(o.y + 0.04, 0.04, 0.96) }));
+            this.items.push(...shifted);
+            this.selected = shifted[0];
         }
 
         remove(it) {
@@ -788,12 +824,13 @@
             const tool = TOOLS.find(t => t.key === key);
             if (tool) { this.setTool(tool.id); e.preventDefault(); return; }
             if (key === 'Escape') { this.close(true); e.preventDefault(); e.stopPropagation(); return; }
-            if ((e.ctrlKey || e.metaKey) && key.toLowerCase() === 'z') { this.undo(); e.preventDefault(); return; }
+            if ((e.ctrlKey || e.metaKey) && key.toLowerCase() === 'z') { if (e.shiftKey) this.redo(); else this.undo(); e.preventDefault(); return; }
+            if ((e.ctrlKey || e.metaKey) && key.toLowerCase() === 'y') { this.redo(); e.preventDefault(); return; }
             if (!this.selected) return;
             if (key === 'Delete' || key === 'Backspace') { this.remove(this.selected); e.preventDefault(); }
             else if (key === 'r' || key === 'R') { this.rotate(this.selected); e.preventDefault(); }
-            else if (key === '+' || key === '=') { this.resize(this.selected, 1); e.preventDefault(); }
-            else if (key === '-' || key === '_') { this.resize(this.selected, -1); e.preventDefault(); }
+            else if ((key === '+' || key === '=') && SIZE_RANGE[this.selected.t]) { this.pushHistory(); this.resize(this.selected, 1); e.preventDefault(); }
+            else if ((key === '-' || key === '_') && SIZE_RANGE[this.selected.t]) { this.pushHistory(); this.resize(this.selected, -1); e.preventDefault(); }
             e.stopPropagation();
         }
 
@@ -808,6 +845,23 @@
             }
             const text = `${this.items.length}/${MAX_ITEMS} items.`;
             if (this.countEl.textContent !== text) this.countEl.textContent = text;
+            const tool = TOOLS.find(t => t.id === this.selected?.t);
+            const name = this.el.querySelector('.forge-object-name');
+            const hint = this.el.querySelector('.forge-object-hint');
+            const position = this.el.querySelector('.forge-object-position');
+            const size = this.el.querySelector('.forge-object-size');
+            name.textContent = tool?.label || 'Select an object';
+            hint.textContent = tool?.hint || 'Choose any object on the court to edit it.';
+            position.textContent = this.selected ? `Position ${Math.round(this.selected.x * 100)}%, ${Math.round(this.selected.y * 100)}%` : '';
+            size.textContent = this.selected && SIZE_RANGE[this.selected.t] ? `Size ${Math.round(this.selected.s * 100)}%` : '';
+            this.el.querySelectorAll('.forge-inspector-actions button').forEach(button => {
+                button.disabled = !this.selected || (['smaller', 'bigger'].includes(button.dataset.act) && !SIZE_RANGE[this.selected.t]) || (button.dataset.act === 'turn' && !['wall', 'gate', 'pad'].includes(this.selected.t));
+            });
+            this.el.querySelectorAll('.forge-editor-actions [data-act="smaller"], .forge-editor-actions [data-act="bigger"], .forge-editor-actions [data-act="turn"]').forEach(button => {
+                button.disabled = !this.selected || (button.dataset.act !== 'turn' && !SIZE_RANGE[this.selected.t]) || (button.dataset.act === 'turn' && !['wall', 'gate', 'pad'].includes(this.selected.t));
+            });
+            this.el.querySelector('[data-act="undo"]').disabled = !this.history.length;
+            this.el.querySelector('[data-act="redo"]').disabled = !this.future.length;
         }
     }
 

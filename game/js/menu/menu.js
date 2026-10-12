@@ -1867,12 +1867,32 @@
                 syncAndRefresh();
                 window.game?.preloadCustomMatchAudio?.();
             };
+            const musicLinkStatus = document.getElementById('customMusicLinkStatus');
+            const musicPreviewBtn = document.getElementById('customMusicPreviewBtn');
+            const updateMusicLinkStatus = () => {
+                const value = customAudioCustomPath?.value.trim() || '';
+                const link = window.PPMusicLinks?.parse(value);
+                if (musicLinkStatus) musicLinkStatus.textContent = link
+                    ? `${link.provider} link ready. Press Play link to open its player.`
+                    : 'Paste a YouTube, Spotify, SoundCloud or Apple Music link, or choose an audio file.';
+                if (musicPreviewBtn) musicPreviewBtn.disabled = !link;
+            };
+            customAudioCustomPath?.addEventListener('input', updateMusicLinkStatus);
+            musicPreviewBtn?.addEventListener('click', () => {
+                const source = customAudioCustomPath?.value.trim();
+                if (!window.PPMusicLinks?.parse(source)) return;
+                musicChanged();
+                window.game?.audio?.stopMusic?.('all');
+                window.PPMusicLinks.play(source);
+            });
+            updateMusicLinkStatus();
             if (customAudioTrack && customAudioTrack.dataset.ppCustomiseOverlayBound !== '1') {
                 customAudioTrack.addEventListener('change', () => {
                     // Choosing a listed track replaces your own file.
                     dropPickedFile();
                     if (customAudioCustomPath) customAudioCustomPath.value = '';
                     musicChanged();
+                    updateMusicLinkStatus();
                 });
                 customAudioTrack.dataset.ppCustomiseOverlayBound = '1';
             }
@@ -1904,12 +1924,14 @@
                     game.resetCustomSettings();
                     game.customAudioRuntimeLabel = '';
                     if (customAudioFilePicker) customAudioFilePicker.value = '';
+                    window.PPMusicLinks?.stop();
                     window.PPSettings?.setPaddle?.('customise', 'left', 'classic');
                     window.PPSettings?.setPaddle?.('customise', 'right', 'classic');
                     if (customBackgroundMode && window.CustomBackgrounds?.optionsHtml) {
                         customBackgroundMode.innerHTML = window.CustomBackgrounds.optionsHtml('classic');
                     }
                     applySettingsToControls();
+                    updateMusicLinkStatus();
                     if (customBgBrightness) customBgBrightness.value = '1';
                     if (customBgSaturation) customBgSaturation.value = '1';
                     if (customBgContrast) customBgContrast.value = '1';
@@ -1957,6 +1979,7 @@
 
         if (customiseOverlayBackBtn) {
             customiseOverlayBackBtn.addEventListener('click', () => {
+                window.PPMusicLinks?.stop();
                 if (typeof window.__ppShowModeSelection === 'function') { window.__ppShowModeSelection(); return; }
                 if (customiseOverlay) { customiseOverlay.classList.remove('active'); customiseOverlay.setAttribute('aria-hidden', 'true'); }
                 if (overlay) { overlay.classList.remove('hidden'); overlay.classList.add('visible'); }

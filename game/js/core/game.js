@@ -709,16 +709,22 @@ class Game {
     }
 
     isHtmlTrackSource(source) {
-        return /\.html?(?:$|[?#])/i.test(source || '');
+        return !!window.PPMusicLinks?.parse(source) || /\.html?(?:$|[?#])/i.test(source || '');
     }
 
     stopCustomHtmlTrack() {
+        window.PPMusicLinks?.stop();
         const frame = document.getElementById('ppCustomTrackFrame');
         if (frame) frame.remove();
     }
 
     startCustomHtmlTrack(source) {
         if (!source) return;
+        if (window.PPMusicLinks?.parse(source)) {
+            document.getElementById('ppCustomTrackFrame')?.remove();
+            window.PPMusicLinks.play(source);
+            return;
+        }
         this.stopCustomHtmlTrack();
         const frame = document.createElement('iframe');
         frame.id = 'ppCustomTrackFrame';
@@ -2409,7 +2415,7 @@ class Game {
 
     toggleFullscreen() {
         if (!document.fullscreenElement) {
-            this.canvas.requestFullscreen().catch(() => { });
+            document.documentElement.requestFullscreen().catch(() => { });
         } else {
             document.exitFullscreen();
         }
