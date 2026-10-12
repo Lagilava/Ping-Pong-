@@ -82,35 +82,40 @@ class Intro {
 
     initTextConfigs() {
         const { neonPink, neonMagenta, textRed } = Intro.COLORS;
+        // The full intro runs about 9 s, the rematch intro about 3.5 s. Both
+        // show both lines in full, so the timeline is chosen from the duration.
+        const short = this.duration < 6;
+        const fade = short ? 0.45 : 0.9;
+        this.textFade = fade;
 
         this.textConfigs = [
             {
                 phrase: "ARE YOU READY?",
-                fontSize: 124,                  // ← reduced from 152
+                fontSize: 120,
                 baseColor: neonPink,
                 glowColor: neonMagenta,
-                y: 0.38,                        // ← moved a bit higher
-                delay: 0.8,
-                staggerPerLetter: 0.105,        // ← slower = more dramatic entrance
+                y: 0.38,
+                delay: short ? 0.15 : 0.6,
+                staggerPerLetter: short ? 0.04 : 0.085,
+                letterTime: short ? 0.4 : 0.62,
                 entrance: 'letterStagger',
                 impactAfterLetters: true,
-                spaceWidth: 78                  // ← wider space between words (optional but helps)
+                alphaMult: 1
             },
             {
                 phrase: "CHOOSE YOUR FATE",
-                fontSize: 44,                   // ← reduced from 52
+                fontSize: 44,
                 color: textRed,
                 glowColor: '#ff3366',
-                y: 0.62,                        // ← noticeably more separation (was 0.595)
-                delay: 4.4,                     // ← comes in a bit later
-                staggerPerLetter: 0.085,
+                y: 0.62,
+                delay: short ? 1.2 : 3.2,
+                staggerPerLetter: short ? 0.03 : 0.06,
+                letterTime: short ? 0.35 : 0.5,
                 entrance: 'fadeType',
-                alphaMult: 0.80
+                alphaMult: 0.92
             }
         ];
     }
-
-
 
     initParticles() {
         this.particles = [];
@@ -214,63 +219,50 @@ class Intro {
 
     createAnimatedTexts() {
         this.texts = [];
+        this.textBlocks = [];
 
         this.textConfigs.forEach(config => {
-            const phrase = config.phrase;
-            const letters = phrase.split('');
+            const letters = config.phrase.split('');
+            const tracking = config.fontSize * 0.05;
+            const spaceW = config.fontSize * 0.5;
 
-            // Compute total width of the full phrase first
-            let totalWidth = 0;
-            letters.forEach(char => {
-                if (char === ' ') {
-                    totalWidth += config.spaceWidth || 65;   // ← use per-config space if defined
-                } else {
-                    totalWidth += this.estimateLetterWidth(char, config.fontSize);
-                }
-            });
+            // Real glyph widths, so the letters sit side by side without overlap.
+            const widths = letters.map(ch => ch === ' ' ? spaceW : this.measureTextWidth(ch, config.fontSize) + tracking);
+            const totalWidth = widths.reduce((a, b) => a + b, 0) - tracking;
+            this.textBlocks.push({ width: totalWidth });
 
-            // Center the whole phrase
-            const phraseBaseX = -totalWidth / 2;
-
-            let currentXOffset = 0;
-
+            let x = -totalWidth / 2;
             letters.forEach((char, idx) => {
-                if (char === ' ') {
-                    currentXOffset += config.spaceWidth || 65;
-                    return;
+                if (char !== ' ') {
+                    const letterObj = {
+                        char,
+                        fontSize: config.fontSize,
+                        color: config.baseColor || config.color,
+                        glowColor: config.glowColor,
+                        y: config.y,
+                        delay: config.delay + idx * config.staggerPerLetter,
+                        letterTime: config.letterTime,
+                        alpha: 0,
+                        scale: 1,
+                        rotation: 0,
+                        dropY: 0,
+                        offsetX: x,
+                        glowIntensity: 0,
+                        wobble: 0,
+                        stretch: 1,
+                        entrance: config.entrance,
+                        impactTriggered: false,
+                        alphaMult: config.alphaMult || 1
+                    };
+                    if (config.impactAfterLetters && idx === letters.length - 1) {
+                        letterObj.isLastOfGroup = true;
+                    }
+                    this.texts.push(letterObj);
                 }
-
-                const letterObj = {
-                    char,
-                    fontSize: config.fontSize,
-                    color: config.baseColor || config.color,
-                    glowColor: config.glowColor,
-                    y: config.y,
-                    delay: config.delay + idx * (config.staggerPerLetter || 0.09),
-                    alpha: 0,
-                    scale: 0.08,
-                    rotation: 0,
-                    offsetX: phraseBaseX + currentXOffset,
-                    glowIntensity: 0,
-                    wobble: 0,
-                    stretch: 1.0,
-                    entrance: config.entrance,
-                    impactTriggered: false,
-                    alphaMult: config.alphaMult || 1
-                };
-
-                if (config.impactAfterLetters && idx === letters.length - 1) {
-                    letterObj.isLastOfGroup = true;
-                }
-
-                this.texts.push(letterObj);
-
-                currentXOffset += this.estimateLetterWidth(char, config.fontSize);
+                x += widths[idx];
             });
         });
     }
-
-
 
     estimateLetterWidth(char, size) {
         // These are tuned multipliers — test visually and adjust if needed
@@ -378,44 +370,43 @@ class Intro {
         }
     }
 
-    updateTexts(dt) {
+    updateTexts() {
         const t = this.time;
+        const outAlpha = Math.max(0, Math.min(1, (this.duration - t) / (this.textFade || 0.9)));
 
         this.texts.forEach(text => {
-            const duration = 1.55;
-            const start = text.delay;
-            let progress = Math.max(0, Math.min(1, (t - start) / duration));
-
-            if (t >= start) {
-                this.updateTextAnimation(text, progress, text.entrance, t);
-            }
-
-            if (t > start + duration + 3.2) {
-                text.alpha = Math.max(text.alpha - dt * 4.2, 0);
-                text.glowIntensity = Math.max(text.glowIntensity - dt * 3.8, 0);
-            }
-
-            text.wobble = Math.sin(t * 8.5 + text.delay * 6) * 0.016;
+            const progress = Math.max(0, Math.min(1, (t - text.delay) / text.letterTime));
+            this.updateTextAnimation(text, progress, text.entrance);
+            text.alpha *= outAlpha;
+            text.glowIntensity *= outAlpha;
         });
     }
 
-    updateTextAnimation(text, progress, type, time) {
-        text.alpha = Math.pow(progress, 1.12) * 1.08;
-        text.glowIntensity = Math.min(progress * 2.6, 2.4);
+    updateTextAnimation(text, progress, type) {
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        // Small overshoot that settles on exactly 1.0, so the letter ends at its measured width.
+        const c1 = 1.9, c3 = c1 + 1;
+        const back = 1 + c3 * Math.pow(progress - 1, 3) + c1 * Math.pow(progress - 1, 2);
+
+        text.alpha = Math.min(1, progress * 2.2) * text.alphaMult;
+        text.rotation = 0;
+        text.wobble = 0;
 
         if (type === 'letterStagger') {
-            text.scale = 0.22 + Math.pow(progress, 1.35) * 1.0;
-            text.rotation = progress < 0.42 ? Math.sin(time * 28) * 0.07 * (1 - progress) : 0;
+            text.scale = 0.55 + 0.45 * back;
+            text.dropY = (1 - easeOut) * -text.fontSize * 0.35;
+            // Glow peaks as the letter lands, then settles to a low steady level.
+            text.glowIntensity = 0.45 + 0.55 * Math.sin(Math.min(1, progress * 1.6) * Math.PI * 0.5) * (1 - 0.45 * easeOut);
 
-            if (text.isLastOfGroup && progress > 0.65 && progress < 0.74 && !text.impactTriggered) {
-                this.impactFlash = 2.6;
-                this.screenShake = 24;
+            if (text.isLastOfGroup && progress > 0.6 && !text.impactTriggered) {
+                this.impactFlash = 0.9;
+                this.screenShake = 10;
                 text.impactTriggered = true;
             }
-        } else if (type === 'fadeType') {
-            text.alpha = Math.pow(progress, 0.68) * (text.alphaMult || 0.8);
-            text.glowIntensity = progress * 1.35;
-            text.scale = 0.88 + progress * 0.24;
+        } else {
+            text.scale = 0.9 + 0.1 * easeOut;
+            text.dropY = (1 - easeOut) * text.fontSize * 0.3;
+            text.glowIntensity = 0.35 * easeOut;
         }
     }
 
@@ -1046,33 +1037,43 @@ class Intro {
         this.ctx.globalAlpha = 1;
     }
 
-    // Remove per-letter centering – we already centered the group
+    // Scale that keeps the widest line inside the canvas on small windows.
+    getTextFit() {
+        const maxW = Math.max(...this.textBlocks.map(b => b.width), 1);
+        const byWidth = (this.canvas.width * 0.9) / maxW;
+        const byHeight = this.canvas.height / 640;
+        return Math.min(1, byWidth, Math.max(0.5, byHeight));
+    }
+
     renderTexts() {
         const cx = this.canvas.width / 2;
+        const fit = this.getTextFit();
 
         if (this.impactFlash > 0.02) {
-            this.ctx.globalAlpha = this.impactFlash * 0.70;
+            this.ctx.globalAlpha = Math.min(1, this.impactFlash) * 0.35;
             this.ctx.fillStyle = '#ff0066';
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
             this.ctx.globalAlpha = 1;
         }
 
+        // Soft dark band behind the lines so they read over busy backgrounds.
+        const lead = this.texts[0];
+        if (lead && this.time > 0.1) {
+            const fade = Math.min(1, this.time / 1.2) * Math.max(0, Math.min(1, (this.duration - this.time) / (this.textFade || 0.9)));
+            const h = this.canvas.height;
+            const g = this.ctx.createLinearGradient(0, h * 0.18, 0, h * 0.78);
+            g.addColorStop(0, 'rgba(0,0,0,0)');
+            g.addColorStop(0.35, `rgba(0,0,0,${0.38 * fade})`);
+            g.addColorStop(0.7, `rgba(0,0,0,${0.38 * fade})`);
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            this.ctx.fillStyle = g;
+            this.ctx.fillRect(0, h * 0.18, this.canvas.width, h * 0.6);
+        }
+
         this.texts.forEach(item => {
-            if (item.alpha < 0.03) return;
-
-            // No more per-letter x adjustment
-            const x = cx + item.offsetX;           // ← already includes centering shift
-            const y = this.canvas.height * item.y;
-
-            this.renderTextLine(
-                item.char,
-                item.fontSize,
-                item.color,
-                item.glowColor,
-                x,
-                y,
-                item
-            );
+            if (item.alpha < 0.02) return;
+            this.renderTextLine(item.char, item.fontSize * fit, item.color, item.glowColor,
+                cx + item.offsetX * fit, this.canvas.height * item.y + item.dropY * fit, item);
         });
     }
 
@@ -1082,46 +1083,57 @@ class Intro {
         return this.ctx.measureText(text).width;
     }
 
+    // One crisp letter: a tight single glow underneath, then the sharp fill and
+    // a thin light edge on top, so bloom adds light without blurring the shape.
     renderTextLine(txt, size, color, glowColor, x, y, textState) {
-        this.ctx.save();
-        this.ctx.translate(x, y);
-        this.ctx.scale(textState.scale, textState.scale * textState.stretch);
-        this.ctx.rotate(textState.rotation + textState.wobble);
-        this.ctx.globalAlpha = textState.alpha;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(textState.scale, textState.scale * textState.stretch);
+        ctx.font = `900 italic ${size}px 'Audiowide', 'Orbitron', 'Arial Black', sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'round';
 
-        this.ctx.font = `900 italic ${size}px 'Audiowide', 'Orbitron', 'Arial Black', sans-serif`;
-        this.ctx.textAlign = 'left';
-        this.ctx.textBaseline = 'middle';
-
-        this.ctx.shadowBlur = 74 * textState.glowIntensity;
-        this.ctx.shadowColor = glowColor;
-        this.ctx.fillStyle = color;
-        this.ctx.fillText(txt, 0, 0);
-
-        this.ctx.shadowBlur = 138 * textState.glowIntensity * 0.62;
-        this.ctx.globalAlpha *= 0.44;
-        this.ctx.fillText(txt, 0, 0);
-
-        if (textState.glowIntensity > 0.68) {
-            const split = Math.sin(this.time * 15) * 2.1;
-
-            this.ctx.shadowBlur = 0;
-            this.ctx.globalAlpha = textState.alpha * 0.58;
-
-            this.ctx.fillStyle = Intro.COLORS.neonCyan;
-            this.ctx.fillText(txt, -5 - split, 0);
-
-            this.ctx.fillStyle = Intro.COLORS.neonPink;
-            this.ctx.fillText(txt, 5 + split, 0);
+        // Colour split only while the impact flash is fading.
+        if (this.impactFlash > 0.05 && textState.entrance === 'letterStagger') {
+            const split = Math.min(1, this.impactFlash) * size * 0.03;
+            ctx.globalAlpha = textState.alpha * 0.5;
+            ctx.fillStyle = '#00e5ff';
+            ctx.fillText(txt, -split, 0);
+            ctx.fillStyle = '#ff2d7a';
+            ctx.fillText(txt, split, 0);
         }
 
-        this.ctx.restore();
+        ctx.globalAlpha = textState.alpha;
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = size * 0.16 * textState.glowIntensity;
+        ctx.fillStyle = color;
+        ctx.fillText(txt, 0, 0);
+
+        ctx.shadowBlur = 0;
+        const grad = ctx.createLinearGradient(0, -size * 0.5, 0, size * 0.5);
+        grad.addColorStop(0, '#ffd9e2');
+        grad.addColorStop(0.45, color);
+        grad.addColorStop(1, color);
+        ctx.fillStyle = grad;
+        ctx.fillText(txt, 0, 0);
+
+        ctx.lineWidth = Math.max(1, size * 0.012);
+        ctx.strokeStyle = `rgba(255,235,240,${0.75 * textState.alpha})`;
+        ctx.strokeText(txt, 0, 0);
+
+        ctx.restore();
     }
 
     start() {
         if (this.game?.bgRenderer && typeof this.game.getActiveBackgroundMode === 'function' && typeof this.game.bgRenderer.setMode === 'function') {
             this.game.bgRenderer.setMode(this.game.getActiveBackgroundMode());
         }
+
+        // Timeline depends on the duration chosen by Game.startIntro.
+        this.initTextConfigs();
+        this.createAnimatedTexts();
 
         this.active = true;
         this.running = true;
