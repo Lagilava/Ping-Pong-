@@ -7349,7 +7349,19 @@ class Game {
                         ball.pos.x = -30;
                         ball.vel.x = 0;
                         ball.vel.y = 0;
-                        this.speedChallenge.startChallenge();
+                        if (!this.isMultiplayer) {
+                            // Conceding must cost a point; the challenge can only cancel it
+                            const concededPoints = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
+                            this.scores.ai += concededPoints;
+                            this.progression.recordPoint('ai', concededPoints);
+                            this.speedChallenge.lastScoreChange = { scorer: 'ai', points: concededPoints };
+                            this.speedChallenge.activePlayer = 'player';
+                            this.audio.score();
+                            this.resetRally();
+                        }
+                        if (this.speedChallenge.startChallenge() === false) {
+                            this.speedChallenge.serveBall();
+                        }
                         continue;
                     }
                     const points = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
@@ -7846,6 +7858,7 @@ class Game {
                 if (this.gameMode === 'speed') {
                     // Set intended active player (the one being scored against)
                     this.speedChallenge.activePlayer = 'ai';
+                    if (!this.isMultiplayer) this.speedChallenge.onPlayerPoint();
 
                     // In single-player we only challenge the HUMAN player (not the AI).
                     // Since here the AI would be the one being scored against, skip starting

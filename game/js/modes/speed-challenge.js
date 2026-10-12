@@ -64,6 +64,15 @@ class SpeedChallenge {
         this.cockpitHUD = null;
         this.scene = null;
 
+        // Fairness: conceding a point only offers a "save" while the player has
+        // save charges, and a successful save just cancels the AI's point.
+        this.saves = SpeedChallenge.START_SAVES;
+        this.pointsTowardSave = 0;
+        this.context = { type: 'rally', points: 0 };
+        this.chain = 0;
+        this.nextIndex = 0;
+        this.placed = [];
+
         // Visual effects elements
         this.distractionElements = [];
 
@@ -216,8 +225,28 @@ class SpeedChallenge {
         // If it isn't set (e.g. initial start), default to player
         if (!this.activePlayer) this.activePlayer = 'player';
 
+        if (!this.isMultiplayer) {
+            const info = this.lastScoreChange;
+            this.lastScoreChange = null;
+            if (info && info.scorer === 'ai') {
+                if (this.saves <= 0) {
+                    this.game.showNotification('No saves left', 'Win 2 points to earn a save charge', '#ff8a65');
+                    return false;
+                }
+                this.saves--;
+                this.context = { type: 'concede', points: info.points || 1 };
+            } else {
+                this.context = { type: 'rally', points: 0 };
+            }
+            this.updateSavesHud();
+        }
+
         const playerName = this.activePlayer === 'player' ? 'Player 1' : 'Player 2';
-        this.game.showNotification(`${playerName}'s Turn!`, this.isMultiplayer ? 'Press the key combo!' : 'Complete the challenge!', '#00ffd6');
+        const isSave = this.context.type === 'concede';
+        this.game.showNotification(
+            this.isMultiplayer ? `${playerName}'s Turn!` : (isSave ? 'Save the point!' : 'Bonus round!'),
+            this.isMultiplayer ? 'Press the key combo!' : (isSave ? 'Clear every target to cancel their point' : 'Clear every target to earn a save charge'),
+            '#00ffd6');
 
         // Calculate difficulty with more balanced progression
         // Players never start on easy: level 1 plays at difficulty 8 and
@@ -241,6 +270,12 @@ class SpeedChallenge {
         // beyond 7 each add a little time so late-game counts stay possible.
         this.targetsClicked = 0;
         this.totalTargets = this.targetSettings.count;
+        this.chain = 0;
+        this.nextIndex = 0;
+        const titleEl = this.challengeUI.querySelector('.challenge-title');
+        if (titleEl && !this.isMultiplayer) {
+            titleEl.textContent = isSave ? 'SAVE THE POINT!' : 'BONUS ROUND';
+        }
         this.timeLimit = this.isMultiplayer ? 5.6 : 5.6 + Math.max(0, this.totalTargets - 7) * 0.35;
         this.timeRemaining = this.timeLimit;
         this.updateCount();
@@ -254,7 +289,7 @@ class SpeedChallenge {
 
         // Update UI
         this.challengeUI.setAttribute('data-level', level);
-        this.difficultyDisplay.textContent = `Level ${level} • ${this.targetSettings.count} targets • ${this.timeLimit.toFixed(1)}s`;
+        this.difficultyDisplay.textContent = `Level ${level} • ${this.targetSettings.count} targets • ${this.timeLimit.toFixed(1)}s` + (this.isMultiplayer ? '' : ` • Saves ${this.saves}`);
         this.challengeUI.classList.toggle('pvp-mode', this.isMultiplayer);
 
         // Mark active before visual effects so their callbacks are allowed to run.
@@ -279,7 +314,7 @@ class SpeedChallenge {
             this.updateStatus(`${playerName}: Press the combo in ${this.timeLimit.toFixed(1)}s!`);
         } else {
             const timeText = this.timeLimit.toFixed(1);
-            this.updateStatus(`Hit ${this.totalTargets} target${this.totalTargets > 1 ? 's' : ''} in ${timeText}s to save the point.`);
+            this.updateStatus(`Clear ${this.totalTargets} target${this.totalTargets > 1 ? 's' : ''} in ${timeText}s — click in order for bonus time, avoid ✕.`);
         }
 
         this.announcer.textContent = `Speed challenge: ${this.isMultiplayer ? 'Press combo' : 'Click targets'}. Level ${level}.`;
@@ -294,6 +329,53 @@ class SpeedChallenge {
         if (!this.isMultiplayer) {
             this.spawnTargets();
         }
+        return true;
+    }
+
+    // ------------------------------------------------------------------
+    // Save charges
+    // ------------------------------------------------------------------
+    grantSave() {
+        this.saves = Math.min(SpeedChallenge.MAX_SAVES, this.saves + 1);
+        this.updateSavesHud();
+    }
+
+    // Called by the game each time the human wins a point in single-player.
+    onPlayerPoint() {
+        if (this.isMultiplayer) return;
+        this.pointsTowardSave++;
+        if (this.pointsTowardSave >= 2) {
+            this.pointsTowardSave = 0;
+            if (this.saves < SpeedChallenge.MAX_SAVES) {
+                this.grantSave();
+                this.game.showNotification('Save charge earned', `Saves: ${this.saves}`, '#00ffd6');
+            }
+        }
+        this.updateSavesHud();
+    }
+
+    resetMatchState() {
+        this.saves = SpeedChallenge.START_SAVES;
+        this.pointsTowardSave = 0;
+        this.challengesCompleted = 0;
+        this.lastScoreChange = null;
+        this.updateSavesHud();
+    }
+
+    updateSavesHud() {
+        if (!this.savesHud) {
+            this.savesHud = document.createElement('div');
+            this.savesHud.className = 'speed-saves-hud';
+            this.savesHud.setAttribute('aria-live', 'polite');
+            document.body.appendChild(this.savesHud);
+        }
+        this.savesHud.hidden = !!this.game.isMultiplayer;
+        let pips = '';
+        for (let i = 0; i < SpeedChallenge.MAX_SAVES; i++) {
+            pips += `<i class="${i < this.saves ? 'on' : ''}"></i>`;
+        }
+        this.savesHud.innerHTML = `<span>SAVES</span>${pips}<em>${this.pointsTowardSave}/2</em>`;
+        this.savesHud.title = 'Conceding a point lets you clear a challenge to cancel it. Win 2 points to earn a charge.';
     }
 
     generateCombo(level) {
@@ -464,6 +546,10 @@ class SpeedChallenge {
         // Visual noise is now handled with CSS-only intensity states
         this.targetSettings.visualNoise = Math.min(0.6, effectiveLevel * 0.05);
 
+        // Mechanics unlock past the starting difficulty
+        this.targetSettings.decoys = effectiveLevel >= 9 ? Math.min(3, 1 + Math.floor((effectiveLevel - 9) / 3)) : 0;
+        this.targetSettings.armoredChance = effectiveLevel >= 10 ? Math.min(0.3, 0.1 + (effectiveLevel - 10) * 0.03) : 0;
+
         // Define target types based on level
         this.targetSettings.targetTypes = this.determineTargetTypes(effectiveLevel);
     }
@@ -479,7 +565,7 @@ class SpeedChallenge {
         hud.className = 'cockpit-hud';
         hud.innerHTML = `
             <div class="cockpit-panel left">LEVEL ${level}</div>
-            <div class="cockpit-panel right">CLICK NEAR A TARGET</div>
+            <div class="cockpit-panel right">IN ORDER = BONUS TIME · AVOID ✕</div>
             <div class="cockpit-pillar left"></div>
             <div class="cockpit-pillar right"></div>
             <div class="cockpit-dash"><i></i><i></i><i></i></div>
@@ -504,7 +590,7 @@ class SpeedChallenge {
 
     // Empty the arena but keep the animated cockpit background canvas.
     emptyTargetContainer() {
-        const keep = this.scene?.canvas;
+        const keep = this.scene?.node;
         Array.from(this.targetContainer.children).forEach(child => {
             if (child !== keep) child.remove();
         });
@@ -681,6 +767,15 @@ class SpeedChallenge {
         const fragment = document.createDocumentFragment();
         const spawnedTargets = [];
 
+        this.placed = [];
+
+        // Decoys are placed first so real targets route around them
+        for (let d = 0; d < (this.targetSettings.decoys || 0); d++) {
+            const decoy = this.createTarget(this.totalTargets + d, false, 'static', { decoy: true });
+            fragment.appendChild(decoy);
+            spawnedTargets.push(decoy);
+        }
+
         // Spawn all targets at once for fair gameplay
         for (let i = 0; i < this.totalTargets; i++) {
             const targetType =
@@ -689,7 +784,8 @@ class SpeedChallenge {
                     : 'static';
 
             const isSpecial = Math.random() < this.targetSettings.specialTargetChance;
-            const target = this.createTarget(i, isSpecial, targetType);
+            const armored = !isSpecial && Math.random() < (this.targetSettings.armoredChance || 0);
+            const target = this.createTarget(i, isSpecial, targetType, { armored });
             fragment.appendChild(target);
             spawnedTargets.push(target);
         }
@@ -704,22 +800,48 @@ class SpeedChallenge {
             }
         });
 
-        // Add visual highlight to first target
-        if (this.totalTargets > 0) {
-            const firstTarget = this.targetContainer.querySelector('.click-target');
-            if (firstTarget) {
-                this.trackTimeout(() => {
-                    firstTarget.classList.add('first-target');
-                    this.trackTimeout(() => firstTarget.classList.remove('first-target'), 1000);
-                }, 200);
-            }
+        this.refreshNextTarget();
+    }
+
+    // The lowest-numbered real target left is "next"; hitting targets in order builds a chain.
+    refreshNextTarget() {
+        let next = null;
+        this.activeTargets.forEach(t => {
+            t.classList.remove('next-target');
+            if (t.dataset.decoy === 'true' || t.classList.contains('clicked')) return;
+            if (!next || Number(t.dataset.index) < Number(next.dataset.index)) next = t;
+        });
+        if (next) {
+            next.classList.add('next-target');
+            this.nextIndex = Number(next.dataset.index);
         }
     }
 
-    createTarget(index, isSpecial, targetType) {
+    // Adds (or removes) time and floats the amount over a target.
+    grantTime(seconds, target, label) {
+        if (seconds > 0) this.timeLimit += seconds;
+        this.timeRemaining = Math.max(0, this.timeRemaining + seconds);
+        const rect = this.targetContainer.getBoundingClientRect();
+        const tRect = target.getBoundingClientRect();
+        const el = document.createElement('div');
+        el.className = `float-text ${seconds < 0 ? 'bad' : 'good'}`;
+        el.textContent = label || `${seconds > 0 ? '+' : ''}${seconds.toFixed(1)}s`;
+        el.style.left = `${tRect.left + tRect.width / 2 - rect.left}px`;
+        el.style.top = `${tRect.top - rect.top}px`;
+        el.addEventListener('animationend', () => el.remove(), { once: true });
+        this.targetContainer.appendChild(el);
+    }
+
+    createTarget(index, isSpecial, targetType, opts = {}) {
         const target = document.createElement('div');
         target.className = 'click-target';
         target.dataset.index = index;
+        target.dataset.decoy = opts.decoy ? 'true' : 'false';
+        if (opts.decoy) target.classList.add('decoy-target');
+        if (opts.armored) {
+            target.classList.add('armored');
+            target.dataset.hp = '2';
+        }
         target.dataset.special = isSpecial ? 'true' : 'false';
         target.dataset.type = targetType || 'static';
 
@@ -752,32 +874,22 @@ class SpeedChallenge {
         const minY = (size + 10);
         const maxY = containerHeight - size - 10;
 
-        // Generate random position with collision avoidance
+        // Random position, keeping clear of targets already placed this round
         let posX, posY;
         let attempts = 0;
-        const maxAttempts = 50;
+        const maxAttempts = 80;
 
         do {
             posX = minX + Math.random() * (maxX - minX);
             posY = minY + Math.random() * (maxY - minY);
             attempts++;
 
-            // Check distance from existing targets
-            let collision = false;
-            this.activeTargets.forEach(existingTarget => {
-                const existingX = parseFloat(existingTarget.style.left) || 0;
-                const existingY = parseFloat(existingTarget.style.top) || 0;
-                const dx = Math.abs(posX - existingX);
-                const dy = Math.abs(posY - existingY);
-                const minDistance = size + 40; // Increased padding for easier detection
-
-                if (dx < minDistance && dy < minDistance) {
-                    collision = true;
-                }
-            });
+            const collision = this.placed.some(p =>
+                Math.hypot(posX - p.x, posY - p.y) < (size + p.size) / 2 + 26);
 
             if (!collision || attempts >= maxAttempts) break;
         } while (true);
+        this.placed.push({ x: posX, y: posY, size });
 
         // Set position using CSS custom properties for correct centering with translate
         target.style.setProperty('--target-x', `${posX}px`);
@@ -792,9 +904,10 @@ class SpeedChallenge {
         let targetHTML = `
     <div class="target-outer-ring"></div>
     <div class="target-inner-circle">
-        <div class="target-number">${index + 1}</div>
+        <div class="target-number">${opts.decoy ? '✕' : index + 1}</div>
     </div>
 `;
+        if (opts.armored) targetHTML += '<div class="target-armor"></div>';
 
         if (isSpecial) {
             targetHTML += '<div class="target-star">★</div>';
@@ -804,7 +917,9 @@ class SpeedChallenge {
         target.appendChild(targetWrapper);
 
         // Set aria label with type information
-        const ariaLabel = `${isSpecial ? 'Special ' : ''}${targetType} target ${index + 1} of ${this.totalTargets}`;
+        const ariaLabel = opts.decoy
+            ? 'Decoy, do not click'
+            : `${isSpecial ? 'Bonus time ' : ''}${opts.armored ? 'armored ' : ''}${targetType} target ${index + 1} of ${this.totalTargets}`;
 
         target.setAttribute('aria-label', ariaLabel);
         target.setAttribute('tabindex', '0');
@@ -868,7 +983,7 @@ class SpeedChallenge {
         let bestGap = Infinity;
 
         this.activeTargets.forEach(target => {
-            if (!target.parentNode || target.classList.contains('clicked')) return;
+            if (!target.parentNode || target.classList.contains('clicked') || target.dataset.decoy === 'true') return;
             const rect = target.getBoundingClientRect();
             const radius = rect.width / 2;
             const dist = Math.hypot(clientX - (rect.left + radius), clientY - (rect.top + rect.height / 2));
@@ -950,6 +1065,32 @@ class SpeedChallenge {
             return;
         }
 
+        // Decoy: costs time and breaks the chain
+        if (target.dataset.decoy === 'true') {
+            target.classList.add('clicked');
+            this.chain = 0;
+            this.grantTime(-1, target);
+            this.scene?.kick('red', 1);
+            this.game.audio.speedChallengeFail?.();
+            this.targetContainer.classList.add('shake');
+            this.trackTimeout(() => this.targetContainer.classList.remove('shake'), 300);
+            this.clearTargetIntervals(target);
+            this.trackTimeout(() => {
+                if (target.parentNode) target.parentNode.removeChild(target);
+                this.activeTargets.delete(target);
+            }, 300);
+            return;
+        }
+
+        // Armored: the first hit only cracks the shield
+        if (target.dataset.hp === '2') {
+            target.dataset.hp = '1';
+            target.classList.add('cracked');
+            this.game.audio.hit?.(this.combo);
+            this.scene?.kick('cyan', 0.4);
+            return;
+        }
+
         // Mark as clicked
         target.classList.add('clicked');
         target.classList.remove('hover');
@@ -964,13 +1105,24 @@ class SpeedChallenge {
             this.maxCombo = this.combo;
         }
 
+        // Chain: hitting the highlighted (lowest-numbered) target keeps the chain
+        // going and refunds a little time; skipping ahead resets it.
+        const inOrder = Number(target.dataset.index) === this.nextIndex;
+        this.chain = inOrder ? this.chain + 1 : 0;
+        if (inOrder && this.chain >= 2) {
+            this.grantTime(Math.min(0.3, 0.06 * this.chain), target);
+        }
+        if (isSpecial) {
+            this.grantTime(0.8, target, 'TIME +0.8s');
+        }
+
         // Update progress
         this.targetsClicked++;
         this.updateCount();
 
         // Update status
         const remaining = this.totalTargets - this.targetsClicked;
-        this.updateStatus(`${remaining} target${remaining !== 1 ? 's' : ''} remaining!`);
+        this.updateStatus(`${remaining} target${remaining !== 1 ? 's' : ''} left` + (this.chain > 1 ? ` • CHAIN x${this.chain}` : ''));
 
         // Accessibility announcement
         this.announcer.textContent = `Target ${this.targetsClicked} of ${this.totalTargets} hit. ${remaining} remaining.`;
@@ -1005,6 +1157,8 @@ class SpeedChallenge {
         // Check for completion
         if (this.targetsClicked >= this.totalTargets) {
             this.completeChallenge(true);
+        } else {
+            this.refreshNextTarget();
         }
     }
 
@@ -1133,24 +1287,16 @@ class SpeedChallenge {
         this.clearVisualNoise();
 
         if (success) {
-            // In single-player, a chance to flip the previously awarded rally point instead
+            // Single-player: a save only cancels the AI's point (the player gains no
+            // point), and a bonus round only earns a save charge.
             if (!this.game.isMultiplayer) {
-                const info = this.game.speedChallenge?.lastScoreChange;
-                if (info && info.scorer === 'ai') {
-                    const pts = info.points || 1;
-                    // take back the AI point(s) and give them to the player
+                if (this.context.type === 'concede') {
+                    const pts = this.context.points || 1;
                     this.game.scores.ai = Math.max(0, this.game.scores.ai - pts);
-                    this.game.scores.player += pts;
-                    this.game.showNotification('Challenge Complete!', `Point reversed to you!`, '#4CAF50');
-                } else if (info && info.scorer === 'player') {
-                    const pts = info.points || 1;
-                    this.game.scores.player = Math.max(0, this.game.scores.player - pts);
-                    this.game.scores.ai += pts;
-                    this.game.showNotification('Challenge Complete!', `Point reversed to AI!`, '#4CAF50');
+                    this.game.showNotification('Point saved!', 'The AI point is cancelled', '#4CAF50');
                 } else {
-                    // fallback: award single point to player
-                    this.game.scores.player += 1;
-                    this.game.showNotification('Challenge Complete!', '+1 point', '#4CAF50');
+                    this.grantSave();
+                    this.game.showNotification('Bonus cleared!', `+1 save charge (${this.saves})`, '#4CAF50');
                 }
             } else {
                 // Multiplayer behaves like before
@@ -1190,13 +1336,21 @@ class SpeedChallenge {
             } else {
                 // single-player: already gave AI the rally point, just show message
                 this.game.audio.speedChallengeFail?.();
-                this.game.showNotification('Time\'s Up!', 'AI keeps the point', '#ff4444');
+                if (this.context.type === 'concede') {
+                    this.game.showNotification('Time\'s Up!', 'AI keeps the point', '#ff4444');
+                } else if (this.saves > 0) {
+                    this.saves--;
+                    this.game.showNotification('Bonus failed', `Lost a save charge (${this.saves})`, '#ff4444');
+                } else {
+                    this.game.showNotification('Bonus failed', 'No penalty', '#ffaa33');
+                }
             }
             this.scene?.kick('red', 1);
             this.announcer.textContent = 'Challenge failed! Time ran out.';
         }
 
 
+        this.updateSavesHud();
         this.game.updateScoreUI();
 
         // clear stored score info once used
@@ -1367,6 +1521,7 @@ class SpeedChallenge {
         if (reason === 'match-end') {
             this.updateStatus('Match over.');
         }
+        if (reason !== 'cleanup') this.resetMatchState();
     }
 
     resetComboState() {
@@ -1461,3 +1616,5 @@ class SpeedChallenge {
 }
 
 SpeedChallenge.BASE_DIFFICULTY = 8;
+SpeedChallenge.START_SAVES = 2;
+SpeedChallenge.MAX_SAVES = 3;

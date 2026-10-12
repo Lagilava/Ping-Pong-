@@ -450,3 +450,348 @@
 @media (prefers-reduced-motion: reduce) {
     .cockpit-dash i { animation: none !important; }
 }
+
+/* ==========================================================================
+   COCKPIT BACKDROP v2 - CSS-only, compositor-friendly (speed-cockpit-scene.js)
+   Only transform/opacity are animated; no canvas, no per-frame JS.
+   ========================================================================== */
+
+.speed-challenge .cockpit-scene {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+    container-type: size;
+    background: #04050b;
+}
+
+.cockpit-scene .sc-sky {
+    position: absolute;
+    inset: 0 0 48% 0;
+    background: linear-gradient(180deg, #03040a 0%, #080810 50%, #1a120c 85%, #2c1b0e 100%);
+}
+
+.cockpit-scene .sc-glow {
+    position: absolute;
+    left: 0; right: 0; top: 24%; height: 32%;
+    background: radial-gradient(ellipse at 50% 100%, rgba(255, 150, 60, 0.34), rgba(160, 90, 20, 0.1) 45%, transparent 70%);
+}
+
+.cockpit-scene .sc-skyline {
+    position: absolute;
+    left: 0;
+    bottom: 47.5%;
+    width: 200%;
+    background-repeat: repeat-x;
+    background-size: 50% 100%;
+    will-change: transform;
+    animation: scDrift linear infinite;
+}
+
+.cockpit-scene .sc-skyline.far { height: 24%; opacity: 0.85; animation-duration: calc(110s * var(--sc-speed, 1)); }
+.cockpit-scene .sc-skyline.near { height: 40%; animation-duration: calc(52s * var(--sc-speed, 1)); }
+
+.cockpit-scene .sc-beacon {
+    position: absolute;
+    bottom: 60%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #ff3a3a;
+    box-shadow: 0 0 8px #ff3a3a;
+    animation: scBlink 1.8s ease-in-out infinite;
+}
+
+.cockpit-scene .sc-ground {
+    position: absolute;
+    left: 0; right: 0; bottom: 0; height: 48%;
+    overflow: hidden;
+    container-type: size;
+    background: linear-gradient(180deg, #120c07, #05050a);
+}
+
+.cockpit-scene .sc-road {
+    position: absolute;
+    inset: 0;
+    clip-path: polygon(49% 0, 51% 0, 86% 100%, 14% 100%);
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(255, 160, 70, 0.28), transparent 55%),
+        linear-gradient(180deg, #25170b 0%, #0e0c11 42%, #050509 100%);
+}
+
+.cockpit-scene .sc-dash,
+.cockpit-scene .sc-car {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    opacity: 0;
+    will-change: transform, opacity;
+    animation-timing-function: cubic-bezier(0.55, 0.05, 0.9, 0.55);
+    animation-iteration-count: infinite;
+    animation-delay: var(--d, 0s);
+}
+
+.cockpit-scene .sc-dash {
+    width: 5px;
+    height: 22px;
+    margin-left: -2.5px;
+    border-radius: 2px;
+    background: #ffbf70;
+    animation-name: scDash;
+    animation-duration: calc(3s * var(--sc-speed, 1));
+}
+
+.cockpit-scene .sc-car {
+    width: 34px;
+    height: 12px;
+    margin-left: -17px;
+    background:
+        radial-gradient(circle at 14% 50%, #fff 0 2px, rgba(var(--c), 0.85) 3px, transparent 8px),
+        radial-gradient(circle at 86% 50%, #fff 0 2px, rgba(var(--c), 0.85) 3px, transparent 8px);
+    animation-name: scCar;
+}
+
+.cockpit-scene .sc-car.head { --c: 255, 214, 150; animation-duration: calc(2.6s * var(--sc-speed, 1)); }
+.cockpit-scene .sc-car.tail { --c: 255, 40, 52; animation-duration: calc(6s * var(--sc-speed, 1)); }
+
+.cockpit-scene .sc-rain {
+    position: absolute;
+    top: 0;
+    left: var(--x, 50cqw);
+    width: 1px;
+    height: 18px;
+    background: linear-gradient(180deg, transparent, rgba(195, 210, 240, 0.5));
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: scRain var(--s, 0.9s) linear infinite;
+    animation-delay: var(--d, 0s);
+}
+
+.cockpit-scene .sc-flash {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: radial-gradient(ellipse at 38% 18%, rgba(215, 230, 255, 0.95), rgba(120, 150, 255, 0.25) 50%, transparent 78%);
+    animation: scLightning 9s linear infinite -3s;
+}
+
+.cockpit-scene .sc-kick {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: rgb(var(--kick, 61, 230, 255));
+}
+
+.cockpit-scene .sc-kick.on { animation: scKick 0.4s ease-out; }
+
+.cockpit-scene.sc-paused * { animation-play-state: paused !important; }
+
+@keyframes scDrift { to { transform: translate3d(-50%, 0, 0); } }
+@keyframes scBlink { 0%, 100% { opacity: 0.15; } 50% { opacity: 1; } }
+
+@keyframes scDash {
+    from { transform: translate3d(0, 0, 0) scale(0.12, 0.12); opacity: 0; }
+    12% { opacity: 0.85; }
+    to { transform: translate3d(var(--lx), 100cqh, 0) scale(1.5, 3.2); opacity: 0.9; }
+}
+
+@keyframes scCar {
+    from { transform: translate3d(0, 0, 0) scale(0.14); opacity: 0; }
+    10% { opacity: 1; }
+    to { transform: translate3d(var(--lx), 100cqh, 0) scale(2.6); opacity: 1; }
+}
+
+@keyframes scRain {
+    from { transform: translate3d(0, -12cqh, 0) rotate(28deg); opacity: 0; }
+    10% { opacity: 1; }
+    to { transform: translate3d(-42cqh, 112cqh, 0) rotate(28deg); opacity: 1; }
+}
+
+@keyframes scLightning {
+    0%, 91% { opacity: 0; }
+    92% { opacity: 0.55; }
+    93% { opacity: 0.05; }
+    94% { opacity: 0.42; }
+    97%, 100% { opacity: 0; }
+}
+
+@keyframes scKick { from { opacity: var(--kick-a, 0.2); } to { opacity: 0; } }
+
+/* Reduced motion: the backdrop stays visible and alive, just calmer.
+   game.css freezes every animation under this preference, so the scene's
+   animations are restored here (same approach as the glitch exceptions),
+   at half speed, with the lightning flash dimmed and the screen kick off. */
+@media (prefers-reduced-motion: reduce) {
+    .cockpit-scene .sc-skyline,
+    .cockpit-scene .sc-dash,
+    .cockpit-scene .sc-car,
+    .cockpit-scene .sc-rain,
+    .cockpit-scene .sc-beacon,
+    .cockpit-scene .sc-flash {
+        animation-iteration-count: infinite !important;
+    }
+
+    .cockpit-scene .sc-skyline.far { animation-duration: 220s !important; }
+    .cockpit-scene .sc-skyline.near { animation-duration: 104s !important; }
+    .cockpit-scene .sc-dash { animation-duration: 6s !important; }
+    .cockpit-scene .sc-car.head { animation-duration: 5.2s !important; }
+    .cockpit-scene .sc-car.tail { animation-duration: 12s !important; }
+    .cockpit-scene .sc-rain { animation-duration: 1.8s !important; }
+    .cockpit-scene .sc-beacon { animation-duration: 3.6s !important; }
+    .cockpit-scene .sc-flash { animation-duration: 12s !important; animation-name: scLightningSoft; }
+    .cockpit-scene .sc-kick.on { animation: none !important; }
+}
+
+@keyframes scLightningSoft {
+    0%, 90% { opacity: 0; }
+    94% { opacity: 0.12; }
+    100% { opacity: 0; }
+}
+
+/* ==========================================================================
+   TARGET MECHANICS: decoys, armor, chain "next" marker, floating time text
+   ========================================================================== */
+
+.speed-challenge .click-target.decoy-target {
+    --t-main: #ff4d6d;
+    --t-deep: #6e0a20;
+    --t-glow: 255, 77, 109;
+}
+
+.speed-challenge .click-target.decoy-target .target-number {
+    color: #fff;
+    text-shadow: 0 0 8px rgba(255, 40, 80, 0.9);
+}
+
+.speed-challenge .click-target.decoy-target .target-outer-ring::after {
+    animation-duration: 2.2s;
+    animation-direction: reverse;
+}
+
+/* the target you should hit next: bright ring + bobbing arrow */
+.speed-challenge .click-target.next-target .target-outer-ring {
+    border-color: #fff;
+    box-shadow: 0 0 24px rgba(255, 255, 255, 0.85), inset 0 0 14px rgba(var(--t-glow), 0.5);
+}
+
+.speed-challenge .click-target.next-target::after {
+    content: '\25BC';
+    position: absolute;
+    left: 50%;
+    top: -26px;
+    transform: translateX(-50%);
+    font-size: 13px;
+    color: #fff;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+    pointer-events: none;
+    animation: scNextBob 0.8s ease-in-out infinite;
+}
+
+@keyframes scNextBob {
+    0%, 100% { transform: translate(-50%, 0); }
+    50% { transform: translate(-50%, 5px); }
+}
+
+/* armored: extra steel shell that cracks on the first hit */
+.speed-challenge .target-armor {
+    position: absolute;
+    inset: -7%;
+    border-radius: 50%;
+    border: 4px solid rgba(200, 218, 240, 0.95);
+    box-shadow: 0 0 12px rgba(200, 218, 240, 0.6), inset 0 0 8px rgba(200, 218, 240, 0.4);
+    pointer-events: none;
+}
+
+.speed-challenge .click-target.cracked .target-armor {
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.55);
+    box-shadow: none;
+    animation: scArmorCrack 0.25s ease-out;
+}
+
+@keyframes scArmorCrack {
+    0% { transform: scale(1.18); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.6; }
+}
+
+.speed-challenge .float-text {
+    position: absolute;
+    z-index: 40;
+    transform: translate(-50%, 0);
+    font-size: 16px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    pointer-events: none;
+    text-shadow: 0 0 8px rgba(0, 0, 0, 0.9);
+    animation: scFloat 0.9s ease-out forwards;
+}
+
+.speed-challenge .float-text.good { color: #7dffb0; }
+.speed-challenge .float-text.bad { color: #ff6b81; }
+
+@keyframes scFloat {
+    from { transform: translate(-50%, 0); opacity: 1; }
+    to { transform: translate(-50%, -46px); opacity: 0; }
+}
+
+.speed-challenge .target-container.shake { animation: scShake 0.3s linear; }
+
+@keyframes scShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-7px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .speed-challenge .target-container.shake { animation: none !important; }
+}
+
+/* ==========================================================================
+   SAVE CHARGES HUD (single-player speed mode)
+   ========================================================================== */
+
+.speed-saves-hud {
+    position: fixed;
+    left: 50%;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(61, 230, 255, 0.35);
+    background: rgba(6, 14, 28, 0.78);
+    font-family: 'Audiowide', 'Segoe UI', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(190, 245, 255, 0.85);
+    pointer-events: none;
+}
+
+.speed-saves-hud[hidden],
+body:not(.speed-mode) .speed-saves-hud { display: none; }
+
+.speed-saves-hud i {
+    width: 12px;
+    height: 12px;
+    transform: rotate(45deg);
+    border: 1px solid rgba(61, 230, 255, 0.6);
+    background: transparent;
+}
+
+.speed-saves-hud i.on {
+    background: #3de6ff;
+    box-shadow: 0 0 10px #3de6ff;
+}
+
+.speed-saves-hud em {
+    font-style: normal;
+    opacity: 0.6;
+    letter-spacing: 1px;
+}
