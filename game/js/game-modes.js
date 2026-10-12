@@ -17,6 +17,7 @@
     const IS_MOBILE = !!window.PerfGovernor?.isMobile;
     const BUFFER_SIZE = IS_MOBILE ? 100 : 144;
     const REPLAY_WIDTH = IS_MOBILE ? 420 : 640;
+    const CFG_RECORD_FPS = IS_MOBILE ? 18 : 24;
     const frameBuffer = new Array(BUFFER_SIZE).fill(null);
     const frameTimestamps = new Float64Array(BUFFER_SIZE);
     const frameMetaBuffer = new Array(BUFFER_SIZE).fill(null);
@@ -81,9 +82,10 @@
         },
         playback: {
             normalSpeed: 1.0,
-            slowMoSpeed: 0.4,
+            slowMoSpeed: 0.5,
+            speeds: [0.25, 0.5, 1, 2],
             minDurationMs: 2500,
-            endHoldMs: 500,
+            endHoldMs: 900,
             minFPS: 12,
             maxFPS: 60,
             trailFrames: 18,
@@ -98,6 +100,7 @@
             minTimeSinceLastReplayMs: 25000,
             maxConsecutiveReplays: 2,
             minFramesForReplay: 72,    // ~3s at 24fps
+            minClipFrames: 30,         // shortest clip worth trimming down to
         },
         timing: {
             replayDelay: 400,
@@ -160,6 +163,7 @@
             hits: rallyHits,
             peakSpeed: maxBallSpeedPxPerSec,
             mode: game?.gameMode || 'classic',
+            serving: !!(game?.serveHold > 0 && game?.pendingServe),
         };
     };
 
@@ -208,6 +212,26 @@
         }
     };
 
+    // The buffer is a rolling window, so it can open on the previous point's
+    // serve hold or the end of the one before. Start the clip a beat before the
+    // ball was last released so it shows this rally, not the downtime.
+    const CLIP_LEAD_FRAMES = Math.round(CFG_RECORD_FPS * 0.5);
+    const trimToLastRally = () => {
+        const n = snapshotFrames.length;
+        let i = n - 1;
+        while (i >= 0 && snapshotFrameMeta[i]?.serving) i--;      // post-goal hold at the tail
+        let release = -1;
+        for (; i >= 0; i--) {
+            if (snapshotFrameMeta[i]?.serving) { release = i + 1; break; }
+        }
+        if (release < 0) return;                                  // whole buffer is one rally
+        const from = Math.max(0, release - CLIP_LEAD_FRAMES);
+        if (n - from < CFG.trigger.minClipFrames || from === 0) return;
+        snapshotFrames = snapshotFrames.slice(from);
+        snapshotTimestamps = snapshotTimestamps.slice(from);
+        snapshotFrameMeta = snapshotFrameMeta.slice(from);
+    };
+
     const bufferSnapshot = () => {
         // Copy all valid frames from the circular buffer into flat arrays
         snapshotFrames = [];
@@ -223,6 +247,7 @@
                 snapshotFrameMeta.push(frameMetaBuffer[idx] || null);
             }
         }
+        trimToLastRally();
         const start = snapshotTimestamps[0] || 0;
         const end = snapshotTimestamps[snapshotTimestamps.length - 1] || start;
         const span = Math.max(1, end - start);
@@ -366,31 +391,60 @@
         return null;
     };
 
-    // ─── RECORDING LOOP ───────────────────────────────────────────────────────
-    const recordFrame = async (timestamp) => {
-        if (!recordingActive) return;
+    // ─── RECORDING ────────────────────────────────────────────────────────────
+    // Frames are copied right after the post-fx pass presents (same task, so the
+    // WebGL output is still readable), which keeps bloom and grading in the
+    // replay and means paused/intro frames are never recorded: step() returns
+    // before presenting on those. Without a post-fx object we fall back to a
+    // rAF loop that copies the 2D canvas.
+    let presentHooked = false;
+    // Menus, the intro countdown and the pause menu also present frames; none of
+    // those belong in a clip.
+    const isGameLive = () => !!(game && game.running && !game.paused && !game.introActive && !game.matchEnding);
 
+    const captureFrameNow = (timestamp, fromPresent = false) => {
+        if (!recordingActive || isReplaying || !game?.canvas || !offscreenCtx) return;
+        if (!isGameLive()) return;
         const interval = 1000 / CFG.record.targetFPS;
-        if (timestamp - lastRecordTimestamp < interval) {
-            requestAnimationFrame(recordFrame);
-            return;
-        }
+        if (timestamp - lastRecordTimestamp < interval * 0.9) return;
         lastRecordTimestamp = timestamp;
-
         try {
-            if (!game?.canvas || !offscreenCtx || isReplaying) {
-                requestAnimationFrame(recordFrame);
-                return;
-            }
-            offscreenCtx.drawImage(game.canvas, 0, 0, offscreen.width, offscreen.height);
-            const meta = createFrameMeta(timestamp);
-            const frame = await captureOneFrame();
-            if (frame) bufferPush(frame, timestamp, meta);
+            const fx = game.postFx;
+            // The WebGL output is only readable inside the present() task.
+            const src = (fromPresent && fx?.active && fx.canvas?.width) ? fx.canvas : game.canvas;
+            offscreenCtx.drawImage(src, 0, 0, offscreen.width, offscreen.height);
+            if (!SUPPORTS_TRANSFER_TO_BITMAP) { captureFallbackFrame(timestamp); return; }
+            const frame = offscreen.transferToImageBitmap();
+            if (frame) bufferPush(frame, timestamp, createFrameMeta(timestamp));
         } catch (e) {
             console.warn('[Replay] Capture error:', e);
         }
+    };
 
-        requestAnimationFrame(recordFrame);
+    // Older engines: encode to an image (async), keep the frame's own timestamp.
+    const captureFallbackFrame = async (timestamp) => {
+        const meta = createFrameMeta(timestamp);
+        const frame = await captureOneFrame();
+        if (frame && recordingActive) bufferPush(frame, timestamp, meta);
+    };
+
+    const recordLoopFallback = (timestamp) => {
+        if (!recordingActive || presentHooked) return;
+        hookPresent();                       // post-fx may be created after install
+        if (!presentHooked) captureFrameNow(timestamp);
+        requestAnimationFrame(recordLoopFallback);
+    };
+
+    const hookPresent = () => {
+        const fx = game?.postFx;
+        if (presentHooked || !fx || typeof fx.present !== 'function') return;
+        const original = fx.present.bind(fx);
+        fx.present = function (...args) {
+            const out = original(...args);
+            if (recordingActive) captureFrameNow(performance.now(), true);
+            return out;
+        };
+        presentHooked = true;
     };
 
     const startRecording = () => {
@@ -399,7 +453,8 @@
         bufferClear();
         lastRecordTimestamp = 0;
         recordingActive = true;
-        requestAnimationFrame(recordFrame);
+        hookPresent();
+        if (!presentHooked) requestAnimationFrame(recordLoopFallback);
     };
 
     const stopRecording = () => {
@@ -631,22 +686,30 @@
         }
     };
 
-    // ─── SERVE NEW BALL ───────────────────────────────────────────────────────
-    const serveNewBall = () => {
+    // ─── RESUME THE RALLY ─────────────────────────────────────────────────────
+    // A replay normally starts just after a point, while the game holds the ball
+    // at the serve spot (serveHold / pendingServe). We must not touch the ball:
+    // overwriting its position and velocity here once left it crawling at 7 px/s
+    // from the wrong spot. Instead give the player a fresh, full serve telegraph
+    // so there is a beat to get set after the replay. If the ball was in play
+    // (replay opened from the Replay chip) it is frozen mid-flight and released
+    // the same way, keeping its velocity.
+    const RESUME_HOLD_S = 1.4;
+    const prepareResumeServe = () => {
         if (!game) return;
         try {
-            if (typeof game.serve === 'function') { game.serve(); return; }
-            if (typeof game.resetBall === 'function') { game.resetBall(); return; }
-            if (typeof game.newBall === 'function') { game.newBall(); return; }
-            // Manual fallback
-            const W = game.canvas?.width ?? 800;
-            const H = game.canvas?.height ?? 600;
-            const dirX = Math.random() > 0.5 ? 1 : -1;
-            const speed = 7;
-            if (game.ball?.pos?.set) game.ball.pos.set(W / 2, H / 2);
-            if (game.ball?.vel?.set) game.ball.vel.set(speed * dirX, (Math.random() - 0.5) * 4);
+            if (game.countdown !== undefined) game.countdown = 0;
+            if (game.gameState !== undefined) game.gameState = 'playing';
+            if (game.state !== undefined && game.state !== 'playing') game.state = 'playing';
+            if (game.serveHold > 0 && game.pendingServe) {
+                game.serveHold = Math.max(game.serveHold, RESUME_HOLD_S);
+                game.serveHoldTotal = game.serveHold;
+            } else if (typeof game.holdServe === 'function' && game.ball?.vel &&
+                       Math.abs(game.ball.vel.x) + Math.abs(game.ball.vel.y) > 1) {
+                game.holdServe(RESUME_HOLD_S);
+            }
         } catch (e) {
-            console.warn('[Replay] serveNewBall failed:', e);
+            console.warn('[Replay] resume serve failed:', e);
         }
     };
 
@@ -842,7 +905,7 @@
         if (elSpeed) {
             elSpeed.textContent = isPaused ? 'PAUSED'
                 : replaySpeed < CFG.playback.normalSpeed ? `${replaySpeed}×  SLO-MO`
-                : `${replaySpeed}×`;
+                : `${replaySpeed.toFixed(replaySpeed % 1 ? 2 : 1)}×`;
         }
 
         const elState = document.getElementById('pp-state');
@@ -859,11 +922,13 @@
         if (playBtn) {
             const playIcon  = playBtn.querySelector('.pp-icon-play');
             const pauseIcon = playBtn.querySelector('.pp-icon-pause');
-            if (playIcon)  playIcon.style.display  = isPaused ? '' : 'none';
-            if (pauseIcon) pauseIcon.style.display  = isPaused ? 'none' : '';
+            if (playIcon)  playIcon.toggleAttribute('hidden', !isPaused);
+            if (pauseIcon) pauseIcon.toggleAttribute('hidden', isPaused);
             playBtn.setAttribute('aria-pressed', String(!isPaused));
         }
 
+        const speedLabel = document.getElementById('pp-speed-label');
+        if (speedLabel) speedLabel.textContent = `${replaySpeed}×`;
         const slowBtn = document.getElementById('pp-btn-slowmo');
         if (slowBtn) slowBtn.setAttribute('aria-pressed', String(replaySpeed < 1));
 
@@ -937,6 +1002,75 @@
         replayRaf = requestAnimationFrame(replayLoop);
     };
 
+    // ─── AUDIO ────────────────────────────────────────────────────────────────
+    // Small synthesised cues routed through the game's master gain (so master,
+    // SFX mute and the compressor all apply), plus a music duck while the clip
+    // plays. Everything is best-effort: no audio context just means silence.
+    const noiseBuffer = (ctx, seconds) => {
+        const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        return buf;
+    };
+
+    const replayCue = (kind) => {
+        try {
+            const audio = game?.audio;
+            const ctx = audio?.ctx;
+            const out = audio?.masterGain || audio?.gain;
+            if (!ctx || !out || ctx.state !== 'running' || audio.enabled === false) return;
+            const now = ctx.currentTime;
+            if (kind === 'tick') {
+                const osc = ctx.createOscillator();
+                const g = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1500, now);
+                g.gain.setValueAtTime(0.0001, now);
+                g.gain.exponentialRampToValueAtTime(0.09, now + 0.004);
+                g.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+                osc.connect(g); g.connect(out);
+                osc.start(now); osc.stop(now + 0.06);
+                return;
+            }
+            // 'in' sweeps up into the clip, 'out' sweeps back down to live play.
+            const up = kind !== 'out';
+            const dur = up ? 0.55 : 0.45;
+            const src = ctx.createBufferSource();
+            src.buffer = noiseBuffer(ctx, dur);
+            const bp = ctx.createBiquadFilter();
+            bp.type = 'bandpass';
+            bp.Q.value = 1.2;
+            bp.frequency.setValueAtTime(up ? 280 : 2600, now);
+            bp.frequency.exponentialRampToValueAtTime(up ? 2600 : 280, now + dur);
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(0.0001, now);
+            g.gain.exponentialRampToValueAtTime(0.22, now + dur * 0.55);
+            g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+            src.connect(bp); bp.connect(g); g.connect(out);
+            src.start(now);
+        } catch (e) { /* audio is optional */ }
+    };
+
+    let duckedMusic = [];
+    const duckMusic = () => {
+        if (duckedMusic.length) return;
+        [game?.intro?.bgMusic, document.getElementById('bgMusic')].forEach(el => {
+            if (!el || el.paused || !Number.isFinite(el.volume)) return;
+            if (duckedMusic.some(d => d.el === el)) return;
+            const entry = { el, volume: el.volume, ducked: el.volume * 0.35 };
+            el.volume = entry.ducked;
+            duckedMusic.push(entry);
+        });
+    };
+    const unduckMusic = () => {
+        duckedMusic.forEach(({ el, volume, ducked }) => {
+            // Leave it alone if a settings change moved the volume meanwhile.
+            if (Math.abs(el.volume - ducked) < 0.001) { try { el.volume = volume; } catch (e) { /* ignore */ } }
+        });
+        duckedMusic = [];
+    };
+
     // ─── INTRO ANIMATION ─────────────────────────────────────────────────────
     const playIntro = () => new Promise(resolve => {
         const el = document.createElement('div');
@@ -952,6 +1086,7 @@
                 0% { background: #000; }
                 100% { background: transparent; }
             }
+            @keyframes pp-fadein { to { opacity: 1; } }
             @keyframes pp-line-grow {
                 0% { width: 0; opacity: 0; }
                 20% { width: 0; opacity: 1; }
@@ -970,12 +1105,12 @@
                 display: flex; flex-direction: column;
                 justify-content: center; align-items: center;
                 background: #000;
-                animation: pp-intro-bg 0.5s ease-out 1.2s forwards;
+                animation: pp-intro-bg 0.4s ease-out 0.75s forwards;
             }
             .pp-intro-line {
                 width: 0; height: 2px;
                 background: linear-gradient(90deg, transparent, #00eeff, #ff2d55, #00eeff, transparent);
-                animation: pp-line-grow 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                animation: pp-line-grow 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
                 margin: 20px 0;
             }
             .pp-intro-word {
@@ -986,7 +1121,7 @@
                 color: #fff;
                 text-transform: uppercase;
                 opacity: 0;
-                animation: pp-text-glitch 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards;
+                animation: pp-text-glitch 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
                 text-shadow: 3px 3px 0px #ff2d55, -3px -3px 0px #00eeff;
             }
             .pp-intro-sub {
@@ -997,7 +1132,7 @@
                 color: rgba(255,255,255,0.7);
                 text-transform: uppercase;
                 opacity: 0;
-                animation: pp-fadein 0.4s ease-out 0.8s forwards;
+                animation: pp-fadein 0.3s ease-out 0.4s forwards;
             }
         </style>
         <div class="pp-intro">
@@ -1008,23 +1143,35 @@
             </div>
         </div>`;
         document.body.appendChild(el);
+        replayCue('in');
         setTimeout(() => {
-            el.style.transition = 'opacity 0.4s ease-out';
+            el.style.transition = 'opacity 0.3s ease-out';
             el.style.opacity = '0';
-            setTimeout(() => { el.remove(); resolve(); }, 400);
-        }, 1600);
+            setTimeout(() => { el.remove(); resolve(); }, 300);
+        }, 1050);
     });
 
     // ─── REPLAY UI ────────────────────────────────────────────────────────────
     const buildReplayUI = () => {
         if (replayUI) replayUI.remove();
-        const mphSpeed   = pxPerSecToMPH(maxBallSpeedPxPerSec);
-        const replayReason = rallyHits >= CFG.trigger.minRallyHits
+        // Stats describe the clip itself: rally tracking restarts after every
+        // point, so the live counters can already be zero by the time we get here.
+        let clipHits = rallyHits;
+        let clipPeak = maxBallSpeedPxPerSec;
+        let liveFrames = 0;
+        snapshotFrameMeta.forEach(m => {
+            if (!m) return;
+            clipHits = Math.max(clipHits, m.hits || 0);
+            clipPeak = Math.max(clipPeak, m.ball?.speed || 0);
+            if (!m.serving) liveFrames++;
+        });
+        const mphSpeed   = pxPerSecToMPH(clipPeak);
+        const replayReason = clipHits >= CFG.trigger.minRallyHits
             ? 'RALLY CLIP'
-            : maxBallSpeedPxPerSec >= getFastShotThreshold()
+            : clipPeak >= getFastShotThreshold()
                 ? 'FAST SHOT'
                 : 'MOMENTUM CLIP';
-        const rallyDuration = Math.max(0, (Date.now() - rallyStartTime) / 1000).toFixed(1);
+        const rallyDuration = (liveFrames / Math.max(1, getMeasuredFPS())).toFixed(1);
         const clipDuration = snapshotFrames.length > 1
             ? ((snapshotFrames.length - 1) / Math.max(1, replayPlaybackFPS)).toFixed(1)
             : '0.0';
@@ -1224,7 +1371,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
 }
 .pp-overlay .pp-btn svg,
 .pp-overlay .pp-btn svg path {
-    display:block !important;
+    display:block;
     width:22px;height:22px;
     min-width:22px;min-height:22px;
     fill:currentColor !important;
@@ -1233,6 +1380,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
     opacity:1 !important;
     pointer-events:none;
 }
+.pp-overlay .pp-btn svg[hidden] { display:none !important; }
 .pp-btn:hover { background:rgba(255,45,85,0.75);transform:scale(1.08); }
 .pp-btn:active { transform:scale(0.96); }
 .pp-btn[aria-pressed="true"] {
@@ -1249,6 +1397,18 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
     background:linear-gradient(120deg,rgba(255,45,85,0.22),rgba(0,238,255,0.14));
 }
 .pp-btn-skip svg { width:18px;height:18px; }
+.pp-btn-speed span {
+    font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;
+    letter-spacing:0.3px;pointer-events:none;
+}
+.pp-hover-time {
+    position:absolute;bottom:calc(100% - 4px);left:0;transform:translateX(-50%);
+    padding:2px 8px;border-radius:5px;background:rgba(0,0,0,0.85);color:#fff;
+    font-size:11px;font-weight:700;pointer-events:none;
+    opacity:0;transition:opacity 0.12s;
+}
+.pp-progress-wrap:hover .pp-hover-time,
+.pp-progress-wrap.scrubbing .pp-hover-time { opacity:1; }
 
 .pp-tooltip {
     position:absolute;bottom:calc(100% + 7px);left:50%;
@@ -1294,7 +1454,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
     .pp-progress-wrap { padding:10px 0 0; }
     .pp-times { margin-top:4px; }
     .pp-controls { padding:6px 10px;gap:8px;flex-wrap:nowrap;border-radius:14px; }
-    .pp-overlay #pp-btn-prev, .pp-overlay #pp-btn-next, .pp-overlay #pp-btn-telemetry, .pp-overlay #pp-btn-loop { display:none; }
+    .pp-overlay #pp-btn-prev, .pp-overlay #pp-btn-next, .pp-overlay #pp-btn-telemetry, .pp-overlay #pp-btn-loop, .pp-overlay #pp-btn-speed { display:none; }
     .pp-btn { width:44px;height:44px; }
     .pp-btn-skip { width:auto;padding:0 16px; }
     .pp-btn:hover { transform:none; }
@@ -1338,7 +1498,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
     <div class="pp-stats">
         <div class="pp-stat">
             <div class="pp-stat-label">HITS</div>
-            <div class="pp-stat-value">${rallyHits}</div>
+            <div class="pp-stat-value">${clipHits}</div>
         </div>
         <div class="pp-stat">
             <div class="pp-stat-label">PEAK</div>
@@ -1349,6 +1509,10 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             <div class="pp-stat-value">${rallyDuration}s</div>
         </div>
         <div class="pp-stat">
+            <div class="pp-stat-label">SCORE</div>
+            <div class="pp-stat-value">${snapshotFrameMeta[snapshotFrameMeta.length - 1]?.score?.player ?? 0}-${snapshotFrameMeta[snapshotFrameMeta.length - 1]?.score?.ai ?? 0}</div>
+        </div>
+        <div class="pp-stat">
             <div class="pp-stat-label">CLIP</div>
             <div class="pp-stat-value">${clipDuration}s</div>
         </div>
@@ -1356,6 +1520,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
 
     <div class="pp-bottom-ui">
     <div class="pp-progress-wrap" id="pp-progress-wrap">
+        <div class="pp-hover-time" id="pp-hover-time">0:00</div>
         <div class="pp-progress-track">
             <div class="pp-progress-fill" id="pp-progress-fill">
                 <div class="pp-progress-thumb"></div>
@@ -1368,7 +1533,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
         </div>
     </div>
 
-    <div class="pp-hint">Space play/pause | S slow-mo | T telemetry | L loop | arrows frame | R restart | Esc live</div>
+    <div class="pp-hint">Space play/pause | S slow-mo | &uarr;&darr; speed | T telemetry | L loop | &larr;&rarr; frame | R restart | Esc live</div>
 
     <div class="pp-controls" id="pp-controls">
         <!-- Prev frame -->
@@ -1383,7 +1548,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
         </button>
         <!-- Play/Pause -->
         <button class="pp-btn" id="pp-btn-playpause" aria-label="Play or pause" aria-pressed="true">
-            <svg class="pp-icon-play" viewBox="0 0 24 24" style="display:none"><path d="M8 5v14l11-7z"/></svg>
+            <svg class="pp-icon-play" viewBox="0 0 24 24" hidden><path d="M8 5v14l11-7z"/></svg>
             <svg class="pp-icon-pause" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
             <div class="pp-tooltip">Play/Pause (Space)</div>
         </button>
@@ -1391,6 +1556,11 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
         <button class="pp-btn" id="pp-btn-slowmo" aria-label="Toggle slow motion" aria-pressed="false">
             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23L13 11.5z"/></svg>
             <div class="pp-tooltip">Slow-mo (S)</div>
+        </button>
+        <!-- Speed (cycles 0.25x / 0.5x / 1x / 2x) -->
+        <button class="pp-btn pp-btn-speed" id="pp-btn-speed" aria-label="Change playback speed">
+            <span id="pp-speed-label">1×</span>
+            <div class="pp-tooltip">Speed (↑ ↓)</div>
         </button>
         <!-- Telemetry -->
         <button class="pp-btn" id="pp-btn-telemetry" aria-label="Toggle replay telemetry" aria-pressed="true">
@@ -1434,6 +1604,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             else if (id === 'pp-btn-restart')  ppAPI.restartReplay();
             else if (id === 'pp-btn-playpause') ppAPI.togglePause();
             else if (id === 'pp-btn-slowmo')    ppAPI.toggleSlowMo();
+            else if (id === 'pp-btn-speed')     ppAPI.cycleSpeed(1);
             else if (id === 'pp-btn-telemetry') ppAPI.toggleTelemetry();
             else if (id === 'pp-btn-loop')      ppAPI.toggleLoop();
             else if (id === 'pp-btn-next')      ppAPI.stepFrame();
@@ -1458,6 +1629,14 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
                 drawReplayFrame(replayIndex);
             };
 
+            const hoverTime = document.getElementById('pp-hover-time');
+            progressWrap.addEventListener('pointermove', ev => {
+                if (!hoverTime) return;
+                const r = progressWrap.getBoundingClientRect();
+                const pct = getPct(ev);
+                hoverTime.style.left = `${pct * r.width}px`;
+                hoverTime.textContent = fmtTime(pct * Math.max(0, snapshotFrames.length - 1) / (replayPlaybackFPS || 24));
+            });
             progressWrap.addEventListener('pointerdown', ev => {
                 ev.preventDefault();
                 progressWrap.setPointerCapture(ev.pointerId);
@@ -1635,6 +1814,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
                 0% { background: #000; }
                 100% { background: transparent; }
             }
+            @keyframes pp-fadein { to { opacity: 1; } }
             @keyframes pp-return-line-grow {
                 0% { width: 0; opacity: 0; }
                 20% { width: 0; opacity: 1; }
@@ -1649,7 +1829,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
                 display:flex;flex-direction:column;
                 justify-content:center;align-items:center;
                 background:#000;
-                animation:pp-return-bg 0.45s ease-out 0.95s forwards;
+                animation:pp-return-bg 0.4s ease-out 0.6s forwards;
             }
             .pp-return-word {
                 font-size:clamp(60px,12vw,120px);
@@ -1658,7 +1838,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
                 color:#fff;
                 text-transform:uppercase;
                 opacity:0;
-                animation:pp-return-text-in 0.42s cubic-bezier(0.16,1,0.3,1) 0.18s forwards;
+                animation:pp-return-text-in 0.35s cubic-bezier(0.16,1,0.3,1) 0.08s forwards;
                 text-shadow:2px 2px 0 #ff2d55,-2px -2px 0 #00eeff;
             }
             .pp-return-line {
@@ -1674,7 +1854,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
                 color:rgba(255,255,255,0.7);
                 text-transform:uppercase;
                 opacity:0;
-                animation:pp-fadein 0.35s ease-out 0.62s forwards;
+                animation:pp-fadein 0.3s ease-out 0.3s forwards;
             }
             @media (max-width:520px) {
                 .pp-return-word { font-size:clamp(46px,16vw,72px);letter-spacing:0.06em; }
@@ -1689,11 +1869,12 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             </div>
         </div>`;
         document.body.appendChild(el);
+        replayCue('out');
         setTimeout(() => {
-            el.style.transition = 'opacity 0.32s ease-out';
+            el.style.transition = 'opacity 0.3s ease-out';
             el.style.opacity = '0';
-            setTimeout(() => { el.remove(); resolve(); }, 340);
-        }, 1150);
+            setTimeout(() => { el.remove(); resolve(); }, 320);
+        }, 800);
     });
 
     const startReplay = async (force = false) => {
@@ -1702,7 +1883,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
 
         // Take snapshot of buffer before we modify anything
         bufferSnapshot();
-        if (snapshotFrames.length < 30) return;
+        if (snapshotFrames.length < CFG.trigger.minClipFrames) return;
 
         cancelPendingReplay();
         stopReplayLoop();
@@ -1721,6 +1902,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
         pauseGameLoop();
         setReplayFlags(true);
         setLiveCanvasVisible(false);
+        duckMusic();
 
         isReplaying = true;
         isEndingReplay = false;
@@ -1792,17 +1974,9 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             await playReturnOverlay();
         } catch(e) { /* non-fatal */ }
 
-        // Resume game
-        requestAnimationFrame(() => {
-            try {
-                if (game.countdown !== undefined) game.countdown = 0;
-                if (game.gameState !== undefined) game.gameState = 'playing';
-                if (game.state !== undefined && game.state !== 'playing') game.state = 'playing';
-                serveNewBall();
-            } catch(e) { console.warn('[Replay] serveNewBall post-replay:', e); }
-        });
-
         await clearReplayUI();
+        unduckMusic();
+        prepareResumeServe();
 
         // FIX: use the carefully captured resume function, not start()
         isReplaying = false;
@@ -1892,6 +2066,15 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
     const pollForScoreAndRally = () => {
         if (!game) { requestAnimationFrame(pollForScoreAndRally); return; }
 
+        // Intro, pause menu, menus and match end start a fresh clip: the buffer's
+        // timestamps would otherwise span the gap and the clip would open on
+        // stale frames. (While the Replay chip is up the buffer is the clip.)
+        if (!isReplaying && !isEndingReplay && !offerEl && !isReplayPending && !isGameLive() && bufferCount > 0) {
+            bufferClear();
+            resetRallyTracking();
+            lastScoreTotal = getScoreTotal();
+        }
+
         if (!isReplaying && !isEndingReplay && !game.paused && game.running && !game.introActive) {
             const total = getScoreTotal();
 
@@ -1945,6 +2128,10 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             'L': () => ppAPI.toggleLoop(),
             'ArrowRight': () => ppAPI.stepFrame(),
             'ArrowLeft': () => ppAPI.prevFrame(),
+            'ArrowUp': () => ppAPI.cycleSpeed(1),
+            'ArrowDown': () => ppAPI.cycleSpeed(-1),
+            ']': () => ppAPI.cycleSpeed(1),
+            '[': () => ppAPI.cycleSpeed(-1),
             'b': () => ppAPI.prevFrame(),
             'B': () => ppAPI.prevFrame(),
             'f': () => ppAPI.stepFrame(),
@@ -1971,18 +2158,34 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             isPaused = !isPaused;
             isScrubbingReplay = false;
             replayEndHoldStart = 0;
+            // Pressing play on the last frame watches it again instead of leaving.
+            if (!isPaused && replayIndex >= snapshotFrames.length - 1) {
+                replayIndex = 0;
+                replayPlaybackStartTimestamp = performance.now();
+            }
             if (isPaused) stopReplayLoop();
             drawReplayFrame(replayIndex); // immediate feedback
             if (!isPaused) ensureLoop();
         },
         toggleSlowMo() {
             if (!isReplaying) return;
-            replaySpeed = replaySpeed >= CFG.playback.normalSpeed
+            ppAPI.setSpeed(replaySpeed >= CFG.playback.normalSpeed
                 ? CFG.playback.slowMoSpeed
-                : CFG.playback.normalSpeed;
-            isPaused = false;
-            replayEndHoldStart = 0;
-            ensureLoop();
+                : CFG.playback.normalSpeed);
+        },
+        setSpeed(value) {
+            if (!isReplaying) return;
+            replaySpeed = value;
+            if (isPaused) ppAPI.togglePause(); else { replayEndHoldStart = 0; ensureLoop(); }
+            replayCue('tick');
+            syncReplayVisualState();
+        },
+        cycleSpeed(dir = 1) {
+            if (!isReplaying) return;
+            const list = CFG.playback.speeds;
+            let i = list.findIndex(v => Math.abs(v - replaySpeed) < 1e-6);
+            if (i < 0) i = list.indexOf(1);
+            ppAPI.setSpeed(list[(i + dir + list.length) % list.length]);
         },
         toggleTelemetry() {
             if (!isReplaying) return;
@@ -2003,6 +2206,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             stopReplayLoop();
             replayIndex = Math.min(snapshotFrames.length - 1, Math.floor(replayIndex) + 1);
             replayEndHoldStart = 0;
+            replayCue('tick');
             drawReplayFrame(replayIndex);
         },
         prevFrame() {
@@ -2011,6 +2215,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             stopReplayLoop();
             replayIndex = Math.max(0, Math.floor(replayIndex) - 1);
             replayEndHoldStart = 0;
+            replayCue('tick');
             drawReplayFrame(replayIndex);
         },
         restartReplay() {
@@ -2023,6 +2228,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             drawReplayFrame(0);
             ensureLoop();
         },
+        _frames: () => snapshotFrames,
         debug() {
             console.table({
                 bufferCount,
