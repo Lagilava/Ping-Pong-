@@ -1,6 +1,7 @@
 class Game {
     // Obstacle mode's arena is this many times the normal size (see getArenaScale).
     static OBSTACLE_ARENA_SCALE = 2.5;
+    static ARENA_SERVE_DELAY = 2;
 
     // Per-mode colour grade, applied inside the existing post-process pass
     // (a few extra multiply-adds per pixel; no extra passes or texture reads).
@@ -1036,13 +1037,19 @@ class Game {
         }
         this.arenaReveal = { t: 0, hold: 0.35, dur: 2.2, from: scale };
         this.arenaRevealZoom = scale;
-        if (!(this.serveHold > 0)) this.holdServe(this.arenaReveal.hold + this.arenaReveal.dur);
+        // The serve waits until 2 s after the zoom-out ends.
+        if (!(this.serveHold > 0)) this.holdServe(Game.ARENA_SERVE_DELAY);
     }
 
     updateArenaReveal(dt) {
         const r = this.arenaReveal;
         if (!r) return 1;
         r.t += Math.min(dt, 1 / 20);
+        // Keep the serve held for the whole zoom; its countdown starts when the zoom ends.
+        if (this.serveHold > 0 && this.pendingServe && this.serveHold < Game.ARENA_SERVE_DELAY) {
+            this.serveHold = Game.ARENA_SERVE_DELAY;
+            this.serveHoldTotal = Game.ARENA_SERVE_DELAY;
+        }
         const k = Math.max(0, Math.min(1, (r.t - r.hold) / r.dur));
         const ease = k * k * k * (k * (k * 6 - 15) + 10);
         this.arenaRevealZoom = r.from + (1 - r.from) * ease;
@@ -7960,6 +7967,17 @@ class Game {
 
         if (progressionEnabled) {
             this.progression.addXP(xp);
+        }
+
+        // Profile stats cover every match except local two-player ones.
+        if (!(this.isMultiplayer && !this.net)) {
+            window.PPProfile?.recordMatch({
+                mode: this.gameMode,
+                won: !!playerWon,
+                pointsFor: matchStats.playerScore,
+                pointsAgainst: matchStats.aiScore,
+                rally: this.maxRally
+            });
         }
 
         this.running = false;
