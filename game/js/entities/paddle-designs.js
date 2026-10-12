@@ -123,12 +123,13 @@
     }
 
     // Soft dot: a bright core and a faint halo, drawn under 'lighter'.
+    // The halo is kept tight so small accents stay crisp next to each other.
     function glowDot(ctx, x, y, r, core, halo, alpha) {
-        ctx.globalAlpha = alpha * 0.28;
+        ctx.globalAlpha = alpha * 0.16;
         ctx.fillStyle = halo;
-        ctx.beginPath(); ctx.arc(x, y, r * 2.6, 0, TAU); ctx.fill();
-        ctx.globalAlpha = alpha * 0.55;
-        ctx.beginPath(); ctx.arc(x, y, r * 1.6, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, r * 2.2, 0, TAU); ctx.fill();
+        ctx.globalAlpha = alpha * 0.42;
+        ctx.beginPath(); ctx.arc(x, y, r * 1.45, 0, TAU); ctx.fill();
         ctx.globalAlpha = alpha;
         ctx.fillStyle = core;
         ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
@@ -143,6 +144,40 @@
         ctx.quadraticCurveTo(x, y, x, y - r);
         ctx.closePath();
         ctx.fill();
+    }
+
+    // Saturated reds and magentas bloom more on a dark court than cyan does
+    // at the same alpha, and the small accents start to run together. Scale
+    // baked glow down for them so both sides read equally clean.
+    function bloomFor(c) {
+        const redness = clamp((c[0] - Math.max(c[1], c[2])) / 255, 0, 1);
+        return 1 - 0.32 * redness;
+    }
+
+    // Soft drop shadow inside a shape: dark along the right and bottom
+    // edges, a light lip along the left and top. Gives flat fills some
+    // thickness. The caller has already built the path.
+    function innerBevel(g, x0, y0, x1, y1, depth) {
+        g.save();
+        g.clip();
+        const sx = g.createLinearGradient(x0, 0, x1, 0);
+        sx.addColorStop(0, 'rgba(255,255,255,0.16)');
+        sx.addColorStop(Math.min(0.45, depth / (x1 - x0)), 'rgba(255,255,255,0)');
+        sx.addColorStop(Math.max(0.55, 1 - depth / (x1 - x0)), 'rgba(0,0,0,0)');
+        sx.addColorStop(1, 'rgba(0,0,0,0.42)');
+        g.fillStyle = sx;
+        g.fillRect(x0, y0, x1 - x0, y1 - y0);
+        g.restore();
+    }
+
+    // Brushed gunmetal, lit from the upper left.
+    function metalGradient(g, x0, x1) {
+        const mg = g.createLinearGradient(x0, 0, x1, 0);
+        mg.addColorStop(0, '#5b6576');
+        mg.addColorStop(0.35, '#d4dbe6');
+        mg.addColorStop(0.55, '#7d8797');
+        mg.addColorStop(1, '#2a303b');
+        return mg;
     }
 
     // ── Satelliten ────────────────────────────────────────────────────
@@ -172,11 +207,15 @@
             const body = sprite(w, h, s), hi = sprite(w, h, s);
             const g = body.ctx;
 
+            const bloom = bloomFor(c);
+            const boomY = hh - endH;                     // cross booms at the panel ends
+            const boomX = hw + 4.5;
+
             // Glow under the panels and hub.
             g.save();
-            g.shadowColor = rgba(c, 0.95);
-            g.shadowBlur = 16 * s;
-            g.fillStyle = rgba(c, 0.35);
+            g.shadowColor = rgba(c, 0.95 * bloom);
+            g.shadowBlur = 16 * s * bloom;
+            g.fillStyle = rgba(c, 0.35 * bloom);
             for (const p of L.panels) { roundRect(g, -hw, p.y0, w, p.y1 - p.y0, 2); g.fill(); }
             g.beginPath(); g.arc(0, 0, hubR, 0, TAU); g.fill();
             g.restore();
@@ -209,20 +248,50 @@
                         g.beginPath();
                         g.moveTo(x0, y + 0.8); g.lineTo(x0 + cw * 0.55, y + 0.8); g.lineTo(x0, y + ch * 0.75); g.closePath();
                         g.fill();
+                        // Lit top lip and shadowed bottom edge: each cell sits in a recess.
+                        g.fillStyle = 'rgba(255,255,255,0.16)';
+                        g.fillRect(x0, y + 0.8, cw, 0.5);
+                        g.fillStyle = 'rgba(0,0,0,0.45)';
+                        g.fillRect(x0, y + ch - 1.3, cw, 0.5);
                         hi.ctx.fillStyle = rgba(light, 1);
                         hi.ctx.fillRect(x0, y + 0.8, cw, ch - 1.6);
                     }
                 }
-                g.strokeStyle = rgba(c, 0.95);
-                g.lineWidth = 1.2;
-                roundRect(g, -hw + 0.6, p.y0 + 0.6, w - 1.2, ph - 1.2, 2); g.stroke();
+                // Gunmetal frame with a thin neon trace inside it.
+                g.strokeStyle = metalGradient(g, -hw, hw);
+                g.lineWidth = 1.3;
+                roundRect(g, -hw + 0.65, p.y0 + 0.65, w - 1.3, ph - 1.3, 2); g.stroke();
+                g.strokeStyle = rgba(c, 0.6);
+                g.lineWidth = 0.6;
+                roundRect(g, -hw + 1.5, p.y0 + 1.5, w - 3, ph - 3, 1.5); g.stroke();
             }
 
-            // Hub: dark disc, bright ring, light core.
+            // Cross booms where the panels meet the antennas: a truss that
+            // sticks out past the panels, so the paddle reads as a satellite
+            // and not a bar even at a glance.
+            for (const dir of [-1, 1]) {
+                const y = dir * boomY;
+                g.fillStyle = metalGradient(g, -boomX, boomX);
+                g.fillRect(-boomX, y - 1.3, boomX * 2, 2.6);
+                g.fillStyle = 'rgba(0,0,0,0.5)';
+                for (let x = -boomX + 2; x < boomX - 1; x += 2.6) g.fillRect(x, y - 0.6, 1, 1.2);
+                g.fillStyle = 'rgba(255,255,255,0.35)';
+                g.fillRect(-boomX, y - 1.3, boomX * 2, 0.5);
+                g.fillStyle = '#1a1f28';
+                for (const sx of [-1, 1]) {
+                    g.beginPath(); g.arc(sx * boomX, y, 1.9, 0, TAU); g.fill();
+                }
+            }
+
+            // Hub: metal collar, dark disc, bright ring, light core.
+            g.fillStyle = metalGradient(g, -hubR - 1.6, hubR + 1.6);
+            g.beginPath(); g.arc(0, 0, hubR + 1.6, 0, TAU); g.fill();
             g.fillStyle = '#05070d';
             g.beginPath(); g.arc(0, 0, hubR, 0, TAU); g.fill();
-            g.strokeStyle = rgba(c, 1); g.lineWidth = 1.8;
-            g.beginPath(); g.arc(0, 0, hubR - 1, 0, TAU); g.stroke();
+            g.strokeStyle = rgba(c, 1); g.lineWidth = 1.4;
+            g.beginPath(); g.arc(0, 0, hubR - 1.1, 0, TAU); g.stroke();
+            g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1;
+            g.beginPath(); g.arc(0.5, 0.6, hubR - 2.4, 0.1 * Math.PI, 0.9 * Math.PI); g.stroke();
             g.strokeStyle = rgba(light, 0.6); g.lineWidth = 0.8;
             g.beginPath(); g.arc(0, 0, hubR * 0.62, 0, TAU); g.stroke();
             const core = g.createRadialGradient(0, 0, 0, 0, 0, hubR * 0.5);
@@ -243,6 +312,7 @@
                 g.strokeStyle = rgba(c, 0.9); g.lineWidth = 1;
                 g.stroke();
             }
+            L.boomY = boomY; L.boomX = boomX;
             return { body: body.canvas, hi: hi.canvas, L };
         },
         draw(ctx, p, k, t, hitGlow) {
@@ -257,7 +327,7 @@
                         if ((z < 0) !== back) continue;
                         const x = z * (hw + 7);
                         const y = Math.sin(a) * (hh * 0.86);
-                        const size = (back ? 1.5 : 2.3) * (trail ? 0.75 : 1);
+                        const size = (back ? 1.4 : 2.0) * (trail ? 0.75 : 1);
                         glowDot(ctx, x, y, size, back ? rgba(light, 1) : '#ffffff', rgba(c, 1), (back ? 0.35 : 1) * (1 - trail * 0.32));
                     }
                 }
@@ -293,6 +363,11 @@
             for (const dir of [-1, 1]) {
                 const on = (dir < 0) === (blink === 0);
                 glowDot(ctx, 0, dir * (hh - 1.5), 1.6, '#ffffff', rgba(c, 1), on ? 1 : 0.25);
+                // Boom tip lights: red and green like real navigation lights.
+                for (const sx of [-1, 1]) {
+                    const nav = sx < 0 ? '#ff5a5a' : '#5aff8c';
+                    glowDot(ctx, sx * L.boomX, dir * L.boomY, 1.05, nav, nav, on ? 0.95 : 0.35);
+                }
             }
             orbit(false);
             ctx.restore();
@@ -333,12 +408,27 @@
             const g = body.ctx;
             const R = clamp(hw * 0.92, 4, 15);
 
+            const bloom = bloomFor(c);
             g.save();
-            g.shadowColor = rgba(c, 1);
-            g.shadowBlur = 18 * s;
-            g.fillStyle = rgba(c, 0.4);
+            g.shadowColor = rgba(c, bloom);
+            g.shadowBlur = 18 * s * bloom;
+            g.fillStyle = rgba(c, 0.4 * bloom);
             polyPath(g, pts); g.fill();
             g.restore();
+
+            // Guard fins either side of the globe: they stick out past the
+            // shield, so it reads as a cross-guard shape and not a bar.
+            const finW = 6, finH = clamp(R * 1.9, 10, 26);
+            const fin = (sx) => [[sx * (hw - 1), -finH], [sx * (hw + finW), -finH * 0.25], [sx * (hw + finW), finH * 0.25], [sx * (hw - 1), finH]];
+            for (const sx of [-1, 1]) {
+                const fp = fin(sx);
+                g.fillStyle = metalGradient(g, sx < 0 ? -hw - finW : hw - 1, sx < 0 ? -hw + 1 : hw + finW);
+                polyPath(g, fp); g.fill();
+                g.strokeStyle = rgba(c, 0.9); g.lineWidth = 0.7;
+                polyPath(g, fp); g.stroke();
+                g.fillStyle = 'rgba(0,0,0,0.5)';
+                g.fillRect(sx < 0 ? -hw - finW + 1.2 : hw + 1.4, -finH * 0.12, finW - 2.4, finH * 0.24);
+            }
 
             const bg = g.createLinearGradient(-hw, 0, hw, 0);
             bg.addColorStop(0, rgba(mix(c, BLACK, 0.88), 1));
@@ -370,17 +460,20 @@
             m.strokeStyle = rgba(light, 1); m.lineWidth = 1.1; m.stroke();
             m.restore();
 
-            // Inner bevel and bright rim.
+            // Depth: the field is recessed behind a metal rim.
+            polyPath(g, pts);
+            innerBevel(g, -hw, -hh, hw, hh, 4);
             const inset = hexPoints(hw - 2.6, hh - 3.2, S.k - 0.6);
-            g.strokeStyle = rgba(light, 0.45); g.lineWidth = 0.9;
+            g.strokeStyle = rgba(light, 0.4); g.lineWidth = 0.9;
             polyPath(g, inset); g.stroke();
+            // Rim: a gunmetal band with the energy edge glowing just inside it.
+            g.strokeStyle = metalGradient(g, -hw, hw); g.lineWidth = 2.2;
+            polyPath(g, pts); g.stroke();
             g.save();
-            g.shadowColor = rgba(c, 1); g.shadowBlur = 7 * s;
-            g.strokeStyle = rgba(c, 1); g.lineWidth = 2;
-            polyPath(g, pts); g.stroke();
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 6 * s * bloom;
+            g.strokeStyle = rgba(c, 1); g.lineWidth = 1;
+            polyPath(g, hexPoints(hw - 1.4, hh - 1.8, S.k - 0.3)); g.stroke();
             g.restore();
-            g.strokeStyle = rgba(light, 0.9); g.lineWidth = 0.7;
-            polyPath(g, pts); g.stroke();
 
             // Bosses above and below the globe.
             for (const dir of [-1, 1]) {
@@ -392,7 +485,7 @@
 
             // Globe: dark sea, bright limb, latitude lines.
             g.save();
-            g.shadowColor = rgba(c, 1); g.shadowBlur = 8 * s;
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 8 * s * bloom;
             const sea = g.createRadialGradient(-R * 0.35, -R * 0.35, R * 0.1, 0, 0, R);
             sea.addColorStop(0, rgba(mix(c, WHITE, 0.25), 0.9));
             sea.addColorStop(0.55, rgba(mix(c, BLACK, 0.45), 1));
@@ -465,7 +558,8 @@
             }
             const visorH = Math.min(h * 0.36, 60);
             const visorW = Math.max(4, w * 0.5);
-            return { hw, hh, plates, gap, visorH, visorW };
+            const shoulder = 3;
+            return { hw, hh, plates, gap, visorH, visorW, shoulder };
         },
         bake(c, w, h, s) {
             const L = this.layout(w, h);
@@ -475,9 +569,10 @@
             const g = body.ctx;
             const r = Math.min(w * 0.3, 6);
 
+            const bloom = bloomFor(c);
             g.save();
-            g.shadowColor = rgba(c, 1); g.shadowBlur = 15 * s;
-            g.fillStyle = rgba(c, 0.38);
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 15 * s * bloom;
+            g.fillStyle = rgba(c, 0.38 * bloom);
             roundRect(g, -hw, -hh, w, h, r); g.fill();
             g.restore();
 
@@ -489,18 +584,49 @@
             g.fillStyle = core;
             roundRect(g, -hw, -hh, w, h, r); g.fill();
 
-            // Armour plates.
+            // Armour plates. The end plates are heavy shoulder guards that
+            // jut out past the body with chamfered corners, and the plates in
+            // between alternate in width, so the outline is stepped and
+            // mechanical rather than a plain bar.
+            const last = plates.length - 1;
             for (let i = 0; i < plates.length; i++) {
                 const p = plates[i];
                 const pg = g.createLinearGradient(0, p.y0, 0, p.y1);
-                pg.addColorStop(0, '#3a414d');
+                pg.addColorStop(0, '#454d5b');
                 pg.addColorStop(0.18, '#262b34');
-                pg.addColorStop(1, '#101318');
+                pg.addColorStop(1, '#0d1015');
                 g.fillStyle = pg;
-                roundRect(g, -hw + 0.6, p.y0, w - 1.2, p.y1 - p.y0, Math.min(3, r));
-                g.fill();
-                g.fillStyle = 'rgba(255,255,255,0.22)';
-                g.fillRect(-hw + 2, p.y0 + 0.6, w - 4, 0.9);
+                if (i === 0 || i === last) {
+                    const x = hw + L.shoulder, ch = Math.min(3.5, (p.y1 - p.y0) * 0.35);
+                    const top = i === 0;
+                    g.beginPath();
+                    if (top) {
+                        g.moveTo(-hw + r * 0.6, p.y0); g.lineTo(hw - r * 0.6, p.y0);
+                        g.lineTo(x, p.y0 + ch + r * 0.4); g.lineTo(x, p.y1); g.lineTo(-x, p.y1); g.lineTo(-x, p.y0 + ch + r * 0.4);
+                    } else {
+                        g.moveTo(-x, p.y0); g.lineTo(x, p.y0); g.lineTo(x, p.y1 - ch - r * 0.4);
+                        g.lineTo(hw - r * 0.6, p.y1); g.lineTo(-hw + r * 0.6, p.y1); g.lineTo(-x, p.y1 - ch - r * 0.4);
+                    }
+                    g.closePath(); g.fill();
+                    g.strokeStyle = rgba(c, 0.55); g.lineWidth = 0.7; g.stroke();
+                    // Bolt heads on the shoulders.
+                    g.fillStyle = '#8b95a5';
+                    const by = (p.y0 + p.y1) / 2;
+                    for (const sx of [-1, 1]) { g.beginPath(); g.arc(sx * (x - 1.6), by, 0.9, 0, TAU); g.fill(); }
+                } else {
+                    const inset = i % 2 ? 1.6 : 0.6;
+                    roundRect(g, -hw + inset, p.y0, w - inset * 2, p.y1 - p.y0, Math.min(2, r));
+                    g.fill();
+                }
+                // Each plate is a curved shell: lit on the left, dark on the right.
+                g.save();
+                g.beginPath(); g.rect(-hw - L.shoulder, p.y0, w + L.shoulder * 2, p.y1 - p.y0);
+                innerBevel(g, -hw - (i === 0 || i === last ? L.shoulder : 0), p.y0, hw + (i === 0 || i === last ? L.shoulder : 0), p.y1, 3);
+                g.restore();
+                g.fillStyle = 'rgba(255,255,255,0.26)';
+                g.fillRect(-hw + 2, p.y0 + 0.6, w - 4, 0.8);
+                g.fillStyle = 'rgba(0,0,0,0.55)';
+                g.fillRect(-hw + 2, p.y1 - 0.7, w - 4, 0.7);
                 // Vent slits on the end plates.
                 if (i === 0 || i === plates.length - 1 || i === 1 || i === plates.length - 2) {
                     g.fillStyle = 'rgba(0,0,0,0.65)';
@@ -510,9 +636,10 @@
             }
 
             // Edge rails.
+            const ry0 = plates[0].y1, ry1 = plates[last].y0;
             g.fillStyle = rgba(c, 0.85);
-            g.fillRect(-hw + 0.4, -hh + r, 1, h - r * 2);
-            g.fillRect(hw - 1.4, -hh + r, 1, h - r * 2);
+            g.fillRect(-hw + 0.4, ry0, 1, ry1 - ry0);
+            g.fillRect(hw - 1.4, ry0, 1, ry1 - ry0);
 
             // Rebel mark on the top plate: two slashes.
             const top = plates[0];
@@ -532,6 +659,18 @@
 
             const seams = [];
             for (let i = 1; i < plates.length; i++) seams.push(plates[i].y0 - gap / 2);
+            // LED sockets on the rails, one per plate between the visor and the shoulders.
+            L.leds = [];
+            for (let i = 1; i < last; i++) {
+                const cy = (plates[i].y0 + plates[i].y1) / 2;
+                if (Math.abs(cy) < visorH / 2 + 2) continue;
+                for (const sx of [-1, 1]) {
+                    const x = sx * (hw - 0.9);
+                    L.leds.push({ x, y: cy });
+                    g.fillStyle = '#05060a';
+                    g.fillRect(x - 1, cy - 1.6, 2, 3.2);
+                }
+            }
             return { body: body.canvas, L, seams };
         },
         draw(ctx, p, k, t, hitGlow) {
@@ -608,6 +747,15 @@
             ctx.fillStyle = rgba(c, 1);
             const sy = -visorH / 2 + ((t * 30) % visorH);
             ctx.fillRect(-visorW / 2 + 1.5, sy, visorW - 3, 1);
+            // Status LEDs down the edge rails, chasing towards the eye.
+            const leds = L.leds;
+            for (let i = 0; i < leds.length; i++) {
+                const ph = (t * 2.4 - Math.abs(leds[i].y) / 22 + p._seed) % 1;
+                const on = ph < 0.3 ? 1 - ph / 0.3 : 0;
+                ctx.globalAlpha = 0.18 + on * 0.82;
+                ctx.fillStyle = on > 0.5 ? '#ffffff' : rgba(light, 1);
+                ctx.fillRect(leds[i].x - 0.6, leds[i].y - 1.1, 1.2, 2.2);
+            }
             ctx.restore();
         },
     };
@@ -636,7 +784,21 @@
                 { pts: [B, A[6], A[5]], tone: 'tipM' },
                 { pts: [B, A[5], A[4]], tone: 'tipL' },
             ];
-            return { hw, hh, k, xr, outline: hexPoints(hw, hh, k), facets, verts: [T, B, ...A] };
+            // Two smaller crystals grow out of opposite flanks, one high on the
+            // left and one low on the right, so the outline is a cluster and
+            // not a single bar.
+            const shards = [];
+            for (const sx of [-1, 1]) {
+                const y = -sx * hh * 0.36;
+                const dir = y < 0 ? -1 : 1;               // leans towards its nearer end
+                const len = clamp(h * 0.15, 14, 24);
+                const base0 = [sx * (hw - 1.5), y + dir * len * 0.3];
+                const base1 = [sx * (hw - 1.5), y - dir * len * 0.4];
+                const out = [sx * (hw + len * 0.26), y - dir * len * 0.2];
+                const tip = [sx * (hw + len * 0.5), y + dir * len * 0.9];
+                shards.push({ pts: [base0, tip, out, base1], lit: [base0, tip, out], tip });
+            }
+            return { hw, hh, k, xr, outline: hexPoints(hw, hh, k), facets, shards, verts: [T, B, ...A, ...shards.map((q) => q.tip)] };
         },
         bake(c, w, h, s) {
             const S = this.shape(w, h);
@@ -645,11 +807,28 @@
             const body = sprite(w, h, s), flash = sprite(w, h, s);
             const g = body.ctx;
 
+            const bloom = bloomFor(c);
             g.save();
-            g.shadowColor = rgba(c, 1); g.shadowBlur = 18 * s;
-            g.fillStyle = rgba(c, 0.35);
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 18 * s * bloom;
+            g.fillStyle = rgba(c, 0.35 * bloom);
             polyPath(g, outline); g.fill();
+            for (const q of S.shards) { polyPath(g, q.pts); g.fill(); }
             g.restore();
+
+            // Side shards sit behind the main crystal.
+            for (const q of S.shards) {
+                g.fillStyle = 'rgba(4,6,12,0.9)';
+                polyPath(g, q.pts); g.fill();
+                g.fillStyle = rgba(mix(c, BLACK, 0.25), 0.7);
+                polyPath(g, q.pts); g.fill();
+                g.fillStyle = rgba(mix(c, WHITE, 0.55), 0.45);
+                polyPath(g, q.lit); g.fill();
+                g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 0.6;
+                polyPath(g, q.lit); g.stroke();
+                g.strokeStyle = rgba(c, 1); g.lineWidth = 1;
+                polyPath(g, q.pts); g.stroke();
+            }
+
             g.fillStyle = 'rgba(4,6,12,0.88)';
             polyPath(g, outline); g.fill();
 
@@ -681,12 +860,30 @@
                 g.beginPath(); g.moveTo(-hw, y + hw * 0.9); g.lineTo(hw, y - hw * 0.9); g.stroke();
             }
             g.restore();
+            // Glass thickness: a darker band just inside the outline, where
+            // light bends at the edge, and a bright line on the lit side.
+            g.save();
+            polyPath(g, outline); g.clip();
+            g.strokeStyle = 'rgba(0,0,0,0.38)'; g.lineWidth = 3.2;
+            polyPath(g, outline); g.stroke();
+            g.restore();
+            g.strokeStyle = 'rgba(255,255,255,0.32)'; g.lineWidth = 0.7;
+            polyPath(g, hexPoints(hw - 1.9, hh - 2.6, S.k - 0.4)); g.stroke();
             // Facet edges.
             g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 0.75;
             for (const f of facets) { polyPath(g, f.pts); g.stroke(); }
+            // Specular streak down the lit facet.
+            const st = g.createLinearGradient(0, -hh, 0, hh);
+            st.addColorStop(0, 'rgba(255,255,255,0)');
+            st.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+            st.addColorStop(0.5, 'rgba(255,255,255,0.12)');
+            st.addColorStop(0.7, 'rgba(255,255,255,0.4)');
+            st.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = st;
+            g.fillRect(-hw * 0.72, -hh + S.k, Math.max(0.8, hw * 0.16), h - S.k * 2);
             // Rim.
             g.save();
-            g.shadowColor = rgba(c, 1); g.shadowBlur = 6 * s;
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 6 * s * bloom;
             g.strokeStyle = rgba(c, 1); g.lineWidth = 1.6;
             polyPath(g, outline); g.stroke();
             g.restore();
