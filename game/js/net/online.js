@@ -46,6 +46,11 @@
         return up.replace(/O/g, '0').replace(/I|L/g, '1').split('').filter((c) => CODE_CHARS.includes(c)).join('').slice(0, CODE_LENGTH);
     }
 
+    function cleanDesign(id) {
+        const ids = window.PPSettings?.PADDLE_IDS || ['classic'];
+        return ids.includes(id) ? id : 'classic';
+    }
+
     function cleanName(text, fallback) {
         const t = String(text || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16);
         return t || fallback;
@@ -167,8 +172,12 @@
                 clearTimeout(this.connectTimer);
                 this.connected = true;
                 this.lastHeard = performance.now();
-                this.send({ t: 'hello', v: PROTOCOL, name: this.localName });
+                this.send({ t: 'hello', v: PROTOCOL, name: this.localName, paddles: window.PPSettings?.get('paddles') || null });
                 this.timers.push(setInterval(() => this.heartbeat(), 1000));
+                // Keep the other side up to date if paddle designs change in the lobby.
+                this.offPaddles = window.PPSettings?.on?.((key) => {
+                    if ((key === 'paddles' || key === '*') && this.connected) this.send({ t: 'paddles', paddles: window.PPSettings.get('paddles') });
+                });
             });
             conn.on('data', (msg) => {
                 this.lastHeard = performance.now();
@@ -226,6 +235,7 @@
             clearTimeout(this.connectTimer);
             this.timers.forEach((t) => clearInterval(t));
             this.timers = [];
+            this.offPaddles?.();
             const g = this.game;
             if (g && g.net === this) this.detachFromGame(!silent);
             setTimeout(() => {
@@ -243,7 +253,11 @@
                 case 'hello':
                     if (msg.v !== PROTOCOL) return this.fail('Your friend is on a different version of the game. Both of you reload the page and try again.');
                     this.remoteName = cleanName(msg.name, this.role === 'host' ? 'Guest' : 'Host');
+                    this.remotePaddles = msg.paddles && typeof msg.paddles === 'object' ? msg.paddles : null;
                     this.ui.connected(this);
+                    return;
+                case 'paddles':
+                    this.remotePaddles = msg.paddles && typeof msg.paddles === 'object' ? msg.paddles : null;
                     return;
                 case 'ping': return this.send({ t: 'pong', ts: msg.ts });
                 case 'pong': {
@@ -291,11 +305,15 @@
             const g = this.game;
             if (!g || this.role !== 'host' || !this.connected) return;
             this.resetMatchFlags();
+            // Each side shows the design its own player picked for this mode.
+            const mine = window.PPSettings?.getPaddle?.(this.mode, 'left') || 'classic';
+            this.paddleDesigns = { left: mine, right: cleanDesign(this.remotePaddles?.[this.mode]?.left) };
             await launchMatch(this, this.mode);
             const msg = {
                 t: 'start', mode: this.mode, maxScore: g.maxScore,
                 world: { w: g.width, h: g.height },
                 names: { left: this.localName, right: this.remoteName },
+                paddles: this.paddleDesigns,
             };
             if (this.mode === 'customise') {
                 msg.custom = { ...g.customSettings, audioSource: '', audioTrack: '', audioCustomPath: '', previewModeActive: false };
@@ -316,6 +334,10 @@
             const mode = ONLINE_MODES.some((m) => m.id === msg.mode) ? msg.mode : 'classic';
             this.mode = mode;
             this.resetMatchFlags();
+            this.paddleDesigns = {
+                left: cleanDesign(msg.paddles?.left),
+                right: msg.paddles ? cleanDesign(msg.paddles.right) : (window.PPSettings?.getPaddle?.(mode, 'left') || 'classic'),
+            };
             if (mode === 'customise' && msg.custom && typeof msg.custom === 'object') {
                 if (!this.backup) {
                     let stored = null;

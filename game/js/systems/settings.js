@@ -17,7 +17,6 @@
         aiLevel: 2,               // 0 Rookie .. 4 Insane
         pointsToWin: 11,          // Classic, Gravity, Speed, Obstacle
         powerUps: true,           // power-ups on the court in the standard modes
-        intro: 'full',            // full | short | off
         replays: 'auto',          // auto | offer | off
         taunts: true,             // AI trash-talk bubbles
         autoPause: true,          // pause when the window loses focus
@@ -41,7 +40,26 @@
         muteInBackground: true,
         // Online
         playerName: '',
+        // Paddle design per mode. left is your paddle; right is the computer
+        // or player 2. Online, each player's own left choice is shown.
+        paddles: null,
     };
+
+    const PADDLE_MODES = ['classic', 'zombie', 'gravity', 'speed', 'obstacle', 'customise'];
+    const PADDLE_IDS = ['classic', 'neonBlade', 'shieldWall', 'arcadeBlock', 'prismGlass'];
+    const defaultPaddles = () => Object.fromEntries(PADDLE_MODES.map((m) => [m, { left: 'classic', right: 'classic' }]));
+    function cleanPaddles(raw) {
+        const out = defaultPaddles();
+        if (raw && typeof raw === 'object') {
+            for (const m of PADDLE_MODES) {
+                for (const side of ['left', 'right']) {
+                    const v = raw[m]?.[side];
+                    if (PADDLE_IDS.includes(v)) out[m][side] = v;
+                }
+            }
+        }
+        return out;
+    }
 
     const CANONICAL_KEYS = Object.values(DEFAULT_BINDINGS);
 
@@ -60,6 +78,15 @@
         }
         const merged = { ...DEFAULTS, ...saved };
         merged.bindings = { ...DEFAULT_BINDINGS, ...(saved.bindings || {}) };
+        if (!saved.paddles) {
+            // First run with per-mode paddles: Custom keeps the style picked
+            // on the Custom screen.
+            try {
+                const custom = JSON.parse(localStorage.getItem('pp-customise-settings-v1') || '{}');
+                saved.paddles = { customise: { left: custom.paddleStyle, right: custom.paddleStyle } };
+            } catch (e) { /* none saved */ }
+        }
+        merged.paddles = cleanPaddles(saved.paddles);
         return merged;
     }
 
@@ -96,12 +123,27 @@
         },
         reset() {
             Object.keys(DEFAULTS).forEach((k) => {
-                values[k] = k === 'bindings' ? { ...DEFAULT_BINDINGS } : DEFAULTS[k];
+                values[k] = k === 'bindings' ? { ...DEFAULT_BINDINGS } : k === 'paddles' ? defaultPaddles() : DEFAULTS[k];
             });
             save();
             emit('*', null);
         },
         on(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+
+        PADDLE_MODES,
+        PADDLE_IDS,
+        getPaddle(mode, side = 'left') {
+            const m = PADDLE_MODES.includes(mode) ? mode : 'classic';
+            return values.paddles[m][side === 'right' ? 'right' : 'left'];
+        },
+        setPaddle(mode, side, id) {
+            if (!PADDLE_MODES.includes(mode) || !PADDLE_IDS.includes(id)) return;
+            const key = side === 'right' ? 'right' : 'left';
+            if (values.paddles[mode][key] === id) return;
+            values.paddles = { ...values.paddles, [mode]: { ...values.paddles[mode], [key]: id } };
+            save();
+            emit('paddles', values.paddles);
+        },
 
         // Effective values: Reduce motion overrides shake and flash.
         shakeScale() { return values.reduceMotion ? 0 : Math.max(0, values.shake) / 100; },

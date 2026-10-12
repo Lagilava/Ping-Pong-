@@ -1,4 +1,4 @@
-// Settings panel: tabs for Gameplay, Controls, Display, Audio and
+// Settings panel: tabs for Gameplay, Paddles, Controls, Display, Audio and
 // Accessibility. Every row writes straight to PPSettings (or the audio
 // engine for volumes) and takes effect immediately; nothing needs an
 // Apply button. Opened from the pause menu, the match setup dialog and the
@@ -11,6 +11,7 @@
 
     const TABS = [
         { id: 'gameplay', label: 'Gameplay' },
+        { id: 'paddles', label: 'Paddles' },
         { id: 'controls', label: 'Controls' },
         { id: 'display', label: 'Display' },
         { id: 'audio', label: 'Audio' },
@@ -26,12 +27,13 @@
             { type: 'seg', key: 'pointsToWin', label: 'Points to win', help: 'Classic, Gravity, Speed and Obstacle. Custom uses its Forge rules; Zombie plays in waves. Starts with the next match.',
                 options: [[5, '5'], [7, '7'], [11, '11'], [15, '15'], [21, '21']] },
             { type: 'toggle', key: 'powerUps', label: 'Power-ups on the court', help: 'Classic, Gravity, Speed and Obstacle. Pick Custom power-ups on the Custom screen.' },
-            { type: 'seg', key: 'intro', label: 'Match intro', help: 'The cinematic before each match. You can always skip it with Esc.',
-                options: [['full', 'Full'], ['short', 'Short'], ['off', 'Off']] },
             { type: 'seg', key: 'replays', label: 'Instant replays', help: 'Auto plays great points back. Offer shows a Replay button for a few seconds instead.',
                 options: [['auto', 'Auto'], ['offer', 'Offer'], ['off', 'Off']] },
             { type: 'toggle', key: 'taunts', label: 'AI trash talk', help: 'Speech bubbles from the computer opponent.' },
             { type: 'toggle', key: 'autoPause', label: 'Pause when I switch away', help: 'Pauses the match when you change tab or window.' },
+        ],
+        paddles: [
+            { type: 'paddles' },
         ],
         controls: [
             { type: 'slider', key: 'paddleSpeed', label: 'Paddle speed', help: 'Keyboard and gamepad. Mouse and touch follow your pointer.', min: 60, max: 150, step: 5, unit: '%' },
@@ -76,6 +78,97 @@
         { side: 'Player 2 (right, local 1v1)', actions: [['p2Up', 'Up'], ['p2Down', 'Down'], ['p2Fire', 'Laser']] },
     ];
 
+    // ── Paddles tab: a design per mode for each side ────────────────
+    const PADDLE_MODES = [
+        ['classic', 'Classic'], ['zombie', 'Zombie'], ['gravity', 'Gravity'],
+        ['speed', 'Speed'], ['obstacle', 'Obstacle'], ['customise', 'Custom'],
+    ];
+    let paddleMode = 'classic';
+    let paddleRaf = 0;
+    const paddlePreviews = new Map(); // canvas -> { pd, key }
+    const designs = () => window.PaddleDesigns?.LIST || [{ id: 'classic', name: 'Classic', blurb: '' }];
+
+    function paddleCards(side) {
+        return designs().map((d) => `<button type="button" class="ppset-pcard" data-pside="${side}" data-design="${d.id}" aria-pressed="false">
+            <canvas aria-hidden="true"></canvas><span class="ppset-pname">${esc(d.name)}</span><span class="ppset-pblurb">${esc(d.blurb)}</span></button>`).join('');
+    }
+
+    function renderPaddles() {
+        return `<div class="ppset-paddles">
+            <p class="ppset-help ppset-pintro">Pick a paddle design for each mode. Changes show straight away, even mid-match.</p>
+            <div class="ppset-pmodes" role="radiogroup" aria-label="Mode">${PADDLE_MODES.map(([id, label]) =>
+                `<button type="button" role="radio" data-pmode="${id}" aria-checked="false">${label}</button>`).join('')}</div>
+            <div class="ppset-pside"><div class="ppset-label">Your paddle</div>
+                <div class="ppset-pgrid">${paddleCards('left')}</div></div>
+            <div class="ppset-pside" data-pright><div class="ppset-label">Opponent's paddle</div>
+                <div class="ppset-help">The computer, or player 2 in local 1v1. Online, your friend's paddle shows the design they picked.</div>
+                <div class="ppset-pgrid">${paddleCards('right')}</div></div>
+            <div class="ppset-note" data-pzombie hidden>In Zombie mode your opponent is the zombie boss, which keeps its own look.</div>
+        </div>`;
+    }
+
+    function syncPaddles() {
+        if (!root) return;
+        root.querySelectorAll('[data-pmode]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.pmode === paddleMode)));
+        root.querySelectorAll('.ppset-pcard').forEach((b) => {
+            b.setAttribute('aria-pressed', String(S().getPaddle?.(paddleMode, b.dataset.pside) === b.dataset.design));
+        });
+        const zombie = paddleMode === 'zombie';
+        const right = root.querySelector('[data-pright]');
+        if (right) right.hidden = zombie;
+        const note = root.querySelector('[data-pzombie]');
+        if (note) note.hidden = !zombie;
+    }
+
+    function previewColor(side) {
+        const game = window.game;
+        if (paddleMode === 'customise' && game?.customSettings) {
+            return side === 'left' ? (game.customSettings.leftPaddleColor || '#00ffd6') : (game.customSettings.rightPaddleColor || '#ff0044');
+        }
+        const css = getComputedStyle(document.documentElement).getPropertyValue(side === 'left' ? '--player-color' : '--ai-color').trim();
+        return css || (side === 'left' ? '#00ffd6' : '#ff0044');
+    }
+
+    function drawPaddlePreviews() {
+        paddleRaf = 0;
+        if (!root || activeTab !== 'paddles' || !root.getClientRects().length || typeof Paddle !== 'function') return;
+        const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+        root.querySelectorAll('.ppset-pcard canvas').forEach((canvas) => {
+            const card = canvas.parentElement;
+            if (card.closest('[hidden]')) return;
+            const side = card.dataset.pside, design = card.dataset.design;
+            const cssW = canvas.clientWidth || 90, cssH = canvas.clientHeight || 120;
+            if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
+                canvas.width = Math.round(cssW * dpr);
+                canvas.height = Math.round(cssH * dpr);
+            }
+            const color = previewColor(side);
+            const asAI = side === 'right' && paddleMode !== 'customise';
+            const ph = Math.round(cssH * 0.7), pw = Math.max(8, Math.round(ph * 0.14));
+            const key = `${design}|${color}|${ph}|${asAI}`;
+            let entry = paddlePreviews.get(canvas);
+            if (!entry || entry.key !== key) {
+                const pd = new Paddle(0, 0, pw, ph, color, asAI);
+                pd.applyCustomPaddleVisualState?.(design, color);
+                pd.isAI = asAI;
+                entry = { pd, key };
+                paddlePreviews.set(canvas, entry);
+            }
+            const pd = entry.pd;
+            pd.pos.x = (cssW - pw) / 2;
+            pd.pos.y = (cssH - ph) / 2;
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cssW, cssH);
+            pd.render(ctx);
+        });
+        paddleRaf = requestAnimationFrame(drawPaddlePreviews);
+    }
+
+    function startPaddlePreviews() {
+        if (!paddleRaf) paddleRaf = requestAnimationFrame(drawPaddlePreviews);
+    }
+
     let root = null;
     let activeTab = 'gameplay';
     let capture = null; // { action, button }
@@ -107,6 +200,8 @@
                 return rowShell(row, `<div class="ppset-actions">${row.buttons.map((b) => `<button type="button" class="ppset-btn" data-action="${b.id}">${esc(b.text)}</button>`).join('')}</div>`);
             case 'note':
                 return `<div class="ppset-note">${row.html}</div>`;
+            case 'paddles':
+                return renderPaddles();
             case 'keys':
                 return `<div class="ppset-row ppset-keys-row"><div class="ppset-text"><div class="ppset-label">${esc(row.label)}</div><div class="ppset-help">${esc(row.help)}</div></div>
                     <div class="ppset-keys">${BIND_ROWS.map((g) => `<div class="ppset-keygroup"><div class="ppset-keyside">${esc(g.side)}</div>${g.actions.map(([a, t]) =>
@@ -164,6 +259,7 @@
         root.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
         root.querySelectorAll('[data-page]').forEach((p) => { p.hidden = p.dataset.page !== id; });
         if (id === 'audio') syncAudio();
+        if (id === 'paddles') { syncPaddles(); startPaddlePreviews(); }
         root.querySelector('.ppset-body').scrollTop = 0;
     }
 
@@ -185,6 +281,7 @@
             paintRange(inp);
         });
         root.querySelectorAll('.ppset-key').forEach((b) => { b.textContent = S().keyLabel(S().get('bindings')[b.dataset.bind]); });
+        syncPaddles();
     }
 
     function paintRange(inp) {
@@ -270,6 +367,10 @@
             if (sw) { S().set(sw.dataset.key, !S().get(sw.dataset.key)); flashSaved(); return; }
             const asw = e.target.closest('[data-audio]');
             if (asw) { toggleAudio(asw.dataset.audio); return; }
+            const pmode = e.target.closest('[data-pmode]');
+            if (pmode) { paddleMode = pmode.dataset.pmode; syncPaddles(); return; }
+            const pcard = e.target.closest('.ppset-pcard');
+            if (pcard) { S().setPaddle?.(paddleMode, pcard.dataset.pside, pcard.dataset.design); flashSaved(); return; }
             const key = e.target.closest('.ppset-key');
             if (key) { startCapture(key); return; }
             const act = e.target.closest('[data-action]');
@@ -324,10 +425,14 @@
     // Called by the panel manager whenever the panel is shown.
     function onOpen(tab) {
         build();
+        // The Paddles tab opens on the mode being played (or last picked).
+        const mode = window.game?.gameMode;
+        if (mode && PADDLE_MODES.some(([id]) => id === mode) && (window.game.isInMatch?.() || tab === 'paddles')) paddleMode = mode;
         if (tab) selectTab(tab);
         else selectTab(activeTab);
         syncFromStore();
         syncAudio();
+        if (activeTab === 'paddles') startPaddlePreviews();
         requestAnimationFrame(() => root.querySelector(`[data-tab="${activeTab}"]`)?.focus({ preventScroll: true }));
     }
 

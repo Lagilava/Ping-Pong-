@@ -742,16 +742,15 @@ class Game {
         }
 
         if (this.player) {
-            this.player.setStyle?.(this.customSettings.paddleStyle || 'classic');
             this.player.setBaseColor(this.customSettings.leftPaddleColor);
             this.player.isAI = false;
         }
         if (this.aiPaddle) {
-            this.aiPaddle.setStyle?.(this.customSettings.paddleStyle || 'classic');
             this.aiPaddle.setZombieBossSkin(false);
             this.aiPaddle.setBaseColor(this.customSettings.rightPaddleColor);
             this.aiPaddle.isAI = false;
         }
+        this.applyPaddleDesigns();
         if (this.ball) {
             this.ball.setCustomColors({
                 ballColor: this.customSettings.ballColor,
@@ -883,6 +882,28 @@ class Game {
         this.applyPaddleViewportState(this.player, metrics, metrics.margin, 0.5);
         this.applyPaddleViewportState(this.aiPaddle, metrics, this.width - metrics.margin - metrics.width, 0.5);
         if (this.ball) this.ball.r = this.getDefaultBallRadius();
+    }
+
+    // Paddle designs come from Settings > Paddles, per mode: left is the
+    // player's paddle, right the computer's or player 2's. Online, each side
+    // shows the design its own player picked (sent with the match start).
+    // The Zombie boss keeps its own look.
+    applyPaddleDesigns() {
+        const S = window.PPSettings;
+        if (S?.on && !this._paddleSettingsBound) {
+            this._paddleSettingsBound = true;
+            // Changing a design in Settings mid-match shows at once (offline).
+            S.on((key) => { if ((key === 'paddles' || key === '*') && !this.net) this.applyPaddleDesigns(); });
+        }
+        if (!this.player || !this.aiPaddle) return;
+        const mode = this.gameMode || 'classic';
+        let left = S?.getPaddle ? S.getPaddle(mode, 'left') : 'classic';
+        let right = S?.getPaddle ? S.getPaddle(mode, 'right') : 'classic';
+        const picked = this.net?.paddleDesigns;
+        if (picked) { left = picked.left; right = picked.right; }
+        this.player.setStyle?.(left);
+        this.aiPaddle.setStyle?.(this.aiPaddle.isZombieBoss ? 'classic' : right);
+        if (mode === 'customise' && this.customSettings) this.customSettings.paddleStyle = this.player.paddleStyle;
     }
 
     getResponsivePaddleMetrics() {
@@ -1467,10 +1488,10 @@ class Game {
         );
 
         if (isCustomMatch) {
-            const paddleStyle = this.customSettings?.paddleStyle || 'classic';
-            this.player.applyCustomPaddleVisualState?.(paddleStyle, playerColor);
-            this.aiPaddle.applyCustomPaddleVisualState?.(paddleStyle, aiColor);
+            this.player.applyCustomPaddleVisualState?.('classic', playerColor);
+            this.aiPaddle.applyCustomPaddleVisualState?.('classic', aiColor);
         }
+        this.applyPaddleDesigns();
 
         // Ball size: scale based on available space, accounting for aspect ratio
         const ballSize = this.getDefaultBallRadius();
@@ -2249,11 +2270,11 @@ class Game {
     startIntro() {
         this.ensurePostFx();
         // Full cinematic on the first match of a session; a short version after
-        // that so rematches get to the action quickly. Click/Esc/Skip skips it.
+        // that so rematches get to the action quickly. The intro always plays;
+        // Esc, a click or the Skip button ends it.
         if (this.intro) {
             // Phones always get the short intro.
-            const introPref = window.PPSettings?.get('intro');
-            this.intro.duration = (introPref === 'short' || this._introsPlayed || PerfGovernor.isMobile) ? 3.4 : Intro.DURATION;
+            this.intro.duration = (this._introsPlayed || PerfGovernor.isMobile) ? 3.4 : Intro.DURATION;
             this._introsPlayed = (this._introsPlayed || 0) + 1;
         }
         const skipButton = document.getElementById('skipIntro');
@@ -2262,7 +2283,7 @@ class Game {
             skipButton.addEventListener('click', () => this.skipIntro());
         }
         // If intro was already played or explicitly skipped via query/session flags, skip intro playback.
-        if (this.introHasPlayed || window.PPSettings?.get('intro') === 'off') {
+        if (this.introHasPlayed) {
             this.finalizeIntro();
             return;
         }
@@ -2610,6 +2631,7 @@ class Game {
             if (this.ball) {
                 this.ball.setCustomColors({ ballColor: null, trailColor: null });
             }
+            this.applyPaddleDesigns();
         }
 
         // Recreate AI with clean state

@@ -269,6 +269,57 @@
     .ppset-row { padding: 9px 0; }
 }
 
+/* Paddles tab: a design per mode for each side */
+.ppset-paddles { padding: 12px 0 6px; display: grid; gap: 16px; }
+.ppset-pintro { margin: 0; }
+.ppset-pmodes { display: flex; flex-wrap: wrap; gap: 6px; }
+.ppset-pmodes button {
+    padding: 8px 14px;
+    border: 1px solid rgba(120, 220, 255, 0.2);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.25);
+    color: rgba(215, 240, 255, 0.78);
+    font: 700 11px/1 'Orbitron', system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.ppset-pmodes button:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.ppset-pmodes button:focus-visible { outline: 2px solid rgba(0, 255, 214, 0.7); }
+.ppset-pmodes button[aria-checked="true"] { color: #fff; background: rgba(0, 255, 214, 0.2); border-color: rgba(0, 255, 214, 0.8); }
+.ppset-pside { display: grid; gap: 8px; }
+.ppset-pside[hidden] { display: none; }
+.ppset-pgrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.ppset-pcard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 8px 6px 10px;
+    border: 1px solid rgba(120, 220, 255, 0.16);
+    border-radius: 12px;
+    background: radial-gradient(120% 80% at 50% 30%, rgba(30, 60, 90, 0.35), rgba(0, 0, 0, 0.3));
+    color: #e6faff;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.ppset-pcard:hover { border-color: rgba(0, 255, 214, 0.5); transform: translateY(-2px); }
+.ppset-pcard:focus-visible { outline: 2px solid rgba(0, 255, 214, 0.75); outline-offset: 1px; }
+.ppset-pcard[aria-pressed="true"] {
+    border-color: #00ffd6;
+    background: radial-gradient(120% 80% at 50% 30%, rgba(0, 255, 214, 0.16), rgba(0, 0, 0, 0.3));
+    box-shadow: 0 0 0 1px #00ffd6 inset, 0 0 18px rgba(0, 255, 214, 0.22);
+}
+.ppset-pcard canvas { width: 100%; height: 118px; display: block; }
+.ppset-pname { font: 700 12px/1.1 'Orbitron', system-ui, sans-serif; letter-spacing: 0.05em; text-transform: uppercase; text-align: center; }
+.ppset-pblurb { font: 500 12px/1.25 'Rajdhani', sans-serif; color: rgba(200, 230, 245, 0.7); text-align: center; }
+.ppset-pcard[aria-pressed="true"] .ppset-pname { color: #00ffd6; }
+@media (max-width: 620px) {
+    .ppset-pgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .ppset-pcard canvas { height: 96px; }
+}
+
 /* Page-wide: menu text size applies to the pause menu and panels. */
 .pause-card, .pp-panel-box { zoom: var(--pp-ui-zoom); }
 

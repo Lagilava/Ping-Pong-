@@ -417,6 +417,7 @@
             bgs.drawSelection(ctx, W, H, game.customSettings.backgroundMode || 'classic', {
                 filter: game.getCustomBackgroundToneFilter?.() || '',
                 static: !opts.live,
+                preview: true,
             });
             // A light veil keeps items and grid readable on busy pictures.
             ctx.fillStyle = 'rgba(2, 6, 14, 0.28)';
@@ -626,6 +627,8 @@
             this.raf = requestAnimationFrame(loop);
         }
 
+        isOpen() { return !!this.el?.classList.contains('visible'); }
+
         syncBackgroundName() {
             const label = this.el?.querySelector('.forge-bg-name');
             const mode = this.ui.game?.customSettings?.backgroundMode || 'classic';
@@ -833,6 +836,35 @@
             });
             window.addEventListener('pp-background-image-loaded', () => this.drawPreview());
             this.refresh();
+            this.startPreviewLoop();
+        },
+        // While the Custom screen is open, the arena preview and the background
+        // preview beside the tone sliders animate the selected background live,
+        // exactly as the match will draw it. Only canvases on screen redraw.
+        startPreviewLoop() {
+            if (this._loopStarted) return;
+            this._loopStarted = true;
+            const overlay = document.getElementById('customiseOverlay');
+            const liveBg = document.getElementById('customLiveBackgroundCanvas');
+            const onScreen = new Map();
+            if ('IntersectionObserver' in window) {
+                const io = new IntersectionObserver((entries) => {
+                    entries.forEach((e) => onScreen.set(e.target, e.isIntersecting));
+                });
+                [this.preview, liveBg].forEach((el) => el && io.observe(el));
+            }
+            const visible = (el) => !!el && (onScreen.has(el) ? onScreen.get(el) : true);
+            let last = 0;
+            const tick = (now) => {
+                requestAnimationFrame(tick);
+                if (document.hidden || !overlay?.classList.contains('active') || this.editor?.isOpen?.()) return;
+                if (now - last < 1000 / 30) return;
+                last = now;
+                if (visible(this.preview)) this.drawPreview(true);
+                if (visible(liveBg)) window.__ppDrawCustomLiveBackground?.();
+                window.__ppDrawCustomPaddlePreviews?.();
+            };
+            requestAnimationFrame(tick);
         },
         persist() {
             this.game.saveCustomSettings?.();
@@ -856,9 +888,9 @@
             if (del) del.disabled = !String(this.mapSelect.value).startsWith('saved:');
             this.drawPreview();
         },
-        drawPreview() {
+        drawPreview(live = false) {
             if (!this.preview) return;
-            drawMap(this.preview, Store.getForge(this.game).map.items, {});
+            drawMap(this.preview, Store.getForge(this.game).map.items, { live, time: performance.now() / 1000 });
             const count = Store.getForge(this.game).map.items.length;
             const label = document.getElementById('forgeArenaCount');
             if (label) label.textContent = count ? `${count} item${count === 1 ? '' : 's'}` : 'Empty court';

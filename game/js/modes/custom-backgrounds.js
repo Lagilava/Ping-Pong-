@@ -445,6 +445,63 @@ parent.postMessage({ type: 'boot' }, '*');
         return { kind: 'builtin', builtin: b };
     }
 
+    // Built-in worlds in previews are drawn by a second BackgroundRenderer,
+    // the same code that draws them in a match, so the Forge and the Custom
+    // screen show exactly what will be played on (not a still picture). It
+    // renders at the match's size, at most 30 times a second, and only while
+    // a preview asks for frames.
+    const builtinLive = { canvas: null, ctx: null, renderer: null, mode: '', last: 0 };
+
+    function builtinFrame(mode) {
+        if (typeof BackgroundRenderer !== 'function') return null;
+        const game = window.game;
+        const W = Math.round(clamp(game?.width || 1280, 640, 1920));
+        const H = Math.round(clamp(game?.height || 720, 360, 1200));
+        const live = builtinLive;
+        try {
+            if (!live.renderer) {
+                live.canvas = document.createElement('canvas');
+                live.ctx = live.canvas.getContext('2d', { alpha: false });
+                live.canvas.width = W; live.canvas.height = H;
+                live.renderer = new BackgroundRenderer(live.ctx, W, H);
+                // The WASM particle sim is shared with the match renderer.
+                live.renderer._bgSimEnabled = false;
+                live.renderer._bgSim = null;
+                live.mode = '';
+            }
+            const r = live.renderer;
+            if (live.canvas.width !== W || live.canvas.height !== H) {
+                live.canvas.width = W; live.canvas.height = H;
+                r.resize(W, H);
+                live.last = 0;
+            }
+            if (live.mode !== mode) {
+                r.setMode(mode);
+                live.mode = mode;
+                live.last = 0;
+            }
+            const now = performance.now();
+            if (!live.last || now - live.last >= 1000 / 30) {
+                r.update(live.last ? Math.min(0.1, (now - live.last) / 1000) : 1 / 30);
+                const c = live.ctx;
+                c.save();
+                c.setTransform(1, 0, 0, 1, 0, 0);
+                c.fillStyle = '#000';
+                c.fillRect(0, 0, W, H);
+                r._renderModeBackground(c, W, H);
+                r.renderEnhancedLighting(c, W, H);
+                if (mode === 'speed') r._renderSpeedLightningPass(c, W, H);
+                c.restore();
+                live.last = now;
+            }
+            return live.canvas;
+        } catch (err) {
+            console.warn('[CustomBackgrounds] live preview failed, using the picture', err);
+            live.renderer = null;
+            return null;
+        }
+    }
+
     // Draw the background for a selection into ctx at w x h. Returns a status
     // string: 'ok', 'loading' or the code's error message.
     function drawSelection(ctx, w, h, mode, opts = {}) {
@@ -452,7 +509,10 @@ parent.postMessage({ type: 'boot' }, '*');
         const filter = opts.filter || '';
         if (filter) { ctx.save(); ctx.filter = filter; }
         let status = 'ok';
-        if (sel.kind === 'builtin' || sel.kind === 'image') {
+        const liveBuiltin = sel.kind === 'builtin' && opts.preview ? builtinFrame(sel.builtin.id) : null;
+        if (liveBuiltin) {
+            drawCover(ctx, liveBuiltin, w, h);
+        } else if (sel.kind === 'builtin' || sel.kind === 'image') {
             const img = getImage(sel.kind === 'image' ? sel.entry.data : resolve(sel.builtin.image));
             if (img) drawCover(ctx, img, w, h);
             else { ctx.fillStyle = '#06101f'; ctx.fillRect(0, 0, w, h); status = 'loading'; }

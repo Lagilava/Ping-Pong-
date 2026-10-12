@@ -81,7 +81,11 @@ html.pp-mobile .card.active { transform: none; }
 html.pp-mobile .card:active { transform: scale(.96); box-shadow: inset 0 0 0 1.5px var(--c); }
 html.pp-mobile .card:hover .card-icon,
 html.pp-mobile .card.active .card-icon { transform: none; }
-html.pp-mobile .card-badge { font-size: .45rem; padding: 4px 10px; }
+html.pp-mobile .card-badge { font-size: .45rem; padding: 5px 8px; }
+html.pp-mobile .card-top,
+html.pp-mobile .card-meta { display: none; }
+html.pp-mobile .card { min-height: 0; }
+html.pp-mobile .card-desc { min-height: 0; }
 html.pp-mobile .card-icon { width: 50px; height: 50px; border-radius: 12px; }
 html.pp-mobile .card-name { font-size: .7rem; letter-spacing: .14em; }
 html.pp-mobile .card-desc { font-size: .6rem; line-height: 1.35; padding: 0 2px; }

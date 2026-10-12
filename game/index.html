@@ -645,7 +645,7 @@
 
         overlay.tabIndex = 0;
         overlay.setAttribute('role', 'dialog');
-        overlay.setAttribute('aria-label', 'Intro authorization overlay. Tap or press Enter to continue. Press Escape to skip.');
+        overlay.setAttribute('aria-label', 'Intro authorization overlay. Tap or press Enter to continue. Press Escape to close the intro.');
         try { overlay.focus(); } catch(e) {}
 
         /* Live telemetry ticker: FRAME is the real measured frame rate. */
@@ -794,7 +794,12 @@
         });
         overlay.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); unlockAudio(); }
-            else if (e.key === 'Escape') { e.preventDefault(); unlockAudio(); }
+            else if (e.key === 'Escape') {
+                // Esc closes the intro: straight to the game.
+                e.preventDefault();
+                try { if (localStorage) localStorage.setItem(INTRO_KEY, '1'); } catch (err) {}
+                window.location.replace('play.html?from_intro=1');
+            }
         });
 
         /* ─── Scene / particles (unchanged from original) ───────────────── */

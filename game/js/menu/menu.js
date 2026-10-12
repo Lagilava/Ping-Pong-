@@ -409,12 +409,12 @@
     // ─────────────────────────────────────────────────────────────────
     const MENU_CONFIG = {
         modes: [
-            { id: 'classic', name: 'CLASSIC', desc: 'Traditional fast-paced duel', col: 0xff3a5c, hex: '#ff3a5c', icon: 'classic' },
-            { id: 'zombie', name: 'ZOMBIE', desc: 'Survive the undead horde', col: 0x6ddc4f, hex: '#6ddc4f', icon: 'zombie' },
-            { id: 'gravity', name: 'GRAVITY', desc: 'Slingshot black holes for big points', col: 0x3d9eff, hex: '#3d9eff', icon: 'gravity' },
-            { id: 'speed', name: 'SPEED', desc: 'Extreme velocity battles', col: 0xffbe00, hex: '#ffbe00', icon: 'speed' },
-            { id: 'obstacle', name: 'OBSTACLE', desc: 'Navigate deadly hazards', col: 0xff7620, hex: '#ff7620', icon: 'obstacle' },
-            { id: 'customise', name: 'CUSTOM', desc: 'Build your own rules', col: 0x00ffc8, hex: '#00ffc8', icon: 'custom' },
+            { id: 'classic', name: 'CLASSIC', desc: 'Traditional fast-paced duel', col: 0xff3a5c, hex: '#ff3a5c', icon: 'classic', tags: ['VS AI', '1v1'], online: true },
+            { id: 'zombie', name: 'ZOMBIE', desc: 'Survive the undead horde', col: 0x6ddc4f, hex: '#6ddc4f', icon: 'zombie', tags: ['Solo', '10 waves'] },
+            { id: 'gravity', name: 'GRAVITY', desc: 'Slingshot black holes for big points', col: 0x3d9eff, hex: '#3d9eff', icon: 'gravity', tags: ['VS AI', '1v1'], online: true },
+            { id: 'speed', name: 'SPEED', desc: 'Extreme velocity battles', col: 0xffbe00, hex: '#ffbe00', icon: 'speed', tags: ['VS AI', '1v1'] },
+            { id: 'obstacle', name: 'OBSTACLE', desc: 'Navigate deadly hazards', col: 0xff7620, hex: '#ff7620', icon: 'obstacle', tags: ['VS AI', '1v1'], online: true },
+            { id: 'customise', name: 'CUSTOM', desc: 'Build your own rules', col: 0x00ffc8, hex: '#00ffc8', icon: 'custom', tags: ['Forge', '1v1'], online: true },
         ],
         // Lower-end devices (as classified by PerfGovernor) start at 1x.
         renderer: { pixelRatio: Math.min(devicePixelRatio, (window.PerfGovernor?.tier || 0) >= 1 ? 1 : 1.5), exposure: 1.28 },
@@ -450,13 +450,22 @@
         MENU_CONFIG.modes.forEach((m, i) => {
             const el = document.createElement('div');
             el.className = 'card';
-            el.style.cssText = `--c:${m.hex};--cg:${m.hex}CC;--wash:${hexToRgba(m.hex, 0.65)};--wash2:${hexToRgba(m.hex, 0.25)};--accent:${hexToRgba(m.hex, 0.4)}`;
+            el.tabIndex = 0;
+            el.setAttribute('role', 'button');
+            el.setAttribute('aria-label', `Play ${m.name.toLowerCase()}: ${m.desc}`);
+            el.style.cssText = `--c:${m.hex};--cg:${m.hex}CC;--wash:${hexToRgba(m.hex, 0.65)};--wash2:${hexToRgba(m.hex, 0.22)};--accent:${hexToRgba(m.hex, 0.4)}`;
             el.innerHTML = `
-                <div class="card-badge">▶ START</div>
-                <div class="card-icon" style="color:${m.hex}">${svgIcon(m.icon)}</div>
+                <div class="card-top"><span class="card-index">0${i + 1}</span>${m.online ? '<span class="card-live">ONLINE</span>' : ''}</div>
+                <div class="card-icon">${svgIcon(m.icon)}</div>
                 <div class="card-name">${m.name}</div>
-                <div class="card-desc">${m.desc}</div>`;
+                <div class="card-desc">${m.desc}</div>
+                <div class="card-meta">${(m.tags || []).map(t => `<span>${t}</span>`).join('')}</div>
+                <div class="card-badge">${m.id === 'customise' ? 'Build &#9656;' : 'Play &#9656;'}</div>`;
             el.addEventListener('pointerenter', () => { menuActiveIdx = i; scrollMenuCards(0); }, false);
+            el.addEventListener('focus', () => { menuActiveIdx = i; scrollMenuCards(0); }, false);
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
+            }, false);
             el.addEventListener('click', () => {
                 menuSelected = m.id;
                 if (m.id === 'customise') {
@@ -480,8 +489,22 @@
     }
 
     function updateMenuCards() {
-        const ch = document.getElementById('cardRow')?.children || [];
+        const row = document.getElementById('cardRow');
+        const ch = row?.children || [];
         for (let i = 0; i < ch.length; i++) ch[i].classList.toggle('active', i === menuActiveIdx);
+        // Hide the scroll arrows when every card is already on screen.
+        const hud = document.getElementById('cards-hud');
+        if (row && hud && ch.length) {
+            const first = ch[0].getBoundingClientRect(), last = ch[ch.length - 1].getBoundingClientRect();
+            const oneRow = Math.abs(first.top - last.top) < 4;
+            const span = oneRow ? (last.right - first.left) : row.scrollWidth;
+            const fits = span <= hud.clientWidth - 24;
+            hud.classList.toggle('cards-fit', fits);
+            if (fits && menuOffset && !isNativeCardScroll(row)) {
+                menuOffset = 0;
+                row.style.transform = '';
+            }
+        }
     }
 
     let menuOffset = 0, menuLastWheelTime = 0;
@@ -502,9 +525,14 @@
         const cur = menuActiveIdx !== null ? menuActiveIdx : Math.max(0, Math.min(MENU_CONFIG.modes.length - 1, Math.round(menuOffset / cw)));
         const nxt = Math.max(0, Math.min(MENU_CONFIG.modes.length - 1, cur + dir));
         if (row) {
-            const vis = Math.floor(row.parentElement.offsetWidth / cw) || 3;
-            const maxOff = Math.max(0, (MENU_CONFIG.modes.length - vis) * cw);
-            const tgt = Math.max(0, Math.min(maxOff, (nxt - Math.floor(vis / 2)) * cw));
+            const hud = row.parentElement;
+            const cs = getComputedStyle(hud);
+            const viewW = hud.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+            const maxOff = Math.max(0, row.scrollWidth - viewW);
+            // Arrows step one card; hovering or focusing a card keeps it in view.
+            const tgt = menuActiveIdx !== null
+                ? Math.max(0, Math.min(maxOff, nxt * cw - (viewW - cw) / 2))
+                : Math.max(0, Math.min(maxOff, menuOffset + dir * cw));
             menuOffset = tgt;
             row.style.transform = `translateX(${-menuOffset}px)`;
             row.style.transition = 'transform .38s cubic-bezier(.23,1,.32,1)';
@@ -1583,86 +1611,115 @@
         const customBgTintB = document.getElementById('customBgTintB');
         const customPowerupsGrid = document.getElementById('customPowerupsGrid');
 
+        // The background beside the tone sliders is drawn the same way as the
+        // Forge's arena preview and the match: built-in worlds by the live
+        // background renderer, imported pictures and code backgrounds through
+        // CustomBackgrounds, with the tone sliders applied. The Forge's preview
+        // loop calls this every frame while the Custom screen is open.
+        const drawLiveCustomBackground = () => {
+            const canvas = document.getElementById('customLiveBackgroundCanvas');
+            const game = window.game;
+            if (!canvas || !game?.customSettings) return;
+            const img = document.getElementById('customLiveBackgroundImage');
+            if (img && img.style.display !== 'none') img.style.display = 'none';
+            const box = canvas.parentElement || canvas;
+            const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+            const width = Math.max(280, Math.floor((box.clientWidth || 620) * dpr));
+            const height = Math.max(90, Math.floor((box.clientHeight || 130) * dpr));
+            if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            const mode = game.customSettings.backgroundMode || 'classic';
+            if (window.CustomBackgrounds) {
+                window.CustomBackgrounds.drawSelection(ctx, width, height, mode, {
+                    filter: game.getCustomBackgroundToneFilter?.() || '',
+                    preview: true,
+                });
+            } else {
+                ctx.fillStyle = '#06101f';
+                ctx.fillRect(0, 0, width, height);
+            }
+        };
+        window.__ppDrawCustomLiveBackground = drawLiveCustomBackground;
+
+        // Left and right paddle previews on the Custom screen, in the designs
+        // picked for Custom (Settings > Paddles or the Paddle design menu).
+        // The Forge's preview loop calls this so the designs animate.
+        const paddlePreviews = new Map();
+        const drawPaddlePreview = (canvas, side, color, label) => {
+            if (!canvas || typeof Paddle !== 'function') return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            const style = window.PPSettings?.getPaddle?.('customise', side) || 'classic';
+            const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+            const cssW = Math.max(130, Math.floor(canvas.clientWidth || 260));
+            const cssH = Math.max(100, Math.floor(canvas.clientHeight || 130));
+            if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
+                canvas.width = Math.round(cssW * dpr);
+                canvas.height = Math.round(cssH * dpr);
+            }
+            const paddleH = Math.max(60, Math.round(cssH * 0.7));
+            const paddleW = Math.max(10, Math.round(paddleH * 0.15));
+            let entry = paddlePreviews.get(canvas);
+            if (!entry || entry.style !== style || entry.color !== color || entry.h !== paddleH) {
+                const pd = new Paddle(0, 0, paddleW, paddleH, color, false);
+                pd.applyCustomPaddleVisualState?.(style, color);
+                entry = { pd, style, color, h: paddleH };
+                paddlePreviews.set(canvas, entry);
+            }
+            const pd = entry.pd;
+            pd.pos.x = Math.round((cssW - paddleW) / 2);
+            pd.pos.y = Math.round((cssH - paddleH) / 2) - 8;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            const bg = ctx.createLinearGradient(0, 0, 0, cssH);
+            bg.addColorStop(0, 'rgba(6,14,26,0.98)');
+            bg.addColorStop(1, 'rgba(2,8,18,1)');
+            ctx.fillStyle = bg; ctx.fillRect(0, 0, cssW, cssH);
+            pd.render(ctx);
+            const name = window.PaddleDesigns?.LIST.find((d) => d.id === style)?.name || 'Classic';
+            ctx.fillStyle = 'rgba(255,255,255,0.82)';
+            ctx.font = '600 13px Rajdhani,Arial,sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${label} · ${name.toUpperCase()}`, cssW / 2, cssH - 8);
+        };
+        const drawCustomPaddlePreviews = () => {
+            const cs = window.game?.customSettings || {};
+            drawPaddlePreview(document.getElementById('customPreviewLeftPaddle'), 'left', cs.leftPaddleColor || '#00ffd6', 'LEFT');
+            drawPaddlePreview(document.getElementById('customPreviewRightPaddle'), 'right', cs.rightPaddleColor || '#ff0044', 'RIGHT');
+        };
+        window.__ppDrawCustomPaddlePreviews = drawCustomPaddlePreviews;
+
+        // Put the saved Custom settings into the controls before they are read
+        // back, so opening the screen never resets them to the page defaults.
+        const applySettingsToControls = () => {
+            const cs = window.game?.customSettings;
+            if (!cs) return;
+            const setVal = (el, v) => { if (el && v != null && v !== '') el.value = String(v); };
+            if (customBackgroundMode && cs.backgroundMode) {
+                if (![...customBackgroundMode.options].some((o) => o.value === cs.backgroundMode) && window.CustomBackgrounds?.optionsHtml) {
+                    customBackgroundMode.innerHTML = window.CustomBackgrounds.optionsHtml(cs.backgroundMode);
+                }
+                setVal(customBackgroundMode, cs.backgroundMode);
+            }
+            setVal(customBgBrightness, cs.backgroundBrightness);
+            setVal(customBgSaturation, cs.backgroundSaturation);
+            setVal(customBgContrast, cs.backgroundContrast);
+            setVal(customLeftPaddleColor, cs.leftPaddleColor);
+            setVal(customRightPaddleColor, cs.rightPaddleColor);
+            setVal(customBgTintA, cs.backgroundTintA);
+            setVal(customBgTintB, cs.backgroundTintB);
+            setVal(customPaddleStyle, window.PPSettings?.getPaddle?.('customise', 'left') || cs.paddleStyle);
+            if (customPowerupsGrid && Array.isArray(cs.enabledPowerUps)) {
+                const on = new Set(cs.enabledPowerUps);
+                customPowerupsGrid.querySelectorAll('input[type="checkbox"]').forEach((i) => { i.checked = on.has(i.value); });
+            }
+        };
+
         const drawFallbackPreviews = () => {
             const game = window.game;
             const customSettings = game?.customSettings || {};
-            const backgroundMap = {
-                classic: 'assets/images/customise-previews/classic.png',
-                zombie: 'assets/images/customise-previews/zombie.png',
-                gravity: 'assets/images/customise-previews/gravity.png',
-                speed: 'assets/images/customise-previews/speed.png',
-                obstacle: 'assets/images/customise-previews/obstacle.png'
-            };
-            const previewStyle = customSettings.paddleStyle || 'classic';
-            const resolveAsset = (p) => (typeof window.resolveAssetUrl === 'function' ? window.resolveAssetUrl(p) : p);
-
-            const drawPaddle = (canvas, color, label) => {
-                if (!canvas) return;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return;
-                const width = canvas.width = Math.max(260, Math.floor(canvas.clientWidth || 260));
-                const height = canvas.height = Math.max(130, Math.floor(canvas.clientHeight || 130));
-                ctx.clearRect(0, 0, width, height);
-                const bg = ctx.createLinearGradient(0, 0, 0, height);
-                bg.addColorStop(0, 'rgba(6,14,26,0.98)');
-                bg.addColorStop(1, 'rgba(2,8,18,1)');
-                ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
-                const paddleH = Math.max(88, Math.round(height * 0.78));
-                const paddleW = Math.max(12, Math.round(paddleH * 0.18));
-                const previewPaddle = new Paddle(0, 0, paddleW, paddleH, color, false);
-                previewPaddle.w = paddleW; previewPaddle.h = paddleH;
-                previewPaddle.pos.x = Math.round((width - paddleW) / 2);
-                previewPaddle.pos.y = Math.round((height - paddleH) / 2);
-                previewPaddle.isAI = false;
-                previewPaddle.applyCustomPaddleVisualState?.(previewStyle, color);
-                ctx.save();
-                ctx.translate(previewPaddle.pos.x + previewPaddle.w / 2, previewPaddle.pos.y + previewPaddle.h / 2);
-                if (previewStyle === 'classic') previewPaddle.renderPlayer(ctx, performance.now() * 0.001, 0, 0.5, 0.8, 0);
-                else previewPaddle.renderStyledPaddle(ctx, performance.now() * 0.001, 0, 0.5, 0.8, 0, previewStyle);
-                ctx.restore();
-                ctx.fillStyle = 'rgba(255,255,255,0.82)';
-                ctx.font = 'bold 18px Audiowide,Arial,sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(label, width / 2, height - 16);
-            };
-
-            const drawBackground = (canvas) => {
-                if (!canvas) return;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return;
-                const width = canvas.width = Math.max(620, Math.floor(canvas.clientWidth || 620));
-                const height = canvas.height = Math.max(130, Math.floor(canvas.clientHeight || 130));
-                const previewMode = customSettings.backgroundMode || 'classic';
-                const previewSource = resolveAsset(backgroundMap[previewMode] || backgroundMap.classic);
-                ctx.clearRect(0, 0, width, height);
-                const img = new Image();
-                img.decoding = 'async';
-                img.onload = () => {
-                    ctx.clearRect(0, 0, width, height);
-                    ctx.drawImage(img, 0, 0, width, height);
-                    const tint = ctx.createLinearGradient(0, 0, width, height);
-                    tint.addColorStop(0, `${customSettings.backgroundTintA || '#0f6eff'}2e`);
-                    tint.addColorStop(1, `${customSettings.backgroundTintB || '#00142f'}28`);
-                    ctx.fillStyle = tint; ctx.fillRect(0, 0, width, height);
-                };
-                img.onerror = () => {
-                    const sky = ctx.createLinearGradient(0, 0, 0, height);
-                    sky.addColorStop(0, '#041129'); sky.addColorStop(0.5, '#061d44'); sky.addColorStop(1, '#020711');
-                    ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
-                };
-                img.src = previewSource;
-            };
-
-            const bgMode = customSettings.backgroundMode || 'classic';
-            const bgImage = document.getElementById('customLiveBackgroundImage');
-            if (bgImage) {
-                bgImage.src = resolveAsset(backgroundMap[bgMode] || backgroundMap.classic);
-                bgImage.style.filter = `brightness(${customSettings.backgroundBrightness ?? 1}) saturate(${customSettings.backgroundSaturation ?? 1}) contrast(${customSettings.backgroundContrast ?? 1})`;
-            }
-            drawPaddle(document.getElementById('customPreviewLeftPaddle'), (window.game?.customSettings?.leftPaddleColor || '#00ffd6'), 'LEFT');
-            drawPaddle(document.getElementById('customPreviewRightPaddle'), (window.game?.customSettings?.rightPaddleColor || '#ff0044'), 'RIGHT');
-            const bgCanvas = document.getElementById('customLiveBackgroundCanvas');
-            if (bgCanvas) drawBackground(bgCanvas);
+            drawLiveCustomBackground();
+            drawCustomPaddlePreviews();
         };
 
         if (customiseOverlay) { customiseOverlay.classList.add('active'); customiseOverlay.removeAttribute('aria-hidden'); }
@@ -1681,7 +1738,12 @@
                 next.backgroundBrightness = Number(customBgBrightness?.value || next.backgroundBrightness || 1);
                 next.backgroundSaturation = Number(customBgSaturation?.value || next.backgroundSaturation || 1);
                 next.backgroundContrast = Number(customBgContrast?.value || next.backgroundContrast || 1);
-                next.paddleStyle = customPaddleStyle?.value || next.paddleStyle || 'classic';
+                if (customPaddleStyle && customPaddleStyle.value !== window.PPSettings?.getPaddle?.('customise', 'left')) {
+                    // The Custom screen's menu sets both paddles at once.
+                    window.PPSettings?.setPaddle?.('customise', 'left', customPaddleStyle.value);
+                    window.PPSettings?.setPaddle?.('customise', 'right', customPaddleStyle.value);
+                }
+                next.paddleStyle = window.PPSettings?.getPaddle?.('customise', 'left') || customPaddleStyle?.value || 'classic';
                 next.leftPaddleColor = customLeftPaddleColor?.value || next.leftPaddleColor || '#00ffd6';
                 next.rightPaddleColor = customRightPaddleColor?.value || next.rightPaddleColor || '#ff0044';
                 next.backgroundTintA = customBgTintA?.value || next.backgroundTintA || '#0f6eff';
@@ -1699,7 +1761,16 @@
             };
 
             if (window.game.customSettings) window.game.customSettings.previewModeActive = true;
-            if (typeof window.__ppApplyCustomSettingsToControls === 'function') window.__ppApplyCustomSettingsToControls();
+            applySettingsToControls();
+            if (!customPaddleStyle?.dataset.ppPaddleSync && window.PPSettings?.on) {
+                if (customPaddleStyle) customPaddleStyle.dataset.ppPaddleSync = '1';
+                // A change in Settings > Paddles shows on this screen too.
+                window.PPSettings.on((key) => {
+                    if (key !== 'paddles' && key !== '*') return;
+                    if (customPaddleStyle) customPaddleStyle.value = window.PPSettings.getPaddle('customise', 'left');
+                    drawCustomPaddlePreviews();
+                });
+            }
             if (typeof window.__ppSyncCustomSettingsFromControls === 'function') window.__ppSyncCustomSettingsFromControls();
             else manualSync();
             if (typeof window.game.applyCustomiseSettings === 'function') window.game.applyCustomiseSettings(true);
@@ -1785,6 +1856,8 @@
     // ─────────────────────────────────────────────────────────────────
     function initMenuSystem() {
         buildMenuCards();
+        window.addEventListener('resize', () => updateMenuCards(), false);
+        document.fonts?.ready?.then(() => updateMenuCards());
         initMenuThreeJS();
     }
 

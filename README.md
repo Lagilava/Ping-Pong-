@@ -28,9 +28,9 @@ Keep the small console window open while you play; close it to stop.
   only if you want to watch.
 - **F2** shows a performance readout: FPS, detected display refresh rate,
   quality tier, render scale, shaders and physics backend.
-- Intros can be skipped: click or press any key during the boot cinematic,
-  and **Esc** / the **Skip intro** button during a match intro (after the first
-  match, match intros are short anyway).
+- Intros always play, and **Esc** closes them: on the boot screen, during the
+  boot cinematic (any key works there too) and during a match intro (or use
+  the **Skip intro** button). After the first match, match intros are short.
 - Your progress (XP, achievements) is saved in the browser on this PC.
 
 ### Let testers anywhere play it (PC + mobile)
@@ -79,15 +79,21 @@ The host picks Classic, Gravity, Obstacle or Custom and starts the match.
 
 **Settings** opens from the pause menu, the match setup dialog and the Custom
 screen, and saves as you change it. Tabs: Gameplay (computer skill, points to
-win, power-ups, intro length, replays, AI trash talk, auto-pause, paddle
-speed), Controls (key rebinding for both players, vibration), Display (screen
+win, power-ups, replays, AI trash talk, auto-pause), Paddles (a paddle
+design for each mode, for your paddle and your opponent's), Controls (paddle
+speed, key rebinding for both players, vibration), Display (screen
 shake, impact flash, particles, scoreboard size, FPS counter), Audio, and
 Accessibility (reduce motion, high-visibility ball, menu text size, inverted
 colours).
 
+Paddle designs: Classic, Satelliten, World Shield, AI Rebel and Prizma. In
+online matches each side shows the design its own player picked; the Zombie
+boss keeps its own look.
+
 ### Custom backgrounds
 
-The **Forge** draws your arena over the match's selected background, and its
+The **Forge** and the Custom screen's background preview draw the selected
+background live, exactly as the match will, and the Forge's
 **Background** button picks a built-in world or imports an image or code.
 Imported backgrounds also appear in the Custom screen's background menu. Code
 runs in a locked sandbox (no page access, storage or network). Two formats are
