@@ -1518,7 +1518,8 @@ class ProgressionSystem {
 .achievement-notification {
     position: absolute;
     right: 0;
-    width: 190px;
+    /* Wide enough for a title and the +75 XP tag on one line. */
+    width: 236px;
     max-width: 90vw;
     pointer-events: all;
     will-change: transform, opacity;

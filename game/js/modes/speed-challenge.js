@@ -267,7 +267,7 @@ class SpeedChallenge {
             this.updateStatus(`${playerName}: Press the combo in ${this.timeLimit.toFixed(1)}s!`);
         } else {
             const timeText = this.timeLimit.toFixed(1);
-            this.updateStatus(`Cockpit lock acquired. Hit ${this.totalTargets} target${this.totalTargets > 1 ? 's' : ''} in ${timeText}s.`);
+            this.updateStatus(`Hit ${this.totalTargets} target${this.totalTargets > 1 ? 's' : ''} in ${timeText}s to save the point.`);
         }
 
         this.announcer.textContent = `Speed challenge: ${this.isMultiplayer ? 'Press combo' : 'Click targets'}. Level ${level}.`;
@@ -1104,6 +1104,9 @@ class SpeedChallenge {
 
     startResurrectionCountdown() {
         this.targetContainer.innerHTML = '';
+        // The last timer warning ("Time running out!") would otherwise sit
+        // under the countdown.
+        this.updateStatus('Back to the rally in a moment.');
         this.challengeUI.classList.remove('transitioning-out');
         document.body.classList.remove('speed-transforming');
         const countdownEl = document.createElement('div');
@@ -1246,7 +1249,7 @@ class SpeedChallenge {
         this.resetComboState();
 
         if (reason === 'match-end') {
-            this.updateStatus('Speed challenge disengaged. Match complete.');
+            this.updateStatus('Match over.');
         }
     }
 

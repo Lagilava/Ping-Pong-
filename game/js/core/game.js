@@ -6394,7 +6394,7 @@ class Game {
                 break;
             case 'powerShot':
                 this.powerShotActive = true;
-                this.showNotification('Power Shot!', 'Next hit = OP', '#ff5252');
+                this.showNotification('Power Shot!', 'Your next hit flies much faster', '#ff5252');
                 break;
             case 'timeWarp':
                 this.setTimeWarpFactor(0.5);
@@ -6407,7 +6407,7 @@ class Game {
                 break;
             case 'ghostBall':
                 this.ghostBallActive = true;
-                this.showNotification('Ghost Ball!', 'No obstacles', '#e0e0e0');
+                this.showNotification('Ghost Ball!', 'The ball passes through obstacles', '#e0e0e0');
                 break;
             case 'laserPaddle':
                 this.player.activateLaser(3);
@@ -6715,10 +6715,17 @@ class Game {
         const now = performance.now();
         if (!(now - (st.toastReadAt || 0) < 250)) {
             st.toastReadAt = now;
+            // The toasts are absolutely positioned, so the container itself
+            // has no size: measure the toasts.
+            st.toastBottom = 0;
+            st.toastLeft = Infinity;
             const box = document.querySelector('.achievement-notifications-container');
-            const r = box && box.childElementCount ? box.getBoundingClientRect() : null;
-            st.toastBottom = r && r.height ? r.bottom : 0;
-            st.toastLeft = r ? r.left : 0;
+            if (box) for (const toast of box.children) {
+                const r = toast.getBoundingClientRect();
+                if (!r.height) continue;
+                st.toastBottom = Math.max(st.toastBottom, r.bottom);
+                st.toastLeft = Math.min(st.toastLeft, r.left);
+            }
         }
         let minY = 64 + half;
         if (st.toastBottom && x > st.toastLeft) minY = Math.max(minY, st.toastBottom + 10 + half);
