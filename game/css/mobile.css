@@ -35,6 +35,7 @@ html.pp-mobile .menu-right-panel {
 html.pp-mobile .menu-right-panel > .menu-recent-achievements { display: none !important; }
 html.pp-mobile .menu-progress-panel { padding: 6px 10px; border-radius: 10px; background: rgba(4, 10, 24, .55); }
 html.pp-mobile .menu-progress-label { display: none; }
+html.pp-mobile .menu-progress-head { justify-content: flex-end; }
 html.pp-mobile .menu-progress-row { flex-direction: row; gap: 10px; }
 html.pp-mobile .menu-progress-level { width: auto; gap: 6px; }
 html.pp-mobile .menu-progress-kicker { font-size: .55rem; }

@@ -204,16 +204,16 @@
 
         // Settings and Help are the two panels; "audio" opens Settings on its
         // Audio tab.
-        const panelFor = (name) => ({ settings: state.ui.settingsPanel, audio: state.ui.settingsPanel, help: state.ui.helpPanel })[name];
+        const panelFor = (name) => ({ settings: state.ui.settingsPanel, audio: state.ui.settingsPanel, profile: state.ui.settingsPanel, help: state.ui.helpPanel })[name];
 
         function setPanel(name, show) {
-            const target = name === 'audio' ? 'settings' : name;
+            const target = (name === 'audio' || name === 'profile') ? 'settings' : name;
             ['settings', 'help'].forEach((n) => {
                 const el = panelFor(n);
                 if (el) el.style.display = (n === target && show) ? 'flex' : 'none';
             });
             document.body.classList.toggle('pp-panel-open', !!show);
-            if (show && target === 'settings') window.PPSettingsPanel?.onOpen(name === 'audio' ? 'audio' : null);
+            if (show && target === 'settings') window.PPSettingsPanel?.onOpen(name === 'audio' || name === 'profile' ? name : null);
         }
 
         function togglePanel(name) {

@@ -2447,11 +2447,42 @@ button {
     z-index: 1;
 }
 
+.menu-progress-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.45rem;
+}
+
+.menu-icon-btns { display: flex; gap: 0.4rem; }
+
+.menu-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid rgba(106, 227, 255, 0.35);
+    border-radius: 10px;
+    background: rgba(8, 20, 40, 0.55);
+    color: rgba(190, 240, 255, 0.92);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.menu-icon-btn svg { width: 20px; height: 20px; }
+.menu-icon-btn:hover, .menu-icon-btn:focus-visible {
+    background: rgba(0, 255, 214, 0.16);
+    border-color: rgba(0, 255, 214, 0.8);
+    color: #fff;
+    outline: none;
+}
+
 .menu-progress-label {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    margin-bottom: 0.45rem;
+    margin-bottom: 0;
     font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.16em;

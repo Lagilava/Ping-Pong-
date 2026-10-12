@@ -10,6 +10,7 @@
     const audio = () => window.game?.audio || null;
 
     const TABS = [
+        { id: 'profile', label: 'Profile' },
         { id: 'gameplay', label: 'Gameplay' },
         { id: 'paddles', label: 'Paddles' },
         { id: 'controls', label: 'Controls' },
@@ -21,6 +22,9 @@
     // Row definitions. type: seg (one of several), toggle, slider, keys,
     // actions, volume, note.
     const ROWS = {
+        profile: [
+            { type: 'profile' },
+        ],
         gameplay: [
             { type: 'seg', key: 'aiLevel', label: 'Computer skill', help: 'How well the computer reads, aims and fakes its returns. Changes apply straight away. The Zombie boss gets tougher each wave instead.',
                 options: [[0, 'Rookie'], [1, 'Easy'], [2, 'Normal'], [3, 'Hard'], [4, 'Insane']] },
@@ -169,6 +173,53 @@
         if (!paddleRaf) paddleRaf = requestAnimationFrame(drawPaddlePreviews);
     }
 
+
+    // ── Profile tab: name, level and lifetime stats ─────────────────
+    const fmtTime = (sec) => {
+        const m = Math.floor(sec / 60);
+        if (m < 60) return `${m} min`;
+        const h = Math.floor(m / 60);
+        return `${h} h ${m % 60} min`;
+    };
+    const tile = (label, value, sub) => `<div class="ppset-stat"><span class="ppset-stat-v">${esc(value)}</span><span class="ppset-stat-l">${esc(label)}</span>${sub ? `<span class="ppset-stat-s">${esc(sub)}</span>` : ''}</div>`;
+
+    function renderProfile() {
+        const host = root?.querySelector('.ppset-profile');
+        const P = window.PPProfile;
+        if (!host || !P) return;
+        const st = P.getStats();
+        const name = st.name || 'Player';
+        const pct = st.requiredXP > 0 ? Math.min(100, Math.round((st.xp / st.requiredXP) * 100)) : 0;
+        const since = new Date(st.since).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        host.innerHTML = `
+            <div class="ppset-pf-head">
+                <div class="ppset-avatar" aria-hidden="true">${esc(name.trim().charAt(0).toUpperCase() || 'P')}</div>
+                <div class="ppset-pf-id">
+                    <label class="ppset-pf-name"><span class="ppset-help">Name</span>
+                        <input type="text" maxlength="16" value="${esc(st.name)}" placeholder="Player" data-pf-name autocomplete="off" spellcheck="false"></label>
+                    <div class="ppset-pf-level"><b>Level ${st.level}</b><span>${st.xp} / ${st.requiredXP} XP</span></div>
+                    <div class="ppset-pf-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to next level"><i style="width:${pct}%"></i></div>
+                </div>
+            </div>
+            <div class="ppset-stats">
+                ${tile('Matches played', st.played)}
+                ${tile('Wins', st.won, `${st.winRate}% win rate`)}
+                ${tile('Losses', st.lost)}
+                ${tile('Win streak', st.winStreak, `Best ${st.bestStreak}`)}
+                ${tile('Points scored', st.pointsFor, `${st.pointsAgainst} conceded`)}
+                ${tile('Longest rally', st.bestRally ? `${st.bestRally} hits` : 'None yet')}
+                ${tile('Time played', fmtTime(st.seconds))}
+                ${tile('Achievements', `${st.achievements} / ${st.achievementsTotal}`)}
+                ${tile('Zombie best score', st.zombieBest || 'None yet', st.zombieWaves ? `${st.zombieWaves} waves cleared` : '')}
+            </div>
+            <div class="ppset-label ppset-pf-title">By mode</div>
+            <table class="ppset-modes-table">
+                <thead><tr><th scope="col">Mode</th><th scope="col">Played</th><th scope="col">Won</th><th scope="col">Win rate</th><th scope="col">Time</th></tr></thead>
+                <tbody>${st.modes.map((m) => `<tr><th scope="row">${esc(m.label)}</th><td>${m.played}</td><td>${m.won}</td><td>${m.played ? Math.round((m.won / m.played) * 100) + '%' : '-'}</td><td>${m.seconds ? fmtTime(m.seconds) : '-'}</td></tr>`).join('')}</tbody>
+            </table>
+            <p class="ppset-help ppset-pf-note">Profile since ${esc(since)}. Matches from before profiles existed count in the totals above but not by mode. Local two-player matches are not counted. Stats are stored in this browser.</p>`;
+    }
+
     let root = null;
     let activeTab = 'gameplay';
     let capture = null; // { action, button }
@@ -202,6 +253,8 @@
                 return `<div class="ppset-note">${row.html}</div>`;
             case 'paddles':
                 return renderPaddles();
+            case 'profile':
+                return '<div class="ppset-profile"></div>';
             case 'keys':
                 return `<div class="ppset-row ppset-keys-row"><div class="ppset-text"><div class="ppset-label">${esc(row.label)}</div><div class="ppset-help">${esc(row.help)}</div></div>
                     <div class="ppset-keys">${BIND_ROWS.map((g) => `<div class="ppset-keygroup"><div class="ppset-keyside">${esc(g.side)}</div>${g.actions.map(([a, t]) =>
@@ -259,6 +312,7 @@
         root.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
         root.querySelectorAll('[data-page]').forEach((p) => { p.hidden = p.dataset.page !== id; });
         if (id === 'audio') syncAudio();
+        if (id === 'profile') renderProfile();
         if (id === 'paddles') { syncPaddles(); startPaddlePreviews(); }
         root.querySelector('.ppset-body').scrollTop = 0;
     }
@@ -403,7 +457,10 @@
                 setVolume(inp.dataset.vol, Number(inp.value));
             }
         });
-        root.addEventListener('change', (e) => { if (e.target.matches('input[type=range]')) flashSaved(); });
+        root.addEventListener('change', (e) => {
+            if (e.target.matches('input[type=range]')) flashSaved();
+            if (e.target.matches('[data-pf-name]')) { window.PPProfile?.setName(e.target.value); renderProfile(); flashSaved(); }
+        });
         // Arrow keys move between tabs when a tab has focus.
         root.querySelector('.ppset-tabs').addEventListener('keydown', (e) => {
             if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;

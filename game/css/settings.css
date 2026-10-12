@@ -71,13 +71,13 @@
 .ppset-tabs::-webkit-scrollbar { display: none; }
 .ppset-tabs button {
     flex: 0 0 auto;
-    padding: 10px 13px;
+    padding: 10px 9px;
     border: 1px solid transparent;
     border-radius: 999px;
     background: transparent;
     color: rgba(210, 240, 255, 0.7);
-    font: 700 12px/1 'Orbitron', system-ui, sans-serif;
-    letter-spacing: 0.08em;
+    font: 700 11px/1 'Orbitron', system-ui, sans-serif;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -402,3 +402,52 @@ body.pp-noir .overlay::after {
 }
 /* Magenta reads as dark grey in black-and-white; keep both scores equally legible. */
 body.pp-noir #pp-enhanced-hud .ai-side { filter: brightness(1.9); }
+
+/* ── Profile tab ─────────────────────────────────────────────── */
+.ppset-profile { padding: 10px 0 4px; }
+.ppset-pf-head { display: flex; align-items: center; gap: 18px; padding: 6px 0 16px; }
+.ppset-avatar {
+    flex: 0 0 auto;
+    width: 64px; height: 64px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    border: 2px solid rgba(0, 255, 214, 0.7);
+    background: radial-gradient(circle at 35% 30%, rgba(0, 255, 214, 0.28), rgba(0, 40, 60, 0.6));
+    color: #fff;
+    font: 900 28px/1 'Orbitron', 'Audiowide', sans-serif;
+}
+.ppset-pf-id { flex: 1; min-width: 0; }
+.ppset-pf-name { display: block; }
+.ppset-pf-name input {
+    display: block; width: min(260px, 100%); margin-top: 4px;
+    padding: 8px 10px;
+    border: 1px solid rgba(120, 220, 255, 0.3); border-radius: 8px;
+    background: rgba(0, 0, 0, 0.3); color: #fff;
+    font: 700 18px/1.2 'Rajdhani', system-ui, sans-serif;
+}
+.ppset-pf-name input:focus-visible { outline: 2px solid rgba(0, 255, 214, 0.7); outline-offset: 1px; }
+.ppset-pf-level { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; font: 600 15px/1 'Rajdhani', system-ui, sans-serif; color: rgba(210, 240, 255, 0.8); }
+.ppset-pf-level b { color: #fff; font-weight: 700; }
+.ppset-pf-bar { height: 8px; margin-top: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.ppset-pf-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #00ffd6, #4aa8ff); }
+.ppset-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.ppset-stat {
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 12px 14px;
+    border: 1px solid rgba(120, 220, 255, 0.14); border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+}
+.ppset-stat-v { font: 800 24px/1.1 'Rajdhani', system-ui, sans-serif; color: #fff; }
+.ppset-stat-l { font: 600 13px/1.2 'Rajdhani', system-ui, sans-serif; letter-spacing: 0.04em; color: rgba(190, 225, 240, 0.75); }
+.ppset-stat-s { font: 500 13px/1.2 'Rajdhani', system-ui, sans-serif; color: rgba(0, 255, 214, 0.8); }
+.ppset-pf-title { margin: 20px 0 8px; }
+.ppset-modes-table { width: 100%; border-collapse: collapse; font: 600 15px/1.2 'Rajdhani', system-ui, sans-serif; color: #e6faff; }
+.ppset-modes-table th, .ppset-modes-table td { padding: 8px 6px; text-align: right; border-bottom: 1px solid rgba(120, 220, 255, 0.1); }
+.ppset-modes-table th:first-child, .ppset-modes-table td:first-child { text-align: left; }
+.ppset-modes-table thead th { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(190, 225, 240, 0.65); }
+.ppset-modes-table tbody th { font-weight: 700; color: #fff; }
+.ppset-pf-note { margin: 12px 0 6px; }
+@media (max-width: 520px) {
+    .ppset-pf-head { gap: 12px; }
+    .ppset-avatar { width: 52px; height: 52px; font-size: 22px; }
+}

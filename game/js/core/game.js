@@ -5800,6 +5800,8 @@ class Game {
                 e.preventDefault();
                 return;
             }
+            // Typing in a text field (profile name) must not trigger shortcuts.
+            if (e.key !== 'Escape' && e.target?.closest?.('input[type=text], textarea, select, [contenteditable]')) return;
             if (this.userPaused) {
                 const k = e.key.toLowerCase();
                 if (e.key === 'Escape') this.setUserPaused(false);
