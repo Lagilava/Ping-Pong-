@@ -69,7 +69,7 @@
             { type: 'toggle', key: 'ballOutline', label: 'High-visibility ball', help: 'A bold yellow ring around every ball.' },
             { type: 'seg', key: 'uiScale', label: 'Menu text size', help: 'Pause menu, settings and other panels.',
                 options: [[90, 'S'], [100, 'M'], [115, 'L'], [130, 'XL']] },
-            { type: 'toggle', key: 'invertColors', label: 'Invert colours', help: 'Flips the whole screen to inverted colours.' },
+            { type: 'toggle', key: 'invertColors', label: 'Invert colors', help: 'Flips the whole screen to inverted colors.' },
         ],
     };
 

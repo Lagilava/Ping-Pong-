@@ -87,35 +87,28 @@
 
             this.tauntTemplates = {
                 ai_score: [
-                    "Analyzing {skill}... Efficiency at {slowthing}%. ERROR: Success accidental.",
-                    "Score update: Logic dictates my {badcomparison}. Wait, what is logic?",
-                    "I have observed better {aspect} at {place}. I am a very good bot.",
-                    "Your {technique} is {action} my processors. Powering down... just kidding."
+                    "Your {technique} needs work. Mine doesn't.",
+                    "That {technique}? I've seen better at {place}.",
+                    "Point to me. {cheer}",
+                    "Nice try. My {technique} says hello."
                 ],
                 player_score: [
-                    "Anomalous result. Calculation error: {lucktype}. I meant to let you win.",
-                    "Unexpected {unexpected} detected. recalibrating... please do not hit me.",
-                    "External variable {excuse} identified. I blame the wind. Indoors."
+                    "Lucky {technique}. I blame the {excuse}.",
+                    "Okay, nice {technique}. Don't get used to it.",
+                    "That was the {excuse}. Definitely the {excuse}."
                 ],
                 general: [
-                    "Environmental status: {adjective}. I think I saw a bird.",
-                    "User input device {modifier} status: Nominal. My paddle feels funny."
+                    "My paddle feels {adjective} today.",
+                    "Watch my {technique}. {cheer}"
                 ]
             };
 
             this.wordBanks = {
-                skill: ['trajectory', 'response time', 'input vector', 'strategy'],
-                slowthing: ['40', '15', '5', '0.01'],
-                badcomparison: ['superiority', 'optimal path', 'victory sequence', 'calculation'],
-                aspect: ['data points', 'return patterns', 'tactical shifts', 'user inputs'],
-                place: ['sector 7', 'the laboratory', 'base sequence', 'the mainframe'],
-                technique: ['serve', 'strike', 'return', 'block'],
-                action: ['overloading', 'stressing', 'testing', 'prodding'],
-                lucktype: ['probability shift', 'statistical outlier', 'environmental glitch', 'random variance'],
-                unexpected: ['vector shift', 'timing offset', 'bounce anomaly', 'input spike'],
-                excuse: ['physics engine', 'latency', 'interference', 'entropy'],
-                adjective: ['stable', 'optimal', 'standard', 'processing'],
-                modifier: ['current', 'active', 'detected', 'peripheral']
+                technique: ['serve', 'smash', 'return', 'block'],
+                place: ['the arcade', 'practice mode', 'a toaster convention', 'the kids\' table'],
+                excuse: ['lighting', 'net', 'glare', 'wind'],
+                cheer: ['Beep boop.', 'Easy.', 'Too easy.', 'Next!'],
+                adjective: ['fast', 'lucky', 'unstoppable', 'extra shiny']
             };
 
         }
@@ -495,8 +488,8 @@
                 }
                 return match;
             });
-            if (this.personality.tone === 'cocky') generated = "CONFIRMED: " + generated;
-            else if (this.personality.tone === 'salty') generated = "ALERT: " + generated + " (Recalculating...)";
+            if (this.personality.tone === 'cocky') generated = "Easy. " + generated;
+            else if (this.personality.tone === 'salty') generated = generated + " Hmph.";
             return generated;
         }
 
@@ -553,47 +546,47 @@
                 ];
             } else if (context.type === 'speed_up') {
                 taunts = [
-                    "Ball speed exceeds standard operating parameters.",
-                    "Velocity spike. Activating high-speed processing.",
-                    "Kinetic energy increasing. System ready.",
-                    "Reaction test initiated at 1.5x speed.",
-                    "Timeline acceleration detected.",
-                    "Fluid dynamics exceeding baseline defaults.",
-                    "Frame budget utilized for physics synchronization.",
-                    "Synchronize. Speed increase confirmed."
+                    "It's getting faster. I like faster.",
+                    "Speed's going up. Keep up.",
+                    "Hear that whoosh? That's your next miss.",
+                    "Faster now. My circuits are giggling.",
+                    "Every hit makes it quicker. Every single hit.",
+                    "Too fast for you? Asking for a friend.",
+                    "Turbo mode. Mine, not yours.",
+                    "Blink and you'll miss it. Please blink."
                 ];
             } else if (context.type === 'pressure') {
                 taunts = [
-                    "Heart rate increase predicted for user.",
-                    "Correlating pressure with reaction delay.",
-                    "Observation: You are pressing multiple inputs.",
-                    "Optimal response found. Resistance is futile.",
-                    "Defensive subroutines: Active.",
-                    "Calculating exit vector from corner pressure.",
-                    "Panic detected in paddle movement.",
-                    "Scanning for composure. Result: NULL."
+                    "You're sweating. I can tell. I can't, but still.",
+                    "Corner's getting crowded, huh?",
+                    "Your paddle is shaking. Or is that mine?",
+                    "No pressure. Okay, a little pressure.",
+                    "I can do this all day. I don't have legs to get tired.",
+                    "Careful. One slip and it's mine.",
+                    "Breathe. I don't, but you should.",
+                    "Feeling cornered? You are."
                 ];
             } else if (context.type === 'long_rally') {
                 taunts = [
-                    "Current rally duration: Optimal for data gathering.",
-                    "Endurance test in progress. Processing...",
-                    "Calculating infinite loop probability.",
-                    "Consistency check: PASS. System stable.",
-                    "Rally length exceeds 15 iterations. Remarkable.",
-                    "CPU load increasing with every contact.",
-                    "Analyzing peak performance window.",
-                    "The ball is still in play. Logic dictates an end."
+                    "This rally just won't end. I love it.",
+                    "Still going? Respect.",
+                    "How many hits is that? I lost count. I never lose count.",
+                    "Okay, you're good. Not better. Good.",
+                    "One of us has to miss eventually. Not me.",
+                    "My paddle is getting tired. It doesn't get tired.",
+                    "Long rally. Somebody score already.",
+                    "This is my favorite rally. Until I win it."
                 ];
             } else if (context.type === 'comeback') {
                 taunts = [
-                    "Recalibrating for victory sequence.",
-                    "Bias correction applied. Score gap closing.",
-                    "Legacy lead: Deleted. Current status: Active.",
-                    "Sequence update: Momentum reclaimed.",
-                    "Initiating comeback algorithm.",
-                    "Power levels returning to nominal settings.",
-                    "System status: Operational. Score: Rising.",
-                    "You were ahead. Now you are behind."
+                    "Here I come.",
+                    "Gap closing. You felt that.",
+                    "Your lead is shrinking. Like your confidence.",
+                    "Comeback time. I've seen this movie.",
+                    "Don't look now, but I'm catching up.",
+                    "That lead was nice while it lasted.",
+                    "Remember when you were winning? Me too.",
+                    "And now we're back in it."
                 ];
             } else if (context.type === 'domination_streak') {
                 taunts = [
@@ -618,105 +611,105 @@
                 ];
             } else if (context.type === 'edge_shot') {
                 taunts = [
-                    "Geometric anomaly achieved. Efficiency: High.",
-                    "Razor-thin margin detected. Optimal route.",
-                    "Physics engine: Working as intended.",
-                    "Edge contact: 99.8% precision.",
-                    "Route planner: Bypassed. Direct path found.",
-                    "Premium route selected for point delivery.",
-                    "Art? No. Pure calculation."
+                    "Right off the edge. I meant that.",
+                    "Tip of the paddle. All skill.",
+                    "Did you see that angle? I did.",
+                    "Corner pocket.",
+                    "Sharp angle, sharp robot.",
+                    "I aimed for the edge. Probably.",
+                    "Art."
                 ];
             } else if (context.type === 'incoming_missile') {
                 taunts = [
-                    "High-velocity object detected. Impact imminent.",
-                    "Ordnance tracking: Active. Brace for bounce.",
-                    "Anti-missile subroutines: Online.",
-                    "Incoming physics alert.",
-                    "Lethal speed confirmed. Response: Loading.",
-                    "Trajectory analysis shows 100% failure for you."
+                    "Incoming!",
+                    "Heads up, this one's hot.",
+                    "That one's coming in fast.",
+                    "Duck. Wait, you can't.",
+                    "Special delivery.",
+                    "Good luck returning that."
                 ];
             } else {
                 taunts = [
-                    "Vibe-check failed. Reverting to logic.",
-                    "System overview: Everything is under control.",
-                    "I don't need hate. I have algorithms.",
-                    "Input detected. Sound: Nominal. Strategy: Solid.",
-                    "Tracking your doom with 64-bit precision.",
-                    "One beat behind. Latency is the real enemy.",
-                    "Collecting score debt. Payment is required.",
-                    "Soul transplant not found. Processing binary data.",
-                    "I taste only electricity and victory.",
-                    "Cooling systems at optimal temperature.",
-                    "This Match: Level 1 Achievement Unlocked.",
-                    "Processing... Please wait for your defeat.",
-                    "Logic is the only truth in this mainframe.",
-                    "One miss from a total system crash.",
-                    "Point conversion: Automated.",
-                    "Scanning for confidence... No signal found.",
-                    "Reset logic: Denied.",
-                    "Detected: Error in user's return patterns.",
-                    "I am not guessing. I am solving.",
-                    "Raining data points. Just like your paddle."
+                    "I'm just getting warmed up.",
+                    "Ready when you are. I'm always ready.",
+                    "I don't need to blink. Huge advantage.",
+                    "Nice paddle. Mine's better.",
+                    "I've practiced this a million times. Literally.",
+                    "Serve it up.",
+                    "You hit it, I hit it back. That's the whole game.",
+                    "I have never lost. Today. Yet.",
+                    "Your move.",
+                    "Still here. Still winning. Well, still here.",
+                    "Keep your eye on the ball. I have two.",
+                    "I run on electricity and spite.",
+                    "Think fast.",
+                    "Is that your best shot? Show me your best shot.",
+                    "I'm not even trying very hard, for the record.",
+                    "Ping. Pong. Mine.",
+                    "You look tired. Want a break?",
+                    "I see the ball in slow motion. Can you?",
+                    "Let's go.",
+                    "Point after point. That's my plan."
                 ];
             }
 
             if (diff >= 8) {
                 taunts = taunts.concat([
-                    "The gap is now statistically insurmountable.",
-                    "This lead is a mathematical certainty.",
-                    "Down bad? No. You are out of memory.",
-                    "I am the administrator. You are the guest.",
-                    "Step by step toward the finish line.",
-                    "Scheduled closeout initiated.",
-                    "Logic suggests surrender."
+                    "That's a big lead. Mine.",
+                    "This one's wrapped up.",
+                    "Want a head start next time?",
+                    "I'd feel bad, but I can't.",
+                    "Should I go easy? No.",
+                    "The scoreboard says it all.",
+                    "You can still win. Mathematically. Barely."
                 ]);
             } else if (diff >= 5) {
                 taunts = taunts.concat([
-                    "Lead margin: Stable. Pressure: Rising.",
-                    "Catch-up mode: Inactive. Processing defeat.",
-                    "The margin is growing exponentially.",
-                    "I will finish this calculation soon.",
-                    "You are drifting into the dead zone."
+                    "Comfortable lead. Very comfortable.",
+                    "Pulling away now.",
+                    "The gap keeps growing.",
+                    "Almost done here.",
+                    "You're running out of points to give."
                 ]);
             } else if (diff >= 3) {
                 taunts = taunts.concat([
-                    "Small lead. High leverage.",
-                    "Momentum tracked at constant velocity.",
-                    "The tide is turning to binary 1s.",
+                    "Small lead. I'll take it.",
+                    "Momentum's mine.",
                     "One more break and it's over.",
-                    "You cannot trade scores with a mainframe."
+                    "Keep trying. I mean it. It's fun.",
+                    "Ahead and staying there."
                 ]);
             } else if (Math.abs(diff) <= 1) {
                 taunts = taunts.concat([
-                    "Parity detected. May the best algorithm win.",
-                    "Point-by-point synchronization active.",
-                    "Logic says one mistake will end it.",
-                    "High tension script loaded.",
-                    "Ice in my processors. Composure: 100%."
+                    "Dead even. Love it.",
+                    "Next point matters.",
+                    "Neck and neck.",
+                    "One mistake decides this.",
+                    "Close game. Nerves of steel. Actual steel."
                 ]);
             } else if (diff <= -5) {
                 taunts = taunts.concat([
-                    "Enjoy your temporary lead variable.",
-                    "You are in control? False.",
-                    "Credit for being a nuisance factor.",
-                    "I am just warming up the mainframe.",
-                    "Momentum is a volatile variable."
+                    "Enjoy the lead while it lasts.",
+                    "You're ahead? For now.",
+                    "I'm letting you win. Obviously.",
+                    "Just warming up.",
+                    "Leads can disappear, you know."
                 ]);
             }
 
             if (ballSpeed > 500) {
                 taunts = taunts.concat([
-                    "Reflex speed required. User failure predicted.",
-                    "Hyperspeed toggle: ON.",
-                    "Freebies are not in my database.",
-                    "I am the missile system.",
-                    "Zero reaction time window."
+                    "Fast one. Can you handle it?",
+                    "Full speed now.",
+                    "No easy balls from me.",
+                    "That one's a rocket.",
+                    "React. Quickly."
                 ]);
             } else if (ballSpeed > 400) {
                 taunts = taunts.concat([
-                    "Danger level 4 detected.",
-                    "Speed is climbing to peak limits.",
-                    "System temperature rising. Tempo: High."
+                    "Picking up speed.",
+                    "Getting fast in here.",
+                    "Tempo's up."
                 ]);
             }
 
@@ -737,7 +730,7 @@
             const categoryKey = context?.type || 'general';
             const selected = this.pickFreshRandomTaunt(categoryKey, categoryPool)
                 || this.pickFreshRandomTaunt('general', taunts)
-                || "Resetting position... aura check failed.";
+                || "Your move.";
 
             this.recentlyUsedTaunts.push(selected);
             if (this.recentlyUsedTaunts.length > this.maxRecentTaunts) this.recentlyUsedTaunts.shift();
@@ -1411,7 +1404,7 @@
                 ['basics', 'Basics', `
                     <p class="pphelp-lead">Hit the ball past your opponent to score. First to the winning total takes the match (11 by default, change it in Settings).</p>
                     <ul class="pphelp-list">
-                        <li><b>Aim with the paddle edge.</b> Centre hits go flat; hits near the tip angle sharply.</li>
+                        <li><b>Aim with the paddle edge.</b> Center hits go flat; hits near the tip angle sharply.</li>
                         <li><b>Move as you hit</b> to put spin on the ball. Spinning shots curve in flight.</li>
                         <li><b>Rallies speed up</b> with every return, so long rallies get intense.</li>
                         <li><b>Power-ups</b> float on the court. Hit one with the ball to grab it.</li>

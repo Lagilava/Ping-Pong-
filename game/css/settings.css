@@ -61,16 +61,17 @@
 
 .ppset-tabs {
     display: flex;
+    /* Wrap instead of scrolling under a hidden scrollbar, so the last tab is
+       never cut off at the panel edge. */
+    flex-wrap: wrap;
     gap: 6px;
     padding: 0 20px 12px;
     border-bottom: 1px solid rgba(120, 220, 255, 0.12);
-    overflow-x: auto;
-    scrollbar-width: none;
 }
 .ppset-tabs::-webkit-scrollbar { display: none; }
 .ppset-tabs button {
     flex: 0 0 auto;
-    padding: 10px 16px;
+    padding: 10px 13px;
     border: 1px solid transparent;
     border-radius: 999px;
     background: transparent;
