@@ -182,6 +182,7 @@ class Game {
         this.lastRallyMilestone = 0;
         this.zombieState = this.createZombieModeState();
         this.zombiePull = new ZombiePull(this);
+        this.zombieSprites = new ZombieSprites(this);
 
         // Initialize intro system
         this.intro = new Intro(this);
@@ -3342,6 +3343,7 @@ class Game {
         const composition = this.getZombieWaveComposition(wave);
         state.waveTarget = composition.length;
         composition.forEach(typeKey => this.spawnZombieEnemy(typeKey));
+        this.zombieSprites.prewarm(state.zombies);
 
         if (wave === 1 || wave % 2 === 0 || Math.random() < 0.45) {
             const pickupTypes = ['rage', 'shield', 'slow'];
@@ -3537,6 +3539,7 @@ class Game {
         const state = this.zombieState;
         state.active = true;
         this.zombiePull.update(dt);
+        this.zombieSprites.pump(2);
         this.syncZombiePullHUD();
 
         if (!state.waveStarted) {
@@ -3689,6 +3692,7 @@ class Game {
             zombie.anim.facingX = Math.abs(zombie.vx) > 4
                 ? (zombie.vx >= 0 ? 1 : -1)
                 : (zombie.anim.facingX || 1);
+            zombie.frameT = (zombie.frameT === undefined ? zombie.animPhase * 2 : zombie.frameT) + dt * (4 + speedRatio * 7);
             zombie.anim.footfall = Math.max(0, Math.sin(walkPhase));
             zombie.anim.recoil = Math.max(0, zombie.flash || 0);
             zombie.anim.shoulderTwitch = Math.sin(animTime * (zombie.typeKey === 'runner' ? 6.4 : 3.8) + zombie.animSeed) * (0.12 + speedRatio * 0.14);
@@ -4041,14 +4045,21 @@ class Game {
         ctx.restore();
     }
 
+    // Zombies are drawn from baked sprites (ZombieSprites); the full procedural
+    // renderer below is what bakes them, and the fallback if baking fails.
     renderZombieEnemy(ctx, zombie) {
+        if (this.zombieSprites && this.zombieSprites.draw(ctx, zombie)) return;
+        this.renderZombieEnemyLive(ctx, zombie);
+    }
+
+    renderZombieEnemyLive(ctx, zombie, opts) {
         const radius = zombie.radius;
         const flash = Math.max(0, Math.min(1, zombie.flash));
         const baseColor = zombie.type.color;
         const eyeColor = zombie.type.eyeColor;
         const typeKey = zombie.typeKey;
         const anim = zombie.anim || {};
-        const time = this.time || performance.now() * 0.001;
+        const time = (opts && opts.time !== undefined) ? opts.time : (this.time || performance.now() * 0.001);
         const isTank = typeKey === 'tank';
         const isRunner = typeKey === 'runner';
         const isSpitter = typeKey === 'spitter';
@@ -4082,7 +4093,7 @@ class Game {
         ctx.fill();
         ctx.restore();
 
-        this._renderGrittyZombieTrace(ctx, zombie, radius, typeKey, time, speedRatio, flash, eyeColor);
+        if (!opts) this._renderGrittyZombieTrace(ctx, zombie, radius, typeKey, time, speedRatio, flash, eyeColor);
 
         ctx.rotate(activeTilt);
         ctx.scale(facingX * squash * visualScale, stretch * (2 - visualScale));
@@ -4097,7 +4108,7 @@ class Game {
             this._renderGrittyShamblerZombie(ctx, radius, time, limbSwing, limbSwing2, speedRatio, flash, baseColor, eyeColor, zombie, headBob);
         }
 
-        this._renderGrittyZombieStatus(ctx, zombie, radius, typeKey, time, flash, eyeColor);
+        if (!opts) this._renderGrittyZombieStatus(ctx, zombie, radius, typeKey, time, flash, eyeColor);
 
         ctx.restore();
     }
