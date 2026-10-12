@@ -3237,23 +3237,61 @@ class BackgroundRenderer {
         return this._obstacleVignette;
     }
 
-    renderObstacle(ctx, w, h) {
-        const game = window.game;
-        const ball = game?.ball;
-        const obstacles = game?.obstacles || [];
-        const course = game?.obstacleCourse || null;
-        const grid = course?.grid || {
-            left: Math.min(Math.max(72, w * 0.13), w * 0.24),
-            right: w - Math.min(Math.max(72, w * 0.13), w * 0.24),
-            top: Math.min(Math.max(52, h * 0.12), h * 0.22),
-            bottom: h - Math.min(Math.max(48, h * 0.10), h * 0.18),
-            cols: w < 760 ? 6 : 8,
-            rows: h < 520 ? 5 : 6,
-        };
-        grid.cellW = grid.cellW || ((grid.right - grid.left) / Math.max(1, grid.cols - 1));
-        grid.cellH = grid.cellH || ((grid.bottom - grid.top) / Math.max(1, grid.rows - 1));
+    // GLSL court floor (js/render/obstacle-floor-shader.js). It covers the
+    // base, grid, sweep, centre line, border and the visibility pass, which
+    // the canvas path draws as separate fills. Returns false when WebGL is
+    // unavailable so the canvas floor is drawn instead.
+    _renderObstacleFloorShader(ctx, w, h, grid, phase, ball, game) {
+        if (this._obstacleFloor === undefined) {
+            this._obstacleFloor = typeof ObstacleFloorShader !== 'undefined' ? new ObstacleFloorShader() : null;
+        }
+        const floor = this._obstacleFloor;
+        if (!floor || !floor.ok) return false;
 
-        const phase = course?.phase || this.time;
+        // During the opening camera move ctx is magnified about the centre;
+        // render just the visible world rect so the floor stays crisp.
+        const zoom = Math.max(1, game?.arenaRevealZoom || 1);
+        const vw = w / zoom, vh = h / zoom;
+        const view = this._obstacleFloorView || (this._obstacleFloorView = { x: 0, y: 0, w: 0, h: 0 });
+        view.x = (w - vw) * 0.5; view.y = (h - vh) * 0.5; view.w = vw; view.h = vh;
+
+        const st = this._obstacleFloorState || (this._obstacleFloorState = {
+            view, grid: null, width: 0, height: 0, time: 0, phase: 0,
+            ball: { x: 0, y: 0, energy: 0, on: 0 }, centerLift: 0.04, edgeDim: 0.20, objectScale: 1,
+        });
+        st.grid = grid; st.width = w; st.height = h;
+        st.time = this.time; st.phase = phase;
+        st.objectScale = game?.getObjectScale?.() || 1;
+        if (ball && ball.pos) {
+            st.ball.x = ball.pos.x; st.ball.y = ball.pos.y;
+            st.ball.energy = ball._obstacleFieldEnergy || 0; st.ball.on = 1;
+        } else {
+            st.ball.on = 0;
+        }
+
+        // Match the pixel density the background is drawn at (the cache
+        // scale), capped at the target's real resolution.
+        const tf = ctx.getTransform();
+        const density = Math.min(Math.hypot(tf.a, tf.b) / zoom, this._getBackgroundRenderScale(w, h) * (window.devicePixelRatio || 1));
+        const t0 = performance.now();
+        const image = floor.render(Math.round(w * density), Math.round(h * density), st);
+        if (!image) return false;
+        ctx.drawImage(image, view.x, view.y, vw, vh);
+
+        // With GPU canvases this costs the main thread almost nothing. If the
+        // copy turns out to be a CPU readback (unaccelerated 2D canvas), go
+        // back to the canvas floor for the rest of the session.
+        const ms = performance.now() - t0;
+        floor.costMs = floor.costMs === undefined ? ms : floor.costMs * 0.9 + ms * 0.1;
+        floor.samples = (floor.samples || 0) + 1;
+        if (floor.samples > 30 && floor.costMs > 1.5 && !ObstacleFloorShader.allowSoftware) {
+            console.warn('[ObstacleFloorShader] slow copy, using the canvas floor', floor.costMs.toFixed(2));
+            floor.ok = false;
+        }
+        return true;
+    }
+
+    _renderObstacleFloorCanvas(ctx, w, h, grid, phase) {
         ctx.save();
 
         const base = ctx.createLinearGradient(0, 0, 0, h);
@@ -3320,6 +3358,29 @@ class BackgroundRenderer {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
         ctx.lineWidth = 2;
         ctx.strokeRect(grid.left, grid.top, grid.right - grid.left, grid.bottom - grid.top);
+        ctx.restore();
+    }
+
+    renderObstacle(ctx, w, h) {
+        const game = window.game;
+        const ball = game?.ball;
+        const obstacles = game?.obstacles || [];
+        const course = game?.obstacleCourse || null;
+        const grid = course?.grid || {
+            left: Math.min(Math.max(72, w * 0.13), w * 0.24),
+            right: w - Math.min(Math.max(72, w * 0.13), w * 0.24),
+            top: Math.min(Math.max(52, h * 0.12), h * 0.22),
+            bottom: h - Math.min(Math.max(48, h * 0.10), h * 0.18),
+            cols: w < 760 ? 6 : 8,
+            rows: h < 520 ? 5 : 6,
+        };
+        grid.cellW = grid.cellW || ((grid.right - grid.left) / Math.max(1, grid.cols - 1));
+        grid.cellH = grid.cellH || ((grid.bottom - grid.top) / Math.max(1, grid.rows - 1));
+
+        const phase = course?.phase || this.time;
+        const shaded = this._renderObstacleFloorShader(ctx, w, h, grid, phase, ball, game);
+        if (!shaded) this._renderObstacleFloorCanvas(ctx, w, h, grid, phase);
+        ctx.save();
 
         if (course && typeof course.renderRails === 'function') {
             course.renderRails(ctx);
@@ -3345,7 +3406,7 @@ class BackgroundRenderer {
         }
 
         ctx.restore();
-        this.applyGameplayVisibilityPass(ctx, w, h, 0.04, 0.20);
+        if (!shaded) this.applyGameplayVisibilityPass(ctx, w, h, 0.04, 0.20);
         return;
         const arena = this._obstacleArenaState || {
             activeCount: 0,
