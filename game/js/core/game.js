@@ -4341,6 +4341,7 @@ class Game {
         ctx.lineTo(-radius * 0.36, radius * 0.84 + (visual.asymmetry || 0) * radius * 0.18);
         ctx.quadraticCurveTo(-radius * 0.98, radius * 0.28, -radius * 0.82, -radius * 0.74);
         ctx.fill();
+        window.SurfaceTextures?.paint(ctx, 'cloth', -radius * 1.1, -radius * 1.2, radius * 2.2, radius * 2.3, 0.8 * (1 - flash * 0.8));
         this._strokeZombiePart(ctx, outline, 'rgba(3, 5, 4, 0.96)');
 
         this._drawZombieDecayMarks(ctx, zombie, radius, palette, time, 0.95);
@@ -4360,6 +4361,7 @@ class Game {
         ctx.quadraticCurveTo(radius * 0.34, radius * 0.45, -radius * 0.24, radius * 0.48);
         ctx.quadraticCurveTo(-radius * 0.58, radius * 0.12, -radius * 0.42, -radius * 0.42);
         ctx.fill();
+        window.SurfaceTextures?.paint(ctx, 'skin', -radius * 0.6, -radius * 0.7, radius * 1.2, radius * 1.3, 0.65 * (1 - flash * 0.8));
         this._strokeZombiePart(ctx, outline * 0.82, 'rgba(4, 5, 4, 0.94)');
         ctx.fillStyle = palette.low;
         ctx.beginPath();
@@ -4392,6 +4394,7 @@ class Game {
         ctx.quadraticCurveTo(-radius * 0.18, radius * 1.05, -radius * 0.54, radius * 0.35);
         ctx.quadraticCurveTo(-radius * 0.78, -radius * 0.54, -radius * 0.42, -radius * 1.18);
         ctx.fill();
+        window.SurfaceTextures?.paint(ctx, 'cloth', -radius * 0.85, -radius * 1.25, radius * 1.8, radius * 2.4, 0.75 * (1 - flash * 0.8));
         this._strokeZombiePart(ctx, outline, 'rgba(5, 4, 4, 0.96)');
 
         this._drawZombieDecayMarks(ctx, zombie, radius * 0.82, palette, time, 0.72);
@@ -4411,6 +4414,7 @@ class Game {
         ctx.quadraticCurveTo(-radius * 0.18, radius * 0.42, -radius * 0.48, radius * 0.06);
         ctx.closePath();
         ctx.fill();
+        window.SurfaceTextures?.paint(ctx, 'skin', -radius * 0.55, -radius * 0.6, radius * 1.15, radius, 0.7 * (1 - flash * 0.8));
         this._strokeZombiePart(ctx, outline * 0.85, 'rgba(5, 4, 4, 0.94)');
         this._drawGrittyEyes(ctx, radius, palette, -radius * 0.1, radius * 0.2, anim.threat || 0, 0.45 + (anim.blink || 0) * 0.42);
         ctx.restore();
@@ -4438,6 +4442,7 @@ class Game {
         ctx.lineTo(-radius * 0.92, radius * 1.02);
         ctx.quadraticCurveTo(-radius * 1.25, -radius * 0.05, -radius * 1.05, -radius * 1.05);
         ctx.fill();
+        window.SurfaceTextures?.paint(ctx, 'carapace', -radius * 1.3, -radius * 1.3, radius * 2.6, radius * 2.4, 0.8 * (1 - flash * 0.8));
         this._strokeZombiePart(ctx, outline, 'rgba(4, 5, 5, 0.97)');
 
         ctx.save();
@@ -4464,6 +4469,7 @@ class Game {
         ctx.beginPath();
         ctx.ellipse(0, 0, radius * 0.58, radius * 0.62, 0.05, 0, Math.PI * 2);
         ctx.fill();
+        window.SurfaceTextures?.paint(ctx, 'skin', -radius * 0.65, -radius * 0.7, radius * 1.3, radius * 1.4, 0.75 * (1 - flash * 0.8));
         this._strokeZombiePart(ctx, outline * 0.8, 'rgba(4, 5, 5, 0.94)');
         ctx.fillStyle = palette.low;
         ctx.beginPath();
@@ -4508,6 +4514,7 @@ class Game {
         ctx.beginPath();
         ctx.ellipse(0, radius * 0.02 + inhale * radius * 0.05, radius * 1.02 * pulse, radius * 0.98 * pulse, 0, 0, Math.PI * 2);
         ctx.fill();
+        window.SurfaceTextures?.paint(ctx, 'skin', -radius * 1.3 * pulse, -radius * 1.2 * pulse, radius * 2.6 * pulse, radius * 2.5 * pulse, 0.85 * (1 - flash * 0.8));
         this._strokeZombiePart(ctx, outline, 'rgba(4, 6, 4, 0.96)');
 
         ctx.save();
@@ -4534,6 +4541,7 @@ class Game {
         ctx.beginPath();
         ctx.ellipse(0, 0, radius * (0.44 + inhale * 0.08), radius * (0.56 + inhale * 0.1), 0, 0, Math.PI * 2);
         ctx.fill();
+        window.SurfaceTextures?.paint(ctx, 'skin', -radius * 0.6, -radius * 0.7, radius * 1.2, radius * 1.4, 0.75 * (1 - flash * 0.8));
         this._strokeZombiePart(ctx, outline * 0.78, 'rgba(4, 6, 4, 0.94)');
         ctx.fillStyle = palette.low;
         ctx.beginPath();

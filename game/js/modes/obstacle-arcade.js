@@ -54,7 +54,8 @@ class ObstacleArcade {
 
     // ── Sprites (baked once per size) ──────────────────────────────────
     ensureSprites(unit) {
-        const key = Math.round(unit);
+        const textured = this.game.gameMode === 'customise';
+        const key = `${Math.round(unit)}:${textured ? 'forge' : 'course'}`;
         if (this.sprites && this.sprites.key === key) return this.sprites;
         // Baked at 2x and drawn at logical size so sprites stay crisp on
         // high-DPI screens; on the big Obstacle arena they're baked denser
@@ -84,6 +85,7 @@ class ObstacleArcade {
             ctx.beginPath();
             ctx.arc(cx, cy, coinR, 0, Math.PI * 2);
             ctx.fill();
+            if (textured) window.SurfaceTextures?.paint(ctx, 'alloy', cx - coinR, cy - coinR, coinR * 2, coinR * 2, 0.55);
             ctx.shadowBlur = 0;
             ctx.lineWidth = Math.max(1.5, coinR * 0.14);
             ctx.strokeStyle = '#8a5200';
@@ -108,6 +110,7 @@ class ObstacleArcade {
             ctx.beginPath();
             ctx.roundRect(x, y, blockS, blockS, r);
             ctx.fill();
+            if (textured) window.SurfaceTextures?.paint(ctx, 'metal', x, y, blockS, blockS, 0.5);
             ctx.shadowBlur = 0;
             ctx.lineWidth = Math.max(2, blockS * 0.06);
             ctx.strokeStyle = used ? '#2e1a0e' : '#7a3a00';
@@ -135,6 +138,7 @@ class ObstacleArcade {
             ctx.beginPath();
             ctx.roundRect(x, y, padW, padH, padH * 0.5);
             ctx.fill();
+            if (textured) window.SurfaceTextures?.paint(ctx, 'grip', x, y, padW, padH, 0.85);
             ctx.shadowBlur = 0;
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#ff9a2e';

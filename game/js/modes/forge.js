@@ -186,6 +186,7 @@
                 ctx.beginPath();
                 ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) / 2);
                 ctx.fill();
+                window.SurfaceTextures?.paint(ctx, 'metal', -w / 2, -h / 2, w, h);
                 noGlow();
                 ctx.strokeStyle = isGate ? '#c9fffa' : '#ffe0d2';
                 ctx.lineWidth = 1.5;
@@ -214,6 +215,7 @@
                 ctx.beginPath();
                 ctx.arc(0, 0, r, 0, Math.PI * 2);
                 ctx.fill();
+                window.SurfaceTextures?.paint(ctx, 'alloy', -r, -r, r * 2, r * 2);
                 noGlow();
                 ctx.strokeStyle = 'rgba(255,255,255,0.85)';
                 ctx.lineWidth = Math.max(1.5, r * 0.1);
@@ -247,6 +249,7 @@
                 ctx.beginPath();
                 ctx.roundRect(-len / 2, -th / 2, len, th, th / 2);
                 ctx.fill();
+                window.SurfaceTextures?.paint(ctx, 'metal', -len / 2, -th / 2, len, th);
                 noGlow();
                 ctx.fillStyle = '#4a3200';
                 ctx.beginPath();
@@ -288,6 +291,7 @@
                 ctx.strokeStyle = '#d9c4ff';
                 ctx.lineWidth = 1.5;
                 ctx.stroke();
+                window.SurfaceTextures?.well(ctx, 0, 0, r, 0, 0.8);
                 break;
             }
             case 'pad': {
@@ -302,6 +306,7 @@
                 ctx.beginPath();
                 ctx.roundRect(-w / 2, -h / 2, w, h, h / 2);
                 ctx.fill();
+                window.SurfaceTextures?.paint(ctx, 'grip', -w / 2, -h / 2, w, h, 0.85);
                 noGlow();
                 ctx.stroke();
                 ctx.lineWidth = 2.5;
@@ -333,6 +338,7 @@
                 ctx.beginPath();
                 ctx.roundRect(-s / 2, -s / 2, s, s, s * 0.14);
                 ctx.fill();
+                window.SurfaceTextures?.paint(ctx, 'metal', -s / 2, -s / 2, s, s, 0.5);
                 noGlow();
                 ctx.stroke();
                 ctx.fillStyle = '#7a3a00';
@@ -364,6 +370,7 @@
                 ctx.beginPath();
                 ctx.arc(0, 0, r, 0, Math.PI * 2);
                 ctx.fill();
+                window.SurfaceTextures?.paint(ctx, 'alloy', -r, -r, r * 2, r * 2, 0.55);
                 noGlow();
                 ctx.strokeStyle = '#8a5200';
                 ctx.lineWidth = Math.max(1.2, r * 0.14);
@@ -496,6 +503,9 @@
                 arcadeItems.coins.push({ x, y, homeX: x, homeY: y, phase: arcadeItems.coins.length * 0.5, alive: true });
             }
         }
+        // The shared obstacle renderer also serves Obstacle mode. Texture only
+        // the objects explicitly placed in Forge.
+        for (const obstacle of obstacles) obstacle.forgeSurface = true;
         return { forge, obstacles, wells, arcadeItems };
     }
 

@@ -197,6 +197,8 @@
             ctx.lineDashOffset = -t * 40;
             ctx.strokeStyle = `rgba(157,255,106,${0.28 * r})`;
             const top = b.y0 - b.half, bot = b.y0 + b.half, end = b.x0 + b.range;
+            // Only the active field receives surface flow; paddle art is separate.
+            window.SurfaceTextures?.flow(ctx, b.x0, top, b.range, b.half * 2, t, r * (shader ? 0.18 : 0.45));
             ctx.beginPath();
             ctx.moveTo(b.x0, top); ctx.lineTo(end, top);
             ctx.moveTo(b.x0, bot); ctx.lineTo(end, bot);
@@ -240,6 +242,13 @@
                 ctx.strokeStyle = `rgba(120,255,140,${0.16 * a})`;
                 ctx.lineWidth = 9;
                 ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(mx, my, ex, ey); ctx.stroke();
+                ctx.save();
+                ctx.setLineDash([3, 7, 9, 5]);
+                ctx.lineDashOffset = window.PPSettings?.get('reduceMotion') ? 0 : t * 36;
+                ctx.strokeStyle = `rgba(190,140,255,${0.3 * a})`;
+                ctx.lineWidth = 5;
+                ctx.stroke();
+                ctx.restore();
                 ctx.strokeStyle = `rgba(214,255,200,${0.75 * a})`;
                 ctx.lineWidth = 2;
                 ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(mx, my, ex, ey); ctx.stroke();

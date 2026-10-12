@@ -1546,6 +1546,7 @@ class Obstacle {
             ctx.beginPath();
             ctx.roundRect(x, y, this.w, this.h, Math.min(6, this.h * 0.35, this.w * 0.35));
             ctx.fill();
+            if (this.forgeSurface) window.SurfaceTextures?.paint(ctx, 'metal', x, y, this.w, this.h, 0.7 * (1 - glow));
             ctx.stroke();
         } else {
             ctx.fillRect(x, y, this.w, this.h);
@@ -1601,6 +1602,7 @@ class Obstacle {
             ctx.beginPath();
             ctx.roundRect(-len, -this.h / 2, this.w, this.h, this.h / 2);
             ctx.fill();
+            if (this.forgeSurface) window.SurfaceTextures?.paint(ctx, 'metal', -len, -this.h / 2, this.w, this.h, 0.7 * (1 - glow));
             ctx.stroke();
         } else {
             ctx.fillRect(-len, -this.h / 2, this.w, this.h);
@@ -1676,6 +1678,7 @@ class Obstacle {
         ctx.beginPath();
         ctx.arc(cx, cy, radius * pulse, 0, Math.PI * 2);
         ctx.fill();
+        if (this.forgeSurface) window.SurfaceTextures?.paint(ctx, 'alloy', cx - radius * pulse, cy - radius * pulse, radius * pulse * 2, radius * pulse * 2, 0.65 * (1 - this.hitFlash));
 
         // Subtle ping-pong seam
         ctx.globalAlpha = 0.95;
@@ -1747,6 +1750,7 @@ class Obstacle {
             ctx.beginPath();
             ctx.roundRect(x, y, w, h, Math.min(h * 0.35, 10));
             ctx.fill();
+            if (this.forgeSurface) window.SurfaceTextures?.paint(ctx, 'metal', x, y, w, h, 0.65 * (1 - this.hitFlash));
         } else {
             ctx.fillRect(x, y, w, h);
         }

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ping Pong — Texture comparison</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #070d15; color: #e7f2fa; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header, main, footer { max-width: 1440px; margin: auto; padding: 28px 32px; }
+    header { border-bottom: 1px solid #203443; }
+    .eyebrow { color: #55e1d5; font: 12px monospace; letter-spacing: .18em; text-transform: uppercase; }
+    h1 { font-size: clamp(26px, 4vw, 40px); margin: 10px 0; letter-spacing: -.04em; }
+    p { color: #aabccc; line-height: 1.6; max-width: 850px; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; }
+    a { color: #82dbff; text-decoration: none; }
+    nav a, button { border: 1px solid #284252; background: #101d29; color: #dcf0ff; border-radius: 8px; padding: 9px 13px; font: inherit; font-size: 13px; cursor: pointer; }
+    nav a:hover, button:hover { border-color: #55e1d5; }
+    button[aria-pressed="true"] { border-color: #55e1d5; background: #10312f; color: #98fff0; }
+    button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid #55e1d5; outline-offset: 4px; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }
+    .toolbar span { color: #91a8b8; font-size: 13px; margin-left: 8px; }
+    section { margin-bottom: 50px; scroll-margin-top: 20px; }
+    h2 { font-size: 23px; margin: 0 0 5px; }
+    section > p { margin: 0 0 20px; font-size: 14px; }
+    article { margin: 18px 0 28px; padding: 16px; background: #0c1621; border: 1px solid #223443; border-radius: 12px; }
+    h3 { margin: 0 0 13px; font-size: 15px; font-weight: 600; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+    figure { margin: 0; min-width: 0; }
+    .label { display: block; color: #9db2c2; font: 11px monospace; text-transform: uppercase; letter-spacing: .18em; margin: 0 0 8px; }
+    figure:nth-child(2) .label { color: #55e1d5; }
+    img { display: block; max-width: 100%; width: 100%; height: auto; border-radius: 6px; background: #070d15; }
+    .links { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; }
+    .scrubber { display: none; }
+    .swipe .pair { display: block; position: relative; overflow: hidden; border-radius: 6px; }
+    .swipe figure .label { position: absolute; z-index: 2; top: 12px; left: 12px; padding: 7px 9px; border-radius: 5px; background: #07101de6; margin: 0; }
+    .swipe figure:nth-child(2) { position: absolute; inset: 0; clip-path: inset(0 0 0 var(--split, 50%)); }
+    .swipe figure:nth-child(2) .label { left: auto; right: 12px; }
+    .swipe .pair::after { content: ''; position: absolute; top: 0; bottom: 0; left: var(--split, 50%); width: 2px; background: #b7ffef; pointer-events: none; }
+    .swipe .scrubber { display: flex; align-items: center; gap: 14px; margin-top: 14px; color: #9db2c2; font-size: 12px; }
+    input[type="range"] { flex: 1; accent-color: #55e1d5; cursor: ew-resize; }
+    .small-pairs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .small-pairs article { margin: 0 0 12px; }
+    footer { border-top: 1px solid #203443; color: #8ea3b3; font-size: 13px; }
+    .overview header { padding: 22px 28px 12px; }
+    .overview header p, .overview nav, .overview .toolbar, .overview footer, .overview section > p, .overview .links { display: none; }
+    .overview main { padding: 22px 28px; }
+    .overview section { margin-bottom: 22px; }
+    .overview h2 { font-size: 19px; }
+    .overview article { margin: 10px 0; padding: 12px; }
+    .overview h3 { display: none; }
+    .overview img { height: 220px; object-fit: contain; background: #070d15; }
+    @media (max-width: 700px) {
+      header, main, footer { padding: 22px 16px; }
+      .small-pairs { display: block; }
+      article { padding: 10px; }
+      .pair { gap: 8px; }
+      .toolbar span { flex-basis: 100%; margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Ping Pong · Neon Edition</div>
+    <h1>Before &amp; after: textures</h1>
+    <p>Every approved area, with the original look on the left and the added textures on the right. Open the full-size images for small surface details, or use Swipe to compare the same scene.</p>
+    <nav aria-label="Comparison areas">
+      <a href="#forge">Forge objects</a><a href="#ui">UI displays</a><a href="#menu">3D main menu</a><a href="#zombies">Zombie enemies</a><a href="#ability">Undead Pull</a><a href="#gravity">Gravity wells</a>
+    </nav>
+    <div class="toolbar" aria-label="Comparison view">
+      <button type="button" id="side" aria-pressed="true">Side by side</button>
+      <button type="button" id="swipe" aria-pressed="false">Swipe</button>
+      <span>Before = original files. After = current textures.</span>
+    </div>
+  </header>
+  <main id="comparisons"></main>
+  <footer>Maps, enemy poses and the menu camera are matched. Enemy samples are enlarged to make the skin and cloth detail visible. Paddle designs and gameplay background renders are unchanged.</footer>
+  <script>
+    const areas = [
+      { id:'forge', title:'Forge objects', description:'Brushed metal on walls, gates and spinners; machined rings on bumpers and coins; grip texture on boost pads; worn metal on question blocks.', views:[['forge-editor','Forge editor — all eight object types'],['forge-live','The same objects in a live arena']] },
+      { id:'ui', title:'UI displays', description:'Screen grain, a fine grid and sparse circuitry underneath the existing labels and controls.', views:[['ui-settings','Settings'],['ui-progress','Player progress'],['ui-card','Mode card'],['ui-pause','Pause menu'],['ui-results','Results'],['ui-rewards','Zombie reward choices'],['ui-speed','Speed challenge readouts']] },
+      { id:'menu', title:'3D main menu', description:'Surface grain, panel seams and light wear on the court rails and posts. The existing court weave and paddle art are preserved.', views:[['menu-hardware','Court hardware — close-up'],['menu','Full menu scene']] },
+      { id:'zombies', title:'Zombie enemies', description:'Worn cloth on shamblers and runners, skin mottling on heads and spitters, and layered surface damage on tanks.', views:[['zombies','All four enemy types — enlarged, identical poses']] },
+      { id:'ability', title:'Zombie ability — Undead Pull', description:'Green and violet energy flow within the active field, with segmented detail on the tethers.', views:[['ability','Active Pull field and tethers']] },
+      { id:'gravity', title:'Gravity wells', description:'Blue and violet turbulence around the rim, preserving the dark event horizon. The right well shows its excited state.', views:[['gravity','Idle and excited gravity wells']] }
+    ];
+    const overview = new URLSearchParams(location.search).has('overview');
+    if (overview) document.body.classList.add('overview');
+    const main = document.getElementById('comparisons');
+    for (const area of areas) {
+      const section = document.createElement('section');
+      section.id = area.id;
+      const heading = document.createElement('h2'); heading.textContent = area.title;
+      const description = document.createElement('p'); description.textContent = area.description;
+      section.append(heading, description);
+      const views = overview ? area.views.slice(0,1) : area.views;
+      for (const [name, title] of views) {
+        const article = document.createElement('article');
+        const prefix = 'texture-comparison/' + name;
+        article.innerHTML = `<h3>${title}</h3><div class="pair">
+          <figure><span class="label">Before</span><img src="${prefix}-before.png" alt="${title}, before textures" loading="${overview ? 'eager' : 'lazy'}"></figure>
+          <figure><span class="label">After</span><img src="${prefix}-after.png" alt="${title}, after textures" loading="${overview ? 'eager' : 'lazy'}"></figure>
+        </div><label class="scrubber"><span>Before</span><input type="range" min="0" max="100" value="50" aria-label="Reveal before and after for ${title}"><span>After</span></label>
+        <div class="links"><a href="${prefix}-before.png" target="_blank" rel="noopener">Open before full size ↗</a><a href="${prefix}-after.png" target="_blank" rel="noopener">Open after full size ↗</a></div>`;
+        article.querySelector('input').addEventListener('input', event => article.style.setProperty('--split', event.target.value + '%'));
+        section.append(article);
+      }
+      main.append(section);
+    }
+    function setView(swipe) {
+      document.body.classList.toggle('swipe', swipe);
+      document.getElementById('side').setAttribute('aria-pressed', String(!swipe));
+      document.getElementById('swipe').setAttribute('aria-pressed', String(swipe));
+    }
+    document.getElementById('side').addEventListener('click', () => setView(false));
+    document.getElementById('swipe').addEventListener('click', () => setView(true));
+  </script>
+</body>
+</html>

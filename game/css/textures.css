@@ -1,0 +1,50 @@
+/* Surface detail is part of each panel's paint, beneath all text and controls.
+   No full-screen overlays, animated noise or filters. */
+.card {
+    background-image:
+        url('../assets/images/textures/display-grid.svg'),
+        linear-gradient(180deg, var(--wash2, rgba(0, 217, 255, .18)) 0%, rgba(8, 14, 30, 0) 42%),
+        linear-gradient(165deg, rgba(14, 22, 44, .78), rgba(4, 8, 20, .86));
+}
+
+.menu-progress-panel,
+.menu-recent-achievements {
+    background-image: url('../assets/images/textures/display-grid.svg');
+}
+
+.pause-card,
+.ppset-box,
+.ppres-box,
+.customise-panel {
+    background-image:
+        url('../assets/images/textures/display-grid.svg'),
+        linear-gradient(155deg, rgba(14, 30, 45, .94), rgba(3, 9, 18, .96));
+}
+
+.forge-arena-card,
+.forge-rules,
+.forge-editor-top,
+.forge-palette {
+    background-image:
+        url('../assets/images/textures/display-grid.svg'),
+        linear-gradient(160deg, rgba(7, 32, 34, .95), rgba(3, 13, 22, .96));
+}
+
+.zombie-wave-choice-panel,
+.zombie-wave-choice-btn,
+.zombie-progress-pill {
+    background-image:
+        url('../assets/images/textures/display-grid.svg'),
+        linear-gradient(160deg, rgba(15, 32, 20, .96), rgba(3, 10, 8, .96));
+}
+
+/* This is a UI readout; the Speed arena and cinematic remain untouched. */
+.cockpit-panel,
+.speed-challenge .challenge-title,
+.speed-challenge .challenge-timer,
+.speed-challenge #challengeStatus,
+.speed-challenge .target-difficulty {
+    background-image:
+        url('../assets/images/textures/display-grid.svg'),
+        linear-gradient(180deg, rgba(8, 24, 39, .94), rgba(3, 10, 19, .96));
+}

@@ -350,6 +350,7 @@ class GravityWell {
 
         this.#renderCoreGlow(ctx, pulse, excit);
         this.#renderEventHorizon(ctx, pulse, excit);
+        window.SurfaceTextures?.well(ctx, 0, 0, this.#radius * pulse, time, 0.85 + excit * 0.3);
 
         // Intensity burst (Visual pop without blur overhead)
         if (excit > 0.8) {

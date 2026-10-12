@@ -902,14 +902,30 @@
                 blending: THREE.AdditiveBlending,
                 depthWrite: false
             });
+            // Material grain belongs only to menu rails/posts, never paddles.
+            const hardwareCanvas = document.createElement('canvas');
+            hardwareCanvas.width = hardwareCanvas.height = 128;
+            const hardwareCtx = hardwareCanvas.getContext('2d');
+            hardwareCtx.fillStyle = '#c1cbd2';
+            hardwareCtx.fillRect(0, 0, 128, 128);
+            if (window.SurfaceTextures) hardwareCtx.drawImage(window.SurfaceTextures.canvas('metal'), 0, 0);
+            const hardwareMap = new THREE.CanvasTexture(hardwareCanvas);
+            hardwareMap.wrapS = hardwareMap.wrapT = THREE.RepeatWrapping;
+            hardwareMap.anisotropy = Math.min(4, menuRenderer.capabilities.getMaxAnisotropy());
             const railMat = new THREE.MeshStandardMaterial({
+                map: hardwareMap,
+                bumpMap: hardwareMap,
+                bumpScale: 0.035,
                 color: 0x0a2030,
                 emissive: 0x06384a,
                 emissiveIntensity: 0.45,
                 metalness: 0.45,
-                roughness: 0.32
+                roughness: 0.46
             });
             const postMat = new THREE.MeshStandardMaterial({
+                map: hardwareMap,
+                bumpMap: hardwareMap,
+                bumpScale: 0.025,
                 color: 0x0b121d,
                 emissive: 0x00a6c8,
                 emissiveIntensity: 0.85,
