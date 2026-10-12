@@ -16,9 +16,6 @@
         } catch (e) { /* ignore */ }
     };
 
-    const challengeTitle = document.querySelector('#speedChallenge .challenge-title');
-    if (challengeTitle) challengeTitle.textContent = 'TAP TO SAVE!';
-
     if (!root.requestFullscreen) {
         const btn = document.querySelector('.pp-rotate-block button');
         if (btn) btn.style.display = 'none';

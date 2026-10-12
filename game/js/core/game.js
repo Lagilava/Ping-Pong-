@@ -14,8 +14,8 @@ class Game {
         zombie:    { sat: 0.90, contrast: 1.12, shadow: [0.000, 0.025, 0.012], highlight: [0.018, 0.028, -0.010], tint: [0.97, 1.04, 0.94] },
         // Deep space: cold blue shadows, icy cyan highlights.
         gravity:   { sat: 1.15, contrast: 1.08, shadow: [0.000, 0.008, 0.045], highlight: [0.000, 0.018, 0.032], tint: [0.96, 1.00, 1.08] },
-        // Hot velocity: magenta shadows, orange highlights, extra punch.
-        speed:     { sat: 1.18, contrast: 1.10, shadow: [0.028, 0.000, 0.022], highlight: [0.045, 0.018, -0.010], tint: [1.06, 1.00, 0.95] },
+        // Night racing: blue shadows, cyan and magenta lights.
+        speed:     { sat: 1.24, contrast: 1.12, shadow: [0.000, 0.006, 0.030], highlight: [0.020, 0.018, 0.036], tint: [1.04, 1.03, 1.09] },
         // Tactical grid: teal shadows, violet highlights.
         obstacle:  { sat: 1.08, contrast: 1.08, shadow: [0.000, 0.022, 0.032], highlight: [0.022, 0.000, 0.028], tint: [1.03, 0.97, 1.06] },
         // Custom matches stay neutral so the player's own colours read true.
@@ -152,7 +152,6 @@ class Game {
         this.baseHue = 280;
 
         this.progression = new ProgressionSystem();
-        this.speedChallenge = new SpeedChallenge(this);
         this.notifications = [];
         this._taunt = { el: null, text: '', k: 0, h: 0, opacity: '', x: NaN, y: NaN, visible: false };
         this._perfStats = {
@@ -176,7 +175,7 @@ class Game {
             zombie: { ballBase: 900, ballMax: 1600, paddleMax: 900 },
             gravity: { ballBase: 920, ballMax: 1650, paddleMax: 920 },
             obstacle: { ballBase: 752, ballMax: 1360, paddleMax: 940 },
-            speed: { ballBase: 1010, ballMax: 1950, paddleMax: 1080 },
+            speed: { ballBase: 1170, ballMax: 2200, paddleMax: 1200 },
             customise: { ballBase: 940, ballMax: 1650, paddleMax: 940 }
         };
         this.lastRallyMilestone = 0;
@@ -2523,9 +2522,6 @@ class Game {
 
         // CRITICAL FIX: Stop any ongoing game/intro loop immediately
         this.stop();
-        if (this.speedChallenge && typeof this.speedChallenge.terminateChallenge === 'function') {
-            this.speedChallenge.terminateChallenge('mode-switch');
-        }
         if (typeof this.audio?.stopAllGravityWellSounds === 'function') {
             this.audio.stopAllGravityWellSounds();
         }
@@ -5897,9 +5893,6 @@ class Game {
                     // Skip the match intro.
                     this.skipIntro();
                     e.preventDefault();
-                } else if (this.gameMode === 'speed' && this.speedChallenge?.isActive) {
-                    // Escape leaves the challenge; it must not also pause the match.
-                    this.speedChallenge.cancelChallenge();
                 } else {
                     this.togglePause();
                 }
@@ -5995,9 +5988,6 @@ class Game {
 
         this.syncMatchAudioState();
 
-        if (this.speedChallenge && typeof this.speedChallenge.setPaused === 'function') {
-            this.speedChallenge.setPaused(this.userPaused);
-        }
 
         const pauseBtn = document.getElementById('pause');
         if (pauseBtn && wasPaused !== nextPaused) {
@@ -6126,7 +6116,6 @@ class Game {
         this.serveHold = 0;
         this.pendingServe = null;
         this.hitStop = 0;
-        this.speedChallenge?.terminateChallenge?.('quit');
         this.audio?.stopAllGravityWellSounds?.();
         this.audio?.stopMusic?.('all');
         this.stopCustomHtmlTrack?.();
@@ -6188,9 +6177,6 @@ class Game {
         this.serveHold = 0;
         this.pendingServe = null;
         this.hitStop = 0;
-        if (this.speedChallenge && typeof this.speedChallenge.terminateChallenge === 'function') {
-            this.speedChallenge.terminateChallenge('reset');
-        }
         if (typeof this.audio?.stopAllGravityWellSounds === 'function') {
             this.audio.stopAllGravityWellSounds();
         }
@@ -6377,6 +6363,8 @@ class Game {
             let types = baseTypes;
             if (isObstacleMode) {
                 types = ['slowBall', 'bigPaddle', 'powerShot', 'timeWarp', 'shield'];
+            } else if (this.gameMode === 'speed') {
+                types = baseTypes.filter(type => type !== 'slowBall' && type !== 'timeWarp');
             }
             if (this.gameMode === 'customise') {
                 const enabled = this.getEnabledCustomPowerUps();
@@ -6972,7 +6960,7 @@ class Game {
     // long rallies reach top speed instead of plateauing.
     getPaddleSpeedIncrease(isPlayer) {
         let inc = 1.085;
-        if (this.gameMode === 'speed') inc = 1.12;
+        if (this.gameMode === 'speed') inc = 1.16;
         else if (this.gameMode === 'zombie') inc = 1.08;
         else if (this.gameMode === 'customise' && window.Forge) inc = window.Forge.getRuleSpeedIncrease(this);
         if (this.isZombieWaveMode() && isPlayer && this.zombieState.powerups.rage > 0) inc *= 1.18;
@@ -6992,25 +6980,7 @@ class Game {
         if (!hit) return false;
 
         const speed = preHitSpeed;
-        // Trigger Speed Challenge in Speed Mode every N hits.
-        // For single-player only trigger when the HUMAN player is the one being scored against
-        // (i.e. the AI just hit the ball toward the player). Multiplayer retains original behaviour.
-        // Phones skip the mid-rally challenge: freezing a live rally to tap
-        // targets breaks touch play. They still get the "save the point"
-        // challenge on conceding, which lands at a natural break.
-        if (this.gameMode === 'speed' && !PerfGovernor.isMobile && this.rallyCount > 0 && this.rallyCount % 6 === 0) {
-            if (this.speedChallenge) {
-                if (this.isMultiplayer) {
-                    this.speedChallenge.startChallenge();
-                } else {
-                    // In single-player, only start if the last hit was by the AI
-                    // (so the human is the one being scored against)
-                    if (!isPlayer) {
-                        this.speedChallenge.startChallenge();
-                    }
-                }
-            }
-        }
+        // Speed Mode stays in the rally; paddle hits never open a challenge.
 
         if (this.powerShotActive && isPlayer) {
             this.powerShotActive = false;
@@ -7043,9 +7013,12 @@ class Game {
         this.rallyCount++;
         this._setText(this.rallyDisplay, this.rallyCount);
         this.progression.incrementAchievementProgress('rallyLegend');
+        if (this.gameMode === 'speed' && this.rallyCount === 8 && b === this.ball) {
+            this.progression.recordSpeedRally();
+        }
         this.checkRallyMilestones();
 
-        // NEW: Drug mode hit flash trigger
+        // Speed Mode impact flash.
         if (this.gameMode === 'speed') {
             this.lastHitFlash = 1.0;
             this.hitFlashDirection = isPlayer ? 1 : -1;
@@ -7083,7 +7056,7 @@ class Game {
 
     updateServeHold(dt) {
         const b = this.ball;
-        // Something else served (e.g. the Speed challenge, a reset): stand down.
+        // A reset may already have served the ball.
         if (Math.abs(b.vel.x) + Math.abs(b.vel.y) > 1 || !this.pendingServe) {
             this.serveHold = 0;
             this.pendingServe = null;
@@ -7345,25 +7318,6 @@ class Game {
                     balls[writeIndex++] = ball;
                     continue;
                 } else {
-                    if (this.gameMode === 'speed') {
-                        ball.pos.x = -30;
-                        ball.vel.x = 0;
-                        ball.vel.y = 0;
-                        if (!this.isMultiplayer) {
-                            // Conceding must cost a point; the challenge can only cancel it
-                            const concededPoints = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
-                            this.scores.ai += concededPoints;
-                            this.progression.recordPoint('ai', concededPoints);
-                            this.speedChallenge.lastScoreChange = { scorer: 'ai', points: concededPoints };
-                            this.speedChallenge.activePlayer = 'player';
-                            this.audio.score();
-                            this.resetRally();
-                        }
-                        if (this.speedChallenge.startChallenge() === false) {
-                            this.speedChallenge.serveBall();
-                        }
-                        continue;
-                    }
                     const points = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
                     this.scores.ai += points;
                     this.audio.score();
@@ -7843,37 +7797,12 @@ class Game {
                     return true;
                 }
                 const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeSlingshotBonus(ball);
-                const prevP2Score = this.scores.ai;
                 this.scores.player += points;
                 this.progression.recordPoint('player', points);
-                // remember point for challenge resolution
-                if (this.speedChallenge) {
-                    this.speedChallenge.lastScoreChange = { scorer: 'player', points };
-                }
                 this.audio.score();
                 this.resetRally();
                 if (this.ai && typeof this.ai.onPlayerScore === 'function') {
                     this.ai.onPlayerScore();
-                }
-                if (this.gameMode === 'speed') {
-                    // Set intended active player (the one being scored against)
-                    this.speedChallenge.activePlayer = 'ai';
-                    if (!this.isMultiplayer) this.speedChallenge.onPlayerPoint();
-
-                    // In single-player we only challenge the HUMAN player (not the AI).
-                    // Since here the AI would be the one being scored against, skip starting
-                    // the challenge in single-player. In multiplayer start normally.
-                    if (this.isMultiplayer) {
-                        // Special Tiebreaker check: if score was 10-10 BEFORE this point was added
-                        if (this.scores.player > this.maxScore - 1 && prevP2Score === this.maxScore - 1) {
-                            const actualP1Score = this.scores.player;
-                            this.scores.player = this.maxScore - 1;
-                            this.speedChallenge.startChallenge();
-                            this.scores.player = actualP1Score;
-                        } else {
-                            this.speedChallenge.startChallenge();
-                        }
-                    }
                 }
                 return false;
             }
@@ -7896,40 +7825,6 @@ class Game {
                     }
                     return true;
                 } else {
-                    if (this.gameMode === 'speed') {
-                        const points = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
-                        const prevP1Score = this.scores.player;
-                        this.scores.ai += points;
-                        this.progression.recordPoint('ai', points);
-                        // remember what just happened for the upcoming speed challenge
-                        if (this.speedChallenge) {
-                            this.speedChallenge.lastScoreChange = { scorer: 'ai', points };
-                        }
-                        this.audio.score();
-                        this.resetRally();
-                        if (this.ai && typeof this.ai.onAIScore === 'function') {
-                            this.ai.onAIScore();
-                        }
-                        // Set intended active player (the one being scored against)
-                        this.speedChallenge.activePlayer = 'player';
-
-                        // In single-player we only challenge the HUMAN player (which is correct here),
-                        // so start the challenge. In multiplayer also start as before.
-                        if (this.isMultiplayer) {
-                            if (this.scores.ai > this.maxScore - 1 && prevP1Score === this.maxScore - 1) {
-                                const actualP2Score = this.scores.ai;
-                                this.scores.ai = this.maxScore - 1;
-                                this.speedChallenge.startChallenge();
-                                this.scores.ai = actualP2Score;
-                            } else {
-                                this.speedChallenge.startChallenge();
-                            }
-                        } else {
-                            // single-player: activePlayer is 'player' so start challenge
-                            this.speedChallenge.startChallenge();
-                        }
-                        return false;
-                    }
                     const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeSlingshotBonus(ball);
                     this.scores.ai += points;
                     this.progression.recordPoint('ai', points);
@@ -7959,8 +7854,8 @@ class Game {
                 // The player who conceded receives the serve.
                 this.ball.vel.x = goalOnRight ? Math.abs(this.ball.vel.x) : -Math.abs(this.ball.vel.x);
             }
-            if (!this.isZombieWaveMode() && !this.speedChallenge?.isActive) {
-                this.holdServe(0.85);
+            if (!this.isZombieWaveMode()) {
+                this.holdServe(this.gameMode === 'speed' ? 0.35 : 0.85);
             }
         }
         let writeIndex = 0;
@@ -8003,9 +7898,6 @@ class Game {
         }
 
         this.matchEnding = true;
-        if (this.gameMode === 'speed' && this.speedChallenge && typeof this.speedChallenge.terminateChallenge === 'function') {
-            this.speedChallenge.terminateChallenge('match-end');
-        }
         const net = this.net;
         if (net) net.onMatchEnd(playerWon);
 
@@ -8179,13 +8071,9 @@ class Game {
             return;
         }
 
-        // Match end. Speed Mode's challenge can still overturn the final point.
         // An online guest waits for the host to call it.
         if (this.net?.role === 'guest') return;
         if (this.scores.player >= this.maxScore || this.scores.ai >= this.maxScore) {
-            if (this.gameMode === 'speed' && this.speedChallenge && this.speedChallenge.isActive) {
-                return;
-            }
             this.finishMatch(this.scores.player >= this.maxScore);
         }
     }

@@ -430,13 +430,7 @@ class BackgroundRenderer {
 
             // ── SPEED ────────────────────────────────────────────────
             case 'speed':
-                // Rain particles — v2 schema with slant + wobble fields
-                this._buildSpeedRain();
-                this.lightLayers.push(this._makeLight('linear', {
-                    x1: 0, y1: H * 0.7, x2: 0, y2: H,
-                    color: 'rgba(255,50,0,0.04)',
-                    gradientStops: [[0, 'rgba(255,50,0,0.08)'], [1, 'transparent']],
-                }));
+                // The rush backdrop is drawn in one cheap cached canvas pass.
                 break;
 
             // ── OBSTACLE ─────────────────────────────────────────────
@@ -681,7 +675,6 @@ class BackgroundRenderer {
         const W = this.width, H = this.height;
         const pfx = areParticleEffectsEnabled();
 
-        if (this.mode === 'speed') this._updateSpeedLightning(dt);
 
         if (!pfx) return;
 
@@ -995,7 +988,7 @@ class BackgroundRenderer {
             case 'classic': this.renderClassic(ctx, w, h); break;
             case 'zombie': this.renderZombie(ctx, w, h); break;
             case 'gravity': this.renderGravity(ctx, w, h); break;
-            case 'speed': this.renderSpeed(ctx, w, h); break;
+            case 'speed': this.renderSpeedRush(ctx, w, h); break;
             case 'obstacle': this.renderObstacle(ctx, w, h); break;
             case 'customise': this.renderClassic(ctx, w, h); break;
         }
@@ -1093,7 +1086,7 @@ class BackgroundRenderer {
         }
 
         this.renderEnhancedLighting(ctx, w, h);
-        if (this.mode === 'speed') this._renderSpeedLightningPass(ctx, w, h);
+        // Speed Mode uses the game's existing WebGL post effects for impact.
     }
 
     _ensureCustomToneBuffers(w, h) {
@@ -2817,391 +2810,87 @@ class BackgroundRenderer {
         ctx.fillRect(0, roadY * 0.70, w, roadY * 0.30);
     }
 
-    renderSpeed(ctx, w, h) {
-        const t = this.time;
-        const roadY = this.roadY;   // h * 0.80
-        const vx = w * 0.50;
-        const vy = roadY;
+    renderSpeedRush(ctx, w, h) {
+        const game = typeof window !== 'undefined' ? window.game : null;
+        const ballSpeed = game?.ball?.getSpeed?.() || 0;
+        const rush = Math.max(0.7, Math.min(1.45, ballSpeed / 1100));
+        const t = this.time * (0.65 + rush * 0.75);
+        const cx = w * 0.5;
+        const cy = h * 0.5;
 
-        // Convenience aliases for baked settings
-        const pollA = this._speedPollutionAmt;  // 1.00
-        const bloom = this._speedBloomAmt;      // 0.25
-        const sat = this._speedSaturation;    // 0.00
+        // Night tunnel: bright at the perimeter, quiet through the ball lane.
+        const base = ctx.createRadialGradient(cx, cy, h * 0.06, cx, cy, Math.max(w, h) * 0.75);
+        base.addColorStop(0, '#030914');
+        base.addColorStop(0.52, '#081328');
+        base.addColorStop(1, '#160724');
+        ctx.fillStyle = base;
+        ctx.fillRect(0, 0, w, h);
 
-        // Saturation scale helper — sat=0 collapses all colours toward grey
-        const sSat = (s) => (s * sat).toFixed(1);
+        const edge = ctx.createLinearGradient(0, 0, w, 0);
+        edge.addColorStop(0, 'rgba(0,196,255,0.31)');
+        edge.addColorStop(0.25, 'rgba(0,55,115,0.025)');
+        edge.addColorStop(0.75, 'rgba(105,18,92,0.025)');
+        edge.addColorStop(1, 'rgba(255,45,150,0.31)');
+        ctx.fillStyle = edge;
+        ctx.fillRect(0, 0, w, h);
 
-        // ── 1-2. SKY, FAR CITY, FAR HAZE ────────────────────────────────
-        // None of this moves, so it is baked once at the target's device
-        // resolution: the far skyline alone is ~35 shadowBlur fills a frame.
-        this._drawSpeedStaticSky(ctx, w, h, roadY, vx, pollA, sat);
-
-        // Window colour palettes — mixed colour temperatures
-        const WIN_PALETTE = [
-            [42, 65, 72],   // warm amber
-            [210, 75, 72],   // cool blue-white
-            [35, 55, 78],   // orange
-            [220, 28, 88],   // near-white office
-            [260, 65, 65],   // faint purple
-        ];
-
-        const drawWindows = (seed, bx, by, bw, bh, maxY) => {
-            const padX = Math.max(2, bw * 0.12);
-            const padY = Math.max(3, bh * 0.06);
-            const cols = Math.max(1, Math.floor((bw - padX * 2) / 7));
-            const gx = (bw - padX * 2) / Math.max(1, cols);
-            const gy = Math.max(6, bh * 0.07);
-            let winIdx = 0;
-            for (let wy = by + padY; wy < maxY - 4; wy += gy) {
-                for (let col = 0; col < cols; col++) {
-                    const wh = this._hash(seed + winIdx++);
-                    if ((wh & 0xFF) > 118) continue;
-                    const wx = bx + padX + col * gx;
-                    const ww = Math.max(1.5, bw * 0.055);
-                    const wht = Math.max(1.5, bh * 0.038);
-                    const phase = (wh >> 8 & 0xFF) / 255 * Math.PI * 2;
-                    const flick = 0.55 + Math.sin(t * (0.3 + (wh >> 16 & 0xFF) / 255 * 1.0) + phase) * 0.45;
-                    const [ph, ps, pl] = WIN_PALETTE[(wh >> 20) % 5];
-                    const wSat = ps * (0.4 + sat * 0.6);
-                    ctx.fillStyle = `hsla(${ph},${wSat.toFixed(1)}%,${pl}%,${(flick * 0.7).toFixed(3)})`;
-                    ctx.fillRect(wx, wy, ww, wht);
-                }
-            }
-        };
-
-        // Mid buildings
-        const midCount = Math.max(12, Math.floor(w / 80));
-        for (let i = 0; i < midCount; i++) {
-            const fi = this._hash(0xCAFEBABE + i);
-            const xf = (i + (fi & 0xFF) / 380) / midCount;
-            const wf = 0.032 + ((fi >> 8 & 0xFF) / 255) * 0.052;
-            const hf = 0.12 + ((fi >> 16 & 0xFF) / 255) * 0.28;
-            const bx = xf * w, bw = Math.max(4, wf * w), bh = hf * h, by = roadY - bh;
-
-            const mg = ctx.createLinearGradient(0, by, 0, roadY);
-            mg.addColorStop(0, '#0c0a1a'); mg.addColorStop(0.6, '#080616'); mg.addColorStop(1, '#040310');
-            ctx.fillStyle = mg;
-            ctx.fillRect(bx, by, bw, bh);
-
-            // Roof rim — warm vs cool based on saturation
-            const rimA = 0.35 + Math.sin(t * 0.9 + xf * 14) * 0.09;
-            const rimSat = 55 * sat;
-            ctx.fillStyle = `hsla(245,${rimSat.toFixed(1)}%,68%,${rimA.toFixed(3)})`;
-            ctx.fillRect(bx, by, bw, 1.2);
-
-            drawWindows(0xCAFEBABE + i * 1000, bx, by, bw, bh, roadY);
-
-            // Antenna with red beacon
-            if ((fi >> 24 & 0xFF) > 90) {
-                const ax = bx + bw / 2;
-                const aH = h * (0.012 + ((fi >> 20 & 0xFF) / 255) * 0.022);
-                const bPhase = (fi >> 12 & 0xFF) / 255 * Math.PI * 2;
-                ctx.strokeStyle = 'rgba(60,40,140,0.3)';
-                ctx.lineWidth = 1;
-                ctx.beginPath(); ctx.moveTo(ax, by); ctx.lineTo(ax, by - aH); ctx.stroke();
-                if (Math.sin(t * 1.8 + bPhase) > 0.5) {
-                    ctx.save();
-                    ctx.shadowBlur = 8;
-                    ctx.shadowColor = 'rgba(255,60,60,0.8)';
-                    ctx.fillStyle = 'rgba(255,40,40,0.9)';
-                    ctx.beginPath(); ctx.arc(ax, by - aH, 2.2, 0, Math.PI * 2); ctx.fill();
-                    ctx.restore();
-                }
-            }
+        // Perspective frames run toward the viewer. A fixed count keeps cost
+        // stable even on long rallies or high refresh rate displays.
+        for (let i = 0; i < 11; i++) {
+            const depth = ((i / 11 + t * 0.13) % 1);
+            const reach = Math.pow(depth, 2.2);
+            const rw = w * (0.08 + reach * 0.9);
+            const rh = h * (0.08 + reach * 0.92);
+            const alpha = (0.04 + reach * 0.22) * rush;
+            ctx.strokeStyle = i % 2
+                ? `rgba(255,55,163,${alpha.toFixed(3)})`
+                : `rgba(35,213,255,${alpha.toFixed(3)})`;
+            ctx.lineWidth = 1 + reach * 2;
+            ctx.strokeRect(cx - rw * 0.5, cy - rh * 0.5, rw, rh);
         }
 
-        // Near buildings
-        const nearCount = Math.max(3, Math.floor(w / 240));
-        for (let i = 0; i < nearCount; i++) {
-            const fi = this._hash(0xBEEFCAFE + i);
-            const xf = (i + 0.08 + (fi & 0xFF) / 255 * 0.42) / nearCount;
-            const wf = 0.13 + ((fi >> 8 & 0xFF) / 255) * 0.15;
-            const hf = 0.20 + ((fi >> 16 & 0xFF) / 255) * 0.18;
-            const bx = xf * w, bw = Math.max(6, wf * w), by = Math.max(0, roadY - hf * h);
-            ctx.fillStyle = '#030210';
-            ctx.fillRect(bx, by, bw, h - by);
-            ctx.fillStyle = `rgba(50,30,140,${(0.18 * sat).toFixed(3)})`;
-            ctx.fillRect(bx, by, bw, 2);
-            drawWindows(0xBEEFCAFE + i * 1000, bx, by, bw, h - by, roadY);
-        }
-
-        // ── 3. HORIZON GLOW — toned down, mixed warm+cool ─────────────
-        const horizPulse = 0.90 + Math.sin(t * 0.28) * 0.10;
-        const hGlow = ctx.createRadialGradient(vx, vy, 0, vx, vy, w * 0.62);
-        hGlow.addColorStop(0, `rgba(35,20,140,${(0.11 * horizPulse * sat).toFixed(4)})`);
-        hGlow.addColorStop(0.3, `rgba(90,55,35,${(0.07 * horizPulse * pollA).toFixed(4)})`);
-        hGlow.addColorStop(1, 'transparent');
-        ctx.fillStyle = hGlow;
-        ctx.fillRect(0, roadY - h * 0.12, w, h * 0.18);
-
-        // ── 4. ROAD — dark wet asphalt ────────────────────────────────
-        const road = ctx.createLinearGradient(0, roadY, 0, h);
-        road.addColorStop(0, `hsl(26,${sSat(18)}%,10%)`);
-        road.addColorStop(0.15, `hsl(24,${sSat(15)}%,8%)`);
-        road.addColorStop(0.45, `hsl(240,${sSat(12)}%,6%)`);
-        road.addColorStop(0.80, `hsl(240,${sSat(10)}%,4%)`);
-        road.addColorStop(1, `hsl(240,${sSat(8)}%,3%)`);
-        ctx.fillStyle = road;
-        ctx.fillRect(0, roadY, w, h - roadY);
-
-        // Anisotropic centre sheen
-        const sheenP = 0.08 + Math.sin(t * 0.48) * 0.025;
-        const sheen = ctx.createLinearGradient(w * 0.28, 0, w * 0.72, 0);
-        sheen.addColorStop(0, 'transparent');
-        sheen.addColorStop(0.35, `hsla(26,${sSat(20)}%,30%,${sheenP.toFixed(4)})`);
-        sheen.addColorStop(0.50, `hsla(24,${sSat(24)}%,38%,${(sheenP * 1.25).toFixed(4)})`);
-        sheen.addColorStop(0.65, `hsla(26,${sSat(20)}%,30%,${sheenP.toFixed(4)})`);
-        sheen.addColorStop(1, 'transparent');
-        ctx.fillStyle = sheen;
-        ctx.fillRect(0, roadY, w, h - roadY);
-
-        // ── 5. ROAD LINES ─────────────────────────────────────────────
-        ctx.save();
-        const scroll = this.gridOffset * 1.2;
-
-        ctx.strokeStyle = `hsla(26,${sSat(18)}%,48%,0.16)`;
-        ctx.lineWidth = 1.5;
-        [w * 0.16, w * 0.84].forEach(nearX => {
-            ctx.beginPath(); ctx.moveTo(vx, roadY); ctx.lineTo(nearX, h); ctx.stroke();
-        });
-
-        [w * 0.36, w * 0.50, w * 0.64].forEach(baseX => {
-            for (let s = 0; s < 16; s++) {
-                const dashT = 0.038;
-                const t0 = ((s / 16) + (scroll % (h - roadY)) / ((h - roadY) * 16)) % 1;
-                const t1 = Math.min(1, t0 + dashT);
-                if (t1 <= t0) continue;
-                const ease = Math.pow(t0, 1.4);
-                const x0 = vx + (baseX - vx) * t0, y0 = roadY + (h - roadY) * t0;
-                const x1 = vx + (baseX - vx) * t1, y1 = roadY + (h - roadY) * t1;
-                ctx.strokeStyle = `hsla(28,${sSat(24)}%,58%,${(0.04 + ease * 0.18).toFixed(3)})`;
-                ctx.lineWidth = 0.5 + ease * 1.3;
-                ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-            }
-        });
-
-        // Shoulder glows (muted at sat=0)
-        [[0, w * 0.10], [1, w * 0.90]].forEach(([side, baseX]) => {
-            const origin = side === 0 ? 0 : w;
-            const pulse = 0.05 + Math.sin(t * 0.9 + side * Math.PI) * 0.015;
-            const sg = ctx.createLinearGradient(origin, 0, baseX, 0);
-            sg.addColorStop(0, `rgba(45,25,160,${(pulse * sat).toFixed(4)})`);
-            sg.addColorStop(0.5, `rgba(45,25,160,${(pulse * 0.3 * sat).toFixed(4)})`);
-            sg.addColorStop(1, 'transparent');
-            ctx.fillStyle = sg;
-            ctx.fillRect(side === 0 ? 0 : baseX, roadY, Math.abs(baseX - origin), h - roadY);
-        });
-        ctx.restore();
-
-        // ── 6. SPEED LINES — forward cone only ───────────────────────
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        const lineScroll = (scroll * 0.9) % 1;
-        for (let i = 0; i < 32; i++) {
-            const fi = this._hash(0xFEEDFACE + i);
-            const baseA = (fi & 0xFFFF) / 65535;
-            const angle = (baseA * 2 - 1) * (Math.PI * 0.36);
-            const side = (fi >> 22) & 1 ? 1 : -1;
-            const actualAngle = side > 0 ? angle : Math.PI - angle;
-            const phase = ((fi >> 16 & 0x3FFF) / 16383 + lineScroll) % 1;
-            const near = Math.pow(phase, 1.5);
-            const far = Math.pow(Math.min(1, phase + 0.055), 1.5);
-            const reach = Math.min(w, h) * 0.92;
-            const alpha = (near * 0.10 + 0.012) * sat;
-            const lw = 0.4 + near * 1.4;
-            const hue = [195, 205, 42, 215, 198][(fi >> 20) % 5];
-            ctx.strokeStyle = `hsla(${hue},65%,78%,${alpha.toFixed(3)})`;
-            ctx.lineWidth = lw;
+        // Streaks at the sides suggest acceleration without crossing play.
+        for (let i = 0; i < 18; i++) {
+            const lane = (i * 0.61803398875) % 1;
+            const travel = (i * 0.137 + t * (0.12 + (i % 4) * 0.025)) % 1;
+            const length = (12 + travel * 90) * rush;
+            const y = lane * h;
+            const left = i % 2 === 0;
+            const x = left ? w * (0.02 + travel * 0.17) : w * (0.98 - travel * 0.17);
+            ctx.strokeStyle = left
+                ? `rgba(40,211,255,${(0.08 + travel * 0.3).toFixed(3)})`
+                : `rgba(255,65,157,${(0.08 + travel * 0.3).toFixed(3)})`;
+            ctx.lineWidth = 1 + travel * 2;
             ctx.beginPath();
-            ctx.moveTo(vx + Math.cos(actualAngle) * reach * far, vy + Math.sin(actualAngle) * reach * far);
-            ctx.lineTo(vx + Math.cos(actualAngle) * reach * near, vy + Math.sin(actualAngle) * reach * near);
+            ctx.moveTo(x, y - length * 0.5);
+            ctx.lineTo(x, y + length * 0.5);
             ctx.stroke();
         }
-        ctx.restore();
 
-        // ── 7. REFLECTIONS — anisotropic wet-road ────────────────────
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-
-        // Tail-light bloom — restrained
-        const bloomA = bloom * (0.16 + Math.sin(t * 0.62) * 0.03);
-        const bloomG = ctx.createRadialGradient(vx, h * 0.89, 0, vx, h * 0.89, w * 0.22);
-        bloomG.addColorStop(0, `rgba(220,30,38,${bloomA.toFixed(4)})`);
-        bloomG.addColorStop(0.5, `rgba(160,15,22,${(bloomA * 0.4).toFixed(4)})`);
-        bloomG.addColorStop(1, 'transparent');
-        ctx.fillStyle = bloomG;
-        ctx.fillRect(0, roadY, w, h - roadY);
-
-        // Anisotropic specular streaks — tall, mixed colour temps
-        const speculars = [
-            { hue: 40, sat: 60, xf: 0.30, spd: 0.48, a: 0.13 },
-            { hue: 210, sat: 55, xf: 0.50, spd: 0.90, a: 0.11 },
-            { hue: 38, sat: 55, xf: 0.70, spd: 0.60, a: 0.12 },
-            { hue: 255, sat: 60, xf: 0.18, spd: 1.15, a: 0.08 },
-            { hue: 195, sat: 55, xf: 0.82, spd: 0.72, a: 0.09 },
-        ];
-        speculars.forEach(r => {
-            const rx = w * (r.xf + Math.sin(t * r.spd) * 0.012);
-            const ry = roadY + (h - roadY) * 0.12;
-            const sH = (h - roadY) * 0.78;
-            const sW = w * 0.065;
-            const rSat = r.sat * (0.5 + sat * 0.5);
-            const rg = ctx.createLinearGradient(0, ry, 0, ry + sH);
-            rg.addColorStop(0, `hsla(${r.hue},${rSat.toFixed(1)}%,62%,${(r.a * bloom).toFixed(4)})`);
-            rg.addColorStop(0.4, `hsla(${r.hue},${rSat.toFixed(1)}%,52%,${(r.a * bloom * 0.35).toFixed(4)})`);
-            rg.addColorStop(1, 'transparent');
-            ctx.fillStyle = rg;
-            ctx.fillRect(rx - sW, ry, sW * 2, sH);
-        });
-
-        // Surface ripple bands
-        for (let i = 0; i < 9; i++) {
-            const tf = i / 8;
-            const py = roadY + (h - roadY) * (0.04 + tf * 0.88)
-                + Math.sin(t * (0.52 + i * 0.27) + i * 2.1) * (1.5 + tf * 6);
-            const brt = (0.016 + tf * 0.012) * bloom;
-            const rp = ctx.createLinearGradient(0, py - 6, 0, py + 12);
-            rp.addColorStop(0, 'transparent');
-            rp.addColorStop(0.5, `hsla(26,${sSat(16)}%,42%,${brt.toFixed(4)})`);
-            rp.addColorStop(1, 'transparent');
-            ctx.fillStyle = rp;
-            ctx.fillRect(0, py - 6, w, 18);
-        }
-        ctx.restore();
-
-        // ── 8. RAIN — slanted, variable, wobbled ─────────────────────
-        if (areParticleEffectsEnabled()) {
-            ctx.save();
-            ctx.beginPath(); ctx.rect(0, 0, w, h * 0.82); ctx.clip();
-
-            const slantDxPerL = this._speedRainSlant * 0.55;
-
-            for (let i = 0; i < this.rainParticles.length; i++) {
-                const p = this.rainParticles[i];
-                const fadeStart = roadY - h * 0.06;
-                const fade = p.y > fadeStart
-                    ? Math.max(0, 1 - (p.y - fadeStart) / (h * 0.09))
-                    : 1;
-                if (fade <= 0) return;
-
-                const slantDx = p.length * slantDxPerL * p.slantVar;
-                const wobble = Math.sin(this.time * p.wobbleFreq + p.wobblePhase) * p.length * 0.025;
-                const x2 = p.x, y2 = p.y;
-                const x1 = p.x - slantDx + wobble, y1 = p.y - p.length;
-
-                const needRebuild = !p._gradient
-                    || Math.abs(x1 - p._gx1) > 1.2
-                    || Math.abs(y1 - p._gy1) > 2;
-                if (needRebuild) {
-                    const rg = ctx.createLinearGradient(x1, y1, x2, y2);
-                    rg.addColorStop(0, 'transparent');
-                    rg.addColorStop(0.55, `hsla(${p.hue},${p.sat}%,78%,${(p.alpha * 0.55).toFixed(3)})`);
-                    rg.addColorStop(1, `hsla(${p.hue},${p.sat}%,92%,${p.alpha.toFixed(3)})`);
-                    p._gradient = rg; p._gx1 = x1; p._gy1 = y1;
-                }
-
-                ctx.globalAlpha = fade;
-                ctx.strokeStyle = p._gradient;
-                ctx.lineWidth = p.width;
-                ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-
-                // Bright droplet tip
-                if (p.alpha > 0.36 && fade > 0.5) {
-                    ctx.fillStyle = `hsla(${p.hue},${p.sat + 10}%,94%,${(p.alpha * fade * 0.55).toFixed(3)})`;
-                    ctx.beginPath(); ctx.arc(x2, y2, p.width * 0.85, 0, Math.PI * 2); ctx.fill();
-                }
+        // Glowing tunnel rails frame the court, leaving the play area clear.
+        for (let side = 0; side < 2; side++) {
+            const rail = ctx.createLinearGradient(0, 0, w, 0);
+            rail.addColorStop(0, 'rgba(0,210,255,0.55)');
+            rail.addColorStop(0.5, 'rgba(100,95,255,0.12)');
+            rail.addColorStop(1, 'rgba(255,55,155,0.55)');
+            ctx.strokeStyle = rail;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let x = 0; x <= w; x += w / 20) {
+                const drift = Math.sin(x / w * 8 + t * 2 + side * 2) * h * 0.015;
+                const y = h * (side ? 0.94 : 0.06) + drift;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
             }
-
-            ctx.globalAlpha = 1;
-            ctx.restore();
-
-            // Splashes at road surface
-            if (this._splashes.length) {
-                ctx.save();
-                ctx.globalCompositeOperation = 'screen';
-                for (let i = 0; i < this._splashes.length; i++) {
-                    const s = this._splashes[i];
-                    const a = s.alpha * s.life * 0.32;
-                    if (a <= 0.005) continue;
-                    ctx.beginPath();
-                    ctx.ellipse(s.x, s.y, s.r, s.r * 0.26, 0, 0, Math.PI * 2);
-                    ctx.strokeStyle = `rgba(155,175,215,${a.toFixed(3)})`;
-                    ctx.lineWidth = 0.65 * s.life;
-                    ctx.stroke();
-                }
-                ctx.restore();
-            }
-
-            // Horizon mist
-            const mist = ctx.createLinearGradient(0, roadY - h * 0.02, 0, roadY + h * 0.04);
-            mist.addColorStop(0, 'transparent');
-            mist.addColorStop(0.5, 'rgba(18,10,28,0.16)');
-            mist.addColorStop(1, 'transparent');
-            ctx.fillStyle = mist;
-            ctx.fillRect(0, roadY - h * 0.02, w, h * 0.06);
+            ctx.stroke();
         }
 
-        // ── 9. FINAL COMPOSITING ──────────────────────────────────────
-
-        // Top vignette
-        const topV = ctx.createLinearGradient(0, 0, 0, h * 0.16);
-        topV.addColorStop(0, 'rgba(0,0,0,0.92)');
-        topV.addColorStop(1, 'transparent');
-        ctx.fillStyle = topV;
-        ctx.fillRect(0, 0, w, h * 0.16);
-
-        // Peripheral rigs — warm left, cool right, restrained
-        {
-            const pulse = 0.85 + Math.sin(t * 1.15) * 0.15;
-            const alphaMul = 0.9 * pulse * bloom;
-            const prev = ctx.globalCompositeOperation;
-            ctx.globalCompositeOperation = 'screen';
-
-            const leftRig = ctx.createRadialGradient(-w * 0.05, h * 0.62, 0, -w * 0.05, h * 0.62, w * 0.42);
-            leftRig.addColorStop(0, `rgba(200,105,30,${(0.16 * alphaMul).toFixed(3)})`);
-            leftRig.addColorStop(0.4, `rgba(200,105,30,${(0.07 * alphaMul).toFixed(3)})`);
-            leftRig.addColorStop(1, 'transparent');
-            ctx.fillStyle = leftRig; ctx.fillRect(0, 0, w, h);
-
-            const rightRig = ctx.createRadialGradient(w * 1.05, h * 0.52, 0, w * 1.05, h * 0.52, w * 0.42);
-            rightRig.addColorStop(0, `rgba(35,100,200,${(0.16 * alphaMul).toFixed(3)})`);
-            rightRig.addColorStop(0.4, `rgba(35,100,200,${(0.07 * alphaMul).toFixed(3)})`);
-            rightRig.addColorStop(1, 'transparent');
-            ctx.fillStyle = rightRig; ctx.fillRect(0, 0, w, h);
-
-            ctx.globalCompositeOperation = prev;
-        }
-
-        // Camera specular on road
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        const camSpec = ctx.createRadialGradient(vx, h * 0.89, 0, vx, h * 0.89, w * 0.20);
-        camSpec.addColorStop(0, `rgba(160,125,200,${(0.07 * bloom).toFixed(4)})`);
-        camSpec.addColorStop(0.6, `rgba(90,70,140,${(0.03 * bloom).toFixed(4)})`);
-        camSpec.addColorStop(1, 'transparent');
-        ctx.fillStyle = camSpec;
-        ctx.fillRect(vx - w * 0.25, roadY, w * 0.50, h - roadY);
-        ctx.restore();
-
-        // Edge vignette
-        const sideMask = ctx.createLinearGradient(0, 0, w, 0);
-        sideMask.addColorStop(0, 'rgba(0,0,0,0.20)');
-        sideMask.addColorStop(0.18, 'rgba(0,0,0,0.08)');
-        sideMask.addColorStop(0.40, 'rgba(0,0,0,0.00)');
-        sideMask.addColorStop(0.60, 'rgba(0,0,0,0.00)');
-        sideMask.addColorStop(0.82, 'rgba(0,0,0,0.08)');
-        sideMask.addColorStop(1, 'rgba(0,0,0,0.20)');
-        ctx.fillStyle = sideMask; ctx.fillRect(0, 0, w, h);
-
-        // Variable chromatic aberration
-        const caAmt = 0.012 + Math.sin(t * 3.4 + 0.9) * 0.009;
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.fillStyle = `rgba(255,8,8,${caAmt.toFixed(4)})`; ctx.fillRect(1, 0, w, h);
-        ctx.fillStyle = `rgba(8,8,255,${caAmt.toFixed(4)})`; ctx.fillRect(-1, 0, w, h);
-        ctx.restore();
-
-        this.applyGameplayVisibilityPass(ctx, w, h, 0.05, 0.14);
+        // Darken the center again so the ball and paddles stay legible.
+        const lane = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w, h) * 0.47);
+        lane.addColorStop(0, 'rgba(1,5,15,0.72)');
+        lane.addColorStop(1, 'rgba(1,5,15,0)');
+        ctx.fillStyle = lane;
+        ctx.fillRect(0, 0, w, h);
     }
 
     // ------------------------------------------------------------------

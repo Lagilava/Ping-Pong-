@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="css/results.css">
     <link rel="stylesheet" href="css/textures.css">
     <link rel="stylesheet" href="css/achievement-redesign.css">
-    <link rel="stylesheet" href="css/speed-challenge-redesign.css">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js"></script>
 </head>
@@ -90,34 +89,6 @@
                     <div class="cooldown"></div>
                     <span class="label">Double Points</span>
                 </button>
-            </div>
-        </div>
-        <!-- Speed Challenge UI -->
-        <div class="speed-challenge" id="speedChallenge" data-level="1">
-            <div class="speed-challenge-stars" aria-hidden="true"></div>
-            <div class="speed-challenge-fx" aria-hidden="true">
-                <div class="speed-challenge-shutter top"></div>
-                <div class="speed-challenge-shutter bottom"></div>
-                <div class="speed-challenge-core"></div>
-            </div>
-            <div class="speed-challenge-content">
-                <div class="challenge-title">CLICK TO SAVE!</div>
-
-                <!-- Container for click targets (this is where targets will be spawned) -->
-                <div class="target-container"></div>
-
-                <!-- Timer progress bar with time display -->
-                <div class="challenge-timer">
-                    <div class="challenge-timer-fill" id="challengeTimerFill"></div>
-                    <div class="challenge-time-display" id="challengeTimeDisplay">0.0s</div>
-                    <div class="challenge-count" id="challengeCount">0/0</div>
-                </div>
-
-                <!-- Status message -->
-                <div class="challenge-status" id="challengeStatus">Ready to start!</div>
-
-                <!-- Difficulty indicator (optional) -->
-                <div class="target-difficulty" id="targetDifficulty">Level 1</div>
             </div>
         </div>
         <div class="zombie-wave-choice" id="zombieWaveChoice" aria-hidden="true">
@@ -473,7 +444,7 @@
 
                     <p id="customModeNotice" class="custom-mode-note">
                         Custom matches are two-player games on your Forge arena, on one screen or online. There is no
-                        computer opponent, Speed challenge, XP or achievements.
+                        computer opponent, XP or achievements.
                     </p>
                     <div class="customise-actions">
                         <button id="customStartMatchBtn" type="button" class="customise-start-btn">Start match</button>
@@ -606,8 +577,6 @@
     <script src="js/systems/achievement-icons.js"></script>
     <script src="js/systems/progression.js"></script>
     <script src="js/systems/profile.js"></script>
-    <script src="js/modes/speed-cockpit-scene.js"></script>
-    <script src="js/modes/speed-challenge.js"></script>
     <script src="js/ui/match-intro.js"></script>
     <script src="js/ui/settings-panel.js"></script>
     <script src="js/ui/results-card.js"></script>

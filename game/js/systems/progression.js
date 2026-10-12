@@ -110,14 +110,14 @@ class ProgressionSystem {
 
             speedChallenger: {
                 name: 'Speed Challenger',
-                description: 'Complete 3 speed challenges.',
-                joke: 'You volunteered for timed stress and called it fun.',
+                description: 'Reach 8 hits in 3 Speed Mode rallies.',
+                joke: 'You kept up when the ball stopped asking politely.',
                 unlocked: false
             },
 
             speedMaster: {
                 name: 'Speed Master',
-                description: 'Complete 7 speed challenges.',
+                description: 'Reach 8 hits in 7 Speed Mode rallies.',
                 joke: 'Your reaction time now qualifies as suspicious.',
                 unlocked: false
             },
@@ -367,7 +367,7 @@ class ProgressionSystem {
             clutchKing: { name: 'Clutch King', description: 'Win 10 matches by one point.', joke: 'Every win comes with a side of palpitations.', unlocked: false, progress: 0, maxProgress: 10 },
             powerSurge: { name: 'Power Surge', description: 'Use 50 power-ups.', joke: 'At this point you might be made of electricity.', unlocked: false, progress: 0, maxProgress: 50 },
             modeVeteran: { name: 'Mode Veteran', description: 'Win in 3 different special modes.', joke: 'You have a favorite mode, but will not admit it.', unlocked: false, progress: 0, maxProgress: 3 },
-            speedAddict: { name: 'Speed Addict', description: 'Complete 15 speed challenges.', joke: 'You now measure time in near misses.', unlocked: false, progress: 0, maxProgress: 15 }
+            speedAddict: { name: 'Speed Addict', description: 'Reach 8 hits in 15 Speed Mode rallies.', joke: 'You now measure time in near misses.', unlocked: false, progress: 0, maxProgress: 15 }
         };
 
 
@@ -1038,7 +1038,7 @@ class ProgressionSystem {
         this.saveProgress();
     }
 
-    recordSpeedChallenge() {
+    recordSpeedRally() {
         this.speedChallengesCompleted++;
         this.syncProgressAchievement('speedAddict', this.speedChallengesCompleted);
         if (this.speedChallengesCompleted >= 3 && !this.achievements.speedChallenger.unlocked) {
@@ -2294,5 +2294,3 @@ class ProgressionSystem {
         }
     }
 }
-
-// Speed Challenge System

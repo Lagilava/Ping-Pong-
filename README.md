@@ -230,7 +230,7 @@ game/                     Everything the browser loads
   js/
     core/                   Game class, globals + quality governor, vectors, boot
     entities/               Ball, paddles, power-ups, gravity wells
-    modes/                  Zombie boss, obstacle course + arcade layer, speed challenge
+    modes/                  Zombie boss, obstacle course + arcade layer
     render/                 Background renderer, WebGL post-processing
     menu/                   Three.js menu + menu bloom
     physics/                WebAssembly physics bridge (+ background simulation worker)
