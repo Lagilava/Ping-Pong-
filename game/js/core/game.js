@@ -126,6 +126,8 @@ class Game {
         this.zombieProgressWave = document.getElementById('zombieProgressWave');
         this.zombieProgressBreaches = document.getElementById('zombieProgressBreaches');
         this.zombieProgressBoosts = document.getElementById('zombieProgressBoosts');
+        this.zombiePullPill = document.getElementById('zombiePullPill');
+        this.zombiePullBar = document.getElementById('zombiePullBar');
         this.streakDisplay = document.getElementById('streakDisplay');
         this.difficultyDisplay = document.getElementById('difficultyDisplay');
         this.gameModeDisplay = document.getElementById('gameMode');
@@ -179,6 +181,7 @@ class Game {
         };
         this.lastRallyMilestone = 0;
         this.zombieState = this.createZombieModeState();
+        this.zombiePull = new ZombiePull(this);
 
         // Initialize intro system
         this.intro = new Intro(this);
@@ -2834,6 +2837,7 @@ class Game {
             this.setChallengePaused(false);
         }
         this.zombieState = this.createZombieModeState();
+        this.zombiePull?.reset();
         this._zombieNextServeDirection = null;
         this.syncZombieHUD();
     }
@@ -3080,6 +3084,22 @@ class Game {
             } else {
                 set(this.gameModeDisplay, this.getModeDisplayName(this.gameMode));
             }
+        }
+    }
+
+    // Pull meter in the corner pills (desktop). The paddle carries its own bar.
+    syncZombiePullHUD() {
+        const pull = this.zombiePull;
+        if (!this.zombiePullBar) return;
+        const pct = Math.round(pull.energy * 100);
+        if (this._zombiePullPct !== pct) {
+            this._zombiePullPct = pct;
+            this.zombiePullBar.style.transform = `scaleX(${pull.energy.toFixed(3)})`;
+        }
+        const low = pull.energy < ZombiePull.C.MIN_START;
+        if (this._zombiePullLow !== low) {
+            this._zombiePullLow = low;
+            this.zombiePullPill?.classList.toggle('low', low);
         }
     }
 
@@ -3516,6 +3536,8 @@ class Game {
 
         const state = this.zombieState;
         state.active = true;
+        this.zombiePull.update(dt);
+        this.syncZombiePullHUD();
 
         if (!state.waveStarted) {
             if (!state.briefingShown && this.showZombieBriefing()) return;
@@ -3577,6 +3599,7 @@ class Game {
             zombie.flash = Math.max(0, zombie.flash - dt * 7);
             zombie.hitCooldown = Math.max(0, zombie.hitCooldown - dt);
 
+            const pulled = this.zombiePull.affect(zombie, dt, slowMul);
             let targetX = zombie.homeX ?? zombie.x;
             let targetY = zombie.homeY ?? zombie.y;
             let steer = 18;
@@ -3615,19 +3638,21 @@ class Game {
             const dx = targetX - zombie.x;
             const dy = targetY - zombie.y;
             const dist = Math.hypot(dx, dy) || 1;
-            zombie.vx += (dx / dist) * steer * dt * 6;
-            zombie.vy += (dy / dist) * steer * dt * 5.4;
+            if (!pulled) {
+                zombie.vx += (dx / dist) * steer * dt * 6;
+                zombie.vy += (dy / dist) * steer * dt * 5.4;
 
-            if (zombie.typeKey === 'runner') {
-                zombie.vy += Math.sin(state.wavePhase * 2.3 + zombie.phaseOffset) * 6 * dt;
-            } else if (zombie.typeKey === 'spitter') {
-                zombie.vx += Math.cos(state.wavePhase * 1.8 + zombie.phaseOffset) * 4 * dt;
-            } else {
-                zombie.vx += Math.sin(state.wavePhase + zombie.phaseOffset) * 2.4 * dt;
+                if (zombie.typeKey === 'runner') {
+                    zombie.vy += Math.sin(state.wavePhase * 2.3 + zombie.phaseOffset) * 6 * dt;
+                } else if (zombie.typeKey === 'spitter') {
+                    zombie.vx += Math.cos(state.wavePhase * 1.8 + zombie.phaseOffset) * 4 * dt;
+                } else {
+                    zombie.vx += Math.sin(state.wavePhase + zombie.phaseOffset) * 2.4 * dt;
+                }
             }
 
             const speed = Math.hypot(zombie.vx, zombie.vy) || 1;
-            if (speed > maxSpeed) {
+            if (!pulled && speed > maxSpeed) {
                 zombie.vx = zombie.vx / speed * maxSpeed;
                 zombie.vy = zombie.vy / speed * maxSpeed;
             }
@@ -3677,12 +3702,18 @@ class Game {
             zombie.y += zombie.vy * dt * slowMul;
 
             const marches = zombie.typeKey === 'shambler' || zombie.typeKey === 'tank';
-            if (marches && zombie.x - zombie.radius <= barricadeX) {
-                this.applyZombieBarricadeHit(zombie);
-                if (this.matchEnding) return;
+            const dragged = zombie.pullTag > 0;
+            if ((marches || dragged) && zombie.x - zombie.radius <= barricadeX) {
+                if (dragged) {
+                    // Dragged to the line by the paddle: destroyed for points, no life lost.
+                    this.zombiePull.devour(zombie);
+                } else {
+                    this.applyZombieBarricadeHit(zombie);
+                    if (this.matchEnding) return;
+                }
                 continue;
             }
-            if (!marches && zombie.x - zombie.radius < corridorLeft) {
+            if (!marches && !dragged && zombie.x - zombie.radius < corridorLeft) {
                 zombie.x = corridorLeft + zombie.radius;
                 zombie.vx = Math.abs(zombie.vx);
             }
@@ -3886,12 +3917,14 @@ class Game {
 
         const state = this.zombieState;
         this.renderZombieBarricade(ctx, state);
+        this.zombiePull.renderField(ctx);
         for (let i = 0; i < state.pickups.length; i++) {
             this.renderZombiePickup(ctx, state.pickups[i]);
         }
         for (let i = 0; i < state.zombies.length; i++) {
             this.renderZombieEnemy(ctx, state.zombies[i]);
         }
+        this.zombiePull.renderTethers(ctx, state.zombies);
         for (let i = 0; i < state.spitBalls.length; i++) {
             this.renderZombieSpit(ctx, state.spitBalls[i]);
         }
@@ -5709,8 +5742,15 @@ class Game {
             this.mouseX = point.x;
             this.mouseY = point.y;
         });
+        this.canvas.addEventListener('contextmenu', (e) => { if (this.isZombieWaveMode()) e.preventDefault(); });
         this.canvas.addEventListener('pointerdown', (e) => {
             if (this.paused) return;
+            // Zombie mode: the right mouse button holds the Undead Pull.
+            if (e.pointerType === 'mouse' && e.button === 2 && this.isZombieWaveMode()) {
+                this.zombiePull.mouseHeld = true;
+                e.preventDefault();
+                return;
+            }
             if (e.pointerType === 'mouse' && e.button !== 0) return;
 
             const point = this.getCanvasPoint(e.clientX, e.clientY);
@@ -5730,6 +5770,10 @@ class Game {
                 const paddle = target === 'ai' ? this.aiPaddle : this.player;
                 if (e.pointerType === 'touch' && paddle?.hasLaser) {
                     this.keys[target === 'ai' ? 'enter' : ' '] = true;
+                    e.preventDefault();
+                } else if (e.pointerType === 'touch' && target === 'player' && this.isZombieWaveMode() && this.zombiePull.touchId === null) {
+                    // Second finger on your half holds the Undead Pull.
+                    this.zombiePull.touchId = e.pointerId;
                     e.preventDefault();
                 }
                 return;
@@ -5784,6 +5828,8 @@ class Game {
             }
         }, { passive: false });
         const releasePointer = (e) => {
+            if (e.pointerType === 'mouse' && e.button === 2) this.zombiePull.mouseHeld = false;
+            if (this.zombiePull.touchId === e.pointerId) this.zombiePull.touchId = null;
             if (this.pointerControls.player === e.pointerId) {
                 this.pointerControls.player = null;
                 this.touch.active = false;
@@ -5794,6 +5840,7 @@ class Game {
         };
         this.canvas.addEventListener('pointerup', releasePointer);
         this.canvas.addEventListener('pointercancel', releasePointer);
+        window.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse' && e.button === 2) this.zombiePull.mouseHeld = false; });
         window.addEventListener('keydown', e => {
             // An open settings/audio/help panel takes Escape first.
             if (e.key === 'Escape' && window.ppCloseOpenPanel?.()) {
@@ -8353,7 +8400,13 @@ class Game {
         this.renderAdditionalBalls();
         this.updatePaddleAnticipation(renderDt);
         // draw player and AI paddles every frame regardless of mode
+        const pullLook = this.isZombieWaveMode();
+        if (pullLook) this.zombiePull.beginPaddle(ctx);
         this.player.render(ctx);
+        if (pullLook) {
+            this.zombiePull.endPaddle(ctx);
+            this.zombiePull.renderPaddle(ctx);
+        }
         if (this.isZombieWaveMode() && this.player) {
             const state = this.zombieState;
             const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.01);
@@ -8536,6 +8589,7 @@ class Game {
         const alpha = this.accumulator / physicsStepDt;
         const renderStartMs = performance.now();
         this.render(alpha);
+        this.postFx?.setPullField(this.isZombieWaveMode() ? this.zombiePull.getFieldState() : null);
         this.postFx?.present(frameTime);
         this.updatePerfOverlay();
         const renderTimeMs = performance.now() - renderStartMs;

@@ -97,6 +97,16 @@ class PostFX {
         this.ripples.push({ x: x / w, y: 1 - y / h, age: 0, strength: Math.min(1.2, strength) });
     }
 
+    /**
+     * Zombie mode's Undead Pull: a band in front of the paddle where the scene
+     * is dragged towards the paddle and streaked with flowing light. `f` is
+     * { x, y, range, half (canvas px), k (0..1 open), snap, exhaust } or null.
+     */
+    setPullField(f) {
+        if (!f || !this.active || this.quality > 2) { this.pullField = null; return; }
+        this.pullField = f;
+    }
+
     /** Short chromatic/flash kick on impacts. amount ~0..1 */
     punch(amount = 0.5) {
         this.punchAmount = Math.min(1.5, Math.max(this.punchAmount, amount));
@@ -162,6 +172,16 @@ class PostFX {
         }
 
         const rip = this._rippleUniforms();
+        const pf = this.pullField;
+        let fieldA = this._fieldA || (this._fieldA = new Float32Array(4));
+        let fieldB = this._fieldB || (this._fieldB = new Float32Array(4));
+        if (pf) {
+            const cw = this.source.clientWidth || 1, ch = this.source.clientHeight || 1;
+            fieldA[0] = pf.x / cw; fieldA[1] = 1 - pf.y / ch; fieldA[2] = pf.k; fieldA[3] = pf.range / cw;
+            fieldB[0] = pf.half / ch; fieldB[1] = pf.snap; fieldB[2] = pf.exhaust; fieldB[3] = 0;
+        } else {
+            fieldA[2] = 0; fieldB[1] = 0;
+        }
         this._pass(this.progComposite, null, {
             uScene: this.sceneTex,
             uBloomA: qA.tex,
@@ -174,6 +194,8 @@ class PostFX {
             uBloomWide: this.quality === 0 ? 1.0 : 0.0,
             uPunch: this.punchAmount,
             uRip: rip,
+            uFieldA: fieldA,
+            uFieldB: fieldB,
             uTint: this.grade.tint,
             uShadow: this.grade.shadow,
             uHighlight: this.grade.highlight,
@@ -339,6 +361,7 @@ class PostFX {
             uniform vec2 uRes;
             uniform float uTime, uBloom, uBloomWide, uPunch, uDetail, uNoir;
             uniform vec4 uRip[6];
+            uniform vec4 uFieldA, uFieldB;
             uniform vec3 uTint, uShadow, uHighlight;
             uniform float uSat, uContrast;
 
@@ -368,6 +391,58 @@ class PostFX {
                 }
                 uv += off;
 
+                // Undead Pull field (zombie mode): a band in front of the paddle.
+                // Inside it the scene is dragged towards the paddle, funnelled
+                // to its height and crossed by streaks and shrinking rings.
+                vec3 fieldCol = vec3(0.0);
+                float fieldDim = 0.0;
+                if (uFieldA.z > 0.001 || uFieldB.y > 0.001) {
+                    float k = uFieldA.z;
+                    float dx = (uv.x - uFieldA.x) / uFieldA.w;
+                    float dy = (uv.y - uFieldA.y) / uFieldB.x;
+                    float inX = smoothstep(-0.02, 0.07, dx) * (1.0 - smoothstep(0.82, 1.0, dx));
+                    float inY = 1.0 - smoothstep(0.72, 1.0, abs(dy));
+                    float mask = inX * inY;
+                    float near = 1.0 - clamp(dx, 0.0, 1.0);
+
+                    // Refraction: a wave rolling towards the paddle, plus a funnel.
+                    float wave = sin(dx * 34.0 + uTime * 11.0 + sin(dy * 5.0 + uTime) * 1.5);
+                    vec2 pull = vec2(0.018 * near + 0.004 * wave, -(dy * uFieldB.x) * 0.16 * near);
+                    uv += pull * mask * k;
+
+                    // Streaks: thin lanes of light sliding left, faster near the paddle.
+                    float rows = (dy + 1.0) * 11.0;
+                    float lane = hash(vec2(floor(rows), 7.0));
+                    float thin = smoothstep(0.40, 0.5, fract(rows)) * (1.0 - smoothstep(0.5, 0.60, fract(rows)));
+                    float speed = 7.0 + near * 10.0 + lane * 5.0;
+                    float dash = pow(0.5 + 0.5 * sin(dx * (14.0 + lane * 20.0) + uTime * speed + lane * 30.0), 5.0);
+                    float streak = dash * thin * step(0.35, lane) * smoothstep(0.0, 0.25, dx);
+
+                    // Rings contracting into the maw.
+                    vec2 q = vec2((uv.x - uFieldA.x) * aspect.x, uv.y - uFieldA.y);
+                    float rr = length(q) / (uFieldA.w * aspect.x);
+                    float rings = pow(0.5 + 0.5 * sin(rr * 46.0 + uTime * 14.0), 12.0) * (1.0 - smoothstep(0.1, 1.0, rr));
+
+                    // Soft edges so the reach reads.
+                    float edgeY = exp(-pow((abs(dy) - 0.97) * 26.0, 2.0)) * inX;
+                    float edgeX = exp(-pow((dx - 0.985) * 26.0, 2.0)) * inY;
+
+                    vec3 green = vec3(0.55, 1.0, 0.45);
+                    vec3 violet = vec3(0.7, 0.4, 1.0);
+                    fieldCol = (streak * green * 0.95 + rings * violet * 0.9 + (edgeY + edgeX) * violet * 0.5) * mask * k;
+                    fieldCol += (0.35 + near) * mask * k * vec3(0.05, 0.12, 0.05);
+                    fieldDim = mask * k * 0.1;
+
+                    // Release: one shock ring from the maw.
+                    float sn = uFieldB.y;
+                    if (sn > 0.0) {
+                        float ringR = (1.0 - sn) * 0.9;
+                        fieldCol += exp(-pow((rr * 1.6 - ringR) * 14.0, 2.0)) * sn * green * 0.4;
+                    }
+                    // Out of energy: the field sputters.
+                    if (uFieldB.z > 0.5) fieldCol *= 0.5 + 0.5 * step(0.0, sin(uTime * 70.0));
+                }
+
                 // Chromatic aberration: subtle at the edges, kicked by impacts.
                 vec2 cc = uv - 0.5;
                 vec2 ca = cc * (0.002 * uDetail + uPunch * 0.007) + off * 0.5;
@@ -381,6 +456,7 @@ class PostFX {
                 vec3 dirt = texture2D(uDirt, vUv).rgb;
                 col += uBloom * (bloom * 0.24 + bloom * dirt * 0.4);
                 col += ringGlow * 0.08 * vec3(0.6, 0.9, 1.0);
+                col = col * (1.0 - fieldDim) + fieldCol;
 
                 // Grade (per mode): saturation, contrast, split-tone (shadows
                 // and highlights pushed towards different hues), overall tint.

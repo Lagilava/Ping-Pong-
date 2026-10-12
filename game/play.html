@@ -27,6 +27,7 @@
             <div class="zombie-progress-pill" id="zombieProgressWave">Wave <strong>1/10</strong></div>
             <div class="zombie-progress-pill" id="zombieProgressBreaches">Lives <strong class="zombie-hearts">&#9829;&#9829;&#9829;&#9829;&#9829;</strong></div>
             <div class="zombie-progress-pill empty" id="zombieProgressBoosts"></div>
+            <div class="zombie-progress-pill zombie-pull-pill" id="zombiePullPill">Pull <span class="zombie-pull-meter" aria-hidden="true"><i id="zombiePullBar"></i></span> <kbd>Hold Space</kbd></div>
         </div>
         <div class="hud" id="hud">
             <div class="score-container">
@@ -165,6 +166,7 @@
                 <ul class="zombie-briefing-rules">
                     <li><span class="choice-icon">🧟</span><span><strong>Clear each wave</strong> by smashing every zombie with the ball, or by scoring past the boss until its health bar is empty.</span></li>
                     <li><span class="choice-icon">❤️</span><span><strong>5 lives for the whole run.</strong> You lose one when the ball gets past you or a zombie reaches your barricade.</span></li>
+                    <li><span class="choice-icon">🌀</span><span><strong>Hold Space to pull zombies</strong> towards your barricade line. They are destroyed there for points and cost no life. It reaches less than half the court and only above and below your paddle, and it needs energy (right mouse button, or a second finger on touch).</span></li>
                     <li><span class="choice-icon">🎁</span><span><strong>Pick a reward</strong> after every wave. Grab glowing orbs with the ball for bonus powers.</span></li>
                     <li><span class="choice-icon">👑</span><span><strong>Wave 10 is the boss fight.</strong> Knock the boss out to win.</span></li>
                 </ul>
@@ -590,6 +592,7 @@
     <script src="js/modes/custom-backgrounds.js"></script>
     <script src="js/modes/forge.js"></script>
     <script src="js/modes/zombie-boss-look.js"></script>
+    <script src="js/modes/zombie-pull.js"></script>
     <script src="js/modes/zombie-boss.js"></script>
     <script src="js/audio/ai-voice.js"></script>
     <script src="js/entities/power-up.js"></script>

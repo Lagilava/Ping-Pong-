@@ -6351,6 +6351,12 @@ body.pp-lowfx .achievements * {
     display: none;
 }
 
+.zombie-pull-pill { display: flex; align-items: center; gap: 8px; }
+.zombie-pull-meter { flex: 1; min-width: 60px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.zombie-pull-meter i { display: block; height: 100%; width: 100%; transform-origin: left; background: linear-gradient(90deg, #7dff9b, #c9a0ff); }
+.zombie-pull-pill.low .zombie-pull-meter i { background: #ff6b6b; }
+.zombie-pull-pill kbd { padding: 1px 6px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 5px; font: 600 10px/1.4 inherit; letter-spacing: 0.06em; color: #d9ffe0; }
+
 .zombie-progress-pill .zombie-hearts {
     color: #ff5a6e;
     font-family: 'Segoe UI Symbol', 'Arial Unicode MS', sans-serif;

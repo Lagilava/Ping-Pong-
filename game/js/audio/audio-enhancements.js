@@ -1009,7 +1009,7 @@ class EnhancedAudioEngine {
         const methods = [
             'hit', 'bounce', 'score', 'powerUp', 'levelUp', 'achievement',
             'obstacleHit', 'paddleShrink', 'freezeEffect', 'gameStart', 'uiClick',
-            'zombieWave', 'zombieHit', 'zombieSpit', 'zombieBreach', 'zombieChoice',
+            'zombieWave', 'zombieHit', 'zombieSpit', 'zombieBreach', 'zombieChoice', 'zombiePull',
             'speedChallenge', 'speedChallengeSuccess', 'speedChallengeFail',
             'rallyMilestone', 'createSound', 'createScoreSound', 'createLevelUpSound',
             'startGravityWellSound', 'stopGravityWellSound', 'laser', 'slingshot',
@@ -1642,6 +1642,25 @@ class EnhancedAudioEngine {
             });
             if (sound.bassSwoosh) {
                 setTimeout(() => this.createSound(sound.bassSwoosh, 'sine', 0.12, 0.2), 20);
+            }
+        });
+    }
+
+    // Undead Pull sounds: 'start' (a low swell), 'tick' (a short rising growl
+    // repeated while the pull is held), 'devour' (a gulp), 'end' and 'empty'.
+    zombiePull(kind = 'tick') {
+        this.ensureContext().then(() => {
+            if (kind === 'start') {
+                this.createSound(70, 'sawtooth', 0.32, 0.22, { sweep: true, sweepStart: 55, sweepEnd: 170, attack: 0.03, release: 0.2 });
+            } else if (kind === 'tick') {
+                this.createSound(96, 'triangle', 0.22, 0.12, { sweep: true, sweepStart: 80, sweepEnd: 150, attack: 0.04, release: 0.14 });
+            } else if (kind === 'devour') {
+                this.createSound(200, 'square', 0.16, 0.2, { sweep: true, sweepStart: 320, sweepEnd: 90, attack: 0.005, release: 0.1 });
+                this.createSound(60, 'sine', 0.22, 0.26, { attack: 0.005, release: 0.18 });
+            } else if (kind === 'end') {
+                this.createSound(160, 'triangle', 0.16, 0.14, { sweep: true, sweepStart: 170, sweepEnd: 60, attack: 0.005, release: 0.1 });
+            } else if (kind === 'empty') {
+                this.createSound(120, 'sawtooth', 0.28, 0.16, { sweep: true, sweepStart: 150, sweepEnd: 45, attack: 0.005, release: 0.2 });
             }
         });
     }
