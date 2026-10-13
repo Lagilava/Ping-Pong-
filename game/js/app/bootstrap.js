@@ -82,36 +82,39 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: linear-gradient(145deg, #071534 0%, #030b1d 100%);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            color: white;
-            font-family: Arial, sans-serif;
+            color: rgba(170, 215, 248, 0.88);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: clamp(12px, 1.4vw, 14px);
+            letter-spacing: 0.28em;
+            text-transform: uppercase;
             transition: opacity 0.5s;
         }
         #game-loading.hidden {
             opacity: 0;
             pointer-events: none;
         }
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #333;
-            border-top: 5px solid #4CAF50;
+        #game-loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(120, 190, 245, 0.18);
+            border-top-color: rgba(120, 200, 255, 0.9);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
+            animation: ppLoadSpin 1s linear infinite;
+            margin-bottom: 22px;
         }
-        @keyframes spin {
+        @keyframes ppLoadSpin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
     </style>
     <div class="spinner"></div>
-    <div>Loading Game...</div>
+    <div>Loading</div>
 `;
             document.body.appendChild(loadingDiv);
         }

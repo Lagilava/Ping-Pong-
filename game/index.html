@@ -84,7 +84,15 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: linear-gradient(145deg, #071534 0%, #030b1d 100%);
             overflow: hidden;
-            font-family: 'Rajdhani', sans-serif;
+            font-family: var(--boot-mono);
+            /* One shared type + colour scale for every line of text on this screen. */
+            --boot-mono: 'Share Tech Mono', monospace;
+            --boot-display: 'Orbitron', sans-serif;
+            --boot-ink: rgba(225,245,255,0.96);
+            --boot-ink-2: rgba(170,215,248,0.88);
+            --boot-ink-3: rgba(150,200,240,0.78);
+            --boot-line: rgba(120,190,245,0.45);
+            --boot-track: 0.28em;
         }
 
         /* Animated grid background */
@@ -137,7 +145,7 @@
         }
         #overlayLogoSmall {
             font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(10px, 1.2vw, 12px); letter-spacing: 0.35em; color: rgba(150,200,240,0.82);
+            font-size: clamp(10px, 1.2vw, 12px); letter-spacing: var(--boot-track); color: var(--boot-ink-3);
             text-transform: uppercase; margin-bottom: 18px;
             display: flex; align-items: center; gap: 12px; justify-content: center;
         }
@@ -146,20 +154,20 @@
         }
 
         #overlayMainText {
-            font-family: 'Orbitron', sans-serif;
+            font-family: var(--boot-display);
             font-size: clamp(14px, 3.2vw, 36px);
             font-weight: 700; letter-spacing: 0.18em;
-            text-transform: uppercase; color: rgba(235,255,255,0.97);
-            text-shadow: 0 0 18px rgba(100,200,255,0.7), 0 0 50px rgba(70,170,235,0.25);
+            text-transform: uppercase; color: var(--boot-ink);
+            text-shadow: 0 0 10px rgba(100,200,255,0.55), 0 0 28px rgba(70,170,235,0.18);
             margin-bottom: 28px; line-height: 1.2;
         }
 
         /* Status bars / boot sequence */
         #bootSequence {
             margin: 32px auto 0; width: clamp(260px, 50vw, 420px);
-            font-family: 'Share Tech Mono', monospace;
+            font-family: var(--boot-mono);
             font-size: clamp(11px,1.3vw,13px);
-            letter-spacing: 0.1em; color: rgba(170,210,245,0.85);
+            letter-spacing: 0.14em; color: var(--boot-ink-2);
         }
         .boot-line {
             display: flex; align-items: center; gap: 10px;
@@ -167,8 +175,8 @@
             animation: bootLineIn 0.25s ease forwards;
         }
         .boot-line kbd {
-            flex: 0 0 auto; font: inherit; color: rgba(225,245,255,0.96);
-            padding: 2px 7px; border: 1px solid rgba(120,190,245,0.45); border-radius: 4px;
+            flex: 0 0 auto; font: inherit; color: var(--boot-ink);
+            padding: 2px 7px; border: 1px solid var(--boot-line); border-radius: 4px;
             background: rgba(40,80,130,0.25);
         }
         .boot-line .keys { display: flex; gap: 6px; flex: 0 0 auto; }
@@ -183,20 +191,20 @@
             animation: barFill 0.6s ease forwards;
             animation-delay: inherit;
         }
-        .boot-line .label { flex: 0 0 auto; min-width: 110px; text-align: left; text-transform: uppercase; color: rgba(170,210,245,0.85); }
+        .boot-line .label { flex: 0 0 auto; min-width: 110px; text-align: left; text-transform: uppercase; color: var(--boot-ink-2); }
 
         /* TAP prompt */
         #tapPrompt {
             margin-top: 48px; position: relative; z-index: 2;
             opacity: 0; animation: tapPulse 2.2s ease-in-out 1.8s infinite;
-            font-family: 'Rajdhani', sans-serif;
-            font-size: clamp(12px, 1.5vw, 15px);
-            letter-spacing: 0.4em; text-transform: uppercase;
-            color: rgba(200,230,255,0.95);
+            font-family: var(--boot-mono);
+            font-size: clamp(12px, 1.4vw, 14px);
+            letter-spacing: var(--boot-track); text-transform: uppercase;
+            color: var(--boot-ink);
             display: flex; align-items: center; gap: 14px;
         }
         #tapPrompt::before, #tapPrompt::after {
-            content: ''; width: 24px; height: 1px; background: rgba(140,200,245,0.55);
+            content: ''; width: 24px; height: 1px; background: var(--boot-line);
         }
 
         /* Decorative radial pulse behind main text */
@@ -219,8 +227,8 @@
             /* Indented past the corner brackets so the text never crosses them. */
             padding: clamp(12px,2.5vh,22px) calc(clamp(20px,5vw,60px) + 44px);
             display: flex; justify-content: space-between; align-items: center;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: clamp(10px,1vw,12px); letter-spacing: 0.25em; color: rgba(150,200,240,0.78);
+            font-family: var(--boot-mono);
+            font-size: clamp(10px,1.2vw,12px); letter-spacing: var(--boot-track); color: var(--boot-ink-3);
             text-transform: uppercase;
             border-bottom: 1px solid rgba(100,160,220,0.06);
             opacity: 0; animation: cornerFadeIn 0.8s ease 0.2s forwards;
@@ -252,8 +260,8 @@
         }
         @keyframes glitchFlash {
             0% { clip-path: inset(20% 0 60% 0); transform: translate(-4px); color: rgba(120,200,255,0.9); }
-            50% { clip-path: inset(60% 0 10% 0); transform: translate(4px); color: rgba(255,120,80,0.9); }
-            100% { clip-path: none; transform: none; color: rgba(200,225,248,0.96); }
+            50% { clip-path: inset(60% 0 10% 0); transform: translate(4px); color: rgba(150,230,255,0.9); }
+            100% { clip-path: none; transform: none; color: var(--boot-ink); }
         }
 
         /* Collapsing transition when authorizing into the intro - enhanced flow */
@@ -737,7 +745,7 @@
                 ['pointerdown','keydown'].forEach(evt => document.addEventListener(evt, skipToGame, { once: true }));
                 const hint = document.createElement('div');
                 hint.textContent = 'Click or press any key to skip';
-                hint.style.cssText = 'position:fixed;right:24px;bottom:20px;z-index:50;color:rgba(200,235,255,0.85);font:13px/1 "Share Tech Mono",monospace;letter-spacing:0.18em;text-transform:uppercase;pointer-events:none;';
+                hint.style.cssText = 'position:fixed;right:24px;bottom:20px;z-index:50;color:rgba(150,200,240,0.78);font:12px/1 "Share Tech Mono",monospace;letter-spacing:0.28em;text-transform:uppercase;pointer-events:none;';
                 document.body.appendChild(hint);
             }, 900);
 
