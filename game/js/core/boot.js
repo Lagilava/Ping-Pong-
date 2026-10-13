@@ -26,11 +26,7 @@
 
     const skipIntroFlag = (() => {
         try {
-            // Online invite links: play.html?from_intro=1&join=CODE
-    if (params.has('join')) {
-        window.PP_JOIN_CODE = String(params.get('join') || '').slice(0, 12);
-    }
-    if (params.has('return_to_menu')) {
+            if (params.has('return_to_menu')) {
                 sessionStorage.setItem('pp-return-to-menu', '1');
                 sessionStorage.setItem('pp-skip-intro', '1');
             }
@@ -45,7 +41,18 @@
         }
     })();
 
-    if (!params.has('from_intro') && !skipIntroFlag) {
+    // Reloaded while in an online room: skip the title screen, js/net/online.js
+    // takes the player straight back into the room.
+    const rejoiningOnline = (() => {
+        try {
+            const d = JSON.parse(sessionStorage.getItem('pp-online-room') || 'null');
+            return !!d && Date.now() - Number(d.at || 0) < 5 * 60 * 1000;
+        } catch (e) {
+            return false;
+        }
+    })();
+
+    if (!params.has('from_intro') && !skipIntroFlag && !rejoiningOnline) {
         window.location.replace('index.html');
         return;
     }

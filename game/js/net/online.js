@@ -12,20 +12,28 @@
 (function () {
     'use strict';
 
-    const PROTOCOL = 1;
+    const PROTOCOL = 2;
     const ID_PREFIX = 'neon-pingpong-v1-';
     const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     const CODE_LENGTH = 5;
     const ONLINE_MODES = [
         { id: 'classic', name: 'Classic' },
+        { id: 'zombie', name: 'Zombie' },
         { id: 'gravity', name: 'Gravity' },
+        { id: 'speed', name: 'Speed' },
         { id: 'obstacle', name: 'Obstacle' },
         { id: 'customise', name: 'Custom' },
     ];
     const SNAPSHOT_HZ = 40;
     const INPUT_HZ = 60;
     const LINK_TIMEOUT_MS = 7000;   // no message for this long: connection lost
+    const HIDDEN_LINK_TIMEOUT_MS = 90000;   // the other tab is in the background (its timers crawl)
     const CONNECT_TIMEOUT_MS = 15000;
+    const RECONNECT_MS = 45000;     // how long a dropped link may take to come back (a reload included)
+    const REDIAL_MS = 2500;
+    const DIAL_PATIENCE_MS = 9000;  // let a slow attempt finish before starting another
+    const REJOIN_KEY = 'pp-online-room';   // sessionStorage: get back into the room after a reload
+    const REJOIN_MAX_AGE_MS = 5 * 60 * 1000;
 
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -44,6 +52,30 @@
     function cleanCode(text) {
         const up = String(text || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
         return up.replace(/O/g, '0').replace(/I|L/g, '1').split('').filter((c) => CODE_CHARS.includes(c)).join('').slice(0, CODE_LENGTH);
+    }
+
+    function randomToken() {
+        const bytes = new Uint8Array(8);
+        crypto.getRandomValues(bytes);
+        return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function saveRejoin(data) {
+        try { sessionStorage.setItem(REJOIN_KEY, JSON.stringify({ ...data, at: Date.now() })); } catch (_) { /* ignore */ }
+    }
+
+    function readRejoin() {
+        try {
+            const d = JSON.parse(sessionStorage.getItem(REJOIN_KEY) || 'null');
+            if (!d || Date.now() - num(d.at) > REJOIN_MAX_AGE_MS) return null;
+            const code = cleanCode(d.code);
+            if (code.length !== CODE_LENGTH || (d.role !== 'host' && d.role !== 'guest')) return null;
+            return { role: d.role, code, token: String(d.token || '').slice(0, 32) };
+        } catch (_) { return null; }
+    }
+
+    function clearRejoin() {
+        try { sessionStorage.removeItem(REJOIN_KEY); } catch (_) { /* ignore */ }
     }
 
     function cleanDesign(id) {
@@ -82,20 +114,30 @@
     let session = null;
 
     class Session {
-        constructor(role, ui) {
+        constructor(role, ui, opts = {}) {
             this.role = role;               // 'host' | 'guest'
             this.ui = ui;
             this.peer = null;
-            this.conn = null;
+            this.conn = null;               // the link to the other player, once it said hello
+            this.dialing = null;            // guest: the connection attempt in flight
             this.code = '';
             this.closed = false;
-            this.connected = false;
+            this.connected = false;         // we have a partner (the link itself may be reconnecting)
+            this.hadPartner = false;
+            this.reconnecting = false;
+            this.token = role === 'guest' ? (opts.token || randomToken()) : '';
+            this.partnerToken = '';         // host: the guest that may reconnect
+            this.keepCode = !!opts.keepCode;    // host reopening its room after a reload
+            this.codeTries = 0;
             this.localName = cleanName(window.PPSettings?.get('playerName'), role === 'host' ? 'Host' : 'Guest');
             this.remoteName = role === 'host' ? 'Guest' : 'Host';
+            this.remoteHidden = false;
             this.mode = 'classic';
             this.rtt = 80;
             this.lastHeard = 0;
             this.timers = [];
+            this.series = { left: 0, right: 0 };   // wins this session, by side
+            this.matchNo = 0;
             // Match state
             this.inMatch = false;
             this.remoteReady = false;
@@ -116,34 +158,67 @@
         get game() { return window.game; }
         get oneWay() { return clamp(this.rtt / 2000, 0, 0.25); }   // seconds
         localSide() { return this.role === 'host' ? 'left' : 'right'; }
+        inGame() { const g = this.game; return !!g && g.net === this; }
 
         // ── Connection ─────────────────────────────────────────────────
+        // Every link starts as a candidate and only becomes `this.conn` once
+        // its hello checks out. A guest whose link drops redials the host for
+        // RECONNECT_MS; the host keeps the room open and lets the same guest
+        // (matched by token) back in, even after a page reload.
         async open(code) {
             const Peer = await loadPeerLib();
             if (this.closed) return;
             this.code = code;
-            const id = this.role === 'host' ? ID_PREFIX + code : undefined;
-            const peer = new Peer(id, { debug: 0, ...peerOptions() });
+            this.Peer = Peer;
+            this.openPeer();
+        }
+
+        openPeer() {
+            if (this.closed) return;
+            const id = this.role === 'host' ? ID_PREFIX + this.code : undefined;
+            const peer = new this.Peer(id, { debug: 0, ...peerOptions() });
             this.peer = peer;
-            peer.on('error', (err) => this.onPeerError(err));
+            peer.on('error', (err) => { if (peer === this.peer) this.onPeerError(err); });
             peer.on('disconnected', () => {
-                // Lost the broker. A live match keeps going over the direct link.
-                if (!this.closed && !this.connected) { try { peer.reconnect(); } catch (_) { /* ignore */ } }
+                // Lost the broker. Live links carry on directly; stay findable
+                // so a dropped or reloaded partner can get back in.
+                if (this.closed || peer !== this.peer) return;
+                clearTimeout(this.brokerTimer);
+                this.brokerTimer = setTimeout(() => {
+                    if (this.closed || peer !== this.peer || peer.destroyed || !peer.disconnected) return;
+                    try { peer.reconnect(); } catch (_) { /* ignore */ }
+                }, 1000);
             });
             if (this.role === 'host') {
-                peer.on('open', () => this.ui.hostWaiting(code));
-                peer.on('connection', (conn) => {
-                    if (this.conn) { try { conn.close(); } catch (_) { /* ignore */ } return; }   // room full
-                    this.attach(conn);
-                });
-            } else {
                 peer.on('open', () => {
-                    const conn = peer.connect(ID_PREFIX + code, { reliable: true, serialization: 'json' });
-                    this.attach(conn);
-                    this.connectTimer = setTimeout(() => {
-                        if (!this.connected && !this.closed) this.fail('Could not reach that room. Check the code, and that your friend still has the room open.');
-                    }, CONNECT_TIMEOUT_MS);
+                    this.codeTries = 0;
+                    saveRejoin({ role: 'host', code: this.code });
+                    if (!this.connected) this.ui.hostWaiting(this.code);
                 });
+                peer.on('connection', (conn) => this.attach(conn));
+            } else {
+                peer.on('open', () => this.dial());
+            }
+        }
+
+        // Guest: open a link to the host (first time, or again after a drop).
+        dial() {
+            if (this.closed || this.role !== 'guest') return;
+            if (this.conn && this.conn.open && !this.reconnecting) return;
+            const peer = this.peer;
+            if (!peer || peer.destroyed) { this.openPeer(); return; }
+            if (peer.disconnected || !peer.open) return;   // 'open' dials again
+            if (this.dialing && performance.now() - this.dialedAt < DIAL_PATIENCE_MS) return;
+            try { this.dialing?.close(); } catch (_) { /* ignore */ }
+            const conn = peer.connect(ID_PREFIX + this.code, { reliable: true, serialization: 'json' });
+            if (!conn) return;
+            this.dialing = conn;
+            this.dialedAt = performance.now();
+            this.attach(conn);
+            if (!this.hadPartner && !this.connectTimer) {
+                this.connectTimer = setTimeout(() => {
+                    if (!this.connected && !this.closed) this.fail('Could not reach that room. Check the code, and that your friend still has the room open.');
+                }, CONNECT_TIMEOUT_MS);
             }
         }
 
@@ -151,49 +226,249 @@
             if (this.closed) return;
             const type = err?.type || '';
             if (type === 'unavailable-id') {
-                // Code already taken (very unlikely): try another.
+                // Code taken. Reopening our own room after a reload: the broker
+                // may not have let go of it yet, so try it a few more times.
                 try { this.peer.destroy(); } catch (_) { /* ignore */ }
                 this.peer = null;
-                this.open(randomCode()).catch((e) => this.fail(e.message));
+                if (this.keepCode && ++this.codeTries < 5) {
+                    this.timers.push(setTimeout(() => this.openPeer(), 1500));
+                    return;
+                }
+                this.keepCode = false;
+                this.code = randomCode();
+                this.openPeer();
                 return;
             }
+            // Mid-session the link (or the redial loop) decides what happens.
+            if (this.hadPartner) return;
             if (type === 'peer-unavailable') return this.fail('No room with that code. Check the code with your friend.');
             if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
-                if (this.connected) return;   // the direct link may still be fine
+                if (this.role === 'host' && this.peer?.open) return;
                 return this.fail('Could not reach the online service. Check your internet connection and try again.');
             }
             if (type === 'browser-incompatible') return this.fail('This browser does not support online play. Try an up-to-date Chrome, Edge, Firefox or Safari.');
-            if (!this.connected) this.fail('Connection failed (' + (type || 'unknown') + '). Try again.');
+            this.fail('Connection failed (' + (type || 'unknown') + '). Try again.');
         }
 
         attach(conn) {
-            this.conn = conn;
             conn.on('open', () => {
-                clearTimeout(this.connectTimer);
-                this.connected = true;
+                if (this.closed) { try { conn.close(); } catch (_) { /* ignore */ } return; }
+                // The guest says hello first; the host answers only once it lets them in.
+                if (this.role === 'guest') { try { conn.send(this.helloMessage()); } catch (_) { /* closing */ } }
+            });
+            conn.on('data', (msg) => {
+                if (this.closed || !msg || typeof msg !== 'object') return;
+                if (conn !== this.conn) {
+                    if (msg.t === 'hello') this.onHello(conn, msg);
+                    else if (msg.t === 'full' && this.role === 'guest') this.fail(msg.why === 'version'
+                        ? 'Your friend is on a different version of the game. Both of you reload the page and try again.'
+                        : 'That room already has two players. Ask your friend for a new code.');
+                    return;
+                }
                 this.lastHeard = performance.now();
-                this.send({ t: 'hello', v: PROTOCOL, name: this.localName, paddles: window.PPSettings?.get('paddles') || null });
+                try { this.onMessage(msg); } catch (e) { console.error('[Online]', e); }
+            });
+            conn.on('close', () => this.onLinkClosed(conn));
+            conn.on('error', () => this.onLinkClosed(conn));
+            const pc = conn.peerConnection;
+            if (pc) {
+                pc.addEventListener?.('iceconnectionstatechange', () => {
+                    if (pc.iceConnectionState !== 'failed') return;
+                    if (conn === this.conn) this.linkDown();
+                    else if (!this.hadPartner && this.role === 'guest') this.fail('Could not connect directly to your friend. One of your networks blocks peer-to-peer games; try another network (a phone hotspot often works).');
+                });
+            }
+        }
+
+        helloMessage() {
+            const g = this.game;
+            const live = this.inGame() && this.inMatch;
+            return {
+                t: 'hello', v: PROTOCOL, name: this.localName, token: this.token,
+                paddles: window.PPSettings?.get('paddles') || null,
+                mode: this.mode, series: this.series, pts: this.pointsToWin(),
+                state: { inMatch: live, ending: live && !!g.matchEnding, n: this.matchNo },
+            };
+        }
+
+        onHello(conn, msg) {
+            const reject = (why) => {
+                try { conn.send({ t: 'full', why }); } catch (_) { /* ignore */ }
+                setTimeout(() => { try { conn.close(); } catch (_) { /* ignore */ } }, 400);
+            };
+            if (msg.v !== PROTOCOL) {
+                if (this.role === 'guest') return this.fail('Your friend is on a different version of the game. Both of you reload the page and try again.');
+                return reject('version');
+            }
+            // Host: once someone is in, only that same player may come back.
+            if (this.role === 'host' && this.hadPartner && !(msg.token && msg.token === this.partnerToken)) return reject('full');
+            this.adopt(conn, msg);
+        }
+
+        adopt(conn, hello) {
+            const rejoin = this.hadPartner;
+            const old = this.conn;
+            this.conn = conn;
+            if (this.dialing === conn) this.dialing = null;
+            if (old && old !== conn) setTimeout(() => { try { old.close(); } catch (_) { /* ignore */ } }, 50);
+            clearTimeout(this.connectTimer);
+            if (this.role === 'host') this.send(this.helloMessage());
+            this.connected = true;
+            this.lastHeard = performance.now();
+            this.remoteHidden = false;
+            this.remoteName = cleanName(hello.name, this.role === 'host' ? 'Guest' : 'Host');
+            this.remotePaddles = hello.paddles && typeof hello.paddles === 'object' ? hello.paddles : null;
+            if (this.role === 'host') this.partnerToken = String(hello.token || '');
+            else {
+                saveRejoin({ role: 'guest', code: this.code, token: this.token });
+                if (ONLINE_MODES.some((m) => m.id === hello.mode)) this.mode = hello.mode;
+                this.remotePoints = clamp(Math.round(num(hello.pts)), 0, 99);
+                this.takeSeries(hello.series);
+            }
+            if (!this.linkTimersOn) {
+                this.linkTimersOn = true;
                 this.timers.push(setInterval(() => this.heartbeat(), 1000));
                 // Keep the other side up to date if paddle designs change in the lobby.
                 this.offPaddles = window.PPSettings?.on?.((key) => {
                     if ((key === 'paddles' || key === '*') && this.connected) this.send({ t: 'paddles', paddles: window.PPSettings.get('paddles') });
                 });
-            });
-            conn.on('data', (msg) => {
-                this.lastHeard = performance.now();
-                try { this.onMessage(msg); } catch (e) { console.error('[Online]', e); }
-            });
-            conn.on('close', () => this.lost());
-            conn.on('error', () => this.lost());
-            const pc = conn.peerConnection;
-            if (pc) {
-                pc.addEventListener?.('iceconnectionstatechange', () => {
-                    if (pc.iceConnectionState === 'failed') {
-                        if (!this.connected) this.fail('Could not connect directly to your friend. One of your networks blocks peer-to-peer games; try another network (a phone hotspot often works).');
-                        else this.lost();
-                    }
-                });
             }
+            const wasReconnecting = this.reconnecting;
+            this.stopReconnect();
+            if (!rejoin) {
+                this.hadPartner = true;
+                this.ui.connected(this);
+                return;
+            }
+            this.resumeLink(hello.state || {}, wasReconnecting);
+        }
+
+        // Both sides are back on one link: pick up wherever the other one is.
+        resumeLink(remote, wasReconnecting) {
+            const g = this.game;
+            const live = this.inGame() && this.inMatch;
+            const ending = live && !!g.matchEnding;
+            const sameMatch = !!remote.inMatch && num(remote.n) === this.matchNo;
+            if (this.role === 'host') {
+                if (live && !ending) {
+                    if (sameMatch) this.resumeMatch();
+                    else this.reseatGuest();          // the guest reloaded mid-match
+                } else if (ending) {
+                    if (sameMatch) this.resumeResults();
+                    else this.toLobby();
+                } else {
+                    this.send({ t: 'mode', mode: this.mode, pts: this.pointsToWin() });
+                    this.ui.linkState(this);
+                }
+            } else if (live) {
+                if (!remote.inMatch || !sameMatch) {
+                    this.toLobby(`${this.remoteName} reloaded the game, so you are back in the room.`);
+                    return;
+                }
+                if (ending) this.resumeResults();
+                else this.resumeMatch();
+            } else {
+                this.ui.connected(this);
+            }
+            if (wasReconnecting) this.ui.flash(`${this.remoteName} is back`);
+        }
+
+        resumeMatch() {
+            const g = this.game;
+            this.ui.linkState(this);
+            if (g.userPaused) this.send({ t: 'pause', on: true });
+            if (this.role === 'host') this.sendSnapshot();
+            else this.sendInput();
+        }
+
+        resumeResults() {
+            this.ui.linkState(this);
+            if (this.againLocal) this.send({ t: 'again' });
+            this.ui.renderResults(this);
+        }
+
+        // Host: the guest came back with a fresh page. Put them back into the
+        // running match (same scores) and serve again once they are in.
+        reseatGuest() {
+            const g = this.game;
+            // A pause the guest left behind goes with their old page.
+            if (g.userPaused && this.pausedByRemote) this.onRemotePause(false);
+            this.remoteReady = false;
+            this.servedAfterReady = false;
+            this.remotePaddle = null;
+            g.additionalBalls.length = 0;
+            g.serveHold = 0;
+            g.pendingServe = null;
+            g.ball.reset(g.center);
+            this.ui.linkState(this);
+            this.send(this.startMessage({ resume: true }));
+        }
+
+        onLinkClosed(conn) {
+            if (this.closed) return;
+            if (conn === this.conn) this.linkDown();
+            else if (conn === this.dialing) this.dialing = null;
+        }
+
+        // The link to the other player died. Hold the game and try to get it back.
+        linkDown() {
+            if (this.closed || this.reconnecting) return;
+            if (!this.hadPartner) return this.fail('The connection dropped. Try again.');
+            this.reconnecting = true;
+            this.reconnectSince = performance.now();
+            const dead = this.conn;
+            this.conn = null;
+            setTimeout(() => { try { dead?.close(); } catch (_) { /* ignore */ } }, 50);
+            if (this.role === 'guest') {
+                this.redialTimer = setInterval(() => this.dial(), REDIAL_MS);
+                this.dial();
+            }
+            this.giveUpTimer = setTimeout(() => this.giveUp(), RECONNECT_MS);
+            this.ui.linkState(this);
+        }
+
+        stopReconnect() {
+            this.reconnecting = false;
+            clearInterval(this.redialTimer);
+            clearTimeout(this.giveUpTimer);
+            this.redialTimer = this.giveUpTimer = null;
+        }
+
+        giveUp() {
+            if (this.closed || !this.reconnecting) return;
+            this.stopReconnect();
+            const name = this.remoteName;
+            if (this.role === 'guest') {
+                const inMatch = this.inGame();
+                clearRejoin();
+                this.close(false);
+                if (inMatch) this.ui.showGone(`Lost the connection to ${name}.`);
+                else this.ui.showError(`Lost the connection to ${name}.`);
+            } else {
+                this.dropPartner(`${name}'s connection dropped.`);
+            }
+        }
+
+        // Host: the guest is gone for good. Keep the room (same code) open
+        // so they, or someone else, can join again.
+        dropPartner(message) {
+            this.stopReconnect();
+            if (this.inGame()) this.detachFromGame(true);
+            window.PPResults?.hide();
+            const conn = this.conn;
+            this.conn = null;
+            setTimeout(() => { try { conn?.close(); } catch (_) { /* ignore */ } }, 300);
+            this.connected = false;
+            this.hadPartner = false;
+            this.partnerToken = '';
+            this.remotePaddles = null;
+            this.remoteName = 'Guest';
+            this.remoteHidden = false;
+            this.series = { left: 0, right: 0 };
+            this.inMatch = false;
+            this.againLocal = this.againRemote = false;
+            this.ui.open({ view: 'host' });
+            this.ui.hostWaiting(this.code, message);
         }
 
         send(msg) {
@@ -203,59 +478,57 @@
 
         heartbeat() {
             if (this.closed) return;
+            if (this.reconnecting) { this.ui.linkState(this); return; }
             this.send({ t: 'ping', ts: performance.now() });
-            if (this.connected && performance.now() - this.lastHeard > LINK_TIMEOUT_MS) this.lost();
+            const limit = this.remoteHidden ? HIDDEN_LINK_TIMEOUT_MS : LINK_TIMEOUT_MS;
+            if (this.connected && this.conn && performance.now() - this.lastHeard > limit) { this.linkDown(); return; }
+            if (this.connected) saveRejoin(this.role === 'host' ? { role: 'host', code: this.code } : { role: 'guest', code: this.code, token: this.token });
             this.ui.updatePing(this.rtt);
         }
 
         fail(message) {
             if (this.closed) return;
+            clearRejoin();
             this.ui.showError(message);
             this.close(false);
-        }
-
-        lost() {
-            if (this.closed) return;
-            const wasInMatch = this.inMatch || this.game?.net === this;
-            const name = this.remoteName;
-            this.close(false);
-            if (wasInMatch) this.ui.showGone(`${name} left or the connection dropped.`);
-            else this.ui.showError(`${name} left the room.`);
         }
 
         leave() {
             if (this.closed) return;
             this.send({ t: 'bye' });
+            clearRejoin();
             this.close(true);
         }
 
         close(silent) {
             if (this.closed) return;
             this.closed = true;
+            this.stopReconnect();
             clearTimeout(this.connectTimer);
-            this.timers.forEach((t) => clearInterval(t));
+            clearTimeout(this.brokerTimer);
+            this.timers.forEach((t) => { clearInterval(t); clearTimeout(t); });
             this.timers = [];
             this.offPaddles?.();
             const g = this.game;
             if (g && g.net === this) this.detachFromGame(!silent);
+            const conn = this.conn, dialing = this.dialing, peer = this.peer;
             setTimeout(() => {
-                try { this.conn?.close(); } catch (_) { /* ignore */ }
-                try { this.peer?.destroy(); } catch (_) { /* ignore */ }
+                try { conn?.close(); } catch (_) { /* ignore */ }
+                try { dialing?.close(); } catch (_) { /* ignore */ }
+                try { peer?.destroy(); } catch (_) { /* ignore */ }
             }, 120);
             if (session === this) session = null;
             this.ui.onSessionClosed(this);
         }
 
+        takeSeries(s) {
+            if (!s || typeof s !== 'object') return;
+            this.series = { left: clamp(Math.round(num(s.left)), 0, 999), right: clamp(Math.round(num(s.right)), 0, 999) };
+        }
+
         // ── Messages ───────────────────────────────────────────────────
         onMessage(msg) {
-            if (!msg || typeof msg !== 'object') return;
             switch (msg.t) {
-                case 'hello':
-                    if (msg.v !== PROTOCOL) return this.fail('Your friend is on a different version of the game. Both of you reload the page and try again.');
-                    this.remoteName = cleanName(msg.name, this.role === 'host' ? 'Guest' : 'Host');
-                    this.remotePaddles = msg.paddles && typeof msg.paddles === 'object' ? msg.paddles : null;
-                    this.ui.connected(this);
-                    return;
                 case 'paddles':
                     this.remotePaddles = msg.paddles && typeof msg.paddles === 'object' ? msg.paddles : null;
                     return;
@@ -265,16 +538,23 @@
                     if (sample >= 0 && sample < 5000) this.rtt = this.rtt * 0.7 + sample * 0.3;
                     return;
                 }
+                case 'hidden': this.remoteHidden = !!msg.on; return;
                 case 'bye': {
                     const name = this.remoteName;
-                    const inMatch = this.game?.net === this;
+                    if (this.role === 'host') return this.dropPartner(`${name} left the room.`);
+                    const inMatch = this.inGame();
+                    clearRejoin();
                     this.close(false);
-                    if (inMatch) this.ui.showGone(`${name} left the match.`);
-                    else this.ui.showError(`${name} left the room.`);
+                    if (inMatch) this.ui.showGone(`${name} left the match and closed the room.`);
+                    else this.ui.showError(`${name} closed the room.`);
                     return;
                 }
                 case 'mode':
-                    if (this.role === 'guest') { this.mode = msg.mode; this.ui.renderReady(this); }
+                    if (this.role === 'guest' && ONLINE_MODES.some((m) => m.id === msg.mode)) {
+                        this.mode = msg.mode;
+                        this.remotePoints = clamp(Math.round(num(msg.pts)), 0, 99);
+                        this.ui.renderReady(this);
+                    }
                     return;
                 case 'start': return this.role === 'guest' && this.guestStart(msg);
                 case 'ready': this.remoteReady = true; return;
@@ -290,6 +570,7 @@
                     this.ui.renderResults(this);
                     if (this.role === 'host' && this.againLocal) this.hostStart();
                     return;
+                case 'lobby': return this.toLobby();
                 case 'world': return this.role === 'guest' && this.applyWorld(msg.w, msg.h);
             }
         }
@@ -298,23 +579,34 @@
         setMode(mode) {
             if (!ONLINE_MODES.some((m) => m.id === mode)) mode = 'classic';
             this.mode = mode;
-            this.send({ t: 'mode', mode });
+            this.send({ t: 'mode', mode, pts: this.pointsToWin() });
         }
+
+        pointsToWin() { return clamp(Math.round(num(Number(window.PPSettings?.get('pointsToWin')), 11)), 1, 99); }
 
         async hostStart() {
             const g = this.game;
-            if (!g || this.role !== 'host' || !this.connected) return;
+            if (!g || this.role !== 'host' || !this.connected || this.reconnecting) return;
             this.resetMatchFlags();
+            this.matchNo++;
             // Each side shows the design its own player picked for this mode.
             const mine = window.PPSettings?.getPaddle?.(this.mode, 'left') || 'classic';
             this.paddleDesigns = { left: mine, right: cleanDesign(this.remotePaddles?.[this.mode]?.left) };
             await launchMatch(this, this.mode);
+            if (g.net !== this) return;
+            this.send(this.startMessage());
+        }
+
+        startMessage(opts = {}) {
+            const g = this.game;
             const msg = {
-                t: 'start', mode: this.mode, maxScore: g.maxScore,
+                t: 'start', mode: this.mode, maxScore: g.maxScore, n: this.matchNo,
                 world: { w: g.width, h: g.height },
                 names: { left: this.localName, right: this.remoteName },
                 paddles: this.paddleDesigns,
+                series: this.series,
             };
+            if (opts.resume) msg.sc = [g.scores.player, g.scores.ai];
             if (this.mode === 'customise') {
                 msg.custom = { ...g.customSettings, audioSource: '', audioTrack: '', audioCustomPath: '', previewModeActive: false };
                 const bg = g.customSettings.backgroundMode;
@@ -325,7 +617,7 @@
                     if (entry) msg.bg = entry.data.length < 200000 ? entry : { ...entry, kind: 'image', data: entry.thumb || '' };
                 }
             }
-            this.send(msg);
+            return msg;
         }
 
         async guestStart(msg) {
@@ -334,6 +626,8 @@
             const mode = ONLINE_MODES.some((m) => m.id === msg.mode) ? msg.mode : 'classic';
             this.mode = mode;
             this.resetMatchFlags();
+            this.matchNo = Math.round(num(msg.n, this.matchNo + 1));
+            this.takeSeries(msg.series);
             this.paddleDesigns = {
                 left: cleanDesign(msg.paddles?.left),
                 right: msg.paddles ? cleanDesign(msg.paddles.right) : (window.PPSettings?.getPaddle?.(mode, 'left') || 'classic'),
@@ -351,7 +645,14 @@
             const h = clamp(Math.round(num(msg.world?.h, 720)), 240, 4320);
             g.netWorld = { w, h };
             await launchMatch(this, mode);
+            if (g.net !== this) return;
             g.maxScore = clamp(Math.round(num(msg.maxScore, 11)), 1, 99);
+            if (Array.isArray(msg.sc)) {
+                // Rejoining a match already under way.
+                g.scores.player = clamp(Math.round(num(msg.sc[0])), 0, 99);
+                g.scores.ai = clamp(Math.round(num(msg.sc[1])), 0, 99);
+                g.updateScoreUI();
+            }
         }
 
         resetMatchFlags() {
@@ -406,6 +707,7 @@
         // Returns false while the match should hold still.
         preStep(dt) {
             const g = this.game;
+            if (this.reconnecting) { this.ui.linkState(this); return false; }
             this.stepCount++;
             if (this.role === 'host') {
                 const every = Math.max(1, Math.round(1 / (SNAPSHOT_HZ * dt)));
@@ -748,6 +1050,7 @@
         // ── Pause and end ──────────────────────────────────────────────
         onLocalPause(paused) {
             if (this.applyingRemote) return;
+            this.pausedByRemote = false;
             this.send({ t: 'pause', on: !!paused });
             this.ui.hideBanner();
         }
@@ -755,6 +1058,7 @@
         onRemotePause(on) {
             const g = this.game;
             if (!g || g.net !== this) return;
+            this.pausedByRemote = on;
             this.applyingRemote = true;
             try { g.setUserPaused(on); } finally { this.applyingRemote = false; }
             if (on) this.ui.banner(`${this.remoteName} paused the game`, 'info');
@@ -764,21 +1068,48 @@
         onMatchEnd(leftWon) {
             if (this.role !== 'host') return;
             const g = this.game;
-            this.send({ t: 'end', leftWon: !!leftWon, sc: [g.scores.player, g.scores.ai] });
+            if (leftWon) this.series.left++; else this.series.right++;
+            this.send({ t: 'end', leftWon: !!leftWon, sc: [g.scores.player, g.scores.ai], series: this.series });
         }
 
         onEnd(msg) {
             const g = this.game;
             if (!g || g.net !== this) return;
             if (Array.isArray(msg.sc)) { g.scores.player = num(msg.sc[0]); g.scores.ai = num(msg.sc[1]); }
+            this.takeSeries(msg.series);
             g.finishMatch(!!msg.leftWon);
         }
 
         requestAgain() {
+            if (this.reconnecting) return;
             this.againLocal = true;
             this.send({ t: 'again' });
             this.ui.renderResults(this);
             if (this.role === 'host' && this.againRemote) this.hostStart();
+        }
+
+        // Back to the room together, e.g. to pick another mode.
+        requestLobby() {
+            this.send({ t: 'lobby' });
+            this.toLobby();
+        }
+
+        toLobby(note = '') {
+            window.PPResults?.hide();
+            if (this.inGame()) this.detachFromGame(true);
+            this.inMatch = false;
+            this.againLocal = this.againRemote = false;
+            this.ui.open({ view: 'ready' });
+            this.ui.renderReady(this);
+            if (note) this.ui.flash(note);
+        }
+
+        seriesLine() {
+            const { left, right } = this.series;
+            if (left + right < 2) return '';
+            const host = this.role === 'host' ? this.localName : this.remoteName;
+            const guest = this.role === 'host' ? this.remoteName : this.localName;
+            return `Series: ${host} ${left} – ${right} ${guest}`;
         }
 
         labelFor(side) {
@@ -793,6 +1124,8 @@
             const right = { label: this.role === 'host' ? this.remoteName : this.localName, score: g.scores.ai };
             const lines = [];
             if (g.maxRally > 0) lines.push(`Longest rally: ${g.maxRally}`);
+            const series = this.seriesLine();
+            if (series) lines.push(series);
             return {
                 kicker: `Online · ${modeName(this.mode)} · match over`,
                 title: youWon ? 'You win!' : `${this.remoteName} wins`,
@@ -800,6 +1133,7 @@
                 left, right, lines,
                 actions: [
                     { label: 'Play again', primary: true, data: 'again', onClick: () => { if (session === this) this.requestAgain(); } },
+                    { label: 'Change mode', data: 'lobby', onClick: () => { if (session === this && !this.reconnecting) this.requestLobby(); } },
                     {
                         label: 'Leave', data: 'leave', onClick: () => {
                             window.PPResults?.hide();
@@ -947,6 +1281,7 @@
                                 <div class="ppon-vs">VS</div>
                                 <div class="ppon-player right"><span class="ppon-side">Right</span><strong id="pponRightName">Guest</strong></div>
                             </div>
+                            <p class="ppon-series" id="pponSeries" hidden></p>
                             <p class="ppon-ping" id="pponPing"></p>
                             <div class="ppon-modes" id="pponModes" role="radiogroup" aria-label="Mode"></div>
                             <p class="ppon-note" id="pponModeNote"></p>
@@ -997,13 +1332,14 @@
 
         open(opts = {}) {
             this.build();
-            this.startMode = ONLINE_MODES.some((m) => m.id === opts.mode) ? opts.mode : 'classic';
-            this.lastFocus = document.activeElement;
+            if (opts.mode) this.startMode = ONLINE_MODES.some((m) => m.id === opts.mode) ? opts.mode : 'classic';
+            if (!this.isOpen()) this.lastFocus = document.activeElement;
             this.root.querySelector('#pponName').value = window.PPSettings?.get('playerName') || '';
             this.root.classList.add('open');
             this.root.setAttribute('aria-hidden', 'false');
             document.body.classList.add('pp-online-open');
-            if (session && !session.closed && session.connected) this.show('ready');
+            if (opts.view) this.show(opts.view);
+            else if (session && !session.closed && session.connected) this.show('ready');
             else if (opts.joinCode) {
                 this.show('join');
                 this.root.querySelector('#pponJoinCode').value = cleanCode(opts.joinCode);
@@ -1047,7 +1383,7 @@
             if (input) window.PPSettings?.set('playerName', cleanName(input.value, ''));
         },
 
-        async act(action, btn) {
+        async act(action, btn, opts = {}) {
             switch (action) {
                 case 'close': return this.cancelAndClose();
                 case 'cancel':
@@ -1057,13 +1393,14 @@
                     this.saveName();
                     window.game?.audio?.enable?.().catch?.(() => {});
                     if (session) session.leave();
-                    const s = new Session('host', this);
+                    const code = opts.code || randomCode();
+                    const s = new Session('host', this, { keepCode: !!opts.code });
                     session = s;
                     s.mode = this.startMode;
                     this.root.querySelector('#pponCode').textContent = '· · · · ·';
-                    this.setStatus('pponHostStatus', 'Opening a room…', 'busy');
+                    this.setStatus('pponHostStatus', opts.code ? 'Reopening your room…' : 'Opening a room…', 'busy');
                     this.show('host');
-                    try { await s.open(randomCode()); } catch (e) { s.fail('Online play could not start: ' + e.message); }
+                    try { await s.open(code); } catch (e) { s.fail('Online play could not start: ' + e.message); }
                     return;
                 }
                 case 'join-view':
@@ -1079,19 +1416,25 @@
                     }
                     window.game?.audio?.enable?.().catch?.(() => {});
                     if (session) session.leave();
-                    const s = new Session('guest', this);
+                    const s = new Session('guest', this, { token: opts.token });
                     session = s;
-                    this.setStatus('pponJoinStatus', 'Connecting…', 'busy');
+                    this.setStatus('pponJoinStatus', opts.token ? 'Rejoining your friend…' : 'Connecting…', 'busy');
                     try { await s.open(code); } catch (e) { s.fail('Online play could not start: ' + e.message); }
                     return;
                 }
                 case 'copy-code': return this.copy(session?.code || '', btn, 'Copied');
                 case 'copy-link': {
+                    if (!session?.code) return;
                     const base = location.href.replace(/[?#].*$/, '');
-                    return this.copy(`${base}?from_intro=1&join=${session?.code || ''}`, btn, 'Link copied');
+                    const url = `${base}?from_intro=1&join=${session.code}`;
+                    // Phones: hand the link to the share sheet (messages, chat apps).
+                    if (navigator.share && window.matchMedia?.('(pointer: coarse)').matches) {
+                        try { await navigator.share({ title: 'Neon Ping Pong', text: `Play me online! Room code ${session.code}`, url }); return; } catch (e) { if (e?.name === 'AbortError') return; }
+                    }
+                    return this.copy(url, btn, 'Link copied');
                 }
                 case 'start': {
-                    if (!session || session.role !== 'host' || !session.connected) return;
+                    if (!session || session.role !== 'host' || !session.connected || session.reconnecting) return;
                     btn.disabled = true;
                     try { await session.hostStart(); } finally { btn.disabled = false; }
                     return;
@@ -1122,12 +1465,20 @@
             btn._t = setTimeout(() => { btn.textContent = label; }, 1600);
         },
 
-        hostWaiting(code) {
+        hostWaiting(code, note = '') {
             if (!this.root) return;
             const el = this.root.querySelector('#pponCode');
             el.textContent = code.split('').join(' ');
             el.setAttribute('aria-label', 'Room code ' + code.split('').join(' '));
-            this.setStatus('pponHostStatus', 'Waiting for your friend to join…', 'busy');
+            this.setStatus('pponHostStatus', note ? `${note} Your room is still open: same code.` : 'Waiting for your friend to join…', 'busy');
+        },
+
+        // Rejoin after a page reload (sessionStorage remembers the room).
+        resume(rj) {
+            this.open({ view: rj.role === 'host' ? 'host' : 'join' });
+            if (rj.role === 'host') return this.act('create', null, { code: rj.code });
+            this.root.querySelector('#pponJoinCode').value = rj.code;
+            return this.act('join', null, { token: rj.token });
         },
 
         connected(s) {
@@ -1151,26 +1502,62 @@
                 s.setMode(b.dataset.mode);
                 this.renderReady(s);
             }));
-            const pts = window.PPSettings?.get('pointsToWin') || 11;
+            const pts = isHost ? s.pointsToWin() : s.remotePoints;
+            const first = pts ? `First to ${pts}.` : '';
             const notes = {
-                classic: `First to ${pts} points. Power-ups follow the host's settings.`,
-                gravity: `First to ${pts}. Black holes bend the ball; slingshots score extra.`,
-                obstacle: `First to ${pts}. The course changes every 4 points.`,
+                classic: `${first} Power-ups follow the host's settings.`,
+                zombie: `${first} A straight duel in the graveyard: no waves, no power-ups.`,
+                gravity: `${first} Black holes bend the ball; slingshots score extra.`,
+                speed: `${first} The ball starts fast and speeds up with every hit.`,
+                obstacle: `${first} The course changes every 4 points.`,
                 customise: `Uses the host's Custom setup and Forge arena.`,
             };
-            let note = notes[s.mode] || '';
-            if (isHost) note += ' Zombie and Speed are single-screen modes and stay offline.';
-            else note = `${esc(s.remoteName)} picks the mode. ` + note;
-            this.root.querySelector('#pponModeNote').innerHTML = note;
+            let note = (notes[s.mode] || '').trim();
+            if (!isHost) note = `${s.remoteName} picks the mode. ` + note;
+            this.root.querySelector('#pponModeNote').textContent = note;
+            const series = this.root.querySelector('#pponSeries');
+            const { left, right } = s.series;
+            series.hidden = left + right === 0;
+            series.textContent = `Series ${left} – ${right}`;
             const start = this.root.querySelector('#pponStart');
             start.hidden = !isHost;
+            start.disabled = !!s.reconnecting;
             this.updatePing(s.rtt);
-            if (!isHost) this.root.querySelector('#pponPing').textContent = `Connected · waiting for ${s.remoteName} to start`;
+        },
+
+        // The link dropped or came back.
+        linkState(s) {
+            if (!this.root || s !== session) return;
+            if (s.reconnecting) {
+                const left = Math.max(0, Math.ceil((RECONNECT_MS - (performance.now() - (s.reconnectSince || 0))) / 1000));
+                const text = s.role === 'guest'
+                    ? `Connection lost · reconnecting to ${s.remoteName}… ${left}s`
+                    : `Connection lost · waiting for ${s.remoteName} to reconnect… ${left}s`;
+                if (s.inGame()) this.banner(text, 'warn');
+                if (this.view === 'ready') {
+                    this.root.querySelector('#pponPing').innerHTML = `<span class="ppon-spin" aria-hidden="true"></span>${esc(text)}`;
+                    this.root.querySelector('#pponStart').disabled = true;
+                }
+                this.renderResults(s);
+                return;
+            }
+            this.hideBanner();   // preStep puts "Waiting for…" back if it still applies
+            if (this.view === 'ready') this.renderReady(s);
+            this.renderResults(s);
+        },
+
+        // A short notice that fades by itself.
+        flash(text) {
+            this.banner(text, 'info');
+            clearTimeout(this.flashTimer);
+            this.flashTimer = setTimeout(() => {
+                if (!session?.reconnecting) this.hideBanner();
+            }, 2600);
         },
 
         updatePing(rtt) {
             const el = this.root?.querySelector('#pponPing');
-            if (!el || !session || this.view !== 'ready') return;
+            if (!el || !session || this.view !== 'ready' || session.reconnecting) return;
             const ms = Math.round(rtt);
             const q = ms < 70 ? 'great' : ms < 140 ? 'good' : 'laggy';
             const who = session.role === 'host' ? 'Connected' : `Connected · waiting for ${session.remoteName} to start`;
@@ -1202,8 +1589,9 @@
                 document.body.appendChild(el);
                 this.bannerEl = el;
             }
-            const html = kind === 'wait' ? `<span class="ppon-spin" aria-hidden="true"></span>${esc(text)}` : esc(text);
+            const html = kind === 'wait' || kind === 'warn' ? `<span class="ppon-spin" aria-hidden="true"></span>${esc(text)}` : esc(text);
             if (this.bannerEl.__html !== html) { this.bannerEl.innerHTML = html; this.bannerEl.__html = html; }
+            this.bannerEl.classList.toggle('warn', kind === 'warn');
             this.bannerEl.classList.add('show');
         },
 
@@ -1221,7 +1609,10 @@
             const status = c.querySelector('.ppon-result-status');
             const again = c.querySelector('[data-ppon="again"]');
             if (!status || !again) return;
-            if (s.closed) { status.textContent = `${s.remoteName} left.`; again.disabled = true; return; }
+            const lobby = c.querySelector('[data-ppon="lobby"]');
+            if (s.closed) { status.textContent = `${s.remoteName} left.`; again.disabled = true; if (lobby) lobby.disabled = true; return; }
+            if (lobby) lobby.disabled = !!s.reconnecting;
+            if (s.reconnecting) { status.textContent = `Connection lost · reconnecting…`; again.disabled = true; return; }
             again.disabled = s.againLocal;
             if (s.againLocal && !s.againRemote) status.textContent = `Waiting for ${s.remoteName}…`;
             else if (!s.againLocal && s.againRemote) { status.textContent = `${s.remoteName} wants a rematch!`; again.textContent = 'Accept rematch'; }
@@ -1268,16 +1659,27 @@
             if (start) start.after(b); else actions.prepend(b);
         }
 
+        // Back from a reload while in a room: get straight back in.
+        const rj = readRejoin();
         if (window.PP_JOIN_CODE) {
-            const code = window.PP_JOIN_CODE;
+            const code = cleanCode(window.PP_JOIN_CODE);
             window.PP_JOIN_CODE = '';
-            setTimeout(() => ui.open({ joinCode: code }), 600);
+            if (rj && rj.role === 'guest' && rj.code === code) setTimeout(() => ui.resume(rj), 600);
+            else setTimeout(() => ui.open({ joinCode: code }), 600);
+        } else if (rj) {
+            setTimeout(() => ui.resume(rj), 600);
         }
 
-        // Tab hidden mid-match: pause both sides (the browser stops our loop anyway).
+        // Tab hidden mid-match: pause both sides (the browser stops our loop
+        // anyway) and tell the other side our timers will crawl.
+        let unloading = false;
+        window.addEventListener('pagehide', () => { unloading = true; });
+        window.addEventListener('pageshow', () => { unloading = false; });
         document.addEventListener('visibilitychange', () => {
+            if (unloading) return;   // reloading: the other side keeps the match for us
             const g = window.game;
             if (document.hidden && g?.net && g.running && !g.userPaused && !g.introActive) g.setUserPaused(true);
+            session?.send({ t: 'hidden', on: document.hidden });
         });
     }
 

@@ -553,7 +553,7 @@
         m.style.setProperty('--modal-primary-strong', hexToRgba(color, 0.65));
         m.style.setProperty('--modal-primary-glow', hexToRgba(color, 0.45));
         m.style.setProperty('--modal-title-shadow', hexToRgba(color, 0.65));
-        // Online is only offered for the modes that support it (Zombie and Speed stay offline).
+        // Online is only offered for the modes that support it (all of them today).
         const online = m.querySelector('.opt-online');
         if (online) {
             const onlineModes = window.PPOnline?.modes;
