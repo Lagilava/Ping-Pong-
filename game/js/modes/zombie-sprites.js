@@ -8,9 +8,10 @@
 (function () {
     'use strict';
 
-    const FRAMES = 12;
+    const FRAMES = 16;
+    const ATTACK_FRAMES = 4;
     const TAU = Math.PI * 2;
-    const MAX_ENTRIES = 220;
+    const MAX_ENTRIES = 320;
     const SPEED_RATIO = { shambler: 0.45, runner: 0.8, spitter: 0.5, tank: 0.35 };
 
     class ZombieSprites {
@@ -27,12 +28,18 @@
             const tr = this.game.ctx.getTransform();
             const scale = Math.max(1, Math.round(Math.hypot(tr.a, tr.b) * 4) / 4);
             this.queue = this.queue || [];
+            const queued = new Set(this.queue.map(([key, frame, radius, density]) => `${key}|${frame}|${radius}|${density}`));
             zombies.forEach((z) => {
                 if (!z.visual) return;
                 const repKey = `${z.typeKey}|${z.visual.variant | 0}`;
                 if (!this.reps.has(repKey)) this.reps.set(repKey, z);
                 const radius = Math.max(8, Math.round(z.radius / 3) * 3);
-                for (let f = 0; f < FRAMES; f++) this.queue.push([repKey, f, radius, scale]);
+                for (let f = 0; f < FRAMES; f++) {
+                    const key = `${repKey}|${f}|${radius}|${scale}`;
+                    if (queued.has(key) || this.cache.has(`${repKey}|walk|${f}|0|${radius}|${scale}`)) continue;
+                    queued.add(key);
+                    this.queue.push([repKey, f, radius, scale]);
+                }
             });
         }
 
@@ -46,15 +53,16 @@
         clear() { this.cache.clear(); this.reps.clear(); }
 
         // A stand-in zombie that is mid-stride at a given frame.
-        _pose(rep, frame, flash) {
+        _pose(rep, frame, flash, state = 'walk') {
             const sr = SPEED_RATIO[rep.typeKey] || 0.5;
-            const walk = (frame / FRAMES) * TAU;
+            const attacking = state === 'attack';
+            const walk = (frame / (attacking ? ATTACK_FRAMES : FRAMES)) * TAU;
             const seed = rep.animSeed || 0;
             const anim = {
                 speedRatio: sr,
                 walkPhase: walk,
-                limbSwing: Math.sin(walk) * (0.18 + sr * 0.34),
-                limbSwing2: Math.sin(walk + Math.PI) * (0.18 + sr * 0.34),
+                limbSwing: Math.sin(walk) * (attacking ? 0.5 : 0.18 + sr * 0.34),
+                limbSwing2: Math.sin(walk + Math.PI) * (attacking ? 0.5 : 0.18 + sr * 0.34),
                 headBob: Math.sin(walk * 0.82 + seed) * (8 + sr * 9),
                 breath: Math.sin(walk * 1.7 + (rep.animPhase || 0)) * 0.04,
                 tilt: 0,
@@ -62,17 +70,17 @@
                 roll: Math.sin(walk * 0.7) * 0.15,
                 swing: Math.sin(walk * 1.19 + seed) * (0.6 + sr * 0.4),
                 jitter: Math.sin(walk * 2.6) * (0.35 + sr * 0.4),
-                poseIndex: frame % 10,
+                poseIndex: attacking ? [1, 2, 3, 4][frame] : frame % 10,
                 poseBlend: (frame * 0.37) % 1,
                 posePulse: 0.5,
-                threat: 0.3,
-                attackPulse: 0.3,
+                threat: attacking ? 1 : 0.3,
+                attackPulse: attacking ? 1 : 0.3,
                 facingX: 1,
                 footfall: Math.max(0, Math.sin(walk)),
-                recoil: 0,
+                recoil: flash ? 1 : 0,
                 shoulderTwitch: Math.sin(walk * 3.8 + seed) * 0.1,
                 neckTwitch: Math.sin(walk * 2.2 + seed) * 0.06,
-                inhale: rep.typeKey === 'spitter' ? 0.25 + 0.2 * Math.sin(walk) : 0.1,
+                inhale: rep.typeKey === 'spitter' ? (attacking ? 1 : 0.25 + 0.2 * Math.sin(walk)) : 0.1,
                 dragSide: 1
             };
             return {
@@ -93,7 +101,7 @@
             };
         }
 
-        _bake(rep, frame, flash, radius, scale) {
+        _bake(rep, frame, flash, radius, scale, state = 'walk') {
             const g = this.game;
             const ox = radius * 2.5, oy = radius * 2.9;
             const w = Math.ceil(radius * 5.0 * scale), h = Math.ceil(radius * 4.7 * scale);
@@ -101,7 +109,7 @@
             a.width = w; a.height = h;
             const actx = a.getContext('2d');
             actx.setTransform(scale, 0, 0, scale, ox * scale, oy * scale);
-            const stand = this._pose(rep, frame, flash);
+            const stand = this._pose(rep, frame, flash, state);
             stand.radius = radius;
             g.renderZombieEnemyLive(actx, stand, { time: frame * 0.37 });
             actx.setTransform(1, 0, 0, 1, 0, 0);
@@ -147,10 +155,12 @@
                 const repKey = `${zombie.typeKey}|${variant}`;
                 if (!this.reps.has(repKey)) this.reps.set(repKey, zombie);
                 const rep = this.reps.get(repKey);
-                const frame = Math.floor(zombie.frameT || 0) % FRAMES;
+                const attacking = (zombie.anim?.attackPulse || 0) > 0.72;
+                const state = attacking ? 'attack' : 'walk';
+                const frame = Math.floor(zombie.frameT || 0) % (attacking ? ATTACK_FRAMES : FRAMES);
                 const flash = Math.max(0, Math.min(1, zombie.flash));
 
-                const base = this._get(repKey, rep, frame, false, radius, scale);
+                const base = this._get(repKey, rep, frame, false, radius, scale, state);
                 const k = zombie.radius / radius;
                 const anim = zombie.anim || {};
                 const facing = anim.facingX || (zombie.vx >= 0 ? 1 : -1);
@@ -174,7 +184,7 @@
                 }
                 ctx.drawImage(base.canvas, -base.ox, -base.oy, dw, dh);
                 if (flash > 0.04) {
-                    const hit = this._get(repKey, rep, frame, true, radius, scale);
+                    const hit = this._get(repKey, rep, frame, true, radius, scale, state);
                     ctx.globalAlpha = flash;
                     ctx.drawImage(hit.canvas, -hit.ox, -hit.oy, hit.w / hit.scale, hit.h / hit.scale);
                     ctx.globalAlpha = 1;
@@ -196,12 +206,12 @@
             }
         }
 
-        _get(repKey, rep, frame, flash, radius, scale) {
-            const key = `${repKey}|${frame}|${flash ? 1 : 0}|${radius}|${scale}`;
+        _get(repKey, rep, frame, flash, radius, scale, state = 'walk') {
+            const key = `${repKey}|${state}|${frame}|${flash ? 1 : 0}|${radius}|${scale}`;
             let e = this.cache.get(key);
             if (!e) {
                 if (this.cache.size >= MAX_ENTRIES) this.cache.delete(this.cache.keys().next().value);
-                e = this._bake(rep, frame, flash, radius, scale);
+                e = this._bake(rep, frame, flash, radius, scale, state);
                 this.cache.set(key, e);
             }
             return e;

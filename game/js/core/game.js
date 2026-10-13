@@ -8393,6 +8393,7 @@ class Game {
                 ctx.restore();
             }
         }
+        if (this.gameMode === 'obstacle') this.obstacleArcade?.renderPaddleShields(ctx);
         this.ball.render(ctx, interp);
         if (this.gameMode === 'gravity') this.gravitySlingshot?.renderBall(ctx, interp);
         if (window.PPSettings?.get('ballOutline')) this.renderBallOutlines(ctx);

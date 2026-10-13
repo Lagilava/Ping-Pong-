@@ -33,14 +33,13 @@
         .intro {
             position: fixed; inset: 0;
             width: var(--app-width); height: var(--app-height);
-            overflow: hidden; opacity: 0;
-            will-change: opacity, transform;
+            overflow: hidden; opacity: 1;
+            will-change: opacity;
             background: linear-gradient(180deg, #04080f 0%, #060c18 100%);
         }
 
         .intro.active {
-            animation: introFadeIn 0.8s cubic-bezier(0.16,1,0.3,1) forwards,
-                       introFadeOut 0.5s ease-in var(--fade-delay, 7s) forwards;
+            animation: introFadeOut 0.5s ease-in var(--fade-delay, 7s) forwards;
         }
 
         #introCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -69,7 +68,6 @@
         }
         .title span { color: rgba(220,120,80,0.9); text-shadow: 0 0 8px rgba(200,100,60,0.6), 0 0 25px rgba(180,80,40,0.25); }
 
-        @keyframes introFadeIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
         @keyframes titleSlideIn { 0% { opacity: 0; transform: translateY(20px); filter: blur(5px); } 100% { opacity: 1; transform: translateY(0); filter: blur(0); } }
         @keyframes titleFlicker {
             0%,100% { text-shadow: 0 0 8px rgba(140,180,220,0.5), 0 0 25px rgba(100,150,200,0.2); color: rgba(200,220,240,0.92); }
@@ -82,7 +80,7 @@
             position: fixed; inset: 0; z-index: 9999;
             cursor: pointer;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: linear-gradient(145deg, #071534 0%, #030b1d 100%);
+            background: linear-gradient(145deg, rgba(4,8,15,0.36) 0%, rgba(6,12,24,0.56) 100%);
             overflow: hidden;
             font-family: var(--boot-mono);
             /* One shared type + colour scale for every line of text on this screen. */
@@ -264,17 +262,9 @@
             100% { clip-path: none; transform: none; color: var(--boot-ink); }
         }
 
-        /* Collapsing transition when authorizing into the intro - enhanced flow */
-        /* Hand-off into the cutscene: text clears first, the HUD frame closes in, and the
-           backdrop settles to the cutscene's own base colour while the scene fades in beneath,
-           so there is no flat-blue to near-black pop and no brightness dip. */
+        /* The boot controls sit over the opening cutscene frame. Only the HUD clears on start. */
         #audioUnlockOverlay { isolation: isolate; }
-        #audioUnlockOverlay::after {
-            content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0; pointer-events: none;
-            background: linear-gradient(180deg, #04080f 0%, #060c18 100%);
-        }
         #audioUnlockOverlay.collapsing { pointer-events: none; overflow: hidden; }
-        #audioUnlockOverlay.collapsing::after { animation: handoffBase 0.5s ease-out forwards; }
         #audioUnlockOverlay.collapsing #tapPrompt,
         #audioUnlockOverlay.collapsing #bootSequence,
         #audioUnlockOverlay.collapsing #overlayLogoSmall,
@@ -290,7 +280,6 @@
         #audioUnlockOverlay.collapsing .side-rule { animation: handoffText 0.4s ease forwards; }
         #audioUnlockOverlay.collapsing #overlayGrid { animation: handoffText 0.6s ease forwards; }
 
-        @keyframes handoffBase { from { opacity: 0; } to { opacity: 1; } }
         @keyframes handoffText { to { opacity: 0; } }
         @keyframes handoffTitle {
             from { opacity: 1; transform: scale(1); }
@@ -319,7 +308,7 @@
     </style>
 </head>
 <body>
-    <main class="intro" aria-label="Ping Pong Neon Edition intro" style="display: none; visibility: hidden;">
+    <main class="intro" aria-label="Ping Pong Neon Edition intro">
         <canvas id="introCanvas"></canvas>
         <div class="black-levels"></div>
         <div class="title">Ping Pong &nbsp;<span>Neon Edition</span></div>
@@ -647,13 +636,9 @@
             // small audio cue if possible
             try { if (audio && audio.ctx && typeof audio._scheduleSpark === 'function') audio._scheduleSpark(audio.ctx.currentTime + 0.02, 0.0); } catch(e){}
 
-            mainIntro.style.display = 'block';
-            mainIntro.style.visibility = 'visible';
-            resize();
-            void mainIntro.offsetWidth;
-
             introStartTime = performance.now();
             introActive = true;
+            lastTime = introStartTime;
 
             const fadeDelay = (INTRO_DURATION_MS / 1000) - 0.5;
             mainIntro.style.setProperty('--fade-delay', fadeDelay + 's');
@@ -1091,6 +1076,8 @@
             lightningState.nextStrikeAt=1.2+Math.random()*1.8;
             lightningState.flash=0; lightningState.boltFade=0; lightningState.bolts=[];
             lightningState.pregeneratedBolts=[]; lightningState.tone=0.5; lightningState.chainWindowUntil=0;
+            // Canvas resizing clears its pixels, including the still frame under the start screen.
+            if (!introActive) drawScene(0, 0);
         };
 
         const generateBoltPath=(sx,sy,ex,ey)=>{
@@ -1718,7 +1705,7 @@
         };
 
         const animate=(now)=>{
-            if(!introActive){ ctx.clearRect(0,0,width,height); requestAnimationFrame(animate); return; }
+            if(!introActive){ requestAnimationFrame(animate); return; }
             const dt=Math.min(0.05,(now-lastTime)/1000);
             lastTime=now;
             const elapsed=(now-introStartTime)/1000;

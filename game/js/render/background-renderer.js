@@ -965,8 +965,8 @@ class BackgroundRenderer {
     }
 
     _getBackgroundFrameMs() {
-        // Redraw rate follows the quality tier: at the top tier backgrounds
-        // animate every frame so they don't judder behind a 120 fps foreground.
+        // Expensive scenery has its own cadence. Paddles, ball, particles and
+        // post effects still render at the display's refresh rate.
         const tier = typeof PerfGovernor !== 'undefined' ? PerfGovernor.current : null;
         if (tier && Number.isFinite(tier.bgFps)) {
             return tier.bgFps > 0 ? 1000 / tier.bgFps : 0;

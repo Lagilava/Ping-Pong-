@@ -55,6 +55,43 @@ class ObstacleArcade {
         return this.shield[side] > 0 || (this.starTime > 0 && this.starOwner === side);
     }
 
+    // Draw against the moving paddles so each shield has an unmistakable owner.
+    renderPaddleShields(ctx) {
+        for (const side of ['player', 'ai']) {
+            if (!this.hasShield(side)) continue;
+            const paddle = side === 'player' ? this.game.player : this.game.aiPaddle;
+            if (!paddle) continue;
+            const star = this.starTime > 0 && this.starOwner === side;
+            const color = star ? '#ffe675' : '#62eaff';
+            const x = paddle.pos.x - 8, y = paddle.pos.y - 8;
+            const w = paddle.w + 16, h = paddle.h + 16;
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.globalAlpha = 0.8 + Math.sin(this.time * 5) * 0.15;
+            ctx.strokeRect(x, y, w, h);
+            ctx.globalAlpha = 0.35;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x - 5, y - 5, w + 10, h + 10);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#061421';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            const badgeX = side === 'player' ? x + w + 8 : x - 8;
+            const badgeY = y + h / 2;
+            ctx.beginPath();
+            ctx.arc(badgeX, badgeY, 13, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = color;
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(star ? '★' : '◆', badgeX, badgeY + 1);
+            ctx.restore();
+        }
+    }
+
     setHudVisible(visible) {
         const hud = this.ensureHud();
         if (hud) hud.classList.toggle('visible', !!visible);
@@ -668,8 +705,8 @@ class ObstacleArcade {
         if (!host) return null;
         const el = document.createElement('div');
         el.className = 'obstacle-coin-hud';
-        el.innerHTML = '<div class="coin-pill left"><span class="coin-icon"></span><span class="coin-count">0</span><span class="coin-goal">/10</span></div>'
-            + '<div class="coin-pill right"><span class="coin-icon"></span><span class="coin-count">0</span><span class="coin-goal">/10</span></div>';
+        el.innerHTML = '<div class="coin-pill left"><span class="coin-icon"></span><span class="coin-count">0</span><span class="coin-goal"></span></div>'
+            + '<div class="coin-pill right"><span class="coin-icon"></span><span class="coin-count">0</span><span class="coin-goal"></span></div>';
         host.appendChild(el);
         this.hud = el;
         this.hudLeft = el.querySelector('.left .coin-count');
@@ -682,13 +719,16 @@ class ObstacleArcade {
         const l = String(this.wallet.player), r = String(this.wallet.ai);
         if (this.hudLeft.textContent !== l) this.hudLeft.textContent = l;
         if (this.hudRight.textContent !== r) this.hudRight.textContent = r;
-        // The "/10" slot now shows the remaining shield time.
+        // Keep the timer and owner readable even when the canvas is busy.
         const goals = this.hud.querySelectorAll('.coin-goal');
         ['player', 'ai'].forEach((side, i) => {
-            const secs = Math.ceil(this.shield[side]);
-            if (this.hudShield[side] === secs || !goals[i]) return;
-            this.hudShield[side] = secs;
-            goals[i].textContent = secs > 0 ? ` 🛡${secs}s` : '';
+            const star = this.starTime > 0 && this.starOwner === side;
+            const secs = Math.ceil(star ? this.starTime : this.shield[side]);
+            const status = secs > 0 ? `${star ? 'STAR' : 'SHIELD'} ${secs}s` : '';
+            if (this.hudShield[side] === status || !goals[i]) return;
+            this.hudShield[side] = status;
+            goals[i].textContent = status;
+            goals[i].classList.toggle('active', !!status);
         });
     }
 }

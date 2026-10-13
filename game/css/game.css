@@ -7533,6 +7533,11 @@ body.pp-lowfx .achievements * {
     font-size: 12px;
 }
 
+.obstacle-coin-hud .coin-goal.active {
+    color: #9bf4ff;
+    text-shadow: 0 0 8px rgba(60, 225, 255, 0.7);
+}
+
 /* ── Forge (Custom mode arena builder) ─────────────────────────────── */
 .customise-forge {
     background: rgba(255, 255, 255, 0.04);
