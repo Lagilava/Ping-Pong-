@@ -265,112 +265,47 @@
         }
 
         /* Collapsing transition when authorizing into the intro - enhanced flow */
+        /* Hand-off into the cutscene: text clears first, the HUD frame closes in, and the
+           backdrop settles to the cutscene's own base colour while the scene fades in beneath,
+           so there is no flat-blue to near-black pop and no brightness dip. */
+        #audioUnlockOverlay { isolation: isolate; }
+        #audioUnlockOverlay::after {
+            content: ''; position: absolute; inset: 0; z-index: -1; opacity: 0; pointer-events: none;
+            background: linear-gradient(180deg, #04080f 0%, #060c18 100%);
+        }
         #audioUnlockOverlay.collapsing { pointer-events: none; overflow: hidden; }
-        
-        #audioUnlockOverlay.collapsing #overlayLogo {
-            transform-origin: center center;
-            animation: flowExpand 0.9s cubic-bezier(0.16,1,0.3,1) forwards,
-                       flowFade 0.9s ease forwards;
-        }
-        
-        #audioUnlockOverlay.collapsing #overlayPulse {
-            animation: pulseExpand 0.9s cubic-bezier(0.16,1,0.3,1) forwards,
-                       pulseFade 0.9s ease forwards;
-        }
-        
-        #audioUnlockOverlay.collapsing #scanLine {
-            animation: scanDissolve 0.8s ease forwards;
-        }
-        
+        #audioUnlockOverlay.collapsing::after { animation: handoffBase 0.5s ease-out forwards; }
+        #audioUnlockOverlay.collapsing #tapPrompt,
+        #audioUnlockOverlay.collapsing #bootSequence,
+        #audioUnlockOverlay.collapsing #overlayLogoSmall,
         #audioUnlockOverlay.collapsing #overlayTopBar {
-            animation: elementFlow 0.85s cubic-bezier(0.2,0.9,0.3,1) forwards;
+            animation: handoffText 0.3s ease-in forwards;
         }
-        
-        #audioUnlockOverlay.collapsing .corner {
-            animation: cornerFlow 0.85s cubic-bezier(0.16,1,0.3,1) forwards;
+        #audioUnlockOverlay.collapsing #overlayMainText {
+            animation: handoffTitle 0.55s cubic-bezier(0.4,0,0.2,1) 0.08s forwards;
         }
-        
-        #audioUnlockOverlay.collapsing .side-rule {
-            animation: ruleFlow 0.8s ease forwards;
+        #audioUnlockOverlay.collapsing #overlayPulse { animation: handoffText 0.5s ease forwards; }
+        #audioUnlockOverlay.collapsing #scanLine { animation: scanDissolve 0.5s ease forwards; }
+        #audioUnlockOverlay.collapsing .corner { animation: cornerClose 0.7s cubic-bezier(0.4,0,0.2,1) forwards; }
+        #audioUnlockOverlay.collapsing .side-rule { animation: handoffText 0.4s ease forwards; }
+        #audioUnlockOverlay.collapsing #overlayGrid { animation: handoffText 0.6s ease forwards; }
+
+        @keyframes handoffBase { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes handoffText { to { opacity: 0; } }
+        @keyframes handoffTitle {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(1.06); }
         }
-        
-        #audioUnlockOverlay.collapsing #overlayGrid {
-            animation: gridFlow 0.9s ease forwards;
+        @keyframes scanDissolve { to { opacity: 0; } }
+        @keyframes cornerClose {
+            0% { transform: translate(0,0); opacity: 1; }
+            70% { opacity: 0.8; }
+            100% { transform: translate(var(--cx,0), var(--cy,0)); opacity: 0; }
         }
-        
-        #audioUnlockOverlay.collapsing::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 50% 50%, rgba(100,220,255,0.2) 0%, transparent 50%);
-            animation: flowWave 0.9s ease forwards;
-            z-index: 10;
-            pointer-events: none;
-        }
-        
-        @keyframes flowExpand {
-            0% { transform: translateY(0) scale(1); }
-            100% { transform: translateY(-120px) scale(1.15); }
-        }
-        
-        @keyframes flowFade {
-            0% { opacity: 1; }
-            100% { opacity: 0; }
-        }
-        
-        @keyframes pulseExpand {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.5); }
-        }
-        
-        @keyframes pulseFade {
-            0% { opacity: 0.8; }
-            100% { opacity: 0; }
-        }
-        
-        @keyframes scanDissolve {
-            0% { transform: translateY(0); opacity: 0.8; }
-            50% { opacity: 0.4; }
-            100% { transform: translateY(-80px); opacity: 0; }
-        }
-        
-        @keyframes elementFlow {
-            0% { transform: translateY(0); opacity: 1; }
-            70% { opacity: 0.3; }
-            100% { transform: translateY(-100px); opacity: 0; }
-        }
-        
-        @keyframes cornerFlow {
-            0% { transform: translate(0,0) scale(1); opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { 
-                transform: translate(var(--corner-flow-x, 0), var(--corner-flow-y, -80px)) scale(0.7);
-                opacity: 0;
-            }
-        }
-        
-        @keyframes ruleFlow {
-            0% { transform: scaleY(1); opacity: 1; }
-            100% { transform: scaleY(0) translateY(-50px); opacity: 0; }
-        }
-        
-        @keyframes gridFlow {
-            0% { opacity: 0.6; transform: scale(1); }
-            100% { opacity: 0; transform: scale(1.1) translateY(-40px); }
-        }
-        
-        @keyframes flowWave {
-            0% { 
-                opacity: 0;
-                clip-path: inset(100% 0 0 0);
-            }
-            20% { opacity: 1; }
-            80% { opacity: 1; }
-            100% { 
-                opacity: 0;
-                clip-path: inset(0 0 100% 0);
-            }
-        }
+        .corner-tl { --cx: 18px;  --cy: 18px; }
+        .corner-tr { --cx: -18px; --cy: 18px; }
+        .corner-bl { --cx: 18px;  --cy: -18px; }
+        .corner-br { --cx: -18px; --cy: -18px; }
 
         @media (prefers-reduced-motion: reduce) {
             .intro, .intro.active, .title.active { animation: none !important; }
@@ -728,10 +663,10 @@
             setTimeout(()=>{ if(introActive && titleEl) titleEl.classList.add('active'); }, 3650);
 
             /* Overlay fade with cinematic collapse */
-            overlay.style.transition = 'opacity 0.9s cubic-bezier(0.22,0.9,0.32,1)';
+            overlay.style.transition = 'opacity 0.5s ease-out 0.45s';
             overlay.style.opacity = '0';
+            setTimeout(()=>{ overlay.parentElement && overlay.remove(); }, 1100);
             setTimeout(()=>{
-                overlay.parentElement && overlay.remove();
                 preloadPingPongMusic();
                 if (window.exitTimeoutId) clearTimeout(window.exitTimeoutId);
                 window.exitTimeoutId = setTimeout(()=>{
