@@ -21,20 +21,20 @@
 
     // Indexed by difficulty 0 (Rookie) .. 4 (Insane).
     const SKILL = {
-        reaction:        [0.5, 0.35, 0.2, 0.1, 0.05],
-        maxSpeedMul:     [0.8, 0.95, 1.1, 1.3, 1.6],
-        inaccuracy:      [0.25, 0.15, 0.08, 0.04, 0.01],
-        predictionSteps: [30, 60, 100, 140, 200],
+        reaction:        [0.5, 0.45, 0.4, 0.28, 0.16],
+        maxSpeedMul:     [0.8, 0.85, 0.92, 1.0, 1.15],
+        inaccuracy:      [0.25, 0.22, 0.17, 0.11, 0.06],
+        predictionSteps: [30, 40, 55, 80, 115],
         // How often a return is placed on purpose rather than just blocked.
-        aim:             [0.18, 0.38, 0.6, 0.78, 0.9],
+        aim:             [0.18, 0.25, 0.34, 0.5, 0.68],
         // Furthest point of the paddle face it will aim with (1 = the tip).
-        reach:           [0.34, 0.48, 0.6, 0.7, 0.78],
-        feint:           [0, 0.07, 0.14, 0.2, 0.26],
-        spin:            [0.04, 0.1, 0.17, 0.24, 0.3],
+        reach:           [0.34, 0.38, 0.44, 0.54, 0.64],
+        feint:           [0, 0.025, 0.06, 0.11, 0.17],
+        spin:            [0.04, 0.06, 0.09, 0.14, 0.2],
         // How much it leans on what it has learned about you.
-        read:            [0.1, 0.3, 0.55, 0.75, 0.9],
+        read:            [0.1, 0.17, 0.26, 0.42, 0.62],
         // Seconds before contact when it settles on the final angle.
-        commit:          [0.42, 0.37, 0.32, 0.27, 0.23],
+        commit:          [0.42, 0.41, 0.39, 0.35, 0.3],
     };
 
     const STYLES = [
