@@ -73,7 +73,7 @@
             { type: 'toggle', key: 'ballOutline', label: 'High-visibility ball', help: 'A bold yellow ring around every ball.' },
             { type: 'seg', key: 'uiScale', label: 'Menu text size', help: 'Pause menu, settings and other panels.',
                 options: [[90, 'S'], [100, 'M'], [115, 'L'], [130, 'XL']] },
-            { type: 'toggle', key: 'noir', label: 'Noir mode', help: 'Plays the whole game as an old black-and-white film: high contrast, grain, flicker and scanlines.' },
+            { type: 'toggle', key: 'noir', label: 'Noir mode', help: 'Plays the whole game as a black-and-white film: filmic contrast, halation, grain, flicker and a pool of key light.' },
         ],
     };
 
