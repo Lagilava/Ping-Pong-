@@ -84,8 +84,10 @@ class ObstacleArcade {
             draw(ctx, c.lw, c.lh);
             return c;
         };
+        // Forge pieces use the shared Forge art; Obstacle mode keeps its own.
+        const look = textured ? window.ForgeLook : null;
         const coinR = Math.max(9, unit * 0.42);
-        const coin = make(coinR * 4, coinR * 4, (ctx, w, h) => {
+        const coin = look ? look.coin(coinR) : make(coinR * 4, coinR * 4, (ctx, w, h) => {
             const cx = w / 2, cy = h / 2;
             ctx.shadowColor = 'rgba(255, 210, 60, 0.9)';
             ctx.shadowBlur = coinR * 0.9;
@@ -106,7 +108,7 @@ class ObstacleArcade {
             ctx.fillRect(cx - coinR * 0.12, cy - coinR * 0.55, coinR * 0.24, coinR * 1.1);
         });
         const blockS = Math.max(34, unit * 1.7);
-        const drawBlock = (used) => make(blockS * 1.5, blockS * 1.5, (ctx, w, h) => {
+        const drawBlock = (used) => look ? look.block(blockS, used) : make(blockS * 1.5, blockS * 1.5, (ctx, w, h) => {
             const x = (w - blockS) / 2, y = (h - blockS) / 2, r = blockS * 0.14;
             ctx.shadowColor = used ? 'rgba(0,0,0,0)' : 'rgba(255, 170, 40, 0.85)';
             ctx.shadowBlur = used ? 0 : blockS * 0.35;
@@ -142,7 +144,7 @@ class ObstacleArcade {
             }
         });
         const padW = Math.max(64, unit * 2.7), padH = Math.max(26, unit * 1.15);
-        const pad = make(padW * 1.4, padH * 2, (ctx, w, h) => {
+        const pad = look ? look.pad(padW, padH) : make(padW * 1.4, padH * 2, (ctx, w, h) => {
             const x = (w - padW) / 2, y = (h - padH) / 2;
             ctx.shadowColor = 'rgba(255, 140, 30, 0.9)';
             ctx.shadowBlur = padH * 0.6;

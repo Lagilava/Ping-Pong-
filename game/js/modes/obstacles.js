@@ -1511,6 +1511,7 @@ class Obstacle {
     }
 
     _renderGate(ctx) {
+        if (this.forgeSurface && window.ForgeLook) return window.ForgeLook.drawObstacle(ctx, this);
         const x = this.pos.x;
         const y = this.pos.y;
         const glow = this.hitFlash;
@@ -1567,6 +1568,7 @@ class Obstacle {
     }
 
     _renderRotor(ctx) {
+        if (this.forgeSurface && window.ForgeLook) return window.ForgeLook.drawObstacle(ctx, this);
         const glow = this.hitFlash;
         const len = this.w / 2;
         const activeColor = this.activeRailColor || this.colorGlow;
@@ -1627,6 +1629,7 @@ class Obstacle {
     }
 
     _renderBumper(ctx) {
+        if (this.forgeSurface && window.ForgeLook) return window.ForgeLook.drawObstacle(ctx, this);
         const cx = this.cx;
         const cy = this.cy;
         const radius = Math.min(this.w, this.h) / 2;
@@ -1670,6 +1673,7 @@ class Obstacle {
     }
 
     _renderWall(ctx) {
+        if (this.forgeSurface && window.ForgeLook) return window.ForgeLook.drawObstacle(ctx, this);
         const x = this.pos.x;
         const y = this.pos.y + this.floatOffset;
         const w = this.w;
