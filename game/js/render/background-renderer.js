@@ -2847,6 +2847,17 @@ class BackgroundRenderer {
         lane.addColorStop(1, 'rgba(1,5,15,0)');
         lx.fillStyle = lane;
         lx.fillRect(0, 0, w, h);
+        // Soft glow sprite for the vanishing-point core (drawn additively).
+        const gs = 256;
+        const gcv = document.createElement('canvas'); gcv.width = gs; gcv.height = gs;
+        const gx = gcv.getContext('2d');
+        const gg = gx.createRadialGradient(gs / 2, gs / 2, 0, gs / 2, gs / 2, gs / 2);
+        gg.addColorStop(0, 'rgba(160,235,255,0.9)');
+        gg.addColorStop(0.25, 'rgba(70,150,255,0.4)');
+        gg.addColorStop(0.6, 'rgba(180,60,220,0.12)');
+        gg.addColorStop(1, 'rgba(0,0,0,0)');
+        gx.fillStyle = gg; gx.fillRect(0, 0, gs, gs);
+        this._speedRushGlow = gcv;
         this._speedRushBase = bc;
         this._speedRushLane = lc;
         this._speedRushKey = key;
@@ -2866,12 +2877,58 @@ class BackgroundRenderer {
         this._speedRushPhase = (this._speedRushPhase || 0) + dt * (0.65 + rush * 0.75);
         const t = this._speedRushPhase;
         const hot = Math.max(0, Math.min(1, (rush - 0.9) / 0.7)); // 0 calm .. 1 flat out
-        const cx = w * 0.5;
-        const cy = h * 0.5;
-        const R = Math.hypot(cx, cy);
+        // Hits kick the tunnel; the pulse decays over ~0.45 s.
+        const rally = game?.rallyCount || 0;
+        if (rally !== this._speedRushRally) {
+            if (rally > 0) this._speedRushPulse = 1;
+            this._speedRushRally = rally;
+        }
+        const pulse = this._speedRushPulse = Math.max(0, (this._speedRushPulse || 0) - dt * 2.2);
+        const heat = Math.min(1, rally / 14);
+        const hotM = Math.min(1, hot * 0.7 + heat * 0.5);
+        // The vanishing point leans toward the ball for a parallax feel.
+        const bp = game?.ball?.pos;
+        const tx = bp ? Math.max(-1, Math.min(1, (bp.x / w - 0.5) * 2)) : 0;
+        const ty = bp ? Math.max(-1, Math.min(1, (bp.y / h - 0.5) * 2)) : 0;
+        this._speedRushVX = (this._speedRushVX || 0) + (tx - (this._speedRushVX || 0)) * Math.min(1, dt * 4);
+        this._speedRushVY = (this._speedRushVY || 0) + (ty - (this._speedRushVY || 0)) * Math.min(1, dt * 4);
+        const cx = w * 0.5 + this._speedRushVX * w * 0.045;
+        const cy = h * 0.5 + this._speedRushVY * h * 0.045;
+        const R = Math.hypot(w * 0.5, h * 0.5) * 1.1;
 
         this._ensureSpeedRushLayers(ctx, w, h);
         ctx.drawImage(this._speedRushBase, 0, 0, w, h);
+
+        // Vanishing-point core glow, additive, brighter with rally heat.
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const gr = Math.min(w, h) * (0.34 + pulse * 0.10 + hotM * 0.08);
+        ctx.globalAlpha = Math.min(1, 0.22 + hotM * 0.30 + pulse * 0.30);
+        ctx.drawImage(this._speedRushGlow, cx - gr, cy - gr, gr * 2, gr * 2);
+        ctx.restore();
+
+        // Perspective floor/ceiling lanes converging on the vanishing point.
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = `rgba(90,170,255,${(0.07 + hotM * 0.09).toFixed(3)})`;
+        ctx.beginPath();
+        for (let i = -8; i <= 8; i++) {
+            const ex = cx + i * w * 0.14;
+            ctx.moveTo(cx + i * w * 0.012, cy - 0.06 * h); ctx.lineTo(ex, 0);
+            ctx.moveTo(cx + i * w * 0.012, cy + 0.06 * h); ctx.lineTo(ex, h);
+        }
+        ctx.stroke();
+
+        // Shockwave rings burst out of the vanishing point on every hit.
+        if (pulse > 0.02) {
+            const k = 1 - pulse;
+            for (let n = 0; n < 2; n++) {
+                const kk = Math.max(0, k - n * 0.12);
+                const rr = Math.pow(kk, 1.4);
+                ctx.lineWidth = 2 + rr * 5;
+                ctx.strokeStyle = n ? `rgba(255,70,170,${(pulse * 0.45).toFixed(3)})` : `rgba(70,225,255,${(pulse * 0.55).toFixed(3)})`;
+                ctx.strokeRect(cx - w * (0.05 + rr * 0.5), cy - h * (0.05 + rr * 0.5), w * (0.1 + rr), h * (0.1 + rr));
+            }
+        }
 
         ctx.lineCap = 'round';
 
@@ -2893,14 +2950,14 @@ class BackgroundRenderer {
         // Warp rays: streaks fly out of the vanishing point, longer and
         // brighter the closer they get and the faster the ball is moving.
         // Two colours x three width buckets keep this to a handful of strokes.
-        const RAYS = 36;
+        const RAYS = 64;
         const buckets = [[], [], [], [], [], []];
         for (let i = 0; i < RAYS; i++) {
             const ang = ((i * 0.61803398875) % 1) * Math.PI * 2;
             const spd = 0.10 + (i % 5) * 0.022;
-            const f = (i * 0.173 + t * spd) % 1;
+            const f = (i * 0.173 + t * spd * (1 + pulse * 0.6)) % 1;
             const d0 = Math.pow(f, 1.9);
-            const d1 = Math.pow(Math.min(1, f + 0.035 + hot * 0.05 + rush * 0.01), 1.9);
+            const d1 = Math.pow(Math.min(1, f + 0.04 + hotM * 0.09 + pulse * 0.06), 1.9);
             const r0 = R * (0.10 + d0 * 0.95), r1 = R * (0.10 + d1 * 0.95);
             const ca = Math.cos(ang), sa = Math.sin(ang);
             buckets[(i % 2) * 3 + Math.min(2, (d0 * 3) | 0)].push(
@@ -2911,8 +2968,8 @@ class BackgroundRenderer {
             if (!arr.length) continue;
             const cyan = k < 3;
             const tier = k % 3;
-            ctx.lineWidth = 0.8 + tier * 0.9;
-            const a = (0.10 + tier * 0.10 + hot * 0.12) * (cyan ? 1 : 0.9);
+            ctx.lineWidth = 0.9 + tier * 1.3;
+            const a = Math.min(0.85, (0.16 + tier * 0.16 + hotM * 0.22 + pulse * 0.2) * (cyan ? 1 : 0.9));
             ctx.strokeStyle = cyan ? `rgba(70,225,255,${a.toFixed(3)})` : `rgba(255,95,175,${a.toFixed(3)})`;
             ctx.beginPath();
             for (let j = 0; j < arr.length; j += 5) {
@@ -2932,7 +2989,7 @@ class BackgroundRenderer {
             const left = i % 2 === 0;
             const x = left ? w * (0.02 + travel * 0.17) : w * (0.98 - travel * 0.17);
             const rgb = left ? '40,211,255' : '255,65,157';
-            const a = 0.08 + travel * 0.3;
+            const a = Math.min(0.95, (0.12 + travel * 0.4) * (1 + hotM * 0.4));
             ctx.lineWidth = 1 + travel * 2;
             ctx.strokeStyle = `rgba(${rgb},${(a * 0.55).toFixed(3)})`;
             ctx.beginPath();
@@ -3735,6 +3792,7 @@ class BackgroundRenderer {
         this._speedRushLane = null;
         this._speedRushKey = null;
         this._speedRushRail = null;
+        this._speedRushGlow = null;
         this._buildingData = null;
         this._windowList = null;
         this._neonSigns = null;
