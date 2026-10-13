@@ -1679,7 +1679,8 @@
         // The Forge's preview loop calls this so the designs animate.
         const paddlePreviews = new Map();
         const drawPaddlePreview = (canvas, side, color, label) => {
-            if (!canvas || typeof Paddle !== 'function') return;
+            // Skip while its tab is hidden; the tab redraws it when shown.
+            if (!canvas || typeof Paddle !== 'function' || !canvas.getClientRects().length) return;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
             const style = window.PPSettings?.getPaddle?.('customise', side) || 'classic';
@@ -2084,6 +2085,7 @@
                 if (!window.PP_OPEN_CUSTOMISE) return;
                 window.PP_OPEN_CUSTOMISE = false;
                 showCustomiseRedirect();
+                window.__ppCustomShowTab?.('look');
                 requestAnimationFrame(() => {
                     const field = document.querySelector('.customise-ball-studio-field');
                     field?.scrollIntoView({ block: 'center' });
