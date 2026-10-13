@@ -62,15 +62,24 @@ play, with nothing to install. You can play on your own PC at the same time.
 Pick **Online** in the opponent dialog (or **🌐 Play Online** on the Custom
 screen). One player chooses **Host** and gets a five-letter room code plus an
 invite link; the other chooses **Join** and types the code or opens the link.
-The host picks Classic, Gravity, Obstacle or Custom and starts the match.
+The host picks any mode (Classic, Zombie, Gravity, Speed, Obstacle or Custom)
+and starts the match. On a phone, **Copy invite link** opens the share sheet.
 
 - It is peer to peer over WebRTC: the two browsers talk directly, and PeerJS's
   free public broker is only used to find each other. There's no game server
   to run.
 - The host plays the left paddle, the guest the right; either can pause, and
-  both press **Play again** for a rematch. The lobby shows the ping.
-- Zombie and Speed stay offline. Local 1v1 on one keyboard still works in
-  every mode.
+  both press **Play again** for a rematch. **Change mode** takes both players
+  back to the room to pick another mode. The lobby shows the ping and the
+  series score.
+- Online Zombie is a straight duel in the graveyard arena (the waves are a
+  single-player thing); Speed plays as it does locally.
+- If the connection drops, the match freezes and both sides try to reconnect
+  for 45 seconds. Reloading the page puts you straight back in: a guest rejoins
+  the running match with the score intact, a host reopens the room on the same
+  code. If the guest leaves, the host's room stays open on the same code.
+- A third player who tries the code is told the room is full.
+- Local 1v1 on one keyboard still works in every mode.
 - Some strict school, office or mobile networks block peer-to-peer
   connections; the lobby says so and suggests another network (a phone
   hotspot often works).

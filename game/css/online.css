@@ -187,11 +187,12 @@ html.pp-mobile #modal .opts:has(.opt-online:not([hidden])) { grid-template-colum
 .ppon-side { font: 600 11px/1 'Share Tech Mono', monospace; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(150, 230, 255, 0.6); }
 .ppon-vs { font: 900 14px/1 'Orbitron', sans-serif; color: rgba(255, 255, 255, 0.5); }
 .ppon-ping { margin: 0; font: 600 14.5px/1.3 'Rajdhani', sans-serif; color: rgba(205, 232, 245, 0.78); text-align: center; }
+.ppon-series { margin: -4px 0 0; font: 700 12px/1 'Share Tech Mono', monospace; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255, 210, 63, 0.85); text-align: center; }
 .ppon-q.great { color: #00ffd6; }
 .ppon-q.good { color: #ffd23f; }
 .ppon-q.laggy { color: #ff8fa8; }
 
-.ppon-modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.ppon-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .ppon-mode {
     padding: 11px 6px !important;
     border: 1px solid rgba(120, 220, 255, 0.22);
@@ -232,6 +233,8 @@ html.pp-mobile #modal .opts:has(.opt-online:not([hidden])) { grid-template-colum
     transition: opacity 0.2s, transform 0.2s;
 }
 .ppon-banner.show { opacity: 1; transform: translate(-50%, 0); }
+.ppon-banner.warn { border-color: rgba(255, 196, 64, 0.6); color: #fff3d6; }
+.ppon-banner.warn .ppon-spin { border-color: rgba(255, 196, 64, 0.25); border-top-color: #ffc440; }
 
 /* Guest can't restart an online match; the host can. */
 .pause-menu.pp-online-guest [data-act="restart"] { display: none; }

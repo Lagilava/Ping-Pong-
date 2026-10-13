@@ -125,7 +125,7 @@ class Ball {
             }
         }
 
-        this.customEffectCode = typeof nextConfig.effectCode === 'string' ? nextConfig.effectCode : '';
+        this.customEffectCode = typeof nextConfig.effectCode === 'string' ? Ball.migrateStudioEffect(nextConfig.effectCode) : '';
         this._compileStudioEffect(this.customEffectCode);
     }
 
@@ -150,6 +150,18 @@ class Ball {
         this.studioSavedColors = null;
     }
 
+    // The Ball Studio's first default glow drew a shadowBlur ring under the
+    // 'screen' blend, which Chrome renders through a full-canvas layer every
+    // frame. Saved balls that still carry that exact code get the same ring
+    // drawn with the normal blend (same look, no extra layer).
+    static migrateStudioEffect(code) {
+        if (typeof code !== 'string') return code;
+        const legacy = 'ctx.save();\nctx.globalCompositeOperation = "screen";\nctx.shadowColor = api.color || "#ffffff";';
+        return code.startsWith(legacy)
+            ? code.replace('ctx.globalCompositeOperation = "screen";\n', '')
+            : code;
+    }
+
     _compileStudioEffect(code) {
         this.customEffectError = '';
         this.customEffectFn = null;
@@ -170,7 +182,8 @@ class Ball {
             return;
         }
 
-        const baseSize = this.r * 2 * Math.max(0.5, scale);
+        const zoom = Number.isFinite(this.customImageScale) ? this.customImageScale : 1;
+        const baseSize = this.r * 2 * Math.max(0.5, scale) * zoom;
         const drawSize = Math.max(4, baseSize);
 
         ctx.save();
@@ -252,13 +265,18 @@ class Ball {
             }
         };
 
+        // The effect is the player's own code: keep its canvas state from
+        // leaking into the rest of the frame, and stop calling it after it
+        // throws (a broken effect would otherwise throw every frame). Saving
+        // new code in the Ball Studio recompiles it.
+        ctx.save();
         try {
             this.customEffectFn(ctx, this, performance.now() * 0.001, api);
         } catch (error) {
-            if (!this.customEffectError) {
-                this.customEffectError = error?.message || String(error);
-            }
+            this.customEffectError = error?.message || String(error);
+            this.customEffectFn = null;
         }
+        ctx.restore();
     }
 
     reset(center, speed = null) {

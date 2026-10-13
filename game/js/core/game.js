@@ -377,10 +377,12 @@ class Game {
         this._customBallPreviewRefreshCallback?.();
     }
 
+    // The Ball Studio ball is only used in Custom matches; every other mode
+    // keeps its own ball.
     applyBallStudioConfig() {
         if (!this.ball) return;
 
-        if (!this.ballStudioConfig) {
+        if (!this.ballStudioConfig || this.gameMode !== 'customise') {
             this.ball.clearStudioConfig?.();
             return;
         }
@@ -2632,6 +2634,7 @@ class Game {
                 this.aiPaddle.isAI = !this.isMultiplayer;
             }
             if (this.ball) {
+                this.ball.clearStudioConfig?.();
                 this.ball.setCustomColors({ ballColor: null, trailColor: null });
             }
             this.applyPaddleDesigns();

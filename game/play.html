@@ -230,8 +230,7 @@
         <div class="customise-overlay-header">
             <div>
                 <h2 class="customise-overlay-title">Custom Match</h2>
-                <p class="customise-overlay-subtitle">Pick the paddles, ball, music and background, then build the arena
-                    and set the rules.</p>
+                <p id="customModeNotice" class="customise-overlay-subtitle">Two players, on one screen or online. No computer opponent, XP or achievements.</p>
             </div>
             <div class="customise-overlay-actions">
                 <button class="customise-overlay-back-btn customise-overlay-settings-btn" type="button"
@@ -239,34 +238,66 @@
                 <button id="customiseBackBtn" class="customise-overlay-back-btn" type="button">Back to modes</button>
             </div>
         </div>
+        <div class="customise-tabs" role="tablist" aria-label="Custom match sections">
+            <button type="button" role="tab" id="customTab-arena" class="customise-tab" data-custom-tab="arena" aria-controls="customForge"><b>Arena &amp; rules</b><small data-tab-value="arena"></small></button>
+            <button type="button" role="tab" id="customTab-look" class="customise-tab" data-custom-tab="look" aria-controls="customLookSection"><b>Paddles &amp; ball</b><small data-tab-value="look"></small></button>
+            <button type="button" role="tab" id="customTab-music" class="customise-tab" data-custom-tab="music" aria-controls="customMusicSection"><b>Music</b><small data-tab-value="music"></small></button>
+            <button type="button" role="tab" id="customTab-background" class="customise-tab" data-custom-tab="background" aria-controls="customBackgroundSection"><b>Background</b><small data-tab-value="background"></small></button>
+            <button type="button" role="tab" id="customTab-powerups" class="customise-tab" data-custom-tab="powerups" aria-controls="customPowerupsSection"><b>Power-ups</b><small data-tab-value="powerups"></small></button>
+        </div>
         <div class="customise-overlay-content">
             <div class="customise-overlay-scrollable">
                 <div id="customisePanel" class="customise-panel" aria-label="Custom mode settings">
-                    <div class="customise-hero-summary">
-                        <div class="customise-summary-card">
-                            <span class="customise-summary-label">Left paddle</span>
-                            <canvas id="customPreviewLeftPaddle" class="customise-summary-swatch"
-                                aria-label="Left paddle preview"></canvas>
+                    <div class="customise-forge" id="customForge" role="tabpanel" aria-labelledby="customTab-arena" data-custom-panel="arena">
+                        <div class="customise-controls-heading">
+                            <p class="customise-kicker">Forge</p>
+                            <h3>Build your arena, set the rules</h3>
                         </div>
-                        <div class="customise-summary-card">
-                            <span class="customise-summary-label">Right paddle</span>
-                            <canvas id="customPreviewRightPaddle" class="customise-summary-swatch"
-                                aria-label="Right paddle preview"></canvas>
+                        <div class="forge-layout">
+                            <div class="forge-arena-card">
+                                <div class="forge-arena-head">
+                                    <select id="forgeMapSelect" aria-label="Arena map"></select>
+                                    <span id="forgeArenaCount" class="forge-arena-count"></span>
+                                </div>
+                                <canvas id="forgeArenaPreview" class="forge-arena-preview" width="640" height="360"></canvas>
+                                <div class="forge-arena-row">
+                                    <button id="forgeEditBtn" type="button" class="forge-primary">Open Forge editor</button>
+                                    <button id="forgeDeleteBtn" type="button">Delete map</button>
+                                    <button id="forgeBgBtn" type="button">Background&hellip;</button>
+                                </div>
+                                <div class="forge-arena-row">
+                                    <button id="forgeShareBtn" type="button">Copy share code</button>
+                                    <input id="forgeImportInput" type="text" placeholder="Paste a share code" aria-label="Share code">
+                                    <button id="forgeImportBtn" type="button">Import</button>
+                                </div>
+                            </div>
+                            <div class="forge-rules">
+                                <label class="forge-rule"><span>Score to win</span><select id="forgeRule-scoreToWin"></select></label>
+                                <label class="forge-rule"><span>Ball speed</span><select id="forgeRule-ballSpeed"></select></label>
+                                <label class="forge-rule"><span>Rally speed-up</span><select id="forgeRule-hitSpeedup"></select></label>
+                                <label class="forge-rule"><span>Paddle size</span><select id="forgeRule-paddleSize"></select></label>
+                                <label class="forge-rule"><span>Arena gravity</span><select id="forgeRule-gravity"></select></label>
+                                <p class="forge-rules-note">Coins and ? blocks in your arena add a coin counter: every 10 coins is a point.</p>
+                            </div>
                         </div>
                     </div>
 
-                    <nav class="customise-section-nav" aria-label="Custom match sections">
-                        <a href="#customLookSection">Look</a>
-                        <a href="#customMusicSection">Music</a>
-                        <a href="#customBackgroundSection">Background</a>
-                        <a href="#customForge">Forge</a>
-                        <a href="#customPowerupsSection">Power-ups</a>
-                    </nav>
-
-                    <div class="customise-color-controls" id="customLookSection">
+                    <div class="customise-color-controls" id="customLookSection" role="tabpanel" aria-labelledby="customTab-look" data-custom-panel="look">
                         <div class="customise-controls-heading">
                             <p class="customise-kicker">Paddles and ball</p>
                             <h3>Look</h3>
+                        </div>
+                        <div class="customise-hero-summary customise-look-previews">
+                            <div class="customise-summary-card">
+                                <span class="customise-summary-label">Left paddle</span>
+                                <canvas id="customPreviewLeftPaddle" class="customise-summary-swatch"
+                                    aria-label="Left paddle preview"></canvas>
+                            </div>
+                            <div class="customise-summary-card">
+                                <span class="customise-summary-label">Right paddle</span>
+                                <canvas id="customPreviewRightPaddle" class="customise-summary-swatch"
+                                    aria-label="Right paddle preview"></canvas>
+                            </div>
                         </div>
                         <div class="customise-grid">
                             <div class="customise-field">
@@ -289,6 +320,8 @@
                             </div>
                             <div class="customise-field customise-ball-studio-field">
                                 <label for="openBallStudioBtn">Ball</label>
+                                <canvas id="customBallPreview" class="customise-ball-preview" width="132" height="64"
+                                    role="img" aria-label="Your Custom match ball"></canvas>
                                 <p class="customise-field-copy">Design the ball's color, picture and glow in the Ball
                                     Studio. It is only used in Custom matches.</p>
                                 <button id="openBallStudioBtn" class="btn primary" type="button">Open Ball Studio</button>
@@ -296,7 +329,7 @@
                         </div>
                     </div>
 
-                    <div class="customise-audio-controls" id="customMusicSection">
+                    <div class="customise-audio-controls" id="customMusicSection" role="tabpanel" aria-labelledby="customTab-music" data-custom-panel="music">
                         <div class="customise-controls-heading">
                             <p class="customise-kicker">Music</p>
                             <h3>Match music</h3>
@@ -328,7 +361,7 @@
                         </div>
                     </div>
 
-                    <div class="customise-background-studio" id="customBackgroundSection">
+                    <div class="customise-background-studio" id="customBackgroundSection" role="tabpanel" aria-labelledby="customTab-background" data-custom-panel="background">
                         <div class="customise-background-controls">
                             <div class="customise-studio-heading">
                                 <p class="customise-kicker">Background</p>
@@ -377,41 +410,7 @@
                         </div>
                     </div>
 
-                    <div class="customise-forge" id="customForge">
-                        <div class="customise-controls-heading">
-                            <p class="customise-kicker">Forge</p>
-                            <h3>Build your arena, set the rules</h3>
-                        </div>
-                        <div class="forge-layout">
-                            <div class="forge-arena-card">
-                                <div class="forge-arena-head">
-                                    <select id="forgeMapSelect" aria-label="Arena map"></select>
-                                    <span id="forgeArenaCount" class="forge-arena-count"></span>
-                                </div>
-                                <canvas id="forgeArenaPreview" class="forge-arena-preview" width="640" height="360"></canvas>
-                                <div class="forge-arena-row">
-                                    <button id="forgeEditBtn" type="button" class="forge-primary">Open Forge editor</button>
-                                    <button id="forgeDeleteBtn" type="button">Delete map</button>
-                                    <button id="forgeBgBtn" type="button">Background&hellip;</button>
-                                </div>
-                                <div class="forge-arena-row">
-                                    <button id="forgeShareBtn" type="button">Copy share code</button>
-                                    <input id="forgeImportInput" type="text" placeholder="Paste a share code" aria-label="Share code">
-                                    <button id="forgeImportBtn" type="button">Import</button>
-                                </div>
-                            </div>
-                            <div class="forge-rules">
-                                <label class="forge-rule"><span>Score to win</span><select id="forgeRule-scoreToWin"></select></label>
-                                <label class="forge-rule"><span>Ball speed</span><select id="forgeRule-ballSpeed"></select></label>
-                                <label class="forge-rule"><span>Rally speed-up</span><select id="forgeRule-hitSpeedup"></select></label>
-                                <label class="forge-rule"><span>Paddle size</span><select id="forgeRule-paddleSize"></select></label>
-                                <label class="forge-rule"><span>Arena gravity</span><select id="forgeRule-gravity"></select></label>
-                                <p class="forge-rules-note">Coins and ? blocks in your arena add a coin counter: every 10 coins is a point.</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="customise-powerups-panel" id="customPowerupsSection">
+                    <div class="customise-powerups-panel" id="customPowerupsSection" role="tabpanel" aria-labelledby="customTab-powerups" data-custom-panel="powerups">
                         <div class="customise-powerups-head">
                             <p class="customise-powerups-title">Power-ups in this match</p>
                             <span id="customPowerupsCount" class="customise-powerups-count" aria-live="polite"></span>
@@ -451,18 +450,14 @@
                         </div>
                     </div>
 
-                    <p id="customModeNotice" class="custom-mode-note">
-                        Custom matches are two-player games on your Forge arena, on one screen or online. There is no
-                        computer opponent, XP or achievements.
-                    </p>
-                    <div class="customise-actions">
-                        <p id="customSummary" class="customise-summary-line" role="status" aria-live="polite"></p>
-                        <div class="customise-actions-buttons">
-                        <button id="customStartMatchBtn" type="button" class="customise-start-btn">Start match</button>
-                        <button id="customResetDefaultsBtn" type="button" class="customise-reset-btn">Reset to defaults</button>
-                        </div>
-                    </div>
                 </div>
+            </div>
+        </div>
+        <div class="customise-actions">
+            <p id="customSummary" class="customise-summary-line" role="status" aria-live="polite"></p>
+            <div class="customise-actions-buttons">
+                <button id="customStartMatchBtn" type="button" class="customise-start-btn">Start match</button>
+                <button id="customResetDefaultsBtn" type="button" class="customise-reset-btn">Reset to defaults</button>
             </div>
         </div>
     </div>
