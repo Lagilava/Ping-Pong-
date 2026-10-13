@@ -484,6 +484,14 @@
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
     }
 
+    .btn:disabled,
+    select:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
     .btn.primary {
       background: linear-gradient(135deg, rgba(82, 240, 255, 0.16), rgba(137, 255, 157, 0.12));
       border-color: rgba(82, 240, 255, 0.4);
@@ -655,7 +663,7 @@
       <div class="hero-copy">
         <div class="eyebrow">Custom matches</div>
         <h1>Ball Studio</h1>
-        <p>Pick the ball's colors, add a picture and a glow effect, and watch it in the preview. Save to Game uses this ball in your Custom matches; presets keep looks you want to come back to.</p>
+        <p>Pick the ball's colors, add a picture and a glow effect. Every edit saves as you go and your Custom matches use this ball. The preview draws it with the match's own renderer, close up and at match size. Presets keep looks you want to come back to.</p>
       </div>
       <div class="hero-actions">
         <button class="btn primary back" id="backToMenuBtn" type="button">Back to Menu</button>
@@ -671,7 +679,7 @@
         </div>
         <div class="stat">
           <span class="stat-label">Effect</span>
-          <div class="stat-value" id="effectStateValue">Compiled</div>
+          <div class="stat-value" id="effectStateValue">Running</div>
         </div>
       </div>
     </header>
@@ -702,11 +710,11 @@
           <div class="group">
             <div class="group-title">Picture</div>
             <label class="control">
-              <span><strong>Image Opacity</strong><small id="imageOpacityValue"></small></span>
+              <span><strong>Picture Opacity</strong><small id="imageOpacityValue"></small></span>
               <input id="imageOpacity" type="range" min="0" max="1" step="0.01">
             </label>
             <label class="control">
-              <span><strong>Image Zoom</strong><small id="imageScaleValue"></small></span>
+              <span><strong>Picture Zoom</strong><small id="imageScaleValue"></small></span>
               <input id="imageScale" type="range" min="0.75" max="2.5" step="0.01">
             </label>
             <label class="control">
@@ -728,13 +736,13 @@
                 <option value="contain">Fit inside</option>
               </select>
             </label>
-            <div class="dropzone" id="imageDropzone" role="button" tabindex="0" aria-label="Import ball image">
-              <strong>Import Image</strong>
-              <div>Drop a PNG, JPG or WEBP here, or click to browse.</div>
+            <div class="dropzone" id="imageDropzone" role="button" tabindex="0" aria-label="Import ball picture">
+              <strong>Import Picture</strong>
+              <div>Drop a PNG, JPG or WEBP here, or click to browse. Big photos are scaled down to fit the ball.</div>
             </div>
             <input class="hidden-input" id="imageInput" type="file" accept="image/*">
             <div class="footer-actions spaced">
-              <button class="btn warn" id="clearImageBtn" type="button">Clear Image</button>
+              <button class="btn warn" id="clearImageBtn" type="button">Remove Picture</button>
             </div>
           </div>
 
@@ -742,7 +750,7 @@
             <div class="group-title">Status</div>
             <div class="status" id="statusBox" role="status">
               <strong>Ready</strong>
-              <div>Changes show in the preview straight away.</div>
+              <div>Edits save as you go.</div>
             </div>
           </div>
         </div>
@@ -751,19 +759,18 @@
       <section class="panel preview-shell">
         <div class="panel-head">
           <h2>Preview</h2>
-          <div class="hint">Updates as you edit</div>
+          <div class="hint">Same renderer as the match</div>
         </div>
         <div class="panel-body preview-pad">
           <div class="preview-frame">
-            <canvas id="previewCanvas" width="1280" height="900" aria-label="Ball live preview"></canvas>
+            <canvas id="previewCanvas" width="1280" height="900" aria-label="Ball preview, close up and at match size"></canvas>
             <div class="preview-overlay">
-              <div class="chip" id="previewChipOne">Ball skin</div>
-              <div class="chip" id="previewChipTwo">Live render</div>
+              <div class="chip" id="previewChipOne">Your ball</div>
             </div>
           </div>
           <div class="preview-meta spaced">
-            <span class="pill" id="previewMetaLeft">Radius 18px</span>
-            <span class="pill" id="previewMetaRight">FPS live</span>
+            <span class="pill" id="previewMetaLeft">Used in Custom matches</span>
+            <span class="pill" id="previewMetaRight">-- fps</span>
           </div>
         </div>
       </section>
@@ -782,25 +789,24 @@
           <div class="group">
             <div class="group-title">Saved Presets</div>
             <label class="control tight">
-              <span><strong>Preset Name</strong><small>used when saving</small></span>
+              <span><strong>Preset Name</strong><small>Enter saves</small></span>
               <input id="presetName" type="text" maxlength="48" placeholder="Neon Orbit">
             </label>
             <label class="control">
               <span><strong>Saved Effects</strong><small id="presetCountValue">0 saved</small></span>
               <select id="presetSelect">
-                <option value="">No saved presets</option>
+                <option value="">No saved presets yet</option>
               </select>
             </label>
             <div class="preset-row">
               <button class="btn primary" id="savePresetBtn" type="button">Save Preset</button>
-              <button class="btn danger" id="deletePresetBtn" type="button">Delete Selected</button>
+              <button class="btn danger" id="deletePresetBtn" type="button" disabled>Delete Selected</button>
             </div>
           </div>
           <div class="textarea-wrap">
             <textarea id="effectCode" spellcheck="false" placeholder="Paste raw canvas code here. The variables ctx, ball, time, and api are available."></textarea>
             <div class="code-actions">
-              <button class="btn primary" id="applyBtn" type="button">Apply</button>
-              <button class="btn" id="saveBtn" type="button">Save to Game</button>
+              <button class="btn primary" id="saveBtn" type="button">Save to Game</button>
               <button class="btn" id="copyJsonBtn" type="button">Copy JSON</button>
               <button class="btn danger" id="resetBtn" type="button">Reset Defaults</button>
             </div>
@@ -809,12 +815,19 @@
             <div class="group-title">Settings as JSON</div>
             <div class="json-box" id="jsonBox"></div>
           </div>
-          <p class="footnote">Tip: the code runs every frame with <code>ctx</code>, <code>ball</code>, <code>time</code> and <code>api</code>. Stick to drawing: canvas paths and helpers like <code>api.drawImageCover()</code> or <code>api.drawImageContain()</code>.</p>
+          <p class="footnote">Tip: the code runs every frame, centred on the ball, with <code>ctx</code>, <code>ball</code> (<code>ball.r</code> is the radius), <code>time</code> in seconds and <code>api</code> (<code>api.color</code>, <code>api.trailColor</code>, <code>api.speedRatio</code>, <code>api.drawImageCover()</code>, <code>api.drawImageContain()</code>). Stick to drawing. If the code throws, the effect switches off until you edit it.</p>
         </div>
       </section>
     </main>
   </div>
 
+  <!-- The preview draws the ball with the match's own Ball renderer, so what
+       you see here is what you get in a Custom match. -->
+  <script src="js/physics/physics-binary.js"></script>
+  <script src="js/physics/physics-core.js"></script>
+  <script src="js/core/globals.js"></script>
+  <script src="js/core/vec2.js"></script>
+  <script src="js/entities/ball.js"></script>
   <script>
     (() => {
       'use strict';
@@ -822,6 +835,10 @@
       const STORAGE_KEY = 'pp-ball-studio-v1';
       const PRESET_LIBRARY_KEY = 'pp-ball-studio-presets-v1';
       const ACTIVE_PRESET_KEY = 'pp-ball-studio-active-preset-v1';
+      // Imported pictures are scaled down to this many pixels on the long
+      // side. The ball is at most ~60 device pixels across in a match, so this
+      // keeps full detail and keeps the save well inside browser storage.
+      const IMAGE_MAX_SIZE = 256;
       const DEFAULT_CONFIG = {
         version: 1,
         ballColor: '#ffffff',
@@ -834,7 +851,6 @@
         imageScale: 1,
         effectCode: [
           'ctx.save();',
-          'ctx.globalCompositeOperation = "screen";',
           'ctx.shadowColor = api.color || "#ffffff";',
           'ctx.shadowBlur = 18 + Math.sin(time * 6) * 8;',
           'ctx.strokeStyle = `rgba(255, 255, 255, ${0.22 + Math.sin(time * 5) * 0.12})`;',
@@ -845,6 +861,7 @@
           'ctx.restore();'
         ].join('\n')
       };
+      const BLEND_MODES = ['source-over', 'multiply', 'screen', 'overlay', 'soft-light', 'hard-light', 'lighter'];
 
       const els = {
         ballColor: document.getElementById('ballColor'),
@@ -864,7 +881,6 @@
         deletePresetBtn: document.getElementById('deletePresetBtn'),
         presetCountValue: document.getElementById('presetCountValue'),
         effectCode: document.getElementById('effectCode'),
-        applyBtn: document.getElementById('applyBtn'),
         saveBtn: document.getElementById('saveBtn'),
         resetBtn: document.getElementById('resetBtn'),
         copyJsonBtn: document.getElementById('copyJsonBtn'),
@@ -880,7 +896,6 @@
         imageScaleValue: document.getElementById('imageScaleValue'),
         previewCanvas: document.getElementById('previewCanvas'),
         previewChipOne: document.getElementById('previewChipOne'),
-        previewChipTwo: document.getElementById('previewChipTwo'),
         previewMetaLeft: document.getElementById('previewMetaLeft'),
         previewMetaRight: document.getElementById('previewMetaRight'),
       };
@@ -891,32 +906,21 @@
         selectedPresetName: loadSelectedPresetName(),
         compileError: '',
         runtimeError: '',
-        effectFn: null,
-        image: null,
-        imageSource: '',
-        imageReady: false,
-        imageLoadToken: 0,
-        canvas: els.previewCanvas,
+        persistTimer: 0,
+        dirty: false,
+        statusKey: '',
         ctx: els.previewCanvas.getContext('2d'),
-        rafId: 0,
-        lastFrameTime: performance.now(),
-        lastPersistTimer: 0,
+        view: { width: 0, height: 0, dpr: 1 },
+        lastFrameTime: 0,
         fps: 0,
         fpsFrames: 0,
         fpsLast: performance.now(),
-        ball: {
-          x: 0,
-          y: 0,
-          vx: 0,
-          vy: 0,
-          radius: 18,
-          trail: [],
-          trailMax: 14,
-          rotation: 0,
-          wobble: 0,
-          spinRate: 2.4,
-          wobbleAmount: 0.18,
-        }
+        // Close-up: one ball sweeping across the top of the preview, drawn
+        // large. Rally: the same design at match size between two paddles.
+        closeBall: new Ball(0, 0, 18),
+        rallyBall: new Ball(0, 0, 10),
+        closeT: 0,
+        rally: { leftY: 0, rightY: 0, court: { x: 0, y: 0, w: 0, h: 0 } },
       };
 
       function clamp(value, min, max) {
@@ -926,6 +930,14 @@
       function numberOr(value, fallback) {
         const parsed = Number(value);
         return Number.isFinite(parsed) ? parsed : fallback;
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+      }
+
+      function isHexColor(value) {
+        return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value.trim());
       }
 
       function sanitizePresetName(value) {
@@ -938,6 +950,7 @@
       const fromCustomise = new URLSearchParams(window.location.search).get('from_customise') === '1';
 
       function returnToMenu() {
+        flushPendingSave();
         try {
           sessionStorage.setItem('pp-return-to-menu', '1');
           sessionStorage.setItem('pp-skip-intro', '1');
@@ -952,30 +965,17 @@
       function normalizeConfig(input) {
         const source = input && typeof input === 'object' ? input : {};
         return {
-          ...DEFAULT_CONFIG,
-          ...source,
           version: 1,
-          ballColor: typeof source.ballColor === 'string' && source.ballColor ? source.ballColor : DEFAULT_CONFIG.ballColor,
-          trailColor: typeof source.trailColor === 'string' && source.trailColor ? source.trailColor : DEFAULT_CONFIG.trailColor,
-          glowTint: typeof source.glowTint === 'string' && source.glowTint ? source.glowTint : DEFAULT_CONFIG.glowTint,
+          ballColor: isHexColor(source.ballColor) ? source.ballColor.trim() : DEFAULT_CONFIG.ballColor,
+          trailColor: isHexColor(source.trailColor) ? source.trailColor.trim() : DEFAULT_CONFIG.trailColor,
+          glowTint: isHexColor(source.glowTint) ? source.glowTint.trim() : DEFAULT_CONFIG.glowTint,
           imageSrc: typeof source.imageSrc === 'string' ? source.imageSrc : '',
           imageOpacity: clamp(numberOr(source.imageOpacity, DEFAULT_CONFIG.imageOpacity), 0, 1),
-          imageBlendMode: typeof source.imageBlendMode === 'string' && source.imageBlendMode ? source.imageBlendMode : DEFAULT_CONFIG.imageBlendMode,
+          imageBlendMode: BLEND_MODES.includes(source.imageBlendMode) ? source.imageBlendMode : DEFAULT_CONFIG.imageBlendMode,
           imageFit: source.imageFit === 'contain' ? 'contain' : 'cover',
           imageScale: clamp(numberOr(source.imageScale, DEFAULT_CONFIG.imageScale), 0.75, 2.5),
-          effectCode: typeof source.effectCode === 'string' ? source.effectCode : DEFAULT_CONFIG.effectCode,
+          effectCode: typeof source.effectCode === 'string' ? Ball.migrateStudioEffect(source.effectCode) : DEFAULT_CONFIG.effectCode,
         };
-      }
-
-      function syncBallRuntimeFromConfig() {
-        const maxRadius = Math.max(10, Math.min(42, Math.min(els.previewCanvas.clientWidth || 1280, els.previewCanvas.clientHeight || 900) * 0.14));
-        state.ball.radius = clamp(18, 10, maxRadius);
-        state.ball.trailMax = 14;
-        state.ball.spinRate = 2.4;
-        state.ball.wobbleAmount = 0.18;
-
-        state.ball.vx = 220;
-        state.ball.vy = 0;
       }
 
       function loadConfig() {
@@ -1047,14 +1047,20 @@
         }
       }
 
+      function storageErrorMessage(error) {
+        if (error && (error.name === 'QuotaExceededError' || error.code === 22)) {
+          return 'Browser storage is full. Use a smaller picture or delete some presets, then try again.';
+        }
+        return error?.message || String(error);
+      }
+
       function persistPresetLibrary() {
         const payload = normalizePresetLibrary(state.presets);
         try {
           localStorage.setItem(PRESET_LIBRARY_KEY, JSON.stringify(payload));
-          window.dispatchEvent(new CustomEvent('pp-ball-studio-presets-updated', { detail: payload }));
           return true;
         } catch (error) {
-          setStatus('error', 'Preset save failed', error?.message || String(error));
+          setStatus('error', 'Preset not saved', storageErrorMessage(error));
           return false;
         }
       }
@@ -1078,66 +1084,68 @@
         const previousSelection = findPreset(state.selectedPresetName)?.name || '';
         els.presetSelect.innerHTML = '';
 
-        if (!state.presets.items.length) {
-          const placeholder = document.createElement('option');
-          placeholder.value = '';
-          placeholder.textContent = 'No saved presets';
-          els.presetSelect.appendChild(placeholder);
-          els.presetSelect.disabled = true;
-        } else {
-          els.presetSelect.disabled = false;
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = state.presets.items.length ? 'Pick a saved preset' : 'No saved presets yet';
+        els.presetSelect.appendChild(placeholder);
+        els.presetSelect.disabled = !state.presets.items.length;
 
-          const placeholder = document.createElement('option');
-          placeholder.value = '';
-          placeholder.textContent = 'Select a saved preset';
-          els.presetSelect.appendChild(placeholder);
-
-          for (const entry of state.presets.items) {
-            const option = document.createElement('option');
-            option.value = entry.name;
-            option.textContent = entry.name;
-            els.presetSelect.appendChild(option);
-          }
+        for (const entry of state.presets.items) {
+          const option = document.createElement('option');
+          option.value = entry.name;
+          option.textContent = entry.name;
+          els.presetSelect.appendChild(option);
         }
 
         els.presetSelect.value = previousSelection;
         els.presetCountValue.textContent = `${state.presets.items.length} saved`;
+        els.deletePresetBtn.disabled = !previousSelection;
       }
 
       function saveCurrentPreset() {
-        if (!applyConfig({ persist: false })) return;
+        readControlsIntoConfig();
+        if (state.compileError) {
+          setStatus('warn', 'Fix the effect first', 'The glow effect has a syntax error, so this look can\'t be saved as a preset yet.');
+          return;
+        }
 
-        const typedName = sanitizePresetName(els.presetName.value) || state.selectedPresetName;
+        const typedName = sanitizePresetName(els.presetName.value);
         if (!typedName) {
-          setStatus('warn', 'Name required', 'Enter a preset name before saving it.');
+          setStatus('warn', 'Name required', 'Type a name for this preset, then save it.');
           els.presetName.focus();
           return;
         }
 
-        const config = normalizeConfig(state.config);
         const existingIndex = state.presets.items.findIndex(entry => entry.name.toLowerCase() === typedName.toLowerCase());
         const record = {
           name: typedName,
           updatedAt: new Date().toISOString(),
-          config,
+          config: normalizeConfig(state.config),
         };
 
+        const previousItems = state.presets.items.slice();
         if (existingIndex >= 0) {
           state.presets.items.splice(existingIndex, 1, record);
         } else {
           state.presets.items.unshift(record);
         }
 
+        if (!persistPresetLibrary()) {
+          state.presets.items = previousItems;
+          return;
+        }
+        flushPendingSave();
         syncPresetSelection(typedName);
         renderPresetLibrary();
-        if (!persistPresetLibrary()) return;
-        setStatus('ok', 'Preset saved', `${typedName} is now available in the saved effects list.`);
+        updateFieldLabels();
+        setStatus('ok', existingIndex >= 0 ? 'Preset updated' : 'Preset saved', `${escapeHtml(typedName)} is in your saved presets.`);
       }
 
       function loadSelectedPreset() {
         const selectedName = sanitizePresetName(els.presetSelect.value);
         if (!selectedName) {
           syncPresetSelection('', { persist: true });
+          renderPresetLibrary();
           updateFieldLabels();
           return;
         }
@@ -1150,15 +1158,17 @@
 
         state.config = normalizeConfig(preset.config);
         syncPresetSelection(preset.name);
+        renderPresetLibrary();
         syncControlsFromConfig();
-        applyConfig({ persist: false });
-        setStatus('ok', 'Preset loaded', `${preset.name} is now being rendered in the live preview.`);
+        applyConfigToPreview();
+        // Picking a preset makes it the ball you play with, like any other edit.
+        saveNow(`${escapeHtml(preset.name)} is now your Custom match ball.`);
       }
 
       function deleteSelectedPreset() {
-        const targetName = sanitizePresetName(els.presetSelect.value || els.presetName.value || state.selectedPresetName);
+        const targetName = sanitizePresetName(els.presetSelect.value);
         if (!targetName) {
-          setStatus('warn', 'Nothing selected', 'Choose a saved preset to delete.');
+          setStatus('warn', 'Nothing selected', 'Pick a saved preset to delete.');
           return;
         }
 
@@ -1172,27 +1182,58 @@
         state.presets.items.splice(index, 1);
         syncPresetSelection('', { persist: true });
         renderPresetLibrary();
-        persistPresetLibrary();
-        setStatus('ok', 'Preset deleted', `${targetName} was removed from saved effects.`);
+        updateFieldLabels();
+        if (!persistPresetLibrary()) return;
+        setStatus('ok', 'Preset deleted', `${escapeHtml(targetName)} was removed. Your current ball is unchanged.`);
       }
 
-      function persistConfig(force = false) {
+      // Writes the ball to storage; a running game picks it up through the
+      // storage event. Returns false (and says why) if it could not be saved.
+      function persistConfig() {
+        window.clearTimeout(state.persistTimer);
+        state.persistTimer = 0;
+        if (state.compileError) {
+          setStatus('error', 'Effect syntax error', `${escapeHtml(state.compileError)}. Not saved: your matches keep the last working ball until the code is fixed.`);
+          return false;
+        }
         const payload = normalizeConfig(state.config);
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-          window.dispatchEvent(new CustomEvent('pp-ball-studio-updated', { detail: payload }));
-          setStatus('ok', 'Saved to game', 'Your Custom matches now use this ball, even in a game that is already open in another tab.');
-          if (force) {
-            updateSnapshot();
-          }
+          state.dirty = false;
+          return true;
         } catch (error) {
-          setStatus('error', 'Save failed', error?.message || String(error));
+          setStatus('error', 'Save failed', storageErrorMessage(error));
+          return false;
         }
       }
 
+      function saveNow(message) {
+        if (persistConfig()) {
+          if (state.runtimeError) {
+            setStatus('warn', 'Saved, effect stopped', `The glow effect threw an error and is switched off: ${escapeHtml(state.runtimeError)}. Edit the code to try again.`);
+          } else {
+            setStatus('ok', 'Saved', message || 'Your Custom matches use this ball.');
+          }
+        }
+        updateSnapshot();
+      }
+
+      function scheduleSave() {
+        state.dirty = true;
+        window.clearTimeout(state.persistTimer);
+        state.persistTimer = window.setTimeout(() => saveNow(), 260);
+      }
+
+      function flushPendingSave() {
+        if (state.dirty) persistConfig();
+      }
+
       function setStatus(kind, title, message) {
+        const key = `${kind}|${title}|${message}`;
+        if (key === state.statusKey) return;
+        state.statusKey = key;
         els.statusBox.className = `status ${kind}`;
-        els.statusBox.innerHTML = `<strong>${title}</strong><div>${message}</div>`;
+        els.statusBox.innerHTML = `<strong>${escapeHtml(title)}</strong><div>${message}</div>`;
         els.liveStateValue.textContent = title;
         els.liveStateValue.style.color = kind === 'error' ? 'var(--danger)' : kind === 'warn' ? 'var(--accent-2)' : 'var(--accent-3)';
       }
@@ -1201,13 +1242,18 @@
         els.ballColorValue.textContent = state.config.ballColor.toUpperCase();
         els.trailColorValue.textContent = state.config.trailColor.toUpperCase();
         els.glowTintValue.textContent = state.config.glowTint.toUpperCase();
-        els.imageOpacityValue.textContent = state.config.imageOpacity.toFixed(2);
+        els.imageOpacityValue.textContent = `${Math.round(state.config.imageOpacity * 100)}%`;
         els.imageScaleValue.textContent = state.config.imageScale.toFixed(2) + 'x';
-        els.imageStateValue.textContent = state.config.imageSrc ? 'Loaded' : 'None';
-        els.effectStateValue.textContent = state.compileError ? 'Syntax error' : state.runtimeError ? 'Runtime issue' : 'Compiled';
-        els.previewChipOne.textContent = findPreset(state.selectedPresetName) ? `Preset: ${state.selectedPresetName}` : 'Draft preview';
-        els.previewChipTwo.textContent = state.compileError ? 'Fix code' : 'Live render';
-        els.effectCode.placeholder = 'Paste raw canvas code here. The variables ctx, ball, time, and api are available.';
+        const imageOn = !!state.config.imageSrc;
+        els.imageStateValue.textContent = imageOn ? (state.closeBall.customImageError ? 'Unreadable' : 'Loaded') : 'None';
+        els.clearImageBtn.disabled = !imageOn;
+        els.effectStateValue.textContent = state.compileError
+          ? 'Syntax error'
+          : state.runtimeError
+            ? 'Stopped'
+            : (state.config.effectCode || '').trim() ? 'Running' : 'Off';
+        const preset = findPreset(state.selectedPresetName);
+        els.previewChipOne.textContent = preset ? `Preset: ${preset.name}` : 'Your ball';
       }
 
       function syncControlsFromConfig() {
@@ -1218,7 +1264,9 @@
         els.imageScale.value = String(state.config.imageScale);
         els.imageBlendMode.value = state.config.imageBlendMode;
         els.imageFit.value = state.config.imageFit;
-        els.effectCode.value = state.config.effectCode;
+        if (els.effectCode.value !== state.config.effectCode) {
+          els.effectCode.value = state.config.effectCode;
+        }
         updateFieldLabels();
       }
 
@@ -1234,108 +1282,63 @@
           imageFit: els.imageFit.value,
           effectCode: els.effectCode.value,
         });
+        checkEffectSyntax();
         updateFieldLabels();
         updateSnapshot();
       }
 
-      function updateSnapshot() {
-        els.jsonBox.textContent = JSON.stringify(state.config, null, 2);
-        els.previewMetaLeft.textContent = `Radius ${Math.round(state.ball.radius)}px · Trail ${state.ball.trailMax}`;
-        els.previewMetaRight.textContent = state.imageReady ? 'Image ready' : 'Image not loaded';
-      }
-
-      function compileEffect() {
+      function checkEffectSyntax() {
         state.compileError = '';
         state.runtimeError = '';
-        state.effectFn = null;
         const code = (state.config.effectCode || '').trim();
-        if (!code) {
-          updateFieldLabels();
-          return true;
-        }
-
+        if (!code) return true;
         try {
-          state.effectFn = new Function('ctx', 'ball', 'time', 'api', code);
-          updateFieldLabels();
+          // Compile only, to report syntax errors; the Ball runs the effect.
+          new Function('ctx', 'ball', 'time', 'api', code);
           return true;
         } catch (error) {
           state.compileError = error?.message || String(error);
-          setStatus('error', 'Effect syntax error', state.compileError);
-          updateFieldLabels();
           return false;
         }
       }
 
-      function applyConfig({ persist = true } = {}) {
+      // Hands the current draft to both preview balls (the same call a match
+      // makes). The image only reloads when it changed.
+      function applyConfigToPreview() {
+        const config = normalizeConfig(state.config);
+        for (const ball of [state.closeBall, state.rallyBall]) {
+          ball.setStudioConfig(config);
+        }
+        if (state.compileError) {
+          setStatus('error', 'Effect syntax error', escapeHtml(state.compileError));
+        }
+        updateFieldLabels();
+      }
+
+      function onEdit() {
         readControlsIntoConfig();
-        syncBallRuntimeFromConfig();
-        const compiled = compileEffect();
-        updateImageSource(state.config.imageSrc);
-        updateSnapshot();
-
-        if (!compiled) {
-          els.saveBtn.disabled = true;
-          els.applyBtn.disabled = false;
-          return false;
-        }
-
-        els.saveBtn.disabled = false;
-        els.applyBtn.disabled = false;
-        setStatus('ok', 'Preview updated', persist ? 'Your edits are valid and ready to save.' : 'Preview is showing the current draft.');
-        if (persist) {
-          persistConfig(true);
-        }
-        return true;
+        applyConfigToPreview();
+        scheduleSave();
       }
 
-      function schedulePersist() {
-        window.clearTimeout(state.lastPersistTimer);
-        state.lastPersistTimer = window.setTimeout(() => {
-          if (!state.compileError) {
-            persistConfig(false);
-          }
-        }, 220);
+      function updateSnapshot() {
+        const shown = { ...state.config };
+        if (shown.imageSrc && shown.imageSrc.length > 80) {
+          shown.imageSrc = `${shown.imageSrc.slice(0, 48)}… (${Math.round(shown.imageSrc.length / 1024)} KB)`;
+        }
+        els.jsonBox.textContent = JSON.stringify(shown, null, 2);
       }
 
-      function updateImageSource(source) {
-        const imageSource = (source || '').trim();
-        if (!imageSource) {
-          state.image = null;
-          state.imageSource = '';
-          state.imageReady = false;
-          updateFieldLabels();
-          return;
-        }
-
-        if (state.imageSource === imageSource && state.imageReady && state.image) {
-          updateFieldLabels();
-          return;
-        }
-
-        state.imageSource = imageSource;
-        const token = ++state.imageLoadToken;
-        const image = new Image();
-        image.decoding = 'async';
-        image.onload = () => {
-          if (token !== state.imageLoadToken) return;
-          state.image = image;
-          state.imageReady = true;
-          updateFieldLabels();
-          if (!state.compileError) {
-            schedulePersist();
-          }
-        };
-        image.onerror = () => {
-          if (token !== state.imageLoadToken) return;
-          state.image = null;
-          state.imageReady = false;
-          setStatus('warn', 'Image load issue', 'The image could not be decoded. The preview will fall back to vector rendering.');
-          updateFieldLabels();
-        };
-        image.src = imageSource;
+      function loadImage(src) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error('That file could not be read as a picture.'));
+          image.src = src;
+        });
       }
 
-      function loadFileAsDataUrl(file) {
+      function readFileAsDataUrl(file) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result || ''));
@@ -1344,23 +1347,47 @@
         });
       }
 
+      // Scales a picture down to IMAGE_MAX_SIZE on its long side so it stays
+      // sharp on the ball and fits in browser storage (a phone photo as-is
+      // is several MB and would not save).
+      async function prepareImage(file) {
+        const dataUrl = await readFileAsDataUrl(file);
+        const image = await loadImage(dataUrl);
+        const w = image.naturalWidth;
+        const h = image.naturalHeight;
+        if (!w || !h) throw new Error('That picture is empty.');
+        const scale = Math.min(1, IMAGE_MAX_SIZE / Math.max(w, h));
+        if (scale === 1 && dataUrl.length < 160 * 1024) return dataUrl;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(w * scale));
+        canvas.height = Math.max(1, Math.round(h * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const webp = canvas.toDataURL('image/webp', 0.92);
+        return webp.startsWith('data:image/webp') ? webp : canvas.toDataURL('image/png');
+      }
+
       function setImageFromFile(file) {
         if (!file) return;
         if (!file.type.startsWith('image/')) {
-          setStatus('warn', 'Unsupported file', 'Please choose an image file.');
+          setStatus('warn', 'Not a picture', 'Pick a PNG, JPG, WEBP or GIF file.');
           return;
         }
 
-        setStatus('warn', 'Importing image', file.name);
-        loadFileAsDataUrl(file)
-          .then(dataUrl => {
-            state.config.imageSrc = dataUrl;
+        setStatus('warn', 'Importing picture', escapeHtml(file.name));
+        prepareImage(file)
+          .then(src => {
+            state.config.imageSrc = src;
             syncControlsFromConfig();
-            applyConfig({ persist: false });
-            schedulePersist();
+            applyConfigToPreview();
+            saveNow(`${escapeHtml(file.name)} is on the ball. Opacity, zoom and blend change how it shows.`);
           })
           .catch(error => {
-            setStatus('error', 'Image import failed', error?.message || String(error));
+            setStatus('error', 'Import failed', escapeHtml(error?.message || String(error)));
+          })
+          .finally(() => {
+            els.imageInput.value = '';
           });
       }
 
@@ -1390,302 +1417,239 @@
         textarea.focus();
         textarea.selectionStart = caret;
         textarea.selectionEnd = caret;
-        applyConfig({ persist: false });
-        schedulePersist();
+        onEdit();
       }
 
-      function drawBackground(ctx, width, height, time) {
-        const sky = ctx.createLinearGradient(0, 0, 0, height);
-        sky.addColorStop(0, '#020713');
-        sky.addColorStop(0.45, '#081124');
-        sky.addColorStop(1, '#02050c');
-        ctx.fillStyle = sky;
-        ctx.fillRect(0, 0, width, height);
-
-        const core = ctx.createRadialGradient(width * 0.5, height * 0.46, 0, width * 0.5, height * 0.48, Math.max(width, height) * 0.68);
-        core.addColorStop(0, 'rgba(82, 240, 255, 0.11)');
-        core.addColorStop(0.4, 'rgba(255, 139, 93, 0.07)');
-        core.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = core;
-        ctx.fillRect(0, 0, width, height);
-
-        ctx.save();
-        ctx.globalAlpha = 0.25;
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-        ctx.lineWidth = 1;
-        const step = 48;
-        const offset = (time * 18) % step;
-        for (let x = -step; x < width + step; x += step) {
-          ctx.beginPath();
-          ctx.moveTo(x + offset, 0);
-          ctx.lineTo(x + offset, height);
-          ctx.stroke();
-        }
-        for (let y = -step; y < height + step; y += step) {
-          ctx.beginPath();
-          ctx.moveTo(0, y + offset * 0.55);
-          ctx.lineTo(width, y + offset * 0.55);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      function drawCircleImageCover(ctx, image, dx, dy, dw, dh) {
-        if (!image || !image.naturalWidth || !image.naturalHeight) return;
-        const sourceRatio = image.naturalWidth / image.naturalHeight;
-        const destRatio = dw / dh;
-        let sx = 0;
-        let sy = 0;
-        let sw = image.naturalWidth;
-        let sh = image.naturalHeight;
-
-        if (sourceRatio > destRatio) {
-          sw = image.naturalHeight * destRatio;
-          sx = (image.naturalWidth - sw) / 2;
-        } else {
-          sh = image.naturalWidth / destRatio;
-          sy = (image.naturalHeight - sh) / 2;
-        }
-
-        ctx.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
-      }
-
-      function runEffect(ctx, ball, time) {
-        if (typeof state.effectFn !== 'function') return;
-        const api = {
-          color: state.config.ballColor,
-          trailColor: state.config.trailColor,
-          image: state.image,
-          drawImageCover: (image = state.image, dx = -ball.radius, dy = -ball.radius, dw = ball.radius * 2, dh = ball.radius * 2) => {
-            drawCircleImageCover(ctx, image, dx, dy, dw, dh);
-          },
-          drawImageContain: (image = state.image, dx = -ball.radius, dy = -ball.radius, dw = ball.radius * 2, dh = ball.radius * 2) => {
-            if (!image || !image.naturalWidth || !image.naturalHeight) return;
-            const sourceAspect = image.naturalWidth / image.naturalHeight;
-            const destAspect = dw / dh;
-            let drawW = dw;
-            let drawH = dh;
-            if (sourceAspect > destAspect) {
-              drawH = dw / sourceAspect;
-            } else {
-              drawW = dh * sourceAspect;
-            }
-            ctx.drawImage(image, dx + (dw - drawW) / 2, dy + (dh - drawH) / 2, drawW, drawH);
-          },
-        };
-
-        try {
-          state.effectFn(ctx, ball, time, api);
-          state.runtimeError = '';
-        } catch (error) {
-          state.runtimeError = error?.message || String(error);
-          setStatus('warn', 'Effect runtime issue', state.runtimeError);
-        }
-      }
-
-      function drawBall(ctx, width, height, time, dt) {
-        const ball = state.ball;
-        const edge = 26;
-        const minX = edge + ball.radius;
-        const maxX = width - edge - ball.radius;
-        const minY = edge + ball.radius;
-        const maxY = height - edge - ball.radius;
-
-        ball.x += ball.vx * dt;
-        ball.y += ball.vy * dt;
-        ball.rotation += dt * ball.spinRate;
-        ball.wobble = Math.sin(time * 6) * ball.wobbleAmount;
-
-        if (ball.x < minX) {
-          ball.x = minX;
-          ball.vx *= -1;
-        }
-        if (ball.x > maxX) {
-          ball.x = maxX;
-          ball.vx *= -1;
-        }
-        if (ball.y < minY) {
-          ball.y = minY;
-          ball.vy *= -1;
-        }
-        if (ball.y > maxY) {
-          ball.y = maxY;
-          ball.vy *= -1;
-        }
-
-        if (ball.trailMax > 0) {
-          ball.trail.unshift({ x: ball.x, y: ball.y, age: 0 });
-          ball.trail = ball.trail.slice(0, ball.trailMax);
-          for (const point of ball.trail) {
-            point.age += dt;
-          }
-        } else {
-          ball.trail.length = 0;
-        }
-
-        ctx.save();
-        drawBackground(ctx, width, height, time);
-
-        const trailBase = state.config.trailColor;
-        if (ball.trailMax > 0) {
-          ball.trail.forEach((point, index) => {
-            const alpha = Math.max(0, 1 - point.age * 1.7) * (1 - index / ball.trailMax);
-            if (alpha <= 0) return;
-            const radius = ball.radius * (0.55 + (1 - index / ball.trailMax) * 0.75);
-            const glow = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius * 2.8);
-            glow.addColorStop(0, `rgba(255,255,255,${alpha * 0.5})`);
-            glow.addColorStop(0.35, hexToRgba(trailBase, alpha * 0.45));
-            glow.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = glow;
-            ctx.beginPath();
-            ctx.arc(point.x, point.y, radius * 2.6, 0, Math.PI * 2);
-            ctx.fill();
-          });
-        }
-
-        ctx.save();
-        ctx.translate(ball.x, ball.y);
-
-        const ballColor = state.config.ballColor;
-        const glowTint = state.config.glowTint;
-
-        ctx.globalCompositeOperation = 'lighter';
-        const aura = ctx.createRadialGradient(0, 0, 0, 0, 0, ball.radius * (2.1 + Math.sin(time * 2) * 0.08));
-        aura.addColorStop(0, hexToRgba(glowTint, 0.55));
-        aura.addColorStop(0.28, hexToRgba(ballColor, 0.3));
-        aura.addColorStop(0.72, hexToRgba(state.config.trailColor, 0.15));
-        aura.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = aura;
-        ctx.beginPath();
-        ctx.arc(0, 0, ball.radius * 2.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = ballColor;
-        ctx.shadowColor = glowTint;
-        ctx.shadowBlur = 26;
-        ctx.beginPath();
-        ctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        ctx.rotate(ball.rotation * 0.7 + ball.wobble * 0.22);
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
-        ctx.clip();
-        if (state.imageReady && state.image) {
-          ctx.globalAlpha = state.config.imageOpacity;
-          ctx.globalCompositeOperation = state.config.imageBlendMode;
-          const scale = Math.max(0.75, state.config.imageScale);
-          const drawSize = ball.radius * 2 * scale;
-          if (state.config.imageFit === 'contain') {
-            const aspect = state.image.naturalWidth / state.image.naturalHeight;
-            let drawW = drawSize;
-            let drawH = drawSize;
-            if (aspect > 1) {
-              drawH = drawSize / aspect;
-            } else {
-              drawW = drawSize * aspect;
-            }
-            ctx.drawImage(state.image, -drawW / 2, -drawH / 2, drawW, drawH);
-          } else {
-            drawCircleImageCover(ctx, state.image, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
-          }
-        }
-        ctx.restore();
-
-        const highlight = ctx.createRadialGradient(-ball.radius * 0.35, -ball.radius * 0.35, 0, 0, 0, ball.radius * 1.25);
-        highlight.addColorStop(0, 'rgba(255,255,255,0.92)');
-        highlight.addColorStop(0.45, 'rgba(255,255,255,0.18)');
-        highlight.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.globalCompositeOperation = 'screen';
-        ctx.fillStyle = highlight;
-        ctx.beginPath();
-        ctx.arc(0, 0, ball.radius * 1.15, 0, Math.PI * 2);
-        ctx.fill();
-
-        const ring = ctx.createLinearGradient(-ball.radius, 0, ball.radius, 0);
-        ring.addColorStop(0, hexToRgba(state.config.trailColor, 0));
-        ring.addColorStop(0.5, hexToRgba(state.config.glowTint, 0.8));
-        ring.addColorStop(1, hexToRgba(state.config.trailColor, 0));
-        ctx.lineWidth = 1.6;
-        ctx.strokeStyle = ring;
-        ctx.beginPath();
-        ctx.arc(0, 0, ball.radius * 1.02, 0, Math.PI * 2);
-        ctx.stroke();
-
-        runEffect(ctx, { ...ball, r: ball.radius }, time);
-
-        ctx.restore();
-      }
-
-      function hexToRgba(hex, alpha) {
-        const clean = String(hex || '').replace('#', '').trim();
-        if (clean.length !== 6) return `rgba(255,255,255,${alpha})`;
-        const num = parseInt(clean, 16);
-        if (Number.isNaN(num)) return `rgba(255,255,255,${alpha})`;
-        const r = (num >> 16) & 255;
-        const g = (num >> 8) & 255;
-        const b = num & 255;
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-      }
-
+      // ── Preview ─────────────────────────────────────────────────────────
       function resizeCanvas() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const rect = els.previewCanvas.getBoundingClientRect();
-        const width = Math.max(1, Math.round(rect.width * dpr));
-        const height = Math.max(1, Math.round(rect.height * dpr));
-        if (els.previewCanvas.width !== width) els.previewCanvas.width = width;
-        if (els.previewCanvas.height !== height) els.previewCanvas.height = height;
-        state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        syncBallRuntimeFromConfig();
-        state.ball.x = Math.max(state.ball.radius + 24, Math.min(rect.width - state.ball.radius - 24, state.ball.x || rect.width * 0.5));
-        state.ball.y = Math.max(state.ball.radius + 24, Math.min(rect.height - state.ball.radius - 24, state.ball.y || rect.height * 0.52));
-        if (!state.ball.vx && !state.ball.vy) {
-          syncBallRuntimeFromConfig();
+        const width = Math.max(1, Math.round(rect.width));
+        const height = Math.max(1, Math.round(rect.height));
+        if (els.previewCanvas.width !== Math.round(width * dpr)) els.previewCanvas.width = Math.round(width * dpr);
+        if (els.previewCanvas.height !== Math.round(height * dpr)) els.previewCanvas.height = Math.round(height * dpr);
+        state.view = { width, height, dpr };
+
+        // The rally ball uses the radius a match gives the ball on this screen
+        // (Game.getDefaultBallRadius at the window's height).
+        const screenH = window.innerHeight || height;
+        const minR = Math.max(5, Math.min(12, Math.floor(Math.min(window.innerWidth, screenH) * 0.008)));
+        const maxR = Math.max(15, Math.min(28, Math.floor(Math.min(window.innerWidth, screenH) * 0.025)));
+        state.rallyBall.r = Math.max(minR, Math.min(maxR, Math.floor(screenH * 0.015)));
+
+        const pad = 18;
+        const courtH = Math.max(120, Math.round(height * 0.36));
+        state.rally.court = { x: pad, y: height - courtH - pad, w: width - pad * 2, h: courtH };
+        resetRally();
+      }
+
+      function resetRally() {
+        const ball = state.rallyBall;
+        const { w, h } = state.rally.court;
+        ball.pos.set(w * 0.5, h * 0.5);
+        ball.prev.set(w * 0.5, h * 0.5);
+        const dir = ball.vel.x < 0 ? -1 : 1;
+        const speed = clamp(w * 0.9, 360, 640);
+        ball.vel.set(dir * speed * 0.92, speed * 0.38);
+        ball.minSpeed = 300;
+        ball.maxSpeed = 900;
+        ball.trailCount = 0;
+        ball.particles.length = 0;
+        state.rally.leftY = h * 0.5;
+        state.rally.rightY = h * 0.5;
+      }
+
+      // Same trail sampling as Ball.integrate, for the close-up ball (which
+      // follows a set path instead of the physics).
+      function pushTrailPoint(ball) {
+        const lastIdx = (ball.trailCount - 1) * 2;
+        const dist = ball.trailCount > 0
+          ? Math.hypot(ball.pos.x - ball.trailPoints[lastIdx], ball.pos.y - ball.trailPoints[lastIdx + 1])
+          : 999;
+        if (dist <= 8) return;
+        if (ball.trailCount < ball.maxTrailPoints) {
+          ball.trailPoints[ball.trailCount * 2] = ball.pos.x;
+          ball.trailPoints[ball.trailCount * 2 + 1] = ball.pos.y;
+          ball.trailCount++;
+        } else {
+          ball.trailPoints.copyWithin(0, 2, ball.maxTrailPoints * 2);
+          ball.trailPoints[(ball.maxTrailPoints - 1) * 2] = ball.pos.x;
+          ball.trailPoints[(ball.maxTrailPoints - 1) * 2 + 1] = ball.pos.y;
         }
-        updateSnapshot();
+      }
+
+      function stepCloseUp(dt, zoom) {
+        const ball = state.closeBall;
+        state.closeT += dt;
+        const t = state.closeT;
+        // A slow figure-eight: fast enough through the middle to show the
+        // trail, easing off at the ends so the ball itself reads clearly.
+        // Keeps the ball and its spin marks inside narrow previews too.
+        const ax = clamp(state.view.width / 2 / zoom - ball.r * 2.2, 20, 80);
+        const ay = 18;
+        ball.prev.set(ball.pos.x, ball.pos.y);
+        ball.pos.set(Math.sin(t * 1.9) * ax, Math.sin(t * 3.8) * ay);
+        ball.vel.set((ball.pos.x - ball.prev.x) / Math.max(dt, 1e-3), (ball.pos.y - ball.prev.y) / Math.max(dt, 1e-3));
+        // Shown as a ball in flight, so the trail is always there to judge.
+        ball._speed = Math.max(280, Math.hypot(ball.vel.x, ball.vel.y));
+        ball.spin = Math.sin(t * 0.9) * 4;
+        ball.spinAngle += ball.spin * dt * 2.2;
+        ball.squashAmount *= Math.exp(-16 * dt);
+        pushTrailPoint(ball);
+      }
+
+      function stepRally(dt) {
+        const ball = state.rallyBall;
+        const rally = state.rally;
+        const { w, h } = rally.court;
+        const paddleW = 10;
+        const paddleH = Math.max(36, Math.round(h * 0.3));
+        const leftX = 14;
+        const rightX = w - 14 - paddleW;
+
+        // Paddles drift toward the ball with a little lag, like players.
+        const follow = 1 - Math.exp(-7 * dt);
+        if (ball.vel.x < 0) rally.leftY += (ball.pos.y - rally.leftY) * follow;
+        else rally.rightY += (ball.pos.y - rally.rightY) * follow;
+        rally.leftY = clamp(rally.leftY, paddleH / 2, h - paddleH / 2);
+        rally.rightY = clamp(rally.rightY, paddleH / 2, h - paddleH / 2);
+
+        ball.integrate(dt, h);
+
+        const hit = (paddleY, faceX, dir) => {
+          ball.pos.x = faceX + dir * ball.r;
+          const offset = clamp((ball.pos.y - paddleY) / (paddleH / 2), -1, 1);
+          const speed = clamp(Math.hypot(ball.vel.x, ball.vel.y), 360, 720);
+          const angle = offset * 0.7;
+          ball.vel.set(dir * Math.cos(angle) * speed, Math.sin(angle) * speed);
+          ball.spin = (Math.random() - 0.5) * 6;
+          ball.squashImpact(0, 0.28);
+          ball.triggerHitEffect(ball.pos.x, ball.pos.y);
+        };
+        if (ball.vel.x < 0 && ball.pos.x - ball.r <= leftX + paddleW) hit(rally.leftY, leftX + paddleW, 1);
+        if (ball.vel.x > 0 && ball.pos.x + ball.r >= rightX) hit(rally.rightY, rightX, -1);
+        if (ball.pos.x < -40 || ball.pos.x > w + 40 || !Number.isFinite(ball.pos.y)) resetRally();
+        return { paddleW, paddleH, leftX, rightX };
+      }
+
+      function drawBackdrop(ctx, width, height) {
+        const sky = ctx.createLinearGradient(0, 0, 0, height);
+        sky.addColorStop(0, '#030914');
+        sky.addColorStop(0.55, '#071022');
+        sky.addColorStop(1, '#02050c');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, width, height);
+        const core = ctx.createRadialGradient(width * 0.5, height * 0.3, 0, width * 0.5, height * 0.3, Math.max(width, height) * 0.6);
+        core.addColorStop(0, 'rgba(82, 240, 255, 0.10)');
+        core.addColorStop(0.5, 'rgba(255, 139, 93, 0.04)');
+        core.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = core;
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      function drawLabel(ctx, text, x, y) {
+        ctx.font = '600 11px "IBM Plex Mono", monospace';
+        ctx.fillStyle = 'rgba(232, 245, 255, 0.55)';
+        ctx.textBaseline = 'top';
+        ctx.fillText(text, x, y);
+      }
+
+      function drawCourt(ctx, metrics) {
+        const { x, y, w, h } = state.rally.court;
+        const { paddleW, paddleH, leftX, rightX } = metrics;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = 'rgba(2, 6, 14, 0.82)';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = 'rgba(146, 214, 255, 0.22)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+        ctx.setLineDash([6, 8]);
+        ctx.beginPath();
+        ctx.moveTo(w / 2, 6);
+        ctx.lineTo(w / 2, h - 6);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#00ffd6';
+        ctx.fillRect(leftX, state.rally.leftY - paddleH / 2, paddleW, paddleH);
+        ctx.fillStyle = '#ff0044';
+        ctx.fillRect(rightX, state.rally.rightY - paddleH / 2, paddleW, paddleH);
+        ctx.beginPath();
+        ctx.rect(0, 0, w, h);
+        ctx.clip();
+        state.rallyBall.render(ctx, 1);
+        ctx.restore();
+      }
+
+      function trackRuntimeError() {
+        const error = state.closeBall.customEffectError || state.rallyBall.customEffectError;
+        if (state.compileError || error === state.runtimeError) return;
+        state.runtimeError = error || '';
+        if (error) {
+          setStatus('warn', 'Effect stopped', `The glow effect threw an error and was switched off: ${escapeHtml(error)}. Edit the code to try again.`);
+        }
+        updateFieldLabels();
       }
 
       function tick(now) {
-        const width = els.previewCanvas.clientWidth || 900;
-        const height = els.previewCanvas.clientHeight || 620;
-        const dt = Math.min(0.033, (now - state.lastFrameTime) / 1000 || 0.016);
+        const { width, height, dpr } = state.view;
+        const dt = state.lastFrameTime ? Math.min(0.033, (now - state.lastFrameTime) / 1000) : 1 / 60;
         state.lastFrameTime = now;
         state.fpsFrames += 1;
         if (now - state.fpsLast >= 1000) {
-          state.fps = state.fpsFrames;
+          state.fps = Math.round((state.fpsFrames * 1000) / (now - state.fpsLast));
           state.fpsFrames = 0;
           state.fpsLast = now;
-          els.previewMetaRight.textContent = `${state.imageReady ? 'Image ready' : 'Image not loaded'} · ${state.fps} fps`;
+          els.previewMetaRight.textContent = `${state.fps} fps`;
         }
 
-        drawBall(state.ctx, width, height, now / 1000, dt);
-        state.rafId = requestAnimationFrame(tick);
+        const ctx = state.ctx;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawBackdrop(ctx, width, height);
+
+        // Close-up, scaled so the ball is big enough to judge the details.
+        const closeH = state.rally.court.y - 12;
+        const zoom = clamp(Math.min(width / 260, closeH / 120), 1.6, 4);
+        stepCloseUp(dt, zoom);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, width, closeH);
+        ctx.clip();
+        ctx.translate(width / 2, closeH * 0.54);
+        ctx.scale(zoom, zoom);
+        state.closeBall.render(ctx, 1);
+        ctx.restore();
+        drawLabel(ctx, 'CLOSE-UP', 18, 16);
+
+        const metrics = stepRally(dt);
+        drawCourt(ctx, metrics);
+        drawLabel(ctx, 'MATCH SIZE', state.rally.court.x + 4, state.rally.court.y - 18);
+
+        trackRuntimeError();
+        requestAnimationFrame(tick);
       }
 
       function resetDefaults() {
         state.config = normalizeConfig(DEFAULT_CONFIG);
-        state.image = null;
-        state.imageSource = '';
-        state.imageReady = false;
-        state.imageLoadToken += 1;
         syncPresetSelection('', { persist: true });
         syncControlsFromConfig();
         renderPresetLibrary();
-        setStatus('ok', 'Defaults restored', 'The studio has been reset to the built-in baseline skin.');
-        applyConfig({ persist: false });
-        persistConfig(true);
+        checkEffectSyntax();
+        applyConfigToPreview();
+        updateSnapshot();
+        saveNow('Back to the standard ball. Your saved presets are untouched.');
       }
 
       function copyJson() {
         const text = JSON.stringify(state.config, null, 2);
-        navigator.clipboard?.writeText(text).then(() => {
-          setStatus('ok', 'JSON copied', 'The full config is now in your clipboard.');
+        if (!navigator.clipboard?.writeText) {
+          setStatus('warn', 'Copy not available', 'This browser does not allow copying from the page.');
+          return;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+          setStatus('ok', 'Copied', 'The ball settings are on your clipboard as JSON.');
         }).catch(error => {
-          setStatus('warn', 'Copy blocked', error?.message || String(error));
+          setStatus('warn', 'Copy blocked', escapeHtml(error?.message || String(error)));
         });
       }
 
@@ -1702,38 +1666,24 @@
         ];
 
         liveInputs.forEach(control => {
-          control.addEventListener('input', () => {
-            applyConfig({ persist: false });
-            schedulePersist();
-          });
-          control.addEventListener('change', () => {
-            applyConfig({ persist: false });
-            schedulePersist();
-          });
+          control.addEventListener('input', onEdit);
+          control.addEventListener('change', onEdit);
         });
 
-        els.presetName.addEventListener('input', () => {
-          syncPresetSelection(els.presetName.value, { persist: false });
-          updateFieldLabels();
+        els.presetName.addEventListener('keydown', event => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            saveCurrentPreset();
+          }
         });
-
-        els.presetSelect.addEventListener('change', () => {
-          loadSelectedPreset();
-        });
-
+        els.presetSelect.addEventListener('change', loadSelectedPreset);
         els.savePresetBtn.addEventListener('click', saveCurrentPreset);
         els.deletePresetBtn.addEventListener('click', deleteSelectedPreset);
 
-        els.applyBtn.addEventListener('click', () => {
-          if (applyConfig({ persist: false })) {
-            persistConfig(true);
-          }
-        });
-
         els.saveBtn.addEventListener('click', () => {
-          if (applyConfig({ persist: false })) {
-            persistConfig(true);
-          }
+          readControlsIntoConfig();
+          applyConfigToPreview();
+          saveNow();
         });
 
         els.resetBtn.addEventListener('click', resetDefaults);
@@ -1743,8 +1693,8 @@
         els.clearImageBtn.addEventListener('click', () => {
           els.imageInput.value = '';
           state.config.imageSrc = '';
-          applyConfig({ persist: false });
-          persistConfig(true);
+          applyConfigToPreview();
+          saveNow('The picture was removed from the ball.');
         });
 
         els.imageInput.addEventListener('change', event => {
@@ -1770,68 +1720,62 @@
           els.imageDropzone.classList.remove('is-dragover');
         });
 
-        els.imageDropzone.addEventListener('drop', async event => {
+        els.imageDropzone.addEventListener('drop', event => {
           event.preventDefault();
           els.imageDropzone.classList.remove('is-dragover');
           const file = event.dataTransfer?.files?.[0];
           if (file) setImageFromFile(file);
         });
 
+        // Esc leaves a text field first, then goes back.
+        document.addEventListener('keydown', event => {
+          if (event.key !== 'Escape' || event.defaultPrevented) return;
+          const active = document.activeElement;
+          if (active && /^(TEXTAREA|INPUT|SELECT)$/.test(active.tagName)) {
+            active.blur();
+            return;
+          }
+          returnToMenu();
+        });
+
+        // Never lose the last edit when the tab is closed or navigated away.
+        window.addEventListener('pagehide', flushPendingSave);
       }
 
       function init() {
         syncControlsFromConfig();
         renderPresetLibrary();
-        syncPresetSelection(findPreset(state.selectedPresetName)?.name || state.selectedPresetName, { persist: false });
-        syncBallRuntimeFromConfig();
+        syncPresetSelection(findPreset(state.selectedPresetName)?.name || '', { persist: false });
+        renderPresetLibrary();
+        checkEffectSyntax();
         resizeCanvas();
-        compileEffect();
-        updateImageSource(state.config.imageSrc);
+        applyConfigToPreview();
         updateSnapshot();
         bindControls();
 
-        if (state.compileError) {
-          setStatus('error', 'Effect syntax error', state.compileError);
-        } else {
-          setStatus('ok', 'Ready', 'The ball skin is live in the preview and synced to localStorage.');
+        if (!state.compileError) {
+          setStatus('ok', 'Ready', 'Edits save as you go. Your Custom matches use this ball.');
         }
 
         window.addEventListener('resize', resizeCanvas, { passive: true });
         window.addEventListener('storage', event => {
+          // Another tab changed the ball or the presets.
           if (event.key === STORAGE_KEY) {
             state.config = loadConfig();
             syncControlsFromConfig();
-            syncBallRuntimeFromConfig();
-            compileEffect();
-            updateImageSource(state.config.imageSrc);
+            checkEffectSyntax();
+            applyConfigToPreview();
             updateSnapshot();
-            setStatus('ok', 'Synced from storage', 'The studio picked up an external config change.');
+            setStatus('ok', 'Updated', 'The ball was changed in another tab.');
           }
 
           if (event.key === PRESET_LIBRARY_KEY || event.key === ACTIVE_PRESET_KEY) {
             state.presets = loadPresetLibrary();
             state.selectedPresetName = loadSelectedPresetName();
             renderPresetLibrary();
-            syncPresetSelection(findPreset(state.selectedPresetName)?.name || state.selectedPresetName, { persist: false });
+            syncPresetSelection(findPreset(state.selectedPresetName)?.name || '', { persist: false });
             updateFieldLabels();
           }
-        });
-
-        window.addEventListener('pp-ball-studio-updated', () => {
-          state.config = loadConfig();
-          syncControlsFromConfig();
-          syncBallRuntimeFromConfig();
-          compileEffect();
-          updateImageSource(state.config.imageSrc);
-          updateSnapshot();
-        });
-
-        window.addEventListener('pp-ball-studio-presets-updated', () => {
-          state.presets = loadPresetLibrary();
-          state.selectedPresetName = loadSelectedPresetName();
-          renderPresetLibrary();
-          syncPresetSelection(findPreset(state.selectedPresetName)?.name || state.selectedPresetName, { persist: false });
-          updateFieldLabels();
         });
 
         const backButton = document.getElementById('backToMenuBtn');
@@ -1840,11 +1784,7 @@
           backButton.addEventListener('click', returnToMenu);
         }
 
-        els.ballColor.focus();
-        state.ball.x = (els.previewCanvas.clientWidth || 900) * 0.5;
-        state.ball.y = (els.previewCanvas.clientHeight || 620) * 0.52;
-        syncBallRuntimeFromConfig();
-        state.rafId = requestAnimationFrame(tick);
+        requestAnimationFrame(tick);
       }
 
       init();

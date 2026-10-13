@@ -18,6 +18,7 @@
         try {
             sessionStorage.removeItem('pp-skip-intro');
             sessionStorage.removeItem('pp-return-to-menu');
+            sessionStorage.removeItem('pp-open-customise');
         } catch (e) {
             // ignore storage failures
         }
@@ -33,9 +34,11 @@
                 sessionStorage.setItem('pp-return-to-menu', '1');
                 sessionStorage.setItem('pp-skip-intro', '1');
             }
-            if (params.has('open_customise')) {
+            // Back from the Ball Studio, by its button or the browser's Back.
+            if (params.has('open_customise') || sessionStorage.getItem('pp-open-customise') === '1') {
                 window.PP_OPEN_CUSTOMISE = true;
             }
+            sessionStorage.removeItem('pp-open-customise');
             return sessionStorage.getItem('pp-skip-intro') === '1';
         } catch (e) {
             return params.has('return_to_menu');

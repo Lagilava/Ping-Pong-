@@ -5164,13 +5164,21 @@ button {
     justify-content: flex-start;
 }
 
-/* The Ball card spans the row: text on the left, button on the right. */
+/* The Ball card spans the row: the saved ball, the text, then the button. */
 .customise-overlay .customise-ball-studio-field {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     column-gap: 1.25rem;
+}
+.customise-overlay .customise-ball-preview {
+    display: block;
+    width: 132px;
+    height: 64px;
+    border-radius: 14px;
+    border: 1px solid rgba(146, 214, 255, 0.18);
+    background: radial-gradient(circle at 66% 50%, rgba(0, 212, 255, 0.1), transparent 60%), rgba(2, 8, 18, 0.92);
 }
 .customise-overlay .customise-ball-studio-field label { grid-column: 1 / -1; }
 .customise-overlay .customise-ball-studio-field .customise-field-copy { margin: 0; }
@@ -7861,7 +7869,8 @@ body.pp-lowfx .achievements * {
 .obstacle-briefing .zombie-briefing-start { background: linear-gradient(180deg, #ffb340, #d9730a); border-color: rgba(255, 210, 140, 0.7); color: #1a0c00; }
 
 @media (max-width: 640px) {
-    .customise-overlay .customise-ball-studio-field { grid-template-columns: 1fr; row-gap: 0.6rem; }
+    .customise-overlay .customise-ball-studio-field { grid-template-columns: auto minmax(0, 1fr); row-gap: 0.6rem; }
+    .customise-overlay .customise-ball-studio-field #openBallStudioBtn { grid-column: 1 / -1; }
 }
 
 /* The wave/lives pills wait until the match intro is over: they sat under

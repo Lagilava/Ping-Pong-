@@ -1957,9 +1957,15 @@
                 customStartMatchBtn.dataset.ppCustomStartBound = '1';
             }
 
+            startCustomBallPreview();
+
             if (openBallStudioBtn && openBallStudioBtn.dataset.ppBallStudioBound !== '1') {
                 openBallStudioBtn.addEventListener('click', () => {
-                    try { sessionStorage.setItem('pp-return-to-menu', '1'); sessionStorage.setItem('pp-skip-intro', '1'); } catch (e) { }
+                    try {
+                        sessionStorage.setItem('pp-return-to-menu', '1');
+                        sessionStorage.setItem('pp-skip-intro', '1');
+                        sessionStorage.setItem('pp-open-customise', '1');
+                    } catch (e) { }
                     window.location.assign('ball-studio.html?from_customise=1');
                 });
                 openBallStudioBtn.dataset.ppBallStudioBound = '1';
@@ -1968,6 +1974,69 @@
     }
 
     window.openCustomiseOverlay = showCustomiseRedirect;
+
+    // The ball saved in the Ball Studio, drawn by the match's Ball renderer
+    // beside the "Open Ball Studio" button. Animates only while the Custom
+    // screen is open.
+    let customBallPreview = null;
+    function startCustomBallPreview() {
+        const canvas = document.getElementById('customBallPreview');
+        const overlay = document.getElementById('customiseOverlay');
+        if (!canvas || typeof Ball === 'undefined') return;
+        if (!customBallPreview) {
+            customBallPreview = { ball: new Ball(0, 0, 13), raf: 0, configKey: null };
+            window.addEventListener('storage', (event) => {
+                if (event.key === 'pp-ball-studio-v1' && customBallPreview) customBallPreview.configKey = null;
+            });
+        }
+        const preview = customBallPreview;
+        const applyConfig = () => {
+            let raw = null;
+            try { raw = localStorage.getItem('pp-ball-studio-v1'); } catch (e) { }
+            if (raw === preview.configKey) return;
+            preview.configKey = raw;
+            const config = window.game?.loadBallStudioConfig?.() || null;
+            if (config) preview.ball.setStudioConfig(config);
+            else {
+                preview.ball.clearStudioConfig();
+                preview.ball.setCustomColors({ ballColor: '#ffffff', trailColor: '#a8ddff' });
+            }
+        };
+        const frame = () => {
+            preview.raf = 0;
+            if (!overlay || !overlay.classList.contains('active') || document.hidden) return;
+            applyConfig();
+            const dpr = Math.min(2, window.devicePixelRatio || 1);
+            const cssW = canvas.clientWidth || 132;
+            const cssH = canvas.clientHeight || 64;
+            if (canvas.width !== Math.round(cssW * dpr)) canvas.width = Math.round(cssW * dpr);
+            if (canvas.height !== Math.round(cssH * dpr)) canvas.height = Math.round(cssH * dpr);
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cssW, cssH);
+            // A ball in flight to the right, so the trail colour shows too.
+            const ball = preview.ball;
+            const t = performance.now() * 0.001;
+            const x = cssW * 0.68;
+            const y = cssH * 0.5 + Math.sin(t * 2.2) * 3;
+            ball.r = Math.min(13, cssH * 0.2);
+            ball.pos.set(x, y);
+            ball.prev.set(x, y);
+            ball.vel.set(520, Math.cos(t * 2.2) * 40);
+            ball._speed = 520;
+            ball.spin = 0;
+            ball.trailCount = 8;
+            for (let i = 0; i < 8; i++) {
+                const k = (8 - i) / 8;
+                ball.trailPoints[i * 2] = x - k * cssW * 0.55;
+                ball.trailPoints[i * 2 + 1] = y - Math.cos(t * 2.2) * k * 6;
+            }
+            ball.particles.length = 0;
+            ball.render(ctx, 1);
+            preview.raf = requestAnimationFrame(frame);
+        };
+        if (!preview.raf) preview.raf = requestAnimationFrame(frame);
+    }
 
     // ─────────────────────────────────────────────────────────────────
     // EVENT HANDLERS
@@ -2002,6 +2071,28 @@
         setupEventHandlers();
         const overlay = document.getElementById('overlay');
         if (overlay) { overlay.classList.remove('hidden'); overlay.classList.add('visible'); }
+
+        // Coming back from the Ball Studio out of the browser's page cache
+        // leaves the Custom screen open as it was; drop the reopen flag.
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) { try { sessionStorage.removeItem('pp-open-customise'); } catch (e) { } }
+        });
+
+        // Back from the Ball Studio: reopen the Custom screen at the Ball card.
+        if (window.PP_OPEN_CUSTOMISE) {
+            const reopenCustomise = () => {
+                if (!window.PP_OPEN_CUSTOMISE) return;
+                window.PP_OPEN_CUSTOMISE = false;
+                showCustomiseRedirect();
+                requestAnimationFrame(() => {
+                    const field = document.querySelector('.customise-ball-studio-field');
+                    field?.scrollIntoView({ block: 'center' });
+                    document.getElementById('openBallStudioBtn')?.focus({ preventScroll: true });
+                });
+            };
+            if (window.game) reopenCustomise();
+            else window.addEventListener('pp-game-ready', reopenCustomise, { once: true });
+        }
     });
 
 })();
