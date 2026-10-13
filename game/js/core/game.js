@@ -129,7 +129,6 @@ class Game {
         this.zombiePullPill = document.getElementById('zombiePullPill');
         this.zombiePullBar = document.getElementById('zombiePullBar');
         this.streakDisplay = document.getElementById('streakDisplay');
-        this.difficultyDisplay = document.getElementById('difficultyDisplay');
         this.gameModeDisplay = document.getElementById('gameMode');
         this.hud = document.getElementById('hud');
         this.powerUpsContainer = document.getElementById('powerUpsContainer');
@@ -1582,18 +1581,6 @@ class Game {
         const fullscreenBtn = document.getElementById('fullscreen');
         if (fullscreenBtn && typeof this.toggleFullscreen === 'function') {
             fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
-        }
-        const diffSlider = document.getElementById('diff');
-        if (diffSlider && typeof this.updateDifficultyDisplay === 'function') {
-            diffSlider.addEventListener('input', e => {
-                const d = Number(e.target.value);
-                // Keep the old HUD slider and Settings > Computer skill in step.
-                window.PPSettings?.set('aiLevel', d);
-                if (this.ai && typeof this.ai.setDifficulty === 'function') {
-                    this.ai.setDifficulty(d);
-                }
-                this.updateDifficultyDisplay(d);
-            });
         }
         const powerUpsContainer = document.getElementById('powerUpsContainer');
         if (powerUpsContainer) {
@@ -5738,11 +5725,6 @@ class Game {
             if (dist < minDist) return true;
         }
         return false;
-    }
-
-    updateDifficultyDisplay(d) {
-        const names = ['Very Easy', 'Easy', 'Medium', 'Hard', 'Expert'];
-        this.difficultyDisplay.textContent = names[d];
     }
 
     // Settings > Controls lets players rebind keys; the game itself keeps
