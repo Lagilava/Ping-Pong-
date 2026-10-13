@@ -418,7 +418,12 @@
                     </div>
 
                     <div class="customise-powerups-panel" id="customPowerupsSection">
-                        <p class="customise-powerups-title">Power-ups in this match</p>
+                        <div class="customise-powerups-head">
+                            <p class="customise-powerups-title">Power-ups in this match</p>
+                            <span id="customPowerupsCount" class="customise-powerups-count" aria-live="polite"></span>
+                            <button id="customPowerupsAll" type="button" class="customise-mini-btn">All</button>
+                            <button id="customPowerupsNone" type="button" class="customise-mini-btn">None</button>
+                        </div>
                         <div id="customPowerupsGrid" class="customise-powerups-grid">
                             <label class="customise-powerup-option"><input type="checkbox" value="slowBall">Slow
                                 Ball</label>
@@ -457,8 +462,11 @@
                         computer opponent, XP or achievements.
                     </p>
                     <div class="customise-actions">
+                        <p id="customSummary" class="customise-summary-line" role="status" aria-live="polite"></p>
+                        <div class="customise-actions-buttons">
                         <button id="customStartMatchBtn" type="button" class="customise-start-btn">Start match</button>
                         <button id="customResetDefaultsBtn" type="button" class="customise-reset-btn">Reset to defaults</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -601,5 +609,6 @@
     <script src="js/app/bootstrap.js"></script>
     <script src="js/menu/menu-bloom.js"></script>
     <script src="js/menu/menu.js"></script>
+    <script src="js/menu/custom-screen.js"></script>
 </body>
 </html>

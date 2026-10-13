@@ -7869,3 +7869,64 @@ body.pp-lowfx .achievements * {
 body:has(#skipIntro:not(.hidden)) .zombie-progress-overlay.visible {
     opacity: 0;
 }
+
+/* Custom setup screen: sticky nav and action bar, compact paddle preview, power-up controls */
+.customise-overlay .customise-section-nav {
+    position: sticky;
+    top: -1px;
+    z-index: 5;
+    margin: 0 -8px 20px;
+    padding: 10px 8px;
+    background: #040c16;
+    border-bottom: 1px solid rgba(0, 212, 255, 0.12);
+}
+.customise-overlay .customise-section-nav a[aria-current="true"] {
+    background: rgba(0, 255, 214, 0.22);
+    border-color: #00ffd6;
+    color: #fff;
+}
+.customise-overlay .customise-hero-summary { padding: 1rem 1.2rem; gap: 1rem; }
+.customise-overlay .customise-summary-swatch { height: 130px; }
+.customise-overlay .customise-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    margin: 2rem -8px 0;
+    padding: 0.8rem 8px 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    background: #040c16;
+    border-top: 1px solid rgba(0, 212, 255, 0.18);
+    box-shadow: 0 -14px 24px rgba(0, 0, 0, 0.45);
+}
+.customise-overlay .customise-actions-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; }
+.customise-summary-line { margin: 0; color: #b9eaf8; font-size: 0.85rem; text-align: center; }
+.customise-powerups-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; }
+.customise-powerups-head .customise-powerups-title { margin: 0 auto 0 0; }
+.customise-powerups-count { color: #a9d7df; font-size: 0.8rem; }
+.customise-mini-btn {
+    padding: 0.35rem 0.9rem;
+    border: 1px solid rgba(0, 255, 214, 0.35);
+    border-radius: 999px;
+    background: rgba(0, 30, 42, 0.75);
+    color: #c8fff4;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.customise-mini-btn:hover, .customise-mini-btn:focus-visible { background: rgba(0, 255, 214, 0.2); border-color: #00ffd6; }
+.customise-overlay .customise-powerup-option { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.customise-overlay .customise-powerup-option:has(input:checked) {
+    border-color: rgba(0, 255, 214, 0.7);
+    background: rgba(0, 255, 214, 0.12);
+    color: #fff;
+}
+.customise-overlay .customise-powerup-option input { accent-color: #00ffd6; }
+@media (max-width: 720px) {
+    .customise-overlay .customise-section-nav { flex-wrap: nowrap; overflow-x: auto; }
+    .customise-overlay .customise-actions-buttons { gap: 0.5rem; }
+    .customise-overlay .customise-actions-buttons button { padding: 0.8rem 1rem; flex: 1 1 auto; }
+}
