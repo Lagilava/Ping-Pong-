@@ -2810,29 +2810,70 @@ class BackgroundRenderer {
         ctx.fillRect(0, roadY * 0.70, w, roadY * 0.30);
     }
 
-    renderSpeedRush(ctx, w, h) {
-        const game = typeof window !== 'undefined' ? window.game : null;
-        const ballSpeed = game?.ball?.getSpeed?.() || 0;
-        const rush = Math.max(0.7, Math.min(1.45, ballSpeed / 1100));
-        const t = this.time * (0.65 + rush * 0.75);
-        const cx = w * 0.5;
-        const cy = h * 0.5;
-
-        // Night tunnel: bright at the perimeter, quiet through the ball lane.
-        const base = ctx.createRadialGradient(cx, cy, h * 0.06, cx, cy, Math.max(w, h) * 0.75);
+    // Static Speed layers (tunnel gradient + edge colour wash, centre lane
+    // darkening) are baked once per size; only the motion is drawn per frame.
+    _ensureSpeedRushLayers(ctx, w, h) {
+        const m = ctx.getTransform();
+        const pw = Math.max(1, Math.round(w * Math.hypot(m.a, m.b)));
+        const ph = Math.max(1, Math.round(h * Math.hypot(m.c, m.d)));
+        const key = `${w}|${h}|${pw}|${ph}`;
+        if (this._speedRushKey === key && this._speedRushBase) return;
+        const mk = () => { const c = document.createElement('canvas'); c.width = pw; c.height = ph; const x = c.getContext('2d'); x.setTransform(pw / w, 0, 0, ph / h, 0, 0); return [c, x]; };
+        const cx = w * 0.5, cy = h * 0.5;
+        const [bc, bx] = mk();
+        const base = bx.createRadialGradient(cx, cy, h * 0.06, cx, cy, Math.max(w, h) * 0.75);
         base.addColorStop(0, '#030914');
         base.addColorStop(0.52, '#081328');
         base.addColorStop(1, '#160724');
-        ctx.fillStyle = base;
-        ctx.fillRect(0, 0, w, h);
-
-        const edge = ctx.createLinearGradient(0, 0, w, 0);
+        bx.fillStyle = base;
+        bx.fillRect(0, 0, w, h);
+        const edge = bx.createLinearGradient(0, 0, w, 0);
         edge.addColorStop(0, 'rgba(0,196,255,0.31)');
         edge.addColorStop(0.25, 'rgba(0,55,115,0.025)');
         edge.addColorStop(0.75, 'rgba(105,18,92,0.025)');
         edge.addColorStop(1, 'rgba(255,45,150,0.31)');
-        ctx.fillStyle = edge;
-        ctx.fillRect(0, 0, w, h);
+        bx.fillStyle = edge;
+        bx.fillRect(0, 0, w, h);
+        // Soft corner falloff pulls the eye to the lane.
+        const vig = bx.createRadialGradient(cx, cy, Math.min(w, h) * 0.45, cx, cy, Math.hypot(cx, cy));
+        vig.addColorStop(0, 'rgba(0,0,0,0)');
+        vig.addColorStop(1, 'rgba(0,0,0,0.38)');
+        bx.fillStyle = vig;
+        bx.fillRect(0, 0, w, h);
+
+        const [lc, lx] = mk();
+        const lane = lx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w, h) * 0.47);
+        lane.addColorStop(0, 'rgba(1,5,15,0.72)');
+        lane.addColorStop(1, 'rgba(1,5,15,0)');
+        lx.fillStyle = lane;
+        lx.fillRect(0, 0, w, h);
+        this._speedRushBase = bc;
+        this._speedRushLane = lc;
+        this._speedRushKey = key;
+    }
+
+    renderSpeedRush(ctx, w, h) {
+        const game = typeof window !== 'undefined' ? window.game : null;
+        const ballSpeed = game?.ball?.getSpeed?.() || 0;
+        const target = Math.max(0.7, Math.min(1.6, ballSpeed / 1100));
+        // Ease toward the ball's pace and integrate the phase, so a speed-up
+        // accelerates the tunnel instead of making it jump.
+        const prev = this._speedRushLast ?? this.time;
+        const dt = Math.max(0, Math.min(0.1, this.time - prev));
+        this._speedRushLast = this.time;
+        this._speedRushV = (this._speedRushV ?? target) + (target - (this._speedRushV ?? target)) * Math.min(1, dt * 3);
+        const rush = this._speedRushV;
+        this._speedRushPhase = (this._speedRushPhase || 0) + dt * (0.65 + rush * 0.75);
+        const t = this._speedRushPhase;
+        const hot = Math.max(0, Math.min(1, (rush - 0.9) / 0.7)); // 0 calm .. 1 flat out
+        const cx = w * 0.5;
+        const cy = h * 0.5;
+        const R = Math.hypot(cx, cy);
+
+        this._ensureSpeedRushLayers(ctx, w, h);
+        ctx.drawImage(this._speedRushBase, 0, 0, w, h);
+
+        ctx.lineCap = 'round';
 
         // Perspective frames run toward the viewer. A fixed count keeps cost
         // stable even on long rallies or high refresh rate displays.
@@ -2849,7 +2890,40 @@ class BackgroundRenderer {
             ctx.strokeRect(cx - rw * 0.5, cy - rh * 0.5, rw, rh);
         }
 
-        // Streaks at the sides suggest acceleration without crossing play.
+        // Warp rays: streaks fly out of the vanishing point, longer and
+        // brighter the closer they get and the faster the ball is moving.
+        // Two colours x three width buckets keep this to a handful of strokes.
+        const RAYS = 36;
+        const buckets = [[], [], [], [], [], []];
+        for (let i = 0; i < RAYS; i++) {
+            const ang = ((i * 0.61803398875) % 1) * Math.PI * 2;
+            const spd = 0.10 + (i % 5) * 0.022;
+            const f = (i * 0.173 + t * spd) % 1;
+            const d0 = Math.pow(f, 1.9);
+            const d1 = Math.pow(Math.min(1, f + 0.035 + hot * 0.05 + rush * 0.01), 1.9);
+            const r0 = R * (0.10 + d0 * 0.95), r1 = R * (0.10 + d1 * 0.95);
+            const ca = Math.cos(ang), sa = Math.sin(ang);
+            buckets[(i % 2) * 3 + Math.min(2, (d0 * 3) | 0)].push(
+                cx + ca * r0, cy + sa * r0 * 0.8, cx + ca * r1, cy + sa * r1 * 0.8, d0);
+        }
+        for (let k = 0; k < 6; k++) {
+            const arr = buckets[k];
+            if (!arr.length) continue;
+            const cyan = k < 3;
+            const tier = k % 3;
+            ctx.lineWidth = 0.8 + tier * 0.9;
+            const a = (0.10 + tier * 0.10 + hot * 0.12) * (cyan ? 1 : 0.9);
+            ctx.strokeStyle = cyan ? `rgba(70,225,255,${a.toFixed(3)})` : `rgba(255,95,175,${a.toFixed(3)})`;
+            ctx.beginPath();
+            for (let j = 0; j < arr.length; j += 5) {
+                ctx.moveTo(arr[j], arr[j + 1]);
+                ctx.lineTo(arr[j + 2], arr[j + 3]);
+            }
+            ctx.stroke();
+        }
+
+        // Side streaks suggest acceleration without crossing play, each with a
+        // bright head and a fading tail drawn as two overlapping strokes.
         for (let i = 0; i < 18; i++) {
             const lane = (i * 0.61803398875) % 1;
             const travel = (i * 0.137 + t * (0.12 + (i % 4) * 0.025)) % 1;
@@ -2857,27 +2931,36 @@ class BackgroundRenderer {
             const y = lane * h;
             const left = i % 2 === 0;
             const x = left ? w * (0.02 + travel * 0.17) : w * (0.98 - travel * 0.17);
-            ctx.strokeStyle = left
-                ? `rgba(40,211,255,${(0.08 + travel * 0.3).toFixed(3)})`
-                : `rgba(255,65,157,${(0.08 + travel * 0.3).toFixed(3)})`;
+            const rgb = left ? '40,211,255' : '255,65,157';
+            const a = 0.08 + travel * 0.3;
             ctx.lineWidth = 1 + travel * 2;
+            ctx.strokeStyle = `rgba(${rgb},${(a * 0.55).toFixed(3)})`;
             ctx.beginPath();
             ctx.moveTo(x, y - length * 0.5);
+            ctx.lineTo(x, y + length * 0.5);
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(${rgb},${a.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.moveTo(x, y + length * 0.1);
             ctx.lineTo(x, y + length * 0.5);
             ctx.stroke();
         }
 
         // Glowing tunnel rails frame the court, leaving the play area clear.
-        for (let side = 0; side < 2; side++) {
+        if (!this._speedRushRail || this._speedRushRailW !== w) {
             const rail = ctx.createLinearGradient(0, 0, w, 0);
             rail.addColorStop(0, 'rgba(0,210,255,0.55)');
             rail.addColorStop(0.5, 'rgba(100,95,255,0.12)');
             rail.addColorStop(1, 'rgba(255,55,155,0.55)');
-            ctx.strokeStyle = rail;
-            ctx.lineWidth = 2.5;
+            this._speedRushRail = rail;
+            this._speedRushRailW = w;
+        }
+        ctx.strokeStyle = this._speedRushRail;
+        ctx.lineWidth = 2.5;
+        for (let side = 0; side < 2; side++) {
             ctx.beginPath();
             for (let x = 0; x <= w; x += w / 20) {
-                const drift = Math.sin(x / w * 8 + t * 2 + side * 2) * h * 0.015;
+                const drift = Math.sin(x / w * 8 + t * 2 + side * 2) * h * (0.015 + hot * 0.008);
                 const y = h * (side ? 0.94 : 0.06) + drift;
                 if (x === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
@@ -2886,11 +2969,7 @@ class BackgroundRenderer {
         }
 
         // Darken the center again so the ball and paddles stay legible.
-        const lane = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w, h) * 0.47);
-        lane.addColorStop(0, 'rgba(1,5,15,0.72)');
-        lane.addColorStop(1, 'rgba(1,5,15,0)');
-        ctx.fillStyle = lane;
-        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(this._speedRushLane, 0, 0, w, h);
     }
 
     // ------------------------------------------------------------------
@@ -3652,6 +3731,10 @@ class BackgroundRenderer {
     _cleanupSpeedCache() {
         this._speedSkyCanvas = null;
         this._speedSkyKey = null;
+        this._speedRushBase = null;
+        this._speedRushLane = null;
+        this._speedRushKey = null;
+        this._speedRushRail = null;
         this._buildingData = null;
         this._windowList = null;
         this._neonSigns = null;
