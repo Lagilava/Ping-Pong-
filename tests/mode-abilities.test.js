@@ -30,11 +30,17 @@ function game(mode) {
     assert.equal(ability.speedScale(), 1);
     assert.ok(g.ball.getSpeed() > 900, 'parry boosts the return');
     assert.ok(g.ball.maxSpeed > 2200, 'sonic return temporarily raises the speed cap');
+    assert.equal(ability.side('player').trail.length, 1, 'return trail begins at the contact point');
+    g.ball.pos.x += 30;
+    ability.update(0.02);
+    assert.ok(ability.side('player').trail.length > 1, 'return trail follows the moving ball');
     ability.update(0.49);
     assert.equal(g.ball.maxSpeed, 2200, 'speed cap returns after the sonic trail');
+    assert.equal(ability.side('player').trail.length, 0, 'trail clears after its visual window');
     assert.equal(ability.trigger('player'), false, 'cooldown blocks immediate reuse');
     ability.update(1.82);
     g.ball.vel.x = -900;
+    g.ball.pos.x = 160;
     assert.equal(ability.trigger('player'), true);
     ability.update(0.33);
     assert.equal(ability.speedScale(), 1, 'missed parry expires');
@@ -93,6 +99,7 @@ function game(mode) {
     assert.ok(g.ball.vel.y > 0, 'flipper aims toward the checkpoint');
     assert.equal(g.ball.lastHit, 'player', 'flipper claims the shot for route and coin scoring');
     assert.equal(ability.side('player').active, 0, 'one launch per activation');
+    assert.ok(ability.side('player').burst > 0, 'flipper impact burst starts on contact');
     assert.ok(Math.abs(g.ball.pos.x - ability.flipperX('player')) < 30, 'launch does not teleport the ball across the court');
 }
 

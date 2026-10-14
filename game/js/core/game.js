@@ -8431,6 +8431,7 @@ class Game {
         if (window.PPSettings?.get('ballOutline')) this.renderBallOutlines(ctx);
         this.renderServeTelegraph(ctx);
         if (revealing) ctx.restore();
+        this.modeAbilities?.renderHud(ctx);
         this.renderRallyCounter(ctx, renderDt);
         if (revealing) {
             ctx.save();
