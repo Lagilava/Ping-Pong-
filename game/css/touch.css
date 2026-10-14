@@ -308,7 +308,11 @@ body.pp-controls-tutorial-open #cyber-menu-btn { visibility: hidden; }
     .forge-inspector strong { margin-top: 4px; font-size: .78rem; }
     .forge-inspector p { font-size: .7rem; margin: 3px 0; }
     .forge-inspector-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; }
-    .forge-inspector-actions button { padding: .35rem .2rem; font-size: .6rem; }
+    .forge-inspector-actions button { padding: .35rem .2rem; font-size: .58rem; letter-spacing: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .forge-inspector { overflow-y: auto; scrollbar-width: none; }
+    .forge-zombie-kinds { grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; }
+    .forge-editor .forge-zombie-kind { min-width: 0; padding: 3px 2px; font-size: .55rem; letter-spacing: .02em; }
+    .forge-editor .forge-zombie-kind canvas { width: 22px; height: 22px; }
     .forge-editor-hint { font-size: .62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 /* The hint line lists keyboard and mouse shortcuts; touch gets its own. */
