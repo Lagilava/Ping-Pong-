@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="css/achievements-list.css">
     <link rel="stylesheet" href="css/mobile.css">
     <link rel="stylesheet" href="css/settings.css">
+    <link rel="stylesheet" href="css/mode-tutorial.css">
     <link rel="stylesheet" href="css/backgrounds.css">
     <link rel="stylesheet" href="css/online.css">
     <link rel="stylesheet" href="css/results.css">
@@ -219,6 +220,7 @@
                 </div>
                 <div class="btns">
                     <button class="btn-back btn-settings" type="button" data-open-panel="settings" aria-label="Settings">&#9881; SETTINGS</button>
+                    <button class="btn-back btn-tutorial" type="button" data-mode-tutorial="">? TUTORIAL</button>
                     <button class="btn-back" id="btnBack" type="button">BACK</button>
                     <button class="btn-go" id="btnGo" type="button">PLAY</button>
                 </div>
@@ -236,6 +238,8 @@
             <div class="customise-overlay-actions">
                 <button class="customise-overlay-back-btn customise-overlay-settings-btn" type="button"
                     data-open-panel="settings">&#9881; Settings</button>
+                <button class="customise-overlay-back-btn customise-overlay-tutorial-btn" type="button"
+                    data-mode-tutorial="customise">? Tutorial</button>
                 <button id="customiseBackBtn" class="customise-overlay-back-btn" type="button">Back to modes</button>
             </div>
         </div>
@@ -590,6 +594,7 @@
     <script src="js/systems/profile.js"></script>
     <script src="js/ui/match-intro.js"></script>
     <script src="js/ui/settings-panel.js"></script>
+    <script src="js/ui/mode-tutorial.js"></script>
     <script src="js/ui/results-card.js"></script>
     <script src="js/ai/ai-opponent.js"></script>
     <script src="js/core/game.js"></script>

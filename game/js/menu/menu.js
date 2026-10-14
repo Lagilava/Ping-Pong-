@@ -547,6 +547,7 @@
     function openMenuModal(name, color = '#00c8ff') {
         const m = document.getElementById('modal');
         if (!m) return;
+        m.querySelector('[data-mode-tutorial]')?.setAttribute('data-mode-tutorial', menuSelected || 'classic');
         document.getElementById('mTitle').textContent = 'START ' + name.toUpperCase();
         m.style.setProperty('--modal-primary', color);
         m.style.setProperty('--modal-primary-soft', hexToRgba(color, 0.12));
