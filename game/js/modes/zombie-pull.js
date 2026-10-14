@@ -1,6 +1,6 @@
 // Zombie mode: the paddle's Undead Pull.
 //
-// Hold Space (or A on a gamepad, a second finger, or the right mouse button)
+// Hold Space (or A on a gamepad, the on-screen Pull button, a second finger, or the right mouse button)
 // and the paddle opens up and drags nearby zombies towards the barricade
 // line. A zombie that reaches the line while it is being pulled is destroyed
 // for points and costs no life. The reach is limited: less than half the
@@ -37,6 +37,7 @@
             this.reset();
             this.touchId = null;
             this.mouseHeld = false;
+            this.buttonHeld = false;    // on-screen Pull button (touch)
             this.motes = [];
             for (let i = 0; i < 16; i++) this.motes.push({ u: Math.random(), v: (Math.random() - 0.5) * 2, s: 0.4 + Math.random() * 0.8, a: 0 });
             this.tethers = [];
@@ -63,7 +64,7 @@
         // ── Input ───────────────────────────────────────────────────────────
         isHeld() {
             const g = this.game;
-            if (this.mouseHeld || this.touchId !== null) return true;
+            if (this.mouseHeld || this.buttonHeld || this.touchId !== null) return true;
             if (g.keys && g.keys[' ']) return true;
             const pad = g.padState && g.padState[0] && g.padState[0].pad;
             return !!(pad && pad.buttons && pad.buttons[0] && pad.buttons[0].pressed);

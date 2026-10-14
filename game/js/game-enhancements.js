@@ -475,7 +475,7 @@
                 ['modes', 'Modes', `
                     <dl class="pphelp-defs">
                         <dt>Classic</dt><dd>The straight duel: fast, clean, no gimmicks.</dd>
-                        <dt>Zombie</dt><dd>Hold the line for ten waves. Smash every zombie or knock out the boss to clear a wave. Five lives; the ball getting past you or a zombie reaching your barricade costs one. Hold Space (right mouse button, or a second finger) to pull nearby zombies to the barricade: they die there for points and cost no life, but it uses energy and only reaches part of the court.</dd>
+                        <dt>Zombie</dt><dd>Hold the line for ten waves. Smash every zombie or knock out the boss to clear a wave. Five lives; the ball getting past you or a zombie reaching your barricade costs one. Hold Space (right mouse button, or the Pull button on touch) to pull nearby zombies to the barricade: they die there for points and cost no life, but it uses energy and only reaches part of the court.</dd>
                         <dt>Gravity</dt><dd>Black holes bend the ball. Curve it around one to slingshot it out faster; each slingshot makes the point worth +1 (up to 3).</dd>
                         <dt>Speed</dt><dd>The ball keeps accelerating. Concede a point and a quick target challenge gives you a chance to win it back.</dd>
                         <dt>Obstacle</dt><dd>Moving gates and nodes carve up the court. Boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, coins arm a one-goal shield, and Space rolls the Lucky Dice.</dd>
@@ -487,7 +487,7 @@
                         <tr><td>Move</td><td>${kb('W')} ${kb('S')}</td><td>${kb('↑')} ${kb('↓')}</td></tr>
                         <tr><td>Laser</td><td>${kb('Space')}</td><td>${kb('Enter')}</td></tr>
                         <tr><td>Mouse</td><td colspan="2">Hold the button and drag on your half</td></tr>
-                        <tr><td>Touch</td><td colspan="2">Drag on your half; tap with a second finger to fire</td></tr>
+                        <tr><td>Touch</td><td colspan="2">Slide to move (solo: anywhere; 1v1: your half); ability button bottom left; second finger fires the laser</td></tr>
                         <tr><td>Gamepad</td><td colspan="2">Left stick moves, A fires, Start pauses. A second pad plays Player 2.</td></tr>
                         <tr><td>Pause</td><td colspan="2">${kb('Esc')} (then ${kb('R')} restarts, ${kb('Q')} quits)</td></tr>
                         <tr><td>Other</td><td colspan="2">${kb('F2')} performance readout, ${kb('Ctrl')}+${kb('Shift')}+${kb('A')} achievements</td></tr>
@@ -879,17 +879,21 @@
 }
 
 /* Animated scan line inside bar */
+/* Moved with transform (translateX % is of its own 60% width, so -100%..200%
+   is the old left: -60%..120%) and frozen while the bar is hidden: animating
+   left re-ran layout on every frame of every match. */
 .cyber-bar-scan {
     position: absolute;
-    top: 0; left: -100%;
+    top: 0; left: 0;
     width: 60%; height: 100%;
     background: linear-gradient(90deg, transparent, rgba(0,255,234,0.04), transparent);
     animation: barScan 3.5s linear infinite;
     pointer-events: none;
 }
+#cyber-control-bar:not(.open) .cyber-bar-scan { animation-play-state: paused; }
 @keyframes barScan {
-    0%   { left: -60%; }
-    100% { left: 120%; }
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
 }
 
 .cyber-bar-inner {

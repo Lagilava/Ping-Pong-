@@ -6678,22 +6678,31 @@ class Game {
             multiBall: 'Multi-Ball', powerShot: 'Power Shot', timeWarp: 'Time Warp', magnetPaddle: 'Magnet Paddle',
             ghostBall: 'Ghost Ball', laserPaddle: 'Laser Paddle', shrinkOpponent: 'Shrink Opponent', chaosMode: 'Chaos Mode', shield: 'Shield'
         };
+        // Runs every frame: look the buttons up once and only touch the DOM
+        // when a value changes (each write invalidated style and layout).
+        const refs = this._powerUpButtonRefs || (this._powerUpButtonRefs = {});
         for (const type in this.powerUpTimers) {
-            const btn = document.getElementById(type);
-            if (!btn) continue;
-            const cooldown = btn.querySelector('.cooldown');
-            const label = btn.querySelector('.label');
-            if (!cooldown || !label) continue;
-            if (this.powerUpTimers[type] > 0) {
-                btn.disabled = true;
-                const progress = this.powerUpTimers[type] / 5;
-                cooldown.style.clipPath = `polygon(0 0, 100% 0, 100% ${100 - progress * 100}%, 0 ${100 - progress * 100}%)`;
-                label.textContent = `${powerUpNames[type]} (${Math.ceil(this.powerUpTimers[type])}s)`;
-            } else {
-                btn.disabled = false;
-                cooldown.style.clipPath = 'polygon(0 0, 100% 0, 100% 0%, 0 0%)';
-                label.textContent = powerUpNames[type];
+            let ref = refs[type];
+            if (ref === undefined) {
+                const btn = document.getElementById(type);
+                const cooldown = btn?.querySelector('.cooldown');
+                const label = btn?.querySelector('.label');
+                ref = refs[type] = (btn && cooldown && label) ? { btn, cooldown, label, clip: null, text: null } : null;
             }
+            if (!ref || !ref.btn.isConnected) continue;
+            let clip, text;
+            if (this.powerUpTimers[type] > 0) {
+                const progress = this.powerUpTimers[type] / 5;
+                clip = `polygon(0 0, 100% 0, 100% ${100 - progress * 100}%, 0 ${100 - progress * 100}%)`;
+                text = `${powerUpNames[type]} (${Math.ceil(this.powerUpTimers[type])}s)`;
+            } else {
+                clip = 'polygon(0 0, 100% 0, 100% 0%, 0 0%)';
+                text = powerUpNames[type];
+            }
+            const disabled = this.powerUpTimers[type] > 0;
+            if (ref.btn.disabled !== disabled) ref.btn.disabled = disabled;
+            if (ref.clip !== clip) { ref.clip = clip; ref.cooldown.style.clipPath = clip; }
+            if (ref.text !== text) { ref.text = text; ref.label.textContent = text; }
         }
     }
 

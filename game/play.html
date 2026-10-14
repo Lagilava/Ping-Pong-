@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="css/textures.css">
     <link rel="stylesheet" href="css/achievement-redesign.css">
     <link rel="stylesheet" href="css/main-menu.css">
+    <link rel="stylesheet" href="css/touch.css">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js"></script>
 </head>
@@ -126,7 +127,7 @@
                     <li><span class="choice-icon">🏁</span><span><strong>Hit every glowing checkpoint in order</strong> in one run for <strong>+1 point</strong>. If the other side touches the ball, the run breaks.</span></li>
                     <li><span class="choice-icon">🪙</span><span><strong>Coins arm a shield</strong> that blocks one goal against you. <strong>? blocks</strong> give coins, a Turbo shot or Star power. Against the computer, only your shots collect them.</span></li>
                     <li><span class="choice-icon">⚡</span><span><strong>Boost pads</strong> launch the ball. The course layout changes every 4 points.</span></li>
-                    <li><span class="choice-icon">🎲</span><span><strong>Tap Space to roll the Lucky Dice.</strong> 6 Star power, 5 shooting balls, 4 pull the ball to your paddle, 3 big paddle, 2 no luck, 1 fast ball. Use Enter for player 2. On touch, keep your right thumb on the paddle and tap with your left thumb.</span></li>
+                    <li><span class="choice-icon">🎲</span><span><strong><span class="pp-pc-only">Tap Space to roll the Lucky Dice.</span><span class="pp-touch-only">Tap the Lucky Dice button with your left thumb to roll.</span></strong> 6 Star power, 5 shooting balls, 4 pull the ball to your paddle, 3 big paddle, 2 no luck, 1 fast ball.<span class="pp-pc-only"> Use Enter for player 2.</span></span></li>
                 </ul>
                 <button class="zombie-briefing-start" type="button">Let's go</button>
             </div>
@@ -138,7 +139,7 @@
                 <ul class="zombie-briefing-rules">
                     <li><span class="choice-icon">🧟</span><span><strong>Clear each wave</strong> by smashing every zombie with the ball, or by scoring past the boss until its health bar is empty.</span></li>
                     <li><span class="choice-icon">❤️</span><span><strong>5 lives for the whole run.</strong> You lose one when the ball gets past you or a zombie reaches your barricade.</span></li>
-                    <li><span class="choice-icon">🌀</span><span><strong>Hold Space to pull zombies</strong> towards your barricade line. They are destroyed there for points and cost no life. It reaches less than half the court and only above and below your paddle, and it needs energy (right mouse button, or a second finger on touch).</span></li>
+                    <li><span class="choice-icon">🌀</span><span><strong><span class="pp-pc-only">Hold Space to pull zombies</span><span class="pp-touch-only">Hold the Pull button with your left thumb</span></strong> <span class="pp-touch-only">to drag zombies</span> towards your barricade line. They are destroyed there for points and cost no life. It reaches less than half the court and only above and below your paddle, and it needs energy<span class="pp-pc-only"> (the right mouse button works too)</span>.</span></li>
                     <li><span class="choice-icon">🎁</span><span><strong>Pick a reward</strong> after every wave. Grab glowing orbs with the ball for bonus powers.</span></li>
                     <li><span class="choice-icon">👑</span><span><strong>Wave 10 is the boss fight.</strong> Knock the boss out to win.</span></li>
                 </ul>
@@ -608,6 +609,7 @@
     <script src="js/ui/settings-panel.js"></script>
     <script src="js/ui/mode-tutorial.js"></script>
     <script src="js/ui/results-card.js"></script>
+    <script src="js/ui/device-controls.js"></script>
     <script src="js/ai/ai-opponent.js"></script>
     <script src="js/core/game.js"></script>
     <script src="js/vendor/anime.min.js"></script>

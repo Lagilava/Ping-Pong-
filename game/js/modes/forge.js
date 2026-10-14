@@ -509,7 +509,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="forge-editor-hint"><span class="forge-count"></span> <span class="forge-zombie-count"></span> Click to place &middot; drag to move &middot; scroll or +/- to resize &middot; R turns walls, gates and pads &middot; right-click or Delete removes &middot; Ctrl+Z undo &middot; Ctrl+Y redo</div>`;
+                <div class="forge-editor-hint"><span class="forge-count"></span> <span class="forge-zombie-count"></span> <span class="forge-hint-pc">Click to place &middot; drag to move &middot; scroll or +/- to resize &middot; R turns walls, gates and pads &middot; right-click or Delete removes &middot; Ctrl+Z undo &middot; Ctrl+Y redo</span><span class="forge-hint-touch">Tap to place &middot; drag to move &middot; tap an object, then use the panel to resize, turn or delete it</span></div>`;
             document.body.appendChild(el);
             this.el = el;
             this.canvas = el.querySelector('.forge-canvas');

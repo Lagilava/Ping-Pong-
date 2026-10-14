@@ -1265,7 +1265,32 @@ class BackgroundRenderer {
         ctx.globalCompositeOperation = prev;
     }
 
+    // Both gradients depend only on the size and the two strengths, so they
+    // are composited once into a layer at the target's pixel size and drawn
+    // as one full-screen pass (source-over is associative: same picture).
     applyGameplayVisibilityPass(ctx, w, h, centerLift = 0.07, edgeDim = 0.26) {
+        const m = ctx.getTransform();
+        const pw = Math.max(1, Math.round(w * Math.hypot(m.a, m.b)));
+        const ph = Math.max(1, Math.round(h * Math.hypot(m.c, m.d)));
+        const key = `${w}|${h}|${pw}|${ph}|${centerLift}|${edgeDim}`;
+        const cache = this._visibilityPassLayers || (this._visibilityPassLayers = new Map());
+        let layer = cache.get(key);
+        if (!layer) {
+            layer = document.createElement('canvas');
+            layer.width = pw;
+            layer.height = ph;
+            const lctx = layer.getContext('2d');
+            if (!lctx) { this._paintGameplayVisibilityPass(ctx, w, h, centerLift, edgeDim); return; }
+            lctx.setTransform(pw / w, 0, 0, ph / h, 0, 0);
+            this._paintGameplayVisibilityPass(lctx, w, h, centerLift, edgeDim);
+            // Window resizes leave old sizes behind; a handful covers every mode.
+            if (cache.size >= 6) cache.delete(cache.keys().next().value);
+            cache.set(key, layer);
+        }
+        ctx.drawImage(layer, 0, 0, w, h);
+    }
+
+    _paintGameplayVisibilityPass(ctx, w, h, centerLift, edgeDim) {
         const sideMask = ctx.createLinearGradient(0, 0, w, 0);
         sideMask.addColorStop(0, `rgba(0,0,0,${edgeDim.toFixed(3)})`);
         sideMask.addColorStop(0.22, 'rgba(0,0,0,0.10)');
@@ -2549,10 +2574,14 @@ class BackgroundRenderer {
             this._gravityStaticCanvas.width = w;
             this._gravityStaticCanvas.height = h;
             this._gravityStaticCtx = this._gravityStaticCanvas.getContext('2d');
+            this._gravityStaticPainted = false;
         }
 
         const gctx = this._gravityStaticCtx;
         if (!gctx) return null;
+        // The gradients never change for a size: paint once, not every frame.
+        if (this._gravityStaticPainted) return this._gravityStaticCanvas;
+        this._gravityStaticPainted = true;
 
         gctx.clearRect(0, 0, w, h);
 
@@ -2572,9 +2601,54 @@ class BackgroundRenderer {
         return this._gravityStaticCanvas;
     }
 
+    // Static sky plus the nebula clouds, kept in one layer at the target's
+    // pixel size. The 18 clouds are large soft sprites (most of Gravity's
+    // overdraw) that drift under 2.5 px a second, so the layer is only
+    // repainted once a cloud has moved a quarter pixel (or wrapped round).
+    _drawGravityBaseLayer(ctx, w, h, nebula) {
+        const m = ctx.getTransform();
+        const pw = Math.max(1, Math.round(w * Math.hypot(m.a, m.b)));
+        const ph = Math.max(1, Math.round(h * Math.hypot(m.c, m.d)));
+        let layer = this._gravityBaseLayer;
+        if (!layer || layer.canvas.width !== pw || layer.canvas.height !== ph || layer.w !== w || layer.h !== h) {
+            const canvas = document.createElement('canvas');
+            canvas.width = pw;
+            canvas.height = ph;
+            layer = this._gravityBaseLayer = { canvas, ctx: canvas.getContext('2d'), w, h, pos: null };
+        }
+        const lctx = layer.ctx;
+        if (!lctx) {
+            const staticLayer = this._ensureGravityStaticLayer(w, h);
+            if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
+            return;
+        }
+        const pos = layer.pos;
+        let stale = !pos || pos.length !== nebula.length * 2;
+        for (let i = 0; !stale && i < nebula.length; i++) {
+            stale = Math.abs(nebula[i].x - pos[i * 2]) >= 0.25 || Math.abs(nebula[i].y - pos[i * 2 + 1]) >= 0.25;
+        }
+        if (stale) {
+            lctx.setTransform(pw / w, 0, 0, ph / h, 0, 0);
+            lctx.clearRect(0, 0, w, h);
+            const staticLayer = this._ensureGravityStaticLayer(w, h);
+            if (staticLayer) lctx.drawImage(staticLayer, 0, 0);
+            const next = layer.pos = new Array(nebula.length * 2);
+            for (let i = 0; i < nebula.length; i++) {
+                const p = nebula[i];
+                if (!p.sprite) p.sprite = this._buildGravityNebulaSprite(p);
+                if (p.sprite) {
+                    const side = p.size * 2;
+                    lctx.drawImage(p.sprite, p.x - p.size, p.y - p.size, side, side);
+                }
+                next[i * 2] = p.x;
+                next[i * 2 + 1] = p.y;
+            }
+        }
+        ctx.drawImage(layer.canvas, 0, 0, w, h);
+    }
+
     renderGravity(ctx, w, h) {
-        const staticLayer = this._ensureGravityStaticLayer(w, h);
-        if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
+        this._drawGravityBaseLayer(ctx, w, h, areParticleEffectsEnabled() ? this.nebulaParticles : []);
         this._ensureGravityGlowSprites();
         const game = typeof window !== 'undefined' ? window.game : null;
         const gravityInteraction = game?.gravityInteraction || null;
@@ -2593,15 +2667,6 @@ class BackgroundRenderer {
             : 1;
 
         if (areParticleEffectsEnabled()) {
-            for (let i = 0; i < this.nebulaParticles.length; i++) {
-                const p = this.nebulaParticles[i];
-                if (!p.sprite) p.sprite = this._buildGravityNebulaSprite(p);
-                if (p.sprite) {
-                    const side = p.size * 2;
-                    ctx.drawImage(p.sprite, p.x - p.size, p.y - p.size, side, side);
-                }
-            }
-
             const hueShift = Math.sin(this.modePhase * 0.3) * 20;
             // Every star shares one of two hues per frame, so the colours are
             // built once here and each star's alpha goes through globalAlpha
@@ -3775,6 +3840,7 @@ class BackgroundRenderer {
     _cleanupGravityCache() {
         this._gravityStaticCanvas = null;
         this._gravityStaticCtx = null;
+        this._gravityBaseLayer = null;
     }
 
     _cleanupObstacleCache() {

@@ -1,0 +1,325 @@
+/* ==========================================================================
+   Touch controls, the first-match controls tutorial (js/ui/device-controls.js)
+   and phone layout fixes. Loaded last.
+   ========================================================================== */
+
+/* Device-specific copy: <span class="pp-pc-only"> / <span class="pp-touch-only">. */
+html.pp-touch .pp-pc-only,
+html:not(.pp-touch) .pp-touch-only { display: none !important; }
+
+/* ---------- Ability button (left thumb) ---------- */
+.pp-ability-btn {
+    --ab-c: #7cf4ff;
+    --ab-size: 74px;
+    position: fixed;
+    bottom: var(--ab-bottom, 18px);
+    z-index: 100001;
+    width: var(--ab-size);
+    height: var(--ab-size);
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(3, 13, 29, 0.62);
+    color: #e8f7ff;
+    font: 700 .5rem/1 'Orbitron', sans-serif;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    display: grid;
+    place-items: center;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform .08s ease-out, opacity .2s ease;
+}
+.pp-ability-btn[hidden] { display: none; }
+.pp-ability-btn.left { left: var(--ab-x, 18px); }
+.pp-ability-btn.right { right: var(--ab-x, 18px); }
+.pp-ability-btn[data-mode="gravity"] { --ab-c: #8deeff; }
+.pp-ability-btn[data-mode="obstacle"] { --ab-c: #ffd477; }
+.pp-ability-btn[data-mode="zombie"] { --ab-c: #9dff6a; }
+/* Cooldown / energy ring. */
+.pp-ab-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(var(--ab-c) var(--p, 100%), rgba(105, 131, 148, .35) 0);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px));
+}
+.pp-ab-icon { width: 26px; height: 26px; margin-top: -6px; }
+.pp-ab-icon svg { width: 100%; height: 100%; fill: var(--ab-c); stroke: var(--ab-c); }
+.pp-ab-status {
+    position: absolute;
+    bottom: 13px;
+    left: 0; right: 0;
+    text-align: center;
+    color: var(--ab-c);
+    font-size: .48rem;
+}
+.pp-ab-name {
+    position: absolute;
+    bottom: calc(100% + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(3, 13, 29, 0.7);
+    color: #dff6ff;
+    font-size: .46rem;
+}
+.pp-ability-btn[data-tone="cooling"] .pp-ab-icon svg { fill: #698394; stroke: #698394; }
+.pp-ability-btn[data-tone="cooling"] .pp-ab-status { color: #90a9bb; }
+.pp-ability-btn[data-tone="missed"] .pp-ab-status { color: #ffae8f; }
+.pp-ability-btn[data-tone="now"] { box-shadow: 0 0 0 2px var(--ab-c), 0 0 18px var(--ab-c); animation: ppAbNow .5s ease-in-out infinite alternate; }
+.pp-ability-btn[data-tone="active"] { background: color-mix(in srgb, var(--ab-c) 30%, rgba(3, 13, 29, .7)); }
+.pp-ability-btn.pressed { transform: scale(.92); }
+.pp-ability-btn.nope { animation: ppAbNope .28s ease-in-out; }
+@keyframes ppAbNow { to { box-shadow: 0 0 0 3px var(--ab-c), 0 0 26px var(--ab-c); } }
+@keyframes ppAbNope { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+/* The ability button sits where the pause menu and cards would be. */
+body.pp-paused .pp-ability-btn { display: none; }
+
+/* First-time pointer to the button. */
+.pp-ability-hint {
+    position: fixed;
+    z-index: 100002;
+    max-width: min(300px, 60vw);
+    padding: 10px 12px;
+    border: 1px solid rgba(124, 244, 255, .45);
+    border-radius: 12px;
+    background: rgba(4, 14, 30, .92);
+    color: #dff6ff;
+    font: 600 .78rem/1.35 system-ui, sans-serif;
+    pointer-events: none;
+    animation: ppHintIn .25s ease-out;
+    transition: opacity .25s ease;
+}
+.pp-ability-hint b { color: #7cf4ff; margin-right: 4px; }
+.pp-ability-hint span { display: block; margin-top: 4px; font-weight: 400; color: rgba(220, 240, 255, .78); font-size: .72rem; }
+.pp-ability-hint::after {
+    content: "";
+    position: absolute;
+    left: 28px;
+    bottom: -7px;
+    border: 7px solid transparent;
+    border-bottom: 0;
+    border-top-color: rgba(4, 14, 30, .92);
+}
+.pp-ability-hint.out { opacity: 0; }
+@keyframes ppHintIn { from { opacity: 0; transform: translateY(6px); } }
+
+/* ---------- First-match controls tutorial ---------- */
+.pp-controls-tutorial {
+    position: fixed;
+    inset: 0;
+    z-index: 100006;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    background: radial-gradient(ellipse at center, rgba(4, 12, 28, .78), rgba(0, 0, 0, .9));
+}
+.pp-controls-tutorial[hidden] { display: none; }
+body.pp-controls-tutorial-open #cyber-menu-btn { visibility: hidden; }
+.pp-ct-card {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 22px;
+    align-items: center;
+    width: min(860px, 100%);
+    max-height: 100%;
+    overflow-y: auto;
+    padding: 22px 24px;
+    border: 1px solid rgba(0, 238, 255, .3);
+    border-radius: 20px;
+    background: linear-gradient(160deg, rgba(10, 22, 44, .97), rgba(3, 8, 20, .97));
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .6);
+    color: #e8f7ff;
+}
+.pp-ct-kicker { font: 700 .62rem/1 'Orbitron', sans-serif; letter-spacing: .2em; text-transform: uppercase; color: #00eeff; }
+.pp-ct-body h2 { margin: 6px 0 10px; font: 800 1.45rem/1.1 'Orbitron', sans-serif; letter-spacing: .06em; color: #fff; }
+.pp-ct-steps { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
+.pp-ct-steps li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; }
+.pp-ct-n {
+    display: grid; place-items: center;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: rgba(0, 238, 255, .14); border: 1px solid rgba(0, 238, 255, .5);
+    font: 800 .72rem/1 'Orbitron', sans-serif; color: #7cf4ff;
+}
+.pp-ct-steps b { display: block; font: 700 .92rem/1.25 system-ui, sans-serif; color: #fff; }
+.pp-ct-steps p { margin: 3px 0 0; font: 400 .82rem/1.4 system-ui, sans-serif; color: rgba(215, 236, 255, .78); }
+.pp-ct-go {
+    width: 100%;
+    min-height: 46px;
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(90deg, #00e6c3, #00b4ff);
+    color: #021018;
+    font: 800 .8rem/1 'Orbitron', sans-serif;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.pp-ct-go:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* Phone held sideways: right thumb slides, left thumb taps the button. */
+.pp-ct-phone {
+    position: relative;
+    aspect-ratio: 16 / 8.4;
+    width: 100%;
+    border: 3px solid rgba(160, 220, 255, .55);
+    border-radius: 18px;
+    background: linear-gradient(180deg, #08142a, #050a18);
+    box-shadow: inset 0 0 0 4px #02060e;
+    overflow: hidden;
+}
+.pp-ct-phone i { position: absolute; display: block; }
+.pp-ct-mid { left: 50%; top: 10%; bottom: 10%; border-left: 2px dashed rgba(124, 244, 255, .22); }
+.pp-ct-paddle { left: 6%; width: 3%; height: 26%; top: 37%; border-radius: 4px; background: #00f0ff; box-shadow: 0 0 10px #00f0ff; animation: ppCtPaddle 2.4s ease-in-out infinite; }
+.pp-ct-ball { left: 30%; top: 46%; width: 4.2%; aspect-ratio: 1; border-radius: 50%; background: #fff; box-shadow: 0 0 10px #fff; animation: ppCtBall 2.4s ease-in-out infinite; }
+.pp-ct-thumb {
+    width: 17%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(255, 220, 190, .9), rgba(220, 160, 130, .75));
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
+}
+.pp-ct-thumb.right { right: 13%; top: 40%; animation: ppCtThumb 2.4s ease-in-out infinite; }
+.pp-ct-slide { right: 20.5%; top: 18%; height: 64%; border-left: 2px dashed rgba(255, 255, 255, .35); }
+.pp-ct-abtn {
+    left: 14%; bottom: 8%;
+    width: 15%; aspect-ratio: 1;
+    border-radius: 50%;
+    border: 2px solid #7cf4ff;
+    background: rgba(3, 13, 29, .8);
+    display: grid !important; place-items: center;
+    animation: ppCtTap 2.4s ease-in-out infinite;
+}
+.pp-ct-phone[data-mode="obstacle"] .pp-ct-abtn { border-color: #ffd477; }
+.pp-ct-phone[data-mode="zombie"] .pp-ct-abtn { border-color: #9dff6a; }
+.pp-ct-abtn svg { width: 55%; height: 55%; fill: #7cf4ff; stroke: #7cf4ff; }
+.pp-ct-phone[data-mode="obstacle"] .pp-ct-abtn svg { fill: #ffd477; stroke: #ffd477; }
+.pp-ct-phone[data-mode="zombie"] .pp-ct-abtn svg { fill: #9dff6a; stroke: #9dff6a; }
+.pp-ct-thumb.left { left: 13%; bottom: -7%; opacity: .92; animation: ppCtLeftThumb 2.4s ease-in-out infinite; }
+/* Local 1v1 version: a paddle and a sliding thumb on each half. */
+.pp-ct-phone.two .pp-ct-paddle.r { left: auto; right: 6%; background: #ff2d75; box-shadow: 0 0 10px #ff2d75; animation-direction: reverse; }
+.pp-ct-phone.two .pp-ct-thumb.p1 { left: 16%; top: 40%; animation: ppCtThumb 2.4s ease-in-out infinite; }
+.pp-ct-phone.two .pp-ct-slide.p1 { right: auto; left: 23.5%; }
+.pp-ct-phone.two .pp-ct-thumb.right { animation-direction: reverse; }
+@keyframes ppCtThumb { 0%, 100% { transform: translateY(-62%); } 50% { transform: translateY(62%); } }
+@keyframes ppCtPaddle { 0%, 100% { transform: translateY(-62%); } 50% { transform: translateY(62%); } }
+@keyframes ppCtBall { 0%, 100% { transform: translate(260%, -190%); } 50% { transform: translate(40%, 160%); } }
+@keyframes ppCtTap { 0%, 38%, 62%, 100% { transform: scale(1); } 50% { transform: scale(.88); box-shadow: 0 0 16px #7cf4ff; } }
+@keyframes ppCtLeftThumb { 0%, 38%, 62%, 100% { transform: translate(0, 0); } 50% { transform: translate(-4%, -18%); } }
+
+.pp-ct-keys { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; }
+.pp-ct-keycol { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.pp-ct-keycol kbd {
+    min-width: 46px; padding: 10px 12px;
+    border: 1px solid rgba(160, 220, 255, .45); border-bottom-width: 3px; border-radius: 9px;
+    background: rgba(10, 26, 50, .9); color: #fff;
+    font: 700 .95rem/1 'Orbitron', sans-serif; text-align: center;
+}
+.pp-ct-keycol kbd.wide { min-width: 110px; }
+.pp-ct-keycol small { font: 700 .62rem/1 'Orbitron', sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #7cf4ff; }
+
+@media (prefers-reduced-motion: reduce) {
+    .pp-ct-phone i, .pp-ability-btn { animation: none !important; }
+}
+
+/* Short landscape phones: smaller type so the whole card fits. */
+@media (max-height: 500px) {
+    .pp-ct-card { gap: 16px; padding: 14px 16px; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
+    .pp-ct-body h2 { font-size: 1.05rem; margin: 4px 0 8px; }
+    .pp-ct-steps { gap: 7px; margin-bottom: 10px; }
+    .pp-ct-steps b { font-size: .8rem; }
+    .pp-ct-steps p { font-size: .72rem; line-height: 1.3; }
+    .pp-ct-go { min-height: 40px; }
+}
+@media (orientation: portrait) and (max-width: 640px) {
+    .pp-ct-card { grid-template-columns: 1fr; }
+    .pp-ct-visual { max-width: 340px; width: 100%; margin: 0 auto; }
+}
+
+/* ==========================================================================
+   Phone layout fixes
+   ========================================================================== */
+
+/* Opponent picker in portrait: the three choices stack as a list instead of
+   three cramped columns with clipped words. */
+@media (orientation: portrait) {
+    html.pp-mobile #modal .opts:has(.opt-online:not([hidden])) { grid-template-columns: 1fr; gap: 10px; }
+    html.pp-mobile #modal .opts .opt { display: grid; grid-template-columns: 52px 1fr; grid-template-rows: auto auto; column-gap: 14px; text-align: left; align-items: center; padding: 12px 14px; }
+    html.pp-mobile #modal .opts .opt-icon-large { grid-row: span 2; margin: 0; width: 52px; height: 52px; }
+    html.pp-mobile #modal .opts .opt-title,
+    html.pp-mobile #modal .opts .opt-sub { letter-spacing: .08em; }
+}
+
+/* Mode tutorial on a landscape phone: the header took most of the height and
+   left two lines for the guide. */
+@media (max-height: 500px) {
+    .mode-tutorial-card { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
+    .mode-tutorial-head { padding-block: 10px !important; gap: 12px !important; }
+    .mode-tutorial-visual,
+    .mode-tutorial-fact,
+    .mode-tutorial-head p { display: none !important; }
+    .mode-tutorial-heading h2 { font-size: 1.3rem !important; margin: 2px 0 0 !important; }
+    .mode-tutorial-eyebrow { font-size: .58rem !important; }
+    .mode-tutorial-foot { padding-block: 8px !important; }
+    .mode-tutorial-goal { padding: 10px 14px !important; }
+    .mode-tutorial-goal p { font-size: .85rem !important; line-height: 1.35 !important; margin-top: 4px !important; }
+    .mode-tutorial-step h3 { font-size: .85rem !important; }
+    .mode-tutorial-step p { font-size: .75rem !important; line-height: 1.35 !important; }
+    .mode-tutorial-foot button { min-height: 40px; padding-block: 8px !important; }
+}
+
+/* Mode rules cards (Zombie, Obstacle) on a landscape phone: two columns of
+   rules so the start button is on screen without scrolling. */
+@media (max-height: 500px) {
+    html.pp-mobile .zombie-briefing .zombie-wave-choice-panel { width: min(96vw, 820px); padding: 12px 16px; }
+    html.pp-mobile .zombie-briefing h3 { font-size: 1.15rem; margin: 2px 0 8px; }
+    html.pp-mobile .zombie-briefing .zombie-briefing-rules { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin: 0 0 10px; }
+    html.pp-mobile .zombie-briefing .zombie-briefing-rules li { font-size: .7rem; line-height: 1.3; padding: 7px 9px; margin: 0; }
+    html.pp-mobile .zombie-briefing .zombie-briefing-start { min-height: 40px; padding-block: 8px; }
+}
+
+/* Forge editor on a landscape phone: one scrolling row of actions, objects in
+   a slim column on the left, the court in the middle and the object panel on
+   the right, so the court gets the height. */
+@media (max-height: 500px) and (orientation: landscape) {
+    .forge-editor { padding: max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); gap: 6px; }
+    .forge-editor-top { flex-wrap: nowrap; gap: 8px; }
+    .forge-editor-title { flex: 0 0 auto; gap: 8px; }
+    .forge-editor-title .forge-kicker { font-size: .7rem; }
+    .forge-editor .forge-name { width: 130px; padding: .4rem .6rem; font-size: .8rem; }
+    .forge-editor-actions { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; min-width: 0; }
+    .forge-editor-actions::-webkit-scrollbar { display: none; }
+    .forge-editor-actions button { flex: 0 0 auto; padding: .4rem .6rem; font-size: .66rem; }
+    /* Done stays in reach while the rest of the row scrolls under it. */
+    .forge-editor-actions [data-act="done"] { position: sticky; right: 0; box-shadow: -10px 0 12px #020812; }
+    .forge-editor-body { flex-direction: row; gap: 8px; }
+    .forge-palette { flex-direction: column; width: 70px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+    .forge-palette::-webkit-scrollbar { display: none; }
+    .forge-editor .forge-tool { min-width: 0; padding: 4px 2px; font-size: .52rem; }
+    .forge-editor .forge-tool canvas { width: 30px; height: 30px; }
+    .forge-inspector { width: 150px; flex: 0 0 150px; max-height: none; padding: 8px 10px; font-size: .75rem; }
+    .forge-inspector strong { margin-top: 4px; font-size: .78rem; }
+    .forge-inspector p { font-size: .7rem; margin: 3px 0; }
+    .forge-inspector-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; }
+    .forge-inspector-actions button { padding: .35rem .2rem; font-size: .6rem; }
+    .forge-editor-hint { font-size: .62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+/* The hint line lists keyboard and mouse shortcuts; touch gets its own. */
+html.pp-touch .forge-editor-hint .forge-hint-pc { display: none; }
+html:not(.pp-touch) .forge-editor-hint .forge-hint-touch { display: none; }
+
+/* Menu cards on phones: no backdrop blur. The blur is recomputed every frame
+   over the moving 3D scene, which is costly on phone GPUs; the cards keep
+   their own dark glass fill (mobile.css). */
+html.pp-mobile #overlay .card { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(6, 10, 26, .72); }
+
+/* The MENU button would sit on the rules cards' headings (as it does for the
+   wave reward, see mobile.css); the card has its own start button. */
+body:has(.zombie-briefing.visible) #cyber-menu-btn { visibility: hidden; }

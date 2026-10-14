@@ -2366,6 +2366,12 @@ button {
     background-size: 300px 300px;
     opacity: 0.14;
     pointer-events: none;
+    /* Drifts by moving a layer one tile row/column larger than the screen
+       (transform runs on the compositor) instead of animating
+       background-position, which repainted the whole menu every frame. */
+    top: -600px;
+    left: -300px;
+    will-change: transform;
     animation: menuBgDrift 60s linear infinite;
 }
 
@@ -2382,11 +2388,11 @@ button {
 
 @keyframes menuBgDrift {
     from {
-        background-position: 0 0;
+        transform: translate(0, 0);
     }
 
     to {
-        background-position: 300px 600px;
+        transform: translate(300px, 600px);
     }
 }
 
@@ -6220,13 +6226,18 @@ body.pp-lowfx .achievements * {
     backdrop-filter: blur(10px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.2s ease;
+    /* Hidden (not just transparent) once faded out, so these full-screen
+       blur layers drop out of compositing during play. */
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0s linear 0.2s;
     z-index: 70;
 }
 
 .zombie-wave-choice.visible {
     opacity: 1;
     pointer-events: auto;
+    visibility: visible;
+    transition: opacity 0.2s ease;
 }
 
 .zombie-wave-choice-panel {
@@ -6532,6 +6543,9 @@ body.pp-lowfx .achievements * {
     height: 100%;
     background: repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(255, 255, 255, 0.05) 20px, rgba(255, 255, 255, 0.05) 40px);
     animation: speedLines 0.9s linear infinite;
+    /* Invisible at opacity 0, so it stays paused; the Speed transform's own
+       animation shorthand below starts it running. */
+    animation-play-state: paused;
     pointer-events: none;
     opacity: 0;
     z-index: 1;

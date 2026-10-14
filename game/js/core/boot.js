@@ -5,10 +5,19 @@
         const nav = navigator;
         const coarse = matchMedia('(pointer: coarse)').matches;
         const small = Math.min(screen.width || 9999, screen.height || 9999) < 820;
-        if (nav.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(nav.userAgent || '') || (coarse && small)) {
-            document.documentElement.classList.add('pp-mobile');
-        }
-    } catch (e) { /* ignore */ }
+        const mobile = !!(nav.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(nav.userAgent || '') || (coarse && small));
+        if (mobile) document.documentElement.classList.add('pp-mobile');
+        // Which controls the tutorials and on-screen buttons are for, decided
+        // once at start: phones and tablets (a touch screen with no mouse or
+        // trackpad, e.g. iPadOS, which reports itself as a Mac) get the touch
+        // version; anything with a keyboard and mouse gets the PC version.
+        const fine = matchMedia('(any-pointer: fine)').matches;
+        const touch = mobile || (coarse && (nav.maxTouchPoints || 0) > 0 && !fine);
+        window.PPDevice = Object.freeze({ touch, kind: touch ? 'mobile' : 'pc' });
+        if (touch) document.documentElement.classList.add('pp-touch');
+    } catch (e) {
+        window.PPDevice = Object.freeze({ touch: false, kind: 'pc' });
+    }
 
     const params = new URLSearchParams(location.search);
     const navEntry = performance.getEntriesByType('navigation')[0];

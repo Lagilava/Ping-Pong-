@@ -1170,6 +1170,14 @@ class ProgressionSystem {
     updateAchievementSidebar() {
         const container = document.getElementById('sidebarAchievements');
         if (!container) return;
+        // Rebuilding every card is a full DOM rebuild; progress reported during
+        // a match used to do it every 750 ms behind a hidden panel. Rebuild
+        // when the panel is opened instead.
+        if (!container.closest('.achievement-sidebar')?.classList.contains('visible')) {
+            this._achievementSidebarDirty = true;
+            return;
+        }
+        this._achievementSidebarDirty = false;
 
         const filter = this.achievementFilter ? this.achievementFilter.toLowerCase() : '';
 
@@ -1310,7 +1318,10 @@ class ProgressionSystem {
     }
 
     toggleAchievementSidebar() {
-        document.querySelector('.achievement-sidebar')?.classList.toggle('visible');
+        const sidebar = document.querySelector('.achievement-sidebar');
+        if (!sidebar) return;
+        sidebar.classList.toggle('visible');
+        if (sidebar.classList.contains('visible') && this._achievementSidebarDirty) this.updateAchievementSidebar();
     }
 
     setupAchievementHotkeys() {

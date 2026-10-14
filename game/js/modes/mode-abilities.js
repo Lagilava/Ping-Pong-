@@ -329,6 +329,8 @@ class ModeAbilities {
         ctx.save();
         for (const side of ['player', 'ai']) {
             if (side === 'ai' && !g.isMultiplayer) continue;
+            // Touch screens show this as an on-screen button instead.
+            if (window.PPDeviceControls?.showsButton(side)) continue;
             const s = this.side(side), ready = s.cooldown <= 0;
             const bound = window.PPSettings?.get('bindings')?.[side === 'player' ? 'p1Fire' : 'p2Fire'];
             const key = window.PerfGovernor?.isMobile ? 'Tap'

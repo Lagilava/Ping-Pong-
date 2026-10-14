@@ -44,7 +44,7 @@
             { type: 'keys', label: 'Keys', help: 'Click a key, then press the new one. Esc cancels.' },
             { type: 'toggle', key: 'padRumble', label: 'Controller vibration', help: 'Gamepads rumble on hits and goals.' },
             { type: 'toggle', key: 'phoneVibrate', label: 'Phone vibration', help: 'Phones buzz when a point is scored.' },
-            { type: 'note', html: '<b>Mouse:</b> hold the button and drag on your half of the court. <b>Touch:</b> drag anywhere on your half; tap with a second finger to fire the laser. <b>Gamepad:</b> left stick moves, A fires, Start pauses.' },
+            { type: 'note', html: '<b>Mouse:</b> hold the button and drag on your half of the court. <b>Touch:</b> slide a thumb up and down to move (solo: anywhere, e.g. your right thumb on the right side; local 1v1: on your half). Tap or hold the round ability button in the bottom-left corner; tap with a second finger to fire the laser. <b>Gamepad:</b> left stick moves, A fires, Start pauses.' },
         ],
         display: [
             { type: 'slider', key: 'shake', label: 'Screen shake', help: 'How hard the camera kicks on big hits and goals.', min: 0, max: 150, step: 10, unit: '%' },
