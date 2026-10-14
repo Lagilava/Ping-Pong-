@@ -841,7 +841,8 @@
             const ar = g.obstacleArcade;
             if (ar && (g.gameMode === 'obstacle' || ar.fixedLayout)) {
                 s.ar = [ar.wallet.player, ar.wallet.ai, round1(ar.starTime), round1(ar.boostTime),
-                    ar.coins.map((c) => (c.alive ? 1 : 0)).join(''), ar.blocks.map((k) => (k.used ? 1 : 0)).join('')];
+                    ar.coins.map((c) => (c.alive ? 1 : 0)).join(''), ar.blocks.map((k) => (k.used ? 1 : 0)).join(''),
+                    ar.shield.player, ar.shield.ai, ar.starOwner];
             }
             this.send(s);
         }
@@ -979,6 +980,9 @@
                 if (coins.length === ar.coins.length) ar.coins.forEach((c, i) => { c.alive = coins[i] === '1'; });
                 const blocks = String(s.ar[5] || '');
                 if (blocks.length === ar.blocks.length) ar.blocks.forEach((k, i) => { k.used = blocks[i] === '1'; });
+                ar.shield.player = num(s.ar[6]) > 0 ? 1 : 0;
+                ar.shield.ai = num(s.ar[7]) > 0 ? 1 : 0;
+                if (s.ar[8] === 'player' || s.ar[8] === 'ai') ar.starOwner = s.ar[8];
                 ar.syncHud?.();
             }
         }

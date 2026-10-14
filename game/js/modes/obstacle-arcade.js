@@ -15,7 +15,6 @@ class ObstacleArcade {
         this.rings = [];
         this.trail = [];
         this.wallet = { player: 0, ai: 0 };
-        this.shieldSeconds = 10;
         this.shield = { player: 0, ai: 0 };
         this.starOwner = 'player';
         this.hudShield = { player: -1, ai: -1 };
@@ -49,10 +48,18 @@ class ObstacleArcade {
         this.syncHud();
     }
 
-    // A side is safe from conceding while its coin shield runs, or while
-    // it holds the Star (invincible until the Star runs out).
+    // A coin shield saves one goal; Star remains invincible while active.
     hasShield(side) {
         return this.shield[side] > 0 || (this.starTime > 0 && this.starOwner === side);
+    }
+
+    onShieldBlock(side) {
+        if (this.starTime > 0 && this.starOwner === side) return;
+        if (!this.shield[side]) return;
+        this.shield[side] = 0;
+        this.syncHud();
+        const who = side === 'player' ? (this.game.isMultiplayer ? 'P1' : 'You') : (this.game.isMultiplayer ? 'P2' : 'AI');
+        this.game.showNotification('Shield Blocked!', `${who} saved!`, '#00bcd4');
     }
 
     // Draw against the moving paddles so each shield has an unmistakable owner.
@@ -336,8 +343,6 @@ class ObstacleArcade {
 
         this.starTime = Math.max(0, this.starTime - dt);
         this.boostTime = Math.max(0, this.boostTime - dt);
-        this.shield.player = Math.max(0, this.shield.player - dt);
-        this.shield.ai = Math.max(0, this.shield.ai - dt);
         this.syncHud();
         const owner = ball.vel.x >= 0 ? 'player' : 'ai';
 
@@ -489,12 +494,12 @@ class ObstacleArcade {
         game.audio?.createOscillatorSound?.(988, 'square', 0.07, 0.18);
         setTimeout(() => game.audio?.createOscillatorSound?.(1319, 'square', 0.22, 0.16), 70);
         this.wallet[side] += count;
-        // Coins pay out a free shield instead of points.
+        // Coins arm one shield until it saves a goal.
         if (this.shield[side] <= 0) {
             const who = side === 'player' ? (game.isMultiplayer ? 'P1' : 'You') : (game.isMultiplayer ? 'P2' : 'AI');
-            game.showNotification('Shield!', `${who} got a free goal shield for ${this.shieldSeconds}s`, '#00bcd4');
+            game.showNotification('Shield!', `${who} can block one goal`, '#00bcd4');
         }
-        this.shield[side] = this.shieldSeconds;
+        this.shield[side] = 1;
         this.syncHud();
     }
 
@@ -636,8 +641,6 @@ class ObstacleArcade {
         for (const side of ['player', 'ai']) {
             if (!this.hasShield(side)) continue;
             const left = side === 'player';
-            const left10 = this.shield[side] > 0 && this.shield[side] < 2 && Math.floor(t * 8) % 2 === 0;
-            if (left10) continue;
             ctx.globalAlpha = 0.65 + Math.sin(t * 5) * 0.25;
             ctx.lineWidth = 4;
             ctx.strokeStyle = '#00bcd4';
@@ -719,12 +722,11 @@ class ObstacleArcade {
         const l = String(this.wallet.player), r = String(this.wallet.ai);
         if (this.hudLeft.textContent !== l) this.hudLeft.textContent = l;
         if (this.hudRight.textContent !== r) this.hudRight.textContent = r;
-        // Keep the timer and owner readable even when the canvas is busy.
+        // Keep each shield and Star owner readable even when the canvas is busy.
         const goals = this.hud.querySelectorAll('.coin-goal');
         ['player', 'ai'].forEach((side, i) => {
             const star = this.starTime > 0 && this.starOwner === side;
-            const secs = Math.ceil(star ? this.starTime : this.shield[side]);
-            const status = secs > 0 ? `${star ? 'STAR' : 'SHIELD'} ${secs}s` : '';
+            const status = star ? `STAR ${Math.ceil(this.starTime)}s` : (this.shield[side] ? 'SHIELD 1 HIT' : '');
             if (this.hudShield[side] === status || !goals[i]) return;
             this.hudShield[side] = status;
             goals[i].textContent = status;

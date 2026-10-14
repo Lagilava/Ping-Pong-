@@ -7295,6 +7295,9 @@ class Game {
                     ball.vel.x = Math.abs(ball.vel.x) * 1.1;
                     this.audio.bounce();
                     this.particles.spawnGodTierHit(ball.pos.x, ball.pos.y, '#fff176', 600);
+                    if (this.invincibleTime <= 0 && !(this.isMultiplayer ? this.shieldActive.player : this.shieldActive)) {
+                        this.obstacleArcade?.onShieldBlock('player');
+                    }
                     if (this.isMultiplayer) {
                         if (this.shieldActive.player) {
                             this.shieldActive.player = false;
@@ -7781,6 +7784,9 @@ class Game {
                     ball.vel.x = -Math.abs(ball.vel.x) * 1.1;
                     this.audio.bounce();
                     this.particles.spawnGodTierHit(ball.pos.x, ball.pos.y, '#fff176', 600);
+                    if (this.invincibleTime <= 0 && !(this.isMultiplayer && this.shieldActive.ai)) {
+                        this.obstacleArcade?.onShieldBlock('ai');
+                    }
                     if (this.isMultiplayer && this.shieldActive.ai) {
                         this.shieldActive.ai = false;
                         this.showNotification('Shield Blocked!', 'P2 saved!', '#00bcd4');
@@ -7803,6 +7809,9 @@ class Game {
                     ball.vel.x = Math.abs(ball.vel.x) * 1.1;
                     this.audio.bounce();
                     this.particles.spawnGodTierHit(ball.pos.x, ball.pos.y, '#fff176', 600);
+                    if (this.invincibleTime <= 0 && !(this.isMultiplayer ? this.shieldActive.player : this.shieldActive)) {
+                        this.obstacleArcade?.onShieldBlock('player');
+                    }
                     if (this.isMultiplayer) {
                         if (this.shieldActive.player) {
                             this.shieldActive.player = false;
