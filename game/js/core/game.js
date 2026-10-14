@@ -180,6 +180,7 @@ class Game {
         this.lastRallyMilestone = 0;
         this.zombieState = this.createZombieModeState();
         this.zombiePull = new ZombiePull(this);
+        this.modeAbilities = new ModeAbilities(this);
         this.zombieSprites = new ZombieSprites(this);
 
         // Initialize intro system
@@ -5513,6 +5514,7 @@ class Game {
             this.gravitySlingshot = new GravitySlingshot(this);
         }
         this.gravitySlingshot?.reset();
+        this.modeAbilities?.reset();
 
         // ensure the AI paddle has the correct skin when modes change
         if (this.aiPaddle && typeof this.aiPaddle.setZombieBossSkin === 'function') {
@@ -5751,12 +5753,17 @@ class Game {
             this.mouseX = point.x;
             this.mouseY = point.y;
         });
-        this.canvas.addEventListener('contextmenu', (e) => { if (this.isZombieWaveMode()) e.preventDefault(); });
+        this.canvas.addEventListener('contextmenu', (e) => { if (this.isZombieWaveMode() || ['speed', 'gravity', 'obstacle'].includes(this.gameMode)) e.preventDefault(); });
         this.canvas.addEventListener('pointerdown', (e) => {
             if (this.paused) return;
             // Zombie mode: the right mouse button holds the Undead Pull.
             if (e.pointerType === 'mouse' && e.button === 2 && this.isZombieWaveMode()) {
                 this.zombiePull.mouseHeld = true;
+                e.preventDefault();
+                return;
+            }
+            if (e.pointerType === 'mouse' && e.button === 2 && ['speed', 'gravity', 'obstacle'].includes(this.gameMode)) {
+                this.modeAbilities.trigger('player');
                 e.preventDefault();
                 return;
             }
@@ -5777,7 +5784,9 @@ class Game {
                 // Touch: a second finger on your side fires the laser power-up
                 // (the keyboard's Space/Enter), without letting go of the paddle.
                 const paddle = target === 'ai' ? this.aiPaddle : this.player;
-                if (e.pointerType === 'touch' && paddle?.hasLaser) {
+                if (e.pointerType === 'touch' && ['speed', 'gravity', 'obstacle'].includes(this.gameMode) && this.modeAbilities.trigger(target)) {
+                    e.preventDefault();
+                } else if (e.pointerType === 'touch' && paddle?.hasLaser) {
                     this.keys[target === 'ai' ? 'enter' : ' '] = true;
                     e.preventDefault();
                 } else if (e.pointerType === 'touch' && target === 'player' && this.isZombieWaveMode() && this.zombiePull.touchId === null) {
@@ -5876,7 +5885,11 @@ class Game {
             }
 
             const names = this.translateKey(e.key.toLowerCase());
-            for (let i = 0; i < names.length; i++) this.keys[names[i]] = true;
+            let abilityFired = false;
+            if (!e.repeat && (names.includes(' ') || (this.isMultiplayer && names.includes('enter')))) {
+                abilityFired = this.modeAbilities.trigger(names.includes('enter') && !names.includes(' ') ? 'ai' : 'player');
+            }
+            for (let i = 0; i < names.length; i++) if (!abilityFired || (names[i] !== ' ' && names[i] !== 'enter')) this.keys[names[i]] = true;
             if (names.includes(' ') || names.includes('enter')) e.preventDefault();
 
             if (e.key === 'Escape') {
@@ -6898,7 +6911,9 @@ class Game {
             const st = this.padState[i];
             if (!st.aPressed) continue;
             if (this.introActive && this.intro?.active) { this.skipIntro(); continue; }
-            this.keys[i === 0 ? ' ' : 'enter'] = true;   // laser, consumed in updatePaddles
+            if (!this.modeAbilities.trigger(i === 0 ? 'player' : 'ai')) {
+                this.keys[i === 0 ? ' ' : 'enter'] = true;   // laser, consumed in updatePaddles
+            }
         }
     }
 
@@ -6988,6 +7003,7 @@ class Game {
 
         b.lastHit = isPlayer ? 'player' : 'ai';
         if (b === this.ball) this.gravitySlingshot?.onPaddleHit();
+        this.modeAbilities?.onPaddleHit(isPlayer ? 'player' : 'ai', b);
         // The AI opponent studies how each shot was struck (contact point and
         // paddle swipe) to plan its returns and call out your habits.
         if (b === this.ball && !this.isMultiplayer && typeof this.ai?.onPaddleHit === 'function') {
@@ -7381,7 +7397,9 @@ class Game {
             this.hitStop -= dt;
             hitStopScale = 0.12;
         }
-        const effectiveDt = this.timeWarpFactor * dt * hitStopScale;
+        this.modeAbilities?.update(dt);
+        const paddleDt = this.timeWarpFactor * dt * hitStopScale;
+        const effectiveDt = paddleDt * (this.modeAbilities?.speedScale() || 1);
         if (this.player) this.player._prevY = this.player.pos.y;
         if (this.aiPaddle) this.aiPaddle._prevY = this.aiPaddle.pos.y;
         this.updateSpeedBackground(effectiveDt);
@@ -7392,7 +7410,7 @@ class Game {
             this.updateBallPhysics(this.ball, effectiveDt);
             this.handleCollisions(effectiveDt);
         }
-        this.updatePaddles(effectiveDt);
+        this.updatePaddles(paddleDt);
         this.checkScoringConditions();
         this.updateGameUI();
     }
@@ -7593,6 +7611,7 @@ class Game {
             if (this.checkPaddleCollision(this.aiPaddle, false) && this.net) this.net.onLocalHit(this.ball);
         }
         this.handleZombieBallCollisions(this.ball);
+        this.modeAbilities?.collideFlipper(this.ball);
         if (!this.ghostBallActive && !((this.gameMode === 'obstacle' || this.obstacleArcade?.fixedLayout) && this.obstacleArcade?.isStarActive())) {
             const ball = this.ball;
             for (let i = 0; i < this.obstacles.length; i++) {
@@ -8408,6 +8427,7 @@ class Game {
         if (this.gameMode === 'obstacle') this.obstacleArcade?.renderPaddleShields(ctx);
         this.ball.render(ctx, interp);
         if (this.gameMode === 'gravity') this.gravitySlingshot?.renderBall(ctx, interp);
+        this.modeAbilities?.render(ctx);
         if (window.PPSettings?.get('ballOutline')) this.renderBallOutlines(ctx);
         this.renderServeTelegraph(ctx);
         if (revealing) ctx.restore();

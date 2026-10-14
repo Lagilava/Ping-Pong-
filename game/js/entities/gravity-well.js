@@ -247,15 +247,18 @@ class GravityWell {
         let currentlyAffecting = false;
 
         if (inForceRange) {
-            PhysicsCore.gravityWell(
-                ball,
-                this.#pos.x,
-                this.#pos.y,
-                this.#pullRadiusSq,
-                this.#strength,
-                dt,
-                GravityWell.MIN_DISTANCE_SQ
-            );
+            if (this.pulseRemaining > 0) {
+                // Repel outward with a capped force; the binary gravity backend
+                // accepts attraction only, so apply this short pulse in JS.
+                const distance = Math.sqrt(distSq);
+                const falloff = 1 - distance / this.#pullRadius;
+                const push = Math.min(2200, this.#strength * 0.9) * falloff * dt;
+                ball.vel.x -= dx / distance * push;
+                ball.vel.y -= dy / distance * push;
+            } else {
+                PhysicsCore.gravityWell(ball, this.#pos.x, this.#pos.y,
+                    this.#pullRadiusSq, this.#strength, dt, GravityWell.MIN_DISTANCE_SQ);
+            }
         }
 
         currentlyAffecting = inPullRange;

@@ -28,10 +28,19 @@ Keep the small console window open while you play; close it to stop.
   only if you want to watch.
 - **F2** shows a performance readout: FPS, detected display refresh rate,
   quality tier, render scale, shaders and physics backend.
+
 - Intros always play, and **Esc** closes them: on the boot screen, during the
   boot cinematic (any key works there too) and during a match intro (or use
   the **Skip intro** button). After the first match, match intros are short.
 - Your progress (XP, achievements) is saved in the browser on this PC.
+
+In local Speed, Gravity and Obstacle matches, **Space** activates the arena
+ability (P2: **Enter**; gamepad: **A**; mouse: right-click; touch: second finger).
+Speed's Overcharge opens a short slow-motion parry window and fires a Sonic
+Return on contact. Gravity's Polarity Pulse briefly repels the ball from its
+nearest well. Obstacle's flipper launches an incoming ball toward the next
+checkpoint. The on-court label shows when each ability is ready. Online matches
+currently use the standard mode rules without these active abilities.
 
 ### Let testers anywhere play it (PC + mobile)
 
