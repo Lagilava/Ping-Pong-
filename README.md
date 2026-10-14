@@ -36,11 +36,12 @@ Keep the small console window open while you play; close it to stop.
 
 In local Speed, Gravity and Obstacle matches, **Space** activates the arena
 ability (P2: **Enter**; gamepad: **A**; mouse: right-click; touch: second finger).
-Speed's Overcharge opens a short slow-motion parry window and fires a Sonic
-Return on contact. Gravity's Polarity Pulse briefly repels the ball from its
-nearest well. Obstacle's flipper launches an incoming ball toward the next
-checkpoint. The on-court label shows when each ability is ready. Online matches
-currently use the standard mode rules without these active abilities.
+Speed's Overcharge opens a short slow-motion parry window near the paddle and
+fires a Sonic Return on contact. Gravity's Polarity Pulse briefly repels the
+ball from its nearest well. In Obstacle, line up your paddle with an incoming
+ball and fire the projected flipper toward the next checkpoint. The on-court
+label shows when each ability is ready and when the ball is in range. Online
+matches currently use the standard mode rules without these active abilities.
 
 ### Let testers anywhere play it (PC + mobile)
 
