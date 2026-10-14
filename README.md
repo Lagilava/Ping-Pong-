@@ -8,6 +8,9 @@ post-processing, and a level/XP/achievement system.
 
 ## Play it (testers start here)
 
+**Online, no install:** https://lagilava.github.io/Ping-Pong-/ (works on PC and phone;
+updates a minute or two after each push to `main`).
+
 **Windows:** double-click **`Play Ping Pong.bat`**.
 
 That's it — nothing to install. The batch file starts a tiny local web server

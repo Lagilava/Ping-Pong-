@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ping Pong - Neon Edition</title>
+    <link rel="icon" href="data:,">
+    <script>
+        // The game lives in game/. An invite code (?join=CODE) goes straight to the match page.
+        var join = new URLSearchParams(location.search).get('join');
+        location.replace(join ? 'game/play.html?from_intro=1&join=' + encodeURIComponent(join) : 'game/');
+    </script>
+    <meta http-equiv="refresh" content="0; url=game/">
+    <style>body { background: #05060f; color: #cfe; font: 16px system-ui, sans-serif; text-align: center; padding-top: 40vh; } a { color: #3ff; }</style>
+</head>
+<body>
+    <a href="game/">Play Ping Pong</a>
+</body>
+</html>
