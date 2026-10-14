@@ -7628,7 +7628,6 @@ class Game {
         }
         this.handleZombieBallCollisions(this.ball);
         if (this.isForgeArenaActive()) this.forgeZombies?.collide(this.ball);
-        this.modeAbilities?.collideFlipper(this.ball);
         if (!this.ghostBallActive && !((this.gameMode === 'obstacle' || this.obstacleArcade?.fixedLayout) && this.obstacleArcade?.isStarActive())) {
             const ball = this.ball;
             for (let i = 0; i < this.obstacles.length; i++) {

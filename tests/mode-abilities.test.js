@@ -3,9 +3,14 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
+const diceSource = fs.readFileSync(path.join(__dirname, '../game/js/modes/obstacle-dice.js'), 'utf8');
 const source = fs.readFileSync(path.join(__dirname, '../game/js/modes/mode-abilities.js'), 'utf8');
-const context = { window: {}, Math };
+class Ball {
+    constructor(x, y, r) { this.pos = { x, y }; this.vel = { x: 0, y: 0 }; this.r = r; }
+}
+const context = { window: {}, Math, Ball, setTimeout };
 vm.createContext(context);
+vm.runInContext(diceSource, context);
 vm.runInContext(source, context);
 const ModeAbilities = context.window.ModeAbilities;
 
@@ -88,30 +93,101 @@ function game(mode) {
     assert.equal(ability.trigger('player'), false, 'another well cannot steal the pulse while the nearest is active');
 }
 
+function obstacleGame() {
+    const g = game('obstacle');
+    for (const p of [g.player, g.aiPaddle]) {
+        p.originalHeight = p.h;
+        p.grow = function (f) { const c = this.pos.y + this.h / 2; this.h = this.originalHeight * f; this.pos.y = c - this.h / 2; };
+        p.resetSize = function () { this.grow(1); };
+    }
+    g.additionalBalls = [];
+    g.obstacleArcade = {
+        starTime: 0, starOwner: 'player', boosted: 0,
+        grantStar(side) { this.starTime = 6; this.starOwner = side; },
+        boost(ball, mult) { this.boosted = mult; ball.vel.x *= mult; ball.vel.y *= mult; }
+    };
+    g.showNotification = () => {};
+    return g;
+}
+const DICE = context.window.ObstacleDice;
+const settle = ability => { for (let i = 0; i < 70; i++) ability.update(1 / 60); };
+
 {
-    const g = game('obstacle'), ability = new ModeAbilities(g);
-    g.ball.pos.x = ability.flipperX('player') + 15;
-    g.obstacleCourse = { courseRouteIndex: 0, courseRoute: { points: [{ x: 600, y: 450 }] } };
-    assert.equal(ability.trigger('player'), true);
-    assert.equal(ability.side('player').y, g.player.pos.y + g.player.h / 2, 'flipper stays aligned with the paddle');
-    ability.collideFlipper(g.ball);
-    assert.ok(g.ball.vel.x > 0, 'flipper sends ball across court');
-    assert.ok(g.ball.vel.y > 0, 'flipper aims toward the checkpoint');
-    assert.equal(g.ball.lastHit, 'player', 'flipper claims the shot for route and coin scoring');
-    assert.equal(ability.side('player').active, 0, 'one launch per activation');
-    assert.ok(ability.side('player').burst > 0, 'flipper impact burst starts on contact');
-    assert.ok(Math.abs(g.ball.pos.x - ability.flipperX('player')) < 30, 'launch does not teleport the ball across the court');
+    const g = obstacleGame(), ability = new ModeAbilities(g);
+    assert.equal(ability.trigger('player'), true, 'the dice can be rolled at any point in a rally');
+    assert.equal(ability.trigger('player'), false, 'cooldown blocks a second roll');
+    assert.equal(ability.dice.status('player').text, 'ROLLING…');
+    assert.equal(ability.trigger('ai'), false, 'the computer opponent never rolls');
 }
 
 {
-    const g = game('obstacle'), ability = new ModeAbilities(g);
+    // Every face lands exactly on its value: the front face of the cube.
+    for (let v = 1; v <= 6; v++) {
+        const g = obstacleGame(), ability = new ModeAbilities(g);
+        ability.dice.roll('player', v);
+        const d = ability.dice.side('player').die;
+        d.t = DICE.C.ROLL;
+        const pose = ability.dice.pose('player', d, true);
+        // Rebuild the rotation the renderer uses (minus the fixed tilt).
+        const c = Math.cos, sn = Math.sin;
+        const front = { 1: [0, 0, 1], 6: [0, 0, -1], 3: [1, 0, 0], 4: [-1, 0, 0], 2: [0, 1, 0], 5: [0, -1, 0] }[v];
+        let [x, y, z] = front;
+        [y, z] = [y * c(pose.a) - z * sn(pose.a), y * sn(pose.a) + z * c(pose.a)];
+        [x, z] = [x * c(pose.b) + z * sn(pose.b), -x * sn(pose.b) + z * c(pose.b)];
+        assert.ok(z > 0.999, `face ${v} ends facing the player`);
+    }
+}
+
+{
+    const g = obstacleGame(), ability = new ModeAbilities(g);
+    ability.dice.roll('player', 6); settle(ability);
+    assert.equal(g.obstacleArcade.starTime, 6, 'six grants Star power');
+    assert.equal(g.obstacleArcade.starOwner, 'player');
+
+    const g5 = obstacleGame(), a5 = new ModeAbilities(g5);
+    a5.dice.roll('player', 5); settle(a5);
+    assert.equal(g5.additionalBalls.length, 2, 'five shoots two balls');
+    assert.ok(g5.additionalBalls.every(b => b.vel.x > 0), 'shots fly toward the opponent');
+
+    const g3 = obstacleGame(), a3 = new ModeAbilities(g3);
+    a3.dice.roll('player', 3); settle(a3);
+    for (let i = 0; i < 30; i++) a3.update(1 / 60);
+    assert.ok(Math.abs(g3.player.h - 160) < 0.5, 'three grows the paddle');
+    for (let i = 0; i < 60 * 8; i++) a3.update(1 / 60);
+    assert.equal(g3.player.h, 100, 'big paddle returns to normal size');
+
+    const g1 = obstacleGame(), a1 = new ModeAbilities(g1);
+    a1.dice.roll('player', 1); settle(a1);
+    assert.equal(g1.obstacleArcade.boosted, 1.35, 'one is a fast ball');
+
+    const g2 = obstacleGame(), a2 = new ModeAbilities(g2);
+    const before = { ...g2.ball.vel };
+    a2.dice.roll('player', 2); settle(a2);
+    assert.deepEqual({ ...g2.ball.vel }, before, 'two does nothing');
+    assert.equal(g2.additionalBalls.length, 0);
+}
+
+{
+    const g = obstacleGame(), ability = new ModeAbilities(g);
+    ability.dice.roll('player', 4); settle(ability);
+    g.ball.pos.x = 300; g.ball.pos.y = 120; g.ball.vel.x = -900; g.ball.vel.y = 0;
+    const speed = 900;
+    for (let i = 0; i < 20; i++) {
+        ability.update(1 / 60);
+        g.ball.pos.x += g.ball.vel.x / 60; g.ball.pos.y += g.ball.vel.y / 60;
+    }
+    assert.ok(g.ball.vel.y > 0, 'pull steers the ball toward the paddle');
+    assert.ok(Math.abs(Math.hypot(g.ball.vel.x, g.ball.vel.y) - speed) < 1, 'pull keeps the ball speed');
+    assert.ok(Math.abs(g.ball.pos.y - 300) < Math.abs(120 - 300), 'ball ends closer to the paddle centre');
+    g.ball.vel.x = 900; g.ball.vel.y = 0;
+    ability.update(1 / 60);
+    assert.equal(g.ball.vel.y, 0, 'a ball leaving the paddle is not pulled back');
+}
+
+{
+    const g = obstacleGame(), ability = new ModeAbilities(g);
     g.isMultiplayer = true;
-    g.ball.pos.x = ability.flipperX('ai') - 15;
-    g.ball.vel.x = 900;
-    assert.equal(ability.trigger('ai'), true);
-    ability.collideFlipper(g.ball);
-    assert.equal(g.ball.lastHit, 'ai', 'player two flipper claims its shot');
-    assert.ok(g.ball.vel.x < 0, 'player two flipper sends the ball left');
+    assert.equal(ability.trigger('ai'), true, 'player two rolls in a local match');
 }
 
 console.log('Mode ability behavior passed.');

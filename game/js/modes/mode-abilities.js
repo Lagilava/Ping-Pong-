@@ -1,17 +1,22 @@
 // Active abilities for the three arcade arenas. Timers use real game time so
-// Speed's brief time warp cannot extend its own parry window.
+// Speed's brief time warp cannot extend its own parry window. Obstacle's
+// Lucky Dice lives in obstacle-dice.js; this class routes input and the HUD.
 class ModeAbilities {
     static SPEED_WINDOW = 0.32;
     static SPEED_SLOW = 0.42;
     static GRAVITY_WINDOW = 0.62;
-    static FLIP_WINDOW = 0.28;
-    static COOLDOWN = { speed: 2.3, gravity: 3.5, obstacle: 1.8 };
+    static COOLDOWN = { speed: 2.3, gravity: 3.5, obstacle: 9 };
 
-    constructor(game) { this.game = game; this.reset(); }
+    constructor(game) {
+        this.game = game;
+        this.dice = typeof window.ObstacleDice === 'function' ? new window.ObstacleDice(game, this) : null;
+        this.reset();
+    }
 
     reset() {
         this.sonicMax = 0;
         this.clock = 0;
+        this.dice?.reset();
         this.sides = {
             player: { cooldown: 0, active: 0, sonic: 0, miss: 0, y: 0, trail: [], trailClock: 0, burst: 0, burstX: 0, burstY: 0 },
             ai: { cooldown: 0, active: 0, sonic: 0, miss: 0, y: 0, trail: [], trailClock: 0, burst: 0, burstX: 0, burstY: 0 }
@@ -22,10 +27,6 @@ class ModeAbilities {
     side(side) { return this.sides[side]; }
 
     paddle(side) { return side === 'player' ? this.game.player : this.game.aiPaddle; }
-    flipperY(side) {
-        const paddle = this.paddle(side);
-        return paddle ? paddle.pos.y + paddle.h / 2 : this.game.height / 2;
-    }
     speedReach(side) {
         const ball = this.game.ball;
         const paddle = this.paddle(side);
@@ -44,14 +45,6 @@ class ModeAbilities {
         const distance = side === 'player' ? ball.pos.x - center : center - ball.pos.x;
         return distance >= 0 && distance <= this.speedReach(side);
     }
-    flipperInRange(side) {
-        const ball = this.game.ball;
-        if (!ball || (side === 'player' ? ball.vel.x >= 0 : ball.vel.x <= 0)) return false;
-        const x = this.flipperX(side), y = this.flipperY(side);
-        return Math.abs(ball.pos.x - x) <= this.game.width * 0.17 &&
-            Math.abs(ball.pos.y - y) <= this.game.height * 0.18;
-    }
-
     nearestWell() {
         const ball = this.game.ball;
         if (!ball) return null;
@@ -82,18 +75,11 @@ class ModeAbilities {
             g.postFx?.ripple(nearest.pos.x, nearest.pos.y, 0.65);
             g.audio?.createOscillatorSound?.(330, 'triangle', 0.24, 0.18);
         } else if (g.gameMode === 'obstacle') {
-            const x = this.flipperX(side);
-            if (!this.flipperInRange(side)) return false;
-            s.y = this.flipperY(side);
-            s.active = ModeAbilities.FLIP_WINDOW;
+            if (!this.dice?.roll(side)) return false;
             s.cooldown = ModeAbilities.COOLDOWN.obstacle;
-            g.postFx?.ripple(x, s.y, 0.4);
-            g.audio?.createOscillatorSound?.(520, 'square', 0.08, 0.16);
         } else return false;
         return true;
     }
-
-    flipperX(side) { return this.game.width * (side === 'player' ? 0.31 : 0.69); }
 
     update(dt) {
         this.clock += dt;
@@ -115,8 +101,9 @@ class ModeAbilities {
                 s.trail.length = 0;
                 s.trailClock = 0;
             }
-            if (wasActive && s.active === 0 && (this.game.gameMode === 'speed' || this.game.gameMode === 'obstacle')) s.miss = 0.45;
+            if (wasActive && s.active === 0 && this.game.gameMode === 'speed') s.miss = 0.45;
         }
+        this.dice?.update(dt);
         for (const well of this.game.gravityWells) {
             if (well.pulseRemaining > 0) well.pulseRemaining = Math.max(0, well.pulseRemaining - dt);
         }
@@ -161,44 +148,6 @@ class ModeAbilities {
         this.game.audio?.createOscillatorSound?.(880, 'sine', 0.24, 0.18);
         this.game.hitStop = Math.max(this.game.hitStop || 0, 0.035);
         this.game.screenShake = Math.max(this.game.screenShake || 0, 5);
-    }
-
-    collideFlipper(ball) {
-        if (this.game.gameMode !== 'obstacle' || this.game.net || ball !== this.game.ball) return;
-        for (const side of ['player', 'ai']) {
-            const s = this.side(side);
-            if (s.active <= 0) continue;
-            const x = this.flipperX(side), reach = this.game.height * 0.11;
-            const dir = side === 'player' ? 1 : -1;
-            if (ball.vel.x * dir >= 0) continue;
-            const x0 = x - dir * reach * 0.5, y0 = s.y + reach * 0.38;
-            const x1 = x + dir * reach * 0.5, y1 = s.y - reach * 0.38;
-            const vx = x1 - x0, vy = y1 - y0;
-            const t = Math.max(0, Math.min(1, ((ball.pos.x - x0) * vx + (ball.pos.y - y0) * vy) / (vx * vx + vy * vy)));
-            if (Math.hypot(ball.pos.x - (x0 + vx * t), ball.pos.y - (y0 + vy * t)) > ball.r + Math.max(8, this.game.height * 0.017)) continue;
-            const route = this.game.obstacleCourse?.courseRoute;
-            const target = route?.points?.[this.game.obstacleCourse.courseRouteIndex];
-            const ahead = target && (target.x - x) * dir > this.game.width * 0.08;
-            const assist = ahead ? (target.y - ball.pos.y) / Math.abs(target.x - x) : (ball.pos.y < this.game.height / 2 ? 0.28 : -0.28);
-            const contact = Math.max(-1, Math.min(1, (ball.pos.y - s.y) / (reach * 0.45)));
-            const dy = Math.max(-0.8, Math.min(0.8, assist * 0.72 + contact * 0.28));
-            const speed = Math.min(ball.maxSpeed, Math.max(ball.getSpeed(), ball.baseSpeed) * 1.16);
-            ball.vel.x = dir * speed / Math.hypot(1, dy);
-            ball.vel.y = dy * speed / Math.hypot(1, dy);
-            ball.pos.x = x + dir * (ball.r + 12);
-            ball.lastHit = side;
-            s.active = 0;
-            s.miss = 0;
-            s.burst = 0.34;
-            s.burstX = ball.pos.x;
-            s.burstY = ball.pos.y;
-            this.game.popText('FLIP!', x, s.y - reach, '#ffde72', 25);
-            this.game.particles?.spawnGodTierHit(x, s.y, '#ffde72', 800);
-            this.game.postFx?.ripple(x, s.y, 0.5);
-            this.game.audio?.createOscillatorSound?.(680, 'square', 0.12, 0.22);
-            this.game.screenShake = Math.max(this.game.screenShake || 0, 3);
-            break;
-        }
     }
 
     renderSpeedField(ctx, side, s, motion) {
@@ -315,51 +264,6 @@ class ModeAbilities {
         ctx.restore();
     }
 
-    renderFlipper(ctx, side, s, color, motion) {
-        const g = this.game, ready = s.cooldown <= 0, active = s.active > 0;
-        const x = this.flipperX(side), y = active ? s.y : this.flipperY(side);
-        const length = g.height * 0.11, dir = side === 'player' ? 1 : -1;
-        const x0 = x - dir * length * 0.5, y0 = y + length * 0.38;
-        const x1 = x + dir * length * 0.5, y1 = y - (active ? length * 0.38 : 0);
-        const armLength = Math.hypot(x1 - x0, y1 - y0);
-        const thickness = Math.max(7, g.height * 0.015);
-        ctx.save();
-        const paddle = this.paddle(side);
-        if (paddle) {
-            const py = this.flipperY(side);
-            ctx.strokeStyle = ready ? 'rgba(255, 202, 91, 0.27)' : 'rgba(100, 125, 145, 0.17)';
-            ctx.lineWidth = 1.5; ctx.setLineDash([5, 11]);
-            ctx.lineDashOffset = motion ? -this.clock * 24 : 0;
-            ctx.beginPath(); ctx.moveTo(paddle.pos.x + paddle.w / 2, py); ctx.lineTo(x0, y0); ctx.stroke();
-            ctx.setLineDash([]);
-        }
-        if (active) {
-            ctx.fillStyle = 'rgba(255, 180, 62, 0.095)';
-            ctx.beginPath(); ctx.ellipse(x, y, length * 0.82, length * 0.70, 0, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.translate(x0, y0);
-        ctx.rotate(Math.atan2(y1 - y0, x1 - x0));
-        ctx.shadowColor = active ? '#ffc96a' : ready ? '#e89b38' : '#577083';
-        ctx.shadowBlur = active ? 24 : ready ? 10 : 0;
-        ctx.fillStyle = '#0a1722';
-        ctx.beginPath(); ctx.roundRect(-3, -thickness * 0.9, armLength + 6, thickness * 1.8, thickness * 0.75); ctx.fill();
-        const metal = ctx.createLinearGradient(0, -thickness, 0, thickness);
-        metal.addColorStop(0, active ? '#fff4c1' : ready ? '#ffe4a7' : '#78909b');
-        metal.addColorStop(0.45, active ? '#ffbf4c' : ready ? '#d48b32' : '#4f6570');
-        metal.addColorStop(1, active ? '#b5571b' : ready ? '#74431f' : '#263944');
-        ctx.fillStyle = metal;
-        ctx.beginPath(); ctx.roundRect(0, -thickness * 0.62, armLength, thickness * 1.24, thickness * 0.62); ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = active ? '#fff5d1' : ready ? '#ffd589' : '#7a97a5';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(thickness, -thickness * 0.25); ctx.lineTo(armLength - thickness, -thickness * 0.25); ctx.stroke();
-        for (const px of [4, armLength - 4]) {
-            ctx.fillStyle = '#11212d'; ctx.beginPath(); ctx.arc(px, 0, thickness * 0.29, 0, Math.PI * 2); ctx.fill();
-            ctx.fillStyle = active ? '#fff2bc' : color; ctx.beginPath(); ctx.arc(px, 0, thickness * 0.13, 0, Math.PI * 2); ctx.fill();
-        }
-        ctx.restore();
-    }
-
     renderBurst(ctx, s, color, duration, motion) {
         if (s.burst <= 0) return;
         const k = s.burst / duration, x = s.burstX, y = s.burstY;
@@ -383,29 +287,12 @@ class ModeAbilities {
         if (!['speed', 'gravity', 'obstacle'].includes(mode) || g.net) return;
         ctx.save();
         const motion = !window.PPSettings?.get('reduceMotion');
-        const color = mode === 'speed' ? '#7cf4ff' : mode === 'gravity' ? '#8deeff' : '#ffd477';
         for (const side of ['player', 'ai']) {
             if (side === 'ai' && !g.isMultiplayer) continue;
             const s = this.side(side);
-            const ready = s.cooldown <= 0;
-            const inRange = mode === 'speed' ? this.speedInRange(side) : mode === 'gravity' ? !!this.nearestWell() : this.flipperInRange(side);
             if (mode === 'speed') this.renderSpeedField(ctx, side, s, motion);
-            if (mode === 'obstacle') {
-                const fx = this.flipperX(side), fy = s.active > 0 ? s.y : this.flipperY(side);
-                const dir = side === 'player' ? 1 : -1;
-                ctx.save();
-                this.renderFlipper(ctx, side, s, color, motion);
-                const route = g.obstacleCourse?.courseRoute;
-                const target = route?.points?.[g.obstacleCourse.courseRouteIndex];
-                if (target && (target.x - fx) * dir > g.width * 0.08 && ready && inRange) {
-                    ctx.shadowBlur = 0; ctx.globalAlpha = 0.46; ctx.lineWidth = 2;
-                    ctx.strokeStyle = '#ffe6a4'; ctx.setLineDash([7, 8]);
-                    ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(target.x, target.y); ctx.stroke();
-                }
-                ctx.restore();
-                this.renderBurst(ctx, s, '#ffd477', 0.34, motion);
-            }
         }
+        if (mode === 'obstacle') this.dice?.render(ctx);
         if (mode === 'speed' && this.speedScale() < 1) {
             ctx.fillStyle = 'rgba(80,210,255,0.025)';
             ctx.fillRect(0, 0, g.width, g.height);
@@ -444,10 +331,12 @@ class ModeAbilities {
             if (side === 'ai' && !g.isMultiplayer) continue;
             const s = this.side(side), ready = s.cooldown <= 0;
             const bound = window.PPSettings?.get('bindings')?.[side === 'player' ? 'p1Fire' : 'p2Fire'];
-            const key = window.PPSettings?.keyLabel(bound || (side === 'player' ? ' ' : 'enter')) || (side === 'player' ? 'Space' : 'Enter');
-            const inRange = mode === 'speed' ? this.speedInRange(side) : mode === 'gravity' ? !!this.nearestWell() : this.flipperInRange(side);
-            const label = mode === 'speed' ? 'OVERCHARGE' : mode === 'gravity' ? 'POLARITY' : 'FLIPPER';
-            const status = s.active > 0 ? 'ACTIVE' : s.miss > 0 ? 'MISSED' : ready ? (inRange ? 'PRESS NOW' : 'READY') : `${s.cooldown.toFixed(1)}s`;
+            const key = window.PerfGovernor?.isMobile ? 'Tap'
+                : window.PPSettings?.keyLabel(bound || (side === 'player' ? ' ' : 'enter')) || (side === 'player' ? 'Space' : 'Enter');
+            const dice = mode === 'obstacle' ? this.dice?.status(side) : null;
+            const inRange = mode === 'speed' ? this.speedInRange(side) : mode === 'gravity' ? !!this.nearestWell() : false;
+            const label = mode === 'speed' ? 'OVERCHARGE' : mode === 'gravity' ? 'POLARITY' : 'LUCKY DICE';
+            const status = dice ? dice.text : s.active > 0 ? 'ACTIVE' : s.miss > 0 ? 'MISSED' : ready ? (inRange ? 'PRESS NOW' : (mode === 'obstacle' ? 'READY TO ROLL' : 'READY')) : `${s.cooldown.toFixed(1)}s`;
             const pillW = Math.min(236, g.width * (g.isMultiplayer ? 0.38 : 0.48));
             const pillH = Math.max(38, Math.min(48, g.height * 0.071));
             const pillX = side === 'player' ? 20 : g.width - pillW - 20;
@@ -463,9 +352,13 @@ class ModeAbilities {
             ctx.font = `700 ${Math.max(10, Math.min(13, pillH * 0.28))}px Orbitron, sans-serif`;
             ctx.fillStyle = '#e8f7ff';
             ctx.fillText(`${key.toUpperCase()}  ${label}`, pillX + 10, pillY + pillH * 0.34);
-            ctx.fillStyle = s.miss > 0 ? '#ffae8f' : ready ? color : '#90a9bb';
+            ctx.fillStyle = dice ? dice.color : s.miss > 0 ? '#ffae8f' : ready ? color : '#90a9bb';
             ctx.font = `700 ${Math.max(10, Math.min(13, pillH * 0.27))}px Orbitron, sans-serif`;
             ctx.fillText(status, pillX + 10, pillY + pillH * 0.69);
+            if (mode === 'obstacle' && this.dice) {
+                const iconSize = pillH * 0.46;
+                this.dice.renderIcon(ctx, side, pillX + pillW - iconSize * 0.95 - 6, pillY + pillH * 0.48, iconSize, ready);
+            }
         }
         ctx.restore();
     }

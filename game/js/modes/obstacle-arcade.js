@@ -50,6 +50,7 @@ class ObstacleArcade {
 
     // A coin shield saves one goal; Star remains invincible while active.
     hasShield(side) {
+        if (!this.rewards(side)) return false;
         return this.shield[side] > 0 || (this.starTime > 0 && this.starOwner === side);
     }
 
@@ -345,6 +346,7 @@ class ObstacleArcade {
         this.boostTime = Math.max(0, this.boostTime - dt);
         this.syncHud();
         const owner = ball.vel.x >= 0 ? 'player' : 'ai';
+        const canCollect = this.rewards(owner);
 
         // Boost trail samples (fixed-size ring buffer).
         if (this.boostTime > 0 || this.starTime > 0) {
@@ -370,7 +372,7 @@ class ObstacleArcade {
                     coin.y += dy / d * pull;
                 }
             }
-            if (Math.abs(ball.pos.x - coin.x) < reach && Math.abs(ball.pos.y - coin.y) < reach &&
+            if (canCollect && Math.abs(ball.pos.x - coin.x) < reach && Math.abs(ball.pos.y - coin.y) < reach &&
                 Math.hypot(ball.pos.x - coin.x, ball.pos.y - coin.y) < reach) {
                 coin.alive = false;
                 alive--;
@@ -415,7 +417,7 @@ class ObstacleArcade {
             if (block.bump <= 0.3) {
                 block.bump = 1;
                 game.audio?.bounce?.(0.6);
-                if (!block.used) this.openBlock(block, owner);
+                if (!block.used && canCollect) this.openBlock(block, owner);
             }
         }
 
@@ -488,6 +490,7 @@ class ObstacleArcade {
 
     addCoins(side, count, x, y) {
         const game = this.game;
+        if (!this.rewards(side)) return;
         for (let i = 0; i < count; i++) {
             this.pops.push({ kind: 'coin', x, y, vx: (i - (count - 1) / 2) * 90, vy: -520 - i * 40, t: 0, life: 0.55 });
         }
@@ -509,10 +512,7 @@ class ObstacleArcade {
         block.refill = 10;
         const roll = Math.random();
         if (roll < 0.22) {
-            this.starTime = 6;
-            this.starOwner = owner;
-            this.pops.push({ kind: 'star', x: block.x, y: block.y - this.sprites.blockS * 0.6, vx: 0, vy: -380, t: 0, life: 0.7 });
-            game.showNotification('Star Power!', 'Invincible, smashes hazards and magnetises coins', '#ffe14d');
+            this.grantStar(owner, block.x, block.y - this.sprites.blockS * 0.6);
             [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => game.audio?.createOscillatorSound?.(f, 'square', 0.1, 0.14), i * 70));
         } else if (roll < 0.42) {
             this.boost(game.ball, 1.3);
@@ -520,6 +520,21 @@ class ObstacleArcade {
         } else {
             this.addCoins(owner, 3, block.x, block.y - this.sprites.blockS * 0.5);
         }
+    }
+
+    // Star power from a ? block or a rolled six on the Lucky Dice.
+    grantStar(side, x, y) {
+        this.starTime = 6;
+        this.starOwner = side;
+        if (this.sprites) this.pops.push({ kind: 'star', x, y, vx: 0, vy: -380, t: 0, life: 0.7 });
+        const who = side === 'player' ? (this.game.isMultiplayer ? 'P1' : 'You') : 'P2';
+        this.game.showNotification('Star Power!', `${who}: invincible, smashes hazards and magnetises coins`, '#ffe14d');
+    }
+
+    // Solo matches: the computer opponent earns nothing from the course.
+    // Its shots pass through coins and only bump ? blocks.
+    rewards(side) {
+        return side === 'player' || !!this.game.isMultiplayer || !!this.game.net;
     }
 
     boost(ball, mult = 1.22) {
@@ -723,6 +738,11 @@ class ObstacleArcade {
         if (this.hudLeft.textContent !== l) this.hudLeft.textContent = l;
         if (this.hudRight.textContent !== r) this.hudRight.textContent = r;
         // Keep each shield and Star owner readable even when the canvas is busy.
+        const solo = !this.rewards('ai');
+        if (this.hudSolo !== solo) {
+            this.hudSolo = solo;
+            this.hud.classList.toggle('solo', solo);
+        }
         const goals = this.hud.querySelectorAll('.coin-goal');
         ['player', 'ai'].forEach((side, i) => {
             const star = this.starTime > 0 && this.starOwner === side;

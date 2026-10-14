@@ -42,14 +42,14 @@
             tip: 'Solo: click or tap all real targets before time runs out; later rounds add movement and decoys. Local 1v1: press the shown key combo during the challenge.'
         },
         obstacle: {
-            name: 'Obstacle', number: '05', color: '#ffab6e', tagline: 'Play the course', fact: '10 COINS = 1 POINT', action: 'Space / Enter fires the flipper',
+            name: 'Obstacle', number: '05', color: '#ffab6e', tagline: 'Play the course', fact: 'COINS = 1 GOAL SHIELD', action: 'Space / Enter rolls the Lucky Dice',
             goal: 'Score past your opponent while navigating moving hazards, checkpoints, coins and boost pads.',
             steps: [
                 ['Follow the route', 'Hit glowing checkpoints in order during one run for a bonus point. An opponent touch breaks the run.'],
-                ['Use the court', 'Boost pads launch the ball. Collect coins with the ball: ten coins make one point. Question blocks can give coins, Turbo or Star power.'],
-                ['Fire the flipper', 'Line up your paddle and tap Space as the ball reaches the projected flipper to send it toward the next checkpoint. The layout changes every four points.']
+                ['Use the court', 'Boost pads launch the ball. Coins arm a shield that blocks one goal, and question blocks give coins, Turbo or Star power. Against the computer, only your shots collect them.'],
+                ['Roll the Lucky Dice', '6 Star power, 5 shooting balls, 4 pulls the ball to your paddle, 3 big paddle, 2 no luck, 1 fast ball. The dice recharges in nine seconds, and the layout changes every four points.']
             ],
-            tip: 'For player two, use Enter to fire the flipper. On touch, tap with a second finger.'
+            tip: 'For player two, use Enter to roll. On touch, keep your right thumb on the paddle and tap with your left thumb to roll.'
         },
         customise: {
             name: 'Custom', number: '06', color: '#72f4da', tagline: 'Build your own match', fact: 'LOCAL OR ONLINE 1V1',

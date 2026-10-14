@@ -44,9 +44,10 @@ In local Speed, Gravity and Obstacle matches, **Space** activates the arena
 ability (P2: **Enter**; gamepad: **A**; mouse: right-click; touch: second finger).
 Speed's Overcharge opens a short slow-motion parry window near the paddle and
 fires a Sonic Return on contact. Gravity's Polarity Pulse briefly repels the
-ball from its nearest well. In Obstacle, line up your paddle with an incoming
-ball and fire the projected flipper toward the next checkpoint. The on-court
-label shows when each ability is ready and when the ball is in range. Online
+ball from its nearest well. In Obstacle, roll the Lucky Dice: 6 Star power,
+5 shooting balls, 4 pulls the ball to your paddle, 3 big paddle, 2 no luck,
+1 fast ball. The on-court label shows when each ability is ready and when the
+ball is in range. Online
 matches currently use the standard mode rules without these active abilities.
 
 ### Let testers anywhere play it (PC + mobile)
@@ -156,7 +157,7 @@ prompt to unlock frame rates above 60 (expect some screen tearing).
 | **Zombie** | Hold the line for ten waves: smash every zombie or knock out the boss to clear a wave. Five lives for the run; the ball getting past you or a zombie reaching your barricade costs one. Wave 10 is the boss fight. |
 | **Gravity** | Black holes bend the ball. Curve it around one and it slingshots out faster, and each slingshot makes the point worth +1 (up to 3). |
 | **Speed** | The ball keeps accelerating; reaction challenges interrupt the rally. |
-| **Obstacle** | Moving gates and nodes carve up the court, with a Rocket League and Mario twist: boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, every 10 coins is a point, and goals explode in confetti. |
+| **Obstacle** | Moving gates and nodes carve up the court, with a Rocket League and Mario twist: boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, coins arm a one-goal shield, the Lucky Dice rolls a random power, and goals explode in confetti. |
 
 Plus **Custom** (local 1v1 with your own paddles, background, music and
 power-ups, played on an arena you build in the **Forge**: place walls, bumpers,

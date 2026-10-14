@@ -7528,6 +7528,11 @@ body.pp-lowfx .achievements * {
     letter-spacing: 0.06em;
 }
 
+/* Solo: the computer opponent collects nothing, so its counter is hidden. */
+.obstacle-coin-hud.solo .coin-pill.right {
+    visibility: hidden;
+}
+
 .obstacle-coin-hud .coin-icon {
     width: 18px;
     height: 18px;
