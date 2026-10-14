@@ -1,7 +1,7 @@
 // Forge: a Halo Forge-style builder for Custom matches.
 //
 // Players place walls, bumpers, spinners, moving gates, black holes, boost
-// pads, ? blocks and coins on the court, set the match rules, save maps,
+// pads, ? blocks, coins and zombies on the court, set the match rules, save maps,
 // and share them as copy-paste codes. Map coordinates are stored as
 // fractions of the court (x of width, y and sizes of height) so a map plays
 // the same on any screen.
@@ -20,9 +20,26 @@
         { id: 'well', label: 'Black hole', key: '5', hint: 'Bends the ball. Bigger pulls harder.' },
         { id: 'pad', label: 'Boost pad', key: '6', hint: 'Launches the ball. R flips it.' },
         { id: 'block', label: '? Block', key: '7', hint: 'Coins, Turbo or Star.' },
-        { id: 'coin', label: 'Coin', key: '8', hint: '10 coins = 1 point.' },
+        { id: 'coin', label: 'Coin', key: '8', hint: 'Collecting coins arms a one-goal shield.' },
+        { id: 'zombie', label: 'Zombie', key: '0', hint: 'Undead that block the ball. Kill one for coins; it rises again.' },
         { id: 'erase', label: 'Eraser', key: '9', hint: 'Click an item to remove it.' },
     ];
+
+    // Zombies are placed with the Zombie tool; each kind is its own item type
+    // so old share codes and saved maps stay valid. The caps keep the court
+    // readable and the frame cheap on phones: every zombie is one baked
+    // sprite, and Zombie mode already runs up to 20 at once.
+    const ZOMBIE_KINDS = [
+        { id: 'shambler', label: 'Shambler', hint: 'Lurches around its spot. One hit kills it.' },
+        { id: 'runner', label: 'Runner', hint: 'Lunges at the ball when it comes near. One hit.' },
+        { id: 'tank', label: 'Tank', hint: 'Big and slow. Takes four hits.' },
+        { id: 'spitter', label: 'Spitter', hint: 'Spits slime that freezes the paddle on its half. One hit.' },
+    ];
+    const ZOMBIE_CAPS = { shambler: 4, runner: 3, tank: 2, spitter: 2 };
+    const MAX_ZOMBIES = 8;
+    const ZOMBIE_SIZE = { shambler: 0.060, runner: 0.048, tank: 0.088, spitter: 0.056 };
+    const isZombie = (t) => Object.prototype.hasOwnProperty.call(ZOMBIE_CAPS, t);
+    const kindInfo = (t) => ZOMBIE_KINDS.find(k => k.id === t);
 
     const DEFAULT_SIZE = { wall: 0.22, bumper: 0.05, spinner: 0.2, gate: 0.16, well: 0.06, pad: 1, block: 1, coin: 1 };
     const SIZE_RANGE = { wall: [0.08, 0.6], bumper: [0.03, 0.1], spinner: [0.1, 0.34], gate: [0.08, 0.3], well: [0.04, 0.1] };
@@ -70,6 +87,14 @@
                 ...[0.36, 0.43, 0.5, 0.57, 0.64].map((x, i) => item('coin', x, 0.66 - Math.sin(i / 4 * Math.PI) * 0.08)),
             ]
         },
+        {
+            id: 'preset:graveyard', name: 'Graveyard', items: [
+                item('tank', 0.5, 0.5), ...mirrorPair('shambler', 0.36, 0.76), ...mirrorPair('spitter', 0.38, 0.26),
+                ...mirrorPair('runner', 0.27, 0.5), ...mirrorPair('coin', 0.36, 0.5),
+                ...mirrorPair('wall', 0.2, 0.2, { s: 0.14 }), ...mirrorPair('wall', 0.2, 0.8, { s: 0.14 }),
+                item('coin', 0.5, 0.16), item('coin', 0.5, 0.84),
+            ]
+        },
     ];
 
     const clone = (v) => JSON.parse(JSON.stringify(v));
@@ -82,15 +107,26 @@
         },
         sanitizeItems(items) {
             if (!Array.isArray(items)) return [];
-            const ok = new Set(TOOLS.map(t => t.id).filter(id => id !== 'erase'));
-            return items.filter(i => i && ok.has(i.t) && Number.isFinite(i.x) && Number.isFinite(i.y)).slice(0, MAX_ITEMS).map(i => {
+            const ok = new Set(TOOLS.map(t => t.id).filter(id => id !== 'erase' && id !== 'zombie'));
+            ZOMBIE_KINDS.forEach(k => ok.add(k.id));
+            // Zombies over the caps (a hand-edited code, say) are dropped.
+            const zombies = {};
+            let zombieTotal = 0;
+            const underCap = (i) => {
+                if (!isZombie(i.t)) return true;
+                if (zombieTotal >= MAX_ZOMBIES || (zombies[i.t] || 0) >= ZOMBIE_CAPS[i.t]) return false;
+                zombies[i.t] = (zombies[i.t] || 0) + 1;
+                zombieTotal++;
+                return true;
+            };
+            return items.filter(i => i && ok.has(i.t) && Number.isFinite(i.x) && Number.isFinite(i.y)).filter(underCap).slice(0, MAX_ITEMS).map(i => {
                 const range = SIZE_RANGE[i.t];
                 return {
                     t: i.t,
                     x: clamp(+i.x, BUILD_MIN_X, BUILD_MAX_X),
                     y: clamp(+i.y, 0.04, 0.96),
                     s: range ? clamp(Number(i.s) || DEFAULT_SIZE[i.t], range[0], range[1]) : 1,
-                    rot: i.rot ? 1 : 0,
+                    rot: i.rot && !isZombie(i.t) ? 1 : 0,
                 };
             });
         },
@@ -185,6 +221,12 @@
             case 'coin':
                 ForgeLook.drawItem(ctx, it, H, opts.time);
                 break;
+            case 'shambler':
+            case 'runner':
+            case 'tank':
+            case 'spitter':
+                drawZombie(ctx, it, H, opts);
+                break;
             case 'well': {
                 // Matches the in-game event horizon (about 0.15 of court height).
                 const r = 0.15 * H * (it.s / 0.06) * 0.6;
@@ -231,6 +273,46 @@
         ctx.restore();
     }
 
+    // Editor zombies use the match's own baked sprites, one stand-in per
+    // kind, so the arena looks the way it will play.
+    const zombieModels = {};
+    function drawZombie(ctx, it, H, opts) {
+        const game = window.game;
+        const r = Math.max(6, ZOMBIE_SIZE[it.t] * H * 0.5);
+        let z = zombieModels[it.t];
+        if (!z && game?.createZombieActor && game.zombieSprites) {
+            z = zombieModels[it.t] = game.createZombieActor(it.t, 0, 0, 1);
+            z.visual.variant = 0;
+            z.visual.visualScale = 1;
+            z.anim = { facingX: 1, attackPulse: 0, threat: 0, inhale: 0 };
+        }
+        // Ground shadow so the zombie reads as standing on the court.
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(0, r * 0.95, r * 0.8, r * 0.24, 0, 0, Math.PI * 2);
+        ctx.fill();
+        if (z) {
+            const facing = it.x < 0.5 ? 1 : -1;
+            z.x = 0; z.y = 0; z.vx = 0; z.vy = 0;
+            z.radius = r;
+            z.flash = 0;
+            z.anim.facingX = facing;
+            z.frameT = opts.time ? (opts.time * 5 + (it.x + it.y) * 7) : 0;
+            if (game.zombieSprites.draw(ctx, z)) return;
+        }
+        // Fallback: a plain silhouette with glowing eyes.
+        const kind = { shambler: '#5a6750', runner: '#7b4a42', tank: '#4c5862', spitter: '#687849' }[it.t];
+        ctx.fillStyle = kind;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r * 0.75, r, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#e6f08a';
+        ctx.beginPath();
+        ctx.arc(-r * 0.25, -r * 0.35, r * 0.1, 0, Math.PI * 2);
+        ctx.arc(r * 0.25, -r * 0.35, r * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
     function itemBounds(it, W, H) {
         const x = it.x * W, y = it.y * H;
         let hw, hh;
@@ -247,6 +329,10 @@
             case 'well': hw = hh = 0.15 * H * (it.s / 0.06) * 0.6; break;
             case 'pad': hw = 0.05 * H; hh = 0.021 * H; break;
             case 'block': hw = hh = 0.03 * H; break;
+            case 'shambler':
+            case 'runner':
+            case 'tank':
+            case 'spitter': hw = ZOMBIE_SIZE[it.t] * H * 0.55; hh = ZOMBIE_SIZE[it.t] * H * 0.75; break;
             default: hw = hh = 0.02 * H;
         }
         hw = Math.max(hw, 10); hh = Math.max(hh, 10);
@@ -306,6 +392,7 @@
         const obstacles = [];
         const wells = [];
         const arcadeItems = { pads: [], blocks: [], coins: [] };
+        const zombies = [];
         for (const it of forge.map.items) {
             const x = it.x * W, y = it.y * H;
             if (it.t === 'wall') {
@@ -340,12 +427,14 @@
                 arcadeItems.blocks.push({ x, y, used: false, refill: 0, bump: 0, popIn: 1 });
             } else if (it.t === 'coin') {
                 arcadeItems.coins.push({ x, y, homeX: x, homeY: y, phase: arcadeItems.coins.length * 0.5, alive: true });
+            } else if (isZombie(it.t)) {
+                zombies.push({ kind: it.t, x, y });
             }
         }
         // The shared obstacle renderer also serves Obstacle mode. Texture only
         // the objects explicitly placed in Forge.
         for (const obstacle of obstacles) obstacle.forgeSurface = true;
-        return { forge, obstacles, wells, arcadeItems };
+        return { forge, obstacles, wells, arcadeItems, zombies };
     }
 
     function getRuleSpeedIncrease(game) {
@@ -367,6 +456,7 @@
             this.el = null;
             this.items = [];
             this.tool = 'wall';
+            this.zombieKind = 'shambler';
             this.mirror = true;
             this.snap = true;
             this.selected = null;
@@ -408,6 +498,10 @@
                         <strong class="forge-object-name">Select an object</strong>
                         <p class="forge-object-hint">Choose any object on the court to edit it.</p>
                         <div class="forge-object-properties"><span class="forge-object-position"></span><span class="forge-object-size"></span></div>
+                        <div class="forge-zombie-kinds" hidden>
+                            <span class="forge-kicker">Zombie type <b class="forge-zombie-total"></b></span>
+                            ${ZOMBIE_KINDS.map(k => `<button type="button" class="forge-zombie-kind" data-kind="${k.id}" title="${k.hint}"><canvas width="30" height="30"></canvas><span>${k.label}</span><small></small></button>`).join('')}
+                        </div>
                         <div class="forge-inspector-actions">
                             <button type="button" data-act="smaller">Smaller</button><button type="button" data-act="bigger">Larger</button>
                             <button type="button" data-act="turn">Turn</button><button type="button" data-act="duplicate">Duplicate</button>
@@ -415,17 +509,24 @@
                         </div>
                     </div>
                 </div>
-                <div class="forge-editor-hint"><span class="forge-count"></span> Click to place &middot; drag to move &middot; scroll or +/- to resize &middot; R turns walls, gates and pads &middot; right-click or Delete removes &middot; Ctrl+Z undo &middot; Ctrl+Y redo</div>`;
+                <div class="forge-editor-hint"><span class="forge-count"></span> <span class="forge-zombie-count"></span> Click to place &middot; drag to move &middot; scroll or +/- to resize &middot; R turns walls, gates and pads &middot; right-click or Delete removes &middot; Ctrl+Z undo &middot; Ctrl+Y redo</div>`;
             document.body.appendChild(el);
             this.el = el;
             this.canvas = el.querySelector('.forge-canvas');
             this.nameInput = el.querySelector('.forge-name');
             this.countEl = el.querySelector('.forge-count');
+            this.zombieCountEl = el.querySelector('.forge-zombie-count');
+            this.zombieKindsEl = el.querySelector('.forge-zombie-kinds');
+            this.zombieKindsEl.querySelectorAll('.forge-zombie-kind').forEach(btn => {
+                btn.addEventListener('click', () => this.pickZombieKind(btn.dataset.kind));
+            });
             el.querySelectorAll('.forge-tool').forEach(btn => {
                 const c = btn.querySelector('canvas');
                 const t = btn.dataset.tool;
                 const ctx = c.getContext('2d');
-                if (t === 'erase') {
+                if (t === 'zombie') {
+                    this.zombieToolIcon = ctx;
+                } else if (t === 'erase') {
                     ctx.strokeStyle = '#ff6e6e';
                     ctx.lineWidth = 4;
                     ctx.beginPath();
@@ -442,6 +543,7 @@
                 }
                 btn.addEventListener('click', () => this.setTool(t));
             });
+            this.drawZombieIcons();
             el.addEventListener('click', (e) => {
                 const act = e.target.closest('button')?.dataset.act;
                 if (!act) return;
@@ -579,6 +681,7 @@
             const twin = this.mirrorOf(it);
             const copies = twin ? [it, twin] : [it];
             if (this.items.length + copies.length > MAX_ITEMS) { this.ui.toast(`Arena is full (${MAX_ITEMS} items)`); return; }
+            if (!this.zombieRoom(it.t, copies.length, true)) return;
             this.pushHistory();
             const shifted = copies.map(o => ({ ...o, x: clamp(o.x + (o.x > 0.5 ? -0.035 : 0.035), BUILD_MIN_X, BUILD_MAX_X), y: clamp(o.y + 0.04, 0.04, 0.96) }));
             this.items.push(...shifted);
@@ -609,6 +712,70 @@
             if (twin) twin.rot = it.t === 'pad' ? (it.rot ? 0 : 1) : it.rot;
         }
 
+        zombieCounts(items = this.items) {
+            const counts = { total: 0 };
+            for (const o of items) {
+                if (!isZombie(o.t)) continue;
+                counts[o.t] = (counts[o.t] || 0) + 1;
+                counts.total++;
+            }
+            return counts;
+        }
+
+        // Can `n` more zombies of this kind go in? Optionally say why not.
+        zombieRoom(type, n, warn = false, items = this.items) {
+            if (!isZombie(type)) return true;
+            const c = this.zombieCounts(items);
+            const label = kindInfo(type).label;
+            if ((c[type] || 0) + n > ZOMBIE_CAPS[type]) {
+                if (warn) this.ui.toast(n > 1 && (c[type] || 0) + 1 <= ZOMBIE_CAPS[type]
+                    ? `Room for one more ${label.toLowerCase()}: turn Mirror off to place it`
+                    : `${label}s are full (${ZOMBIE_CAPS[type]} max)`);
+                return false;
+            }
+            if (c.total + n > MAX_ZOMBIES) {
+                if (warn) this.ui.toast(n > 1 && c.total + 1 <= MAX_ZOMBIES
+                    ? 'Room for one more zombie: turn Mirror off to place it'
+                    : `The arena holds ${MAX_ZOMBIES} zombies at most`);
+                return false;
+            }
+            return true;
+        }
+
+        // Choosing a kind picks the Zombie tool, and swaps the selected
+        // zombie (and its mirror twin) to that kind when there is room.
+        pickZombieKind(kind) {
+            this.zombieKind = kind;
+            const sel = this.selected;
+            if (sel && isZombie(sel.t) && sel.t !== kind) {
+                const twin = this.mirrorOf(sel);
+                const group = twin ? [sel, twin] : [sel];
+                const rest = this.items.filter(o => !group.includes(o));
+                if (this.zombieRoom(kind, group.length, true, rest)) {
+                    this.pushHistory();
+                    group.forEach(o => { o.t = kind; o.s = 1; });
+                }
+            }
+            this.setTool('zombie');
+        }
+
+        drawZombieIcons() {
+            this.zombieKindsEl.querySelectorAll('.forge-zombie-kind canvas').forEach(c => {
+                const kind = c.closest('[data-kind]').dataset.kind;
+                const ctx = c.getContext('2d');
+                ctx.clearRect(0, 0, c.width, c.height);
+                const H = c.height / (ZOMBIE_SIZE[kind] * 1.9);
+                drawItem(ctx, { t: kind, x: (c.width / 2) / H, y: (c.height * 0.47) / H, s: 1, rot: 0 }, H, H, {});
+            });
+            if (this.zombieToolIcon) {
+                const ctx = this.zombieToolIcon;
+                ctx.clearRect(0, 0, 44, 44);
+                const H = 44 / (ZOMBIE_SIZE[this.zombieKind] * 1.9);
+                drawItem(ctx, { t: this.zombieKind, x: 22 / H, y: 21 / H, s: 1, rot: 0 }, H, H, {});
+            }
+            this._iconsKind = this.zombieKind;
+        }
+
         onDown(e) {
             e.preventDefault();
             const target = this.hit(e);
@@ -630,10 +797,12 @@
                 this.ui.toast(`Arena is full (${MAX_ITEMS} items)`);
                 return;
             }
+            const type = this.tool === 'zombie' ? this.zombieKind : this.tool;
+            if (!this.zombieRoom(type, room, true)) return;
             this.pushHistory();
-            const it = item(this.tool, p.x, p.y);
+            const it = item(type, p.x, p.y);
             this.items.push(it);
-            if (room === 2) this.items.push(item(this.tool, 1 - p.x, p.y, { rot: this.tool === 'pad' ? 1 : 0 }));
+            if (room === 2) this.items.push(item(type, 1 - p.x, p.y, { rot: type === 'pad' ? 1 : 0 }));
             this.selected = it;
             this.drag = { it, twin: room === 2 ? this.items[this.items.length - 1] : null, dx: 0, dy: 0 };
         }
@@ -673,6 +842,29 @@
             e.stopPropagation();
         }
 
+        syncZombieKinds() {
+            const c = this.zombieCounts();
+            const zText = c.total ? `Zombies ${c.total}/${MAX_ZOMBIES}.` : '';
+            if (this.zombieCountEl.textContent !== zText) this.zombieCountEl.textContent = zText;
+            const show = this.tool === 'zombie' || isZombie(this.selected?.t);
+            if (this.zombieKindsEl.hidden === show) this.zombieKindsEl.hidden = !show;
+            if (!show) return;
+            const active = isZombie(this.selected?.t) ? this.selected.t : this.zombieKind;
+            const key = `${active}|${ZOMBIE_KINDS.map(k => c[k.id] || 0).join(',')}|${c.total}`;
+            if (key === this._kindsKey) return;
+            this._kindsKey = key;
+            this.zombieKindsEl.querySelector('.forge-zombie-total').textContent = `${c.total}/${MAX_ZOMBIES}`;
+            this.zombieKindsEl.querySelectorAll('.forge-zombie-kind').forEach(btn => {
+                const kind = btn.dataset.kind;
+                const n = c[kind] || 0;
+                btn.querySelector('small').textContent = `${n}/${ZOMBIE_CAPS[kind]}`;
+                btn.classList.toggle('active', kind === active);
+                btn.classList.toggle('full', n >= ZOMBIE_CAPS[kind] || c.total >= MAX_ZOMBIES);
+                btn.setAttribute('aria-pressed', String(kind === active));
+            });
+            if (this._iconsKind !== this.zombieKind) this.drawZombieIcons();
+        }
+
         draw(time) {
             drawMap(this.canvas, this.items, { time, selected: this.selected, live: true });
             const ctx = this.canvas.getContext('2d');
@@ -684,7 +876,8 @@
             }
             const text = `${this.items.length}/${MAX_ITEMS} items.`;
             if (this.countEl.textContent !== text) this.countEl.textContent = text;
-            const tool = TOOLS.find(t => t.id === this.selected?.t);
+            this.syncZombieKinds();
+            const tool = TOOLS.find(t => t.id === this.selected?.t) || kindInfo(this.selected?.t);
             const name = this.el.querySelector('.forge-object-name');
             const hint = this.el.querySelector('.forge-object-hint');
             const position = this.el.querySelector('.forge-object-position');
@@ -794,9 +987,12 @@
         drawPreview(live = false) {
             if (!this.preview) return;
             drawMap(this.preview, Store.getForge(this.game).map.items, { live, time: performance.now() / 1000 });
-            const count = Store.getForge(this.game).map.items.length;
+            const items = Store.getForge(this.game).map.items;
+            const count = items.length;
+            const zombies = items.filter(i => isZombie(i.t)).length;
             const label = document.getElementById('forgeArenaCount');
-            if (label) label.textContent = count ? `${count} item${count === 1 ? '' : 's'}` : 'Empty court';
+            const text = count ? `${count} item${count === 1 ? '' : 's'}${zombies ? ` · ${zombies} zombie${zombies === 1 ? '' : 's'}` : ''}` : 'Empty court';
+            if (label && label.textContent !== text) label.textContent = text;
         },
         selectMap(value) {
             const forge = Store.getForge(this.game);
@@ -902,7 +1098,7 @@
         },
     };
 
-    window.Forge = { Store, UI, buildArena, getRuleSpeedIncrease, getGravityAccel, PRESETS, RULE_OPTIONS };
+    window.Forge = { Store, UI, buildArena, getRuleSpeedIncrease, getGravityAccel, PRESETS, RULE_OPTIONS, ZOMBIE_CAPS, MAX_ZOMBIES };
 
     const boot = () => { if (window.game) UI.init(window.game); };
     window.addEventListener('pp-game-ready', boot);

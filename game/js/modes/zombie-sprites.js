@@ -209,7 +209,12 @@
         _get(repKey, rep, frame, flash, radius, scale, state = 'walk') {
             const key = `${repKey}|${state}|${frame}|${flash ? 1 : 0}|${radius}|${scale}`;
             let e = this.cache.get(key);
-            if (!e) {
+            if (e) {
+                // Most recently used goes to the back, so eviction drops stale
+                // sizes (an editor preview, an old window size) first.
+                this.cache.delete(key);
+                this.cache.set(key, e);
+            } else {
                 if (this.cache.size >= MAX_ENTRIES) this.cache.delete(this.cache.keys().next().value);
                 e = this._bake(rep, frame, flash, radius, scale, state);
                 this.cache.set(key, e);

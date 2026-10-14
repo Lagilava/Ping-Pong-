@@ -808,14 +808,19 @@ class Game {
             paddle.resetSize();
         }
 
+        if (!this.forgeZombies && typeof ForgeZombies === 'function') this.forgeZombies = new ForgeZombies(this);
+        this.forgeZombies?.build(arena.zombies || []);
+
         const items = arena.arcadeItems;
-        const hasArcade = items.pads.length || items.blocks.length || items.coins.length;
+        const zombieCount = arena.zombies?.length || 0;
+        // Zombies pay out coins, so they bring the coin counter with them.
+        const hasArcade = items.pads.length || items.blocks.length || items.coins.length || zombieCount;
         if (hasArcade && !this.obstacleArcade && typeof ObstacleArcade === 'function') {
             this.obstacleArcade = new ObstacleArcade(this);
         }
         if (hasArcade) {
             this.obstacleArcade.setFixedLayout(items);
-            this.obstacleArcade.setHudVisible(items.blocks.length > 0 || items.coins.length > 0);
+            this.obstacleArcade.setHudVisible(items.blocks.length > 0 || items.coins.length > 0 || zombieCount > 0);
         } else if (this.obstacleArcade) {
             this.obstacleArcade.clearFixedLayout();
             this.obstacleArcade.setHudVisible(false);
@@ -3171,6 +3176,15 @@ class Game {
             }
         }
 
+        state.zombies.push(this.createZombieActor(typeKey, x, y, wave));
+    }
+
+    // One zombie with its own randomised look, ready for ZombieSprites.
+    // Zombie mode spawns them in waves; Forge arenas place them by hand.
+    createZombieActor(typeKey, x, y, wave = 1) {
+        const catalog = this.getZombieEnemyCatalog();
+        const definition = catalog[typeKey] || catalog.shambler;
+        const radius = Math.max(16, this.height * definition.size * 0.5);
         const speedScale = (this.height / 720) * (1 + wave * 0.035);
         const baseSpeed = definition.speed * speedScale;
         const variant = Math.floor(Math.random() * 4);
@@ -3196,7 +3210,7 @@ class Game {
             rot: -0.9 + Math.random() * 1.8
         }));
 
-        state.zombies.push({
+        return {
             typeKey,
             type: definition,
             x,
@@ -3238,7 +3252,7 @@ class Game {
             hitCooldown: 0,
             spitTimer: 4 + Math.random() * 0.8,
             dead: false
-        });
+        };
     }
 
     spawnZombiePickup(type) {
@@ -5509,6 +5523,7 @@ class Game {
         this.obstacleCourse = null;
         Obstacle.groups = []; // Clear obstacle groups when changing modes
         this.obstacleArcade?.setHudVisible(false);
+        this.forgeZombies?.clear();
         this.gravityWells = [];
         if (!this.gravitySlingshot && typeof GravitySlingshot === 'function') {
             this.gravitySlingshot = new GravitySlingshot(this);
@@ -7468,6 +7483,7 @@ class Game {
         if (this.isForgeArenaActive()) {
             for (let i = 0; i < this.obstacles.length; i++) this.obstacles[i].update(dt);
             if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.update(dt);
+            this.forgeZombies?.update(dt);
         }
         if (this.gameMode === 'obstacle') {
             if (!this.obstacleCourse) {
@@ -7611,6 +7627,7 @@ class Game {
             if (this.checkPaddleCollision(this.aiPaddle, false) && this.net) this.net.onLocalHit(this.ball);
         }
         this.handleZombieBallCollisions(this.ball);
+        if (this.isForgeArenaActive()) this.forgeZombies?.collide(this.ball);
         this.modeAbilities?.collideFlipper(this.ball);
         if (!this.ghostBallActive && !((this.gameMode === 'obstacle' || this.obstacleArcade?.fixedLayout) && this.obstacleArcade?.isStarActive())) {
             const ball = this.ball;
@@ -8319,6 +8336,7 @@ class Game {
             for (let i = 0; i < this.gravityWells.length; i++) this.gravityWells[i].render(ctx, wellTime);
             if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.renderUnder(ctx);
             for (let i = 0; i < this.obstacles.length; i++) this.obstacles[i].render(ctx);
+            this.forgeZombies?.render(ctx);
             if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.render(ctx);
         }
         if (this.gameMode === 'obstacle') {

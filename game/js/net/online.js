@@ -838,6 +838,7 @@
             };
             if (g.gravityWells?.length) s.w = g.gravityWells.map((w) => [round1(w.pos.x), round1(w.pos.y)]);
             if (g.obstacles?.length) s.o = g.obstacles.map((o) => [round1(o.pos.x), round1(o.pos.y), Math.round((o.rotation || 0) * 1000) / 1000]);
+            if (g.forgeZombies?.zombies.length && g.isForgeArenaActive?.()) s.fz = g.forgeZombies.snapshot();
             const ar = g.obstacleArcade;
             if (ar && (g.gameMode === 'obstacle' || ar.fixedLayout)) {
                 s.ar = [ar.wallet.player, ar.wallet.ai, round1(ar.starTime), round1(ar.boostTime),
@@ -920,7 +921,11 @@
                 if (s.L[3] && !g.player.laserStunned) { g.player.laserStunned = true; g.player.laserStunTime = Math.max(g.player.laserStunTime || 0, 0.3); }
                 if (first) g.player.pos.y = num(s.L[0], g.player.pos.y);
             }
-            if (Array.isArray(s.R)) this.setPaddleHeight(g.aiPaddle, num(s.R[0], g.aiPaddle.h));
+            if (Array.isArray(s.R)) {
+                this.setPaddleHeight(g.aiPaddle, num(s.R[0], g.aiPaddle.h));
+                // Our own paddle frozen on the host (a Forge spitter's slime).
+                if (s.R[1] && !g.aiPaddle.laserStunned) { g.aiPaddle.laserStunned = true; g.aiPaddle.laserStunTime = Math.max(g.aiPaddle.laserStunTime || 0, 0.3); }
+            }
 
             // Power-ups on the court.
             if (Array.isArray(s.pu)) {
@@ -970,6 +975,7 @@
                     if (Number.isFinite(s.o[i][2])) o.rotation = s.o[i][2];
                 }
             }
+            if (s.fz && g.forgeZombies) g.forgeZombies.applySnapshot(s.fz);
             const ar = g.obstacleArcade;
             if (Array.isArray(s.ar) && ar) {
                 ar.wallet.player = num(s.ar[0]);

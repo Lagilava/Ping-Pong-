@@ -7727,6 +7727,17 @@ body.pp-lowfx .achievements * {
 .forge-object-properties { display: grid; gap: 5px; color: #74edda; font-size: 0.76rem; }
 .forge-inspector-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 16px; }
 .forge-inspector-actions button { padding: 0.45rem 0.3rem; }
+.forge-zombie-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 12px; }
+.forge-zombie-kinds[hidden] { display: none; }
+.forge-zombie-kinds .forge-kicker { grid-column: 1 / -1; display: flex; justify-content: space-between; }
+.forge-zombie-kinds .forge-kicker b { color: #b8f06a; }
+.forge-editor .forge-zombie-kind { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 2px; font-size: 0.7rem; line-height: 1.1; }
+.forge-editor .forge-zombie-kind canvas { width: 30px; height: 30px; }
+.forge-editor .forge-zombie-kind small { color: #a9d7df; font-size: 0.66rem; }
+.forge-editor .forge-zombie-kind.active { background: rgba(140, 220, 90, 0.2); border-color: #b8f06a; }
+.forge-editor .forge-zombie-kind.full:not(.active) { opacity: 0.55; }
+.forge-editor .forge-zombie-kind.full small { color: #ff9b8a; }
+.forge-zombie-count { color: #b8f06a; font-weight: 700; }
 
 .customise-music-status { margin: 0.4rem 0 0; color: #a9d7df; font-size: 0.78rem; line-height: 1.4; }
 .customise-file-btn { min-height: 42px; }
@@ -7822,6 +7833,7 @@ body.pp-lowfx .achievements * {
     .forge-inspector { width: auto; flex: 0 0 auto; max-height: 145px; padding: 9px 12px; }
     .forge-inspector strong, .forge-inspector p { margin: 3px 0; }
     .forge-inspector-actions { display: flex; flex-wrap: wrap; margin-top: 6px; }
+    .forge-zombie-kinds { grid-template-columns: repeat(4, minmax(64px, 1fr)); margin-top: 6px; }
     .pp-music-dock { bottom: 8px; right: 8px; }
 }
 
