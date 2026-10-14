@@ -3211,7 +3211,10 @@ class BackgroundRenderer {
             course.renderRails(ctx);
         }
 
-        for (const obs of obstacles) {
+        // In a match the game draws obstacle bodies live (Game.renderScene);
+        // previews and other renderers still draw them here.
+        const liveBodies = game && this === game.bgRenderer && game.gameMode === 'obstacle';
+        for (const obs of liveBodies ? [] : obstacles) {
             if (!obs) continue;
             try {
                 if (typeof obs.render === 'function') obs.render(ctx);

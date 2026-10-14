@@ -7019,6 +7019,7 @@ class Game {
         b.lastHit = isPlayer ? 'player' : 'ai';
         if (b === this.ball) this.gravitySlingshot?.onPaddleHit();
         this.modeAbilities?.onPaddleHit(isPlayer ? 'player' : 'ai', b);
+        if (b === this.ball) this.obstacleChain = 0;
         // The AI opponent studies how each shot was struck (contact point and
         // paddle swipe) to plan its returns and call out your habits.
         if (b === this.ball && !this.isMultiplayer && typeof this.ai?.onPaddleHit === 'function') {
@@ -7633,15 +7634,52 @@ class Game {
             for (let i = 0; i < this.obstacles.length; i++) {
                 if (this.obstacles[i].checkCollision(ball)) {
                     this.audio.hit();
-                    if (this.gameMode !== 'obstacle') {
+                    if (this.gameMode !== 'obstacle' && !this.isForgeArenaActive()) {
                         this.particles.spawnGodTierHit(ball.pos.x, ball.pos.y, '#e040fb', ball.getSpeed());
                         this.screenShake = Math.max(this.screenShake, 8);
-                    } else {
-                        this.screenShake = Math.max(this.screenShake, 2);
                     }
                     break;
                 }
             }
+        }
+    }
+
+    // Called by an obstacle the ball just struck: impact-scaled shake, a short
+    // camera kick and hit-stop on hard hits, a tone per obstacle family, and a
+    // ricochet count for chains of hits between paddle touches.
+    onObstacleHit(obstacle, ball, x, y, impact) {
+        if (ball !== this.ball) return;
+        const type = obstacle.obstacleType;
+        const round = type === 'node' || type === 'bumper' || type === 'repulsor' || type === 'magnet';
+        const blade = type === 'rotor' || type === 'spinner';
+        const now = performance.now() / 1000;
+        if (now - (this._lastObstacleHitAt || -1) < 0.06 && this._lastObstacle === obstacle) return;
+        this._lastObstacleHitAt = now;
+        this._lastObstacle = obstacle;
+        this.obstacleChain = (this.obstacleChain || 0) + 1;
+        const chain = this.obstacleChain;
+        const pitch = 1 + Math.min(8, chain - 1) * 0.07;
+        if (round) {
+            this.audio?.createOscillatorSound?.(520 * pitch, 'sine', 0.09, 0.16 + impact * 0.1);
+            this.audio?.createOscillatorSound?.(1040 * pitch, 'triangle', 0.04, 0.06);
+        } else if (blade) {
+            this.audio?.createOscillatorSound?.(300 * pitch, 'sawtooth', 0.05, 0.08 + impact * 0.08);
+        } else {
+            this.audio?.createOscillatorSound?.(120, 'square', 0.05, 0.1 + impact * 0.1);
+        }
+        this.screenShake = Math.max(this.screenShake || 0, 1.5 + impact * 4.5);
+        if (this.cameraKick && impact > 0.35) {
+            const speed = Math.hypot(ball.vel.x, ball.vel.y) || 1;
+            this.cameraKick.vx += ball.vel.x / speed * impact * 120;
+            this.cameraKick.vy += ball.vel.y / speed * impact * 120;
+        }
+        if (impact > 0.7) this.hitStop = Math.max(this.hitStop || 0, 0.018 + (impact - 0.7) * 0.05);
+        if (chain >= 3 && this.gameMode === 'obstacle') {
+            const color = obstacle.activeRailColor || obstacle.colorGlow || '#ffd08a';
+            // One ricochet label at a time: each new hit replaces the last.
+            if (this.popTexts) this.popTexts = this.popTexts.filter(p => !p.ricochet);
+            this.popText(`RICOCHET x${chain}`, Math.max(120, Math.min(this.width - 120, x)), y - 28, color, Math.min(26, 15 + chain * 1.5));
+            this.popTexts[this.popTexts.length - 1].ricochet = true;
         }
     }
 
@@ -7877,6 +7915,7 @@ class Game {
             const goalOnRight = this.ball.pos.x > this.width * 0.5;
             const goalY = Math.max(0, Math.min(this.height, this.ball.pos.y));
             this.onGoalScored(goalOnRight, goalY);
+            this.obstacleChain = 0;
             if (this.gameMode === 'obstacle' || (this.isForgeArenaActive() && this.obstacleArcade?.fixedLayout)) {
                 this.obstacleArcade?.onGoal(goalOnRight ? 'player' : 'ai', this.ball);
             }
@@ -8339,9 +8378,11 @@ class Game {
             if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.render(ctx);
         }
         if (this.gameMode === 'obstacle') {
-            // Obstacle bodies and their background-linked visuals are rendered by the
-            // BackgroundRenderer to avoid duplicate draws. Keep fragment pool here.
+            // Obstacle bodies are drawn live at full resolution every frame, so a
+            // bounce always lines up with where the piece is drawn and hit
+            // reactions stay smooth. The floor and rails stay in the background.
             this.obstacleArcade?.renderUnder(ctx);
+            for (let i = 0; i < this.obstacles.length; i++) this.obstacles[i].render(ctx);
             window.globalFragmentPool.renderAll(ctx, areParticleEffectsEnabled());
             this.obstacleArcade?.render(ctx);
         }

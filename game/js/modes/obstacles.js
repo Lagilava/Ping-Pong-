@@ -1,3 +1,7 @@
+function areParticleEffectsEnabledSafe() {
+    return typeof areParticleEffectsEnabled !== 'function' || areParticleEffectsEnabled();
+}
+
 class ObstacleFragment {
     constructor(x, y, baseColor, vx, vy) {
         this.x = x;
@@ -1145,6 +1149,16 @@ class Obstacle {
         // Magnet pull state
         this.magnetRadius = Math.max(w, h) * 2.6;
         this.magnetStrength = 180 + Math.random() * 100;
+
+        // Reactivity: a spring the ball knocks the body along, a pop on hit,
+        // extra spin for blades, awareness as the ball comes close, sparks,
+        // and the body's own velocity so moving pieces can bat the ball.
+        this.react = { ox: 0, oy: 0, vx: 0, vy: 0, pop: 0, aware: 0, spin: 0 };
+        this.sparks = [];
+        this.prevX = x;
+        this.prevY = y;
+        this.moveVX = 0;
+        this.moveVY = 0;
     }
 
     // Effective centre of this obstacle (accounts for float)
@@ -1210,6 +1224,7 @@ class Obstacle {
         if (this.obstacleType === 'rotor') {
             this.rotation += this.rotationSpeed * speedMultiplier * dt * (1 + this.hitFlash * 0.4);
         }
+        this._updateReaction(dt);
 
         const targetDanger = Math.max(speedDanger, reversalDanger * 0.9);
         this.dangerLevel = Math.max(0, Math.min(1, (this.dangerLevel || 0) * 0.82 + targetDanger * 0.18));
@@ -1278,6 +1293,7 @@ class Obstacle {
         ball.vel.x = nx * newSpd;
         ball.vel.y = ny * newSpd;
         ball.spin += nx * 0.05;
+        this._transferMotion(ball, nx, ny);
 
         this._onHit(ball, cx + nx * radius, cy + ny * radius);
         return true;
@@ -1325,6 +1341,8 @@ class Obstacle {
             ball.vel.x *= scale;
             ball.vel.y *= scale;
         }
+
+        this._transferMotion(ball, wnx, wny);
 
         // Push out
         const push = overlapX < overlapY ? overlapX : overlapY;
@@ -1381,15 +1399,105 @@ class Obstacle {
         const s = newSpd / Math.max(0.001, speed);
         ball.vel.x *= s;
         ball.vel.y *= s;
+        this._transferMotion(ball, nx, ny);
 
         this._onHit(ball, cx, cy);
         return true;
+    }
+
+    _updateReaction(dt) {
+        const r = this.react;
+        if (dt > 0) {
+            // Smoothed body velocity, used to bat the ball on contact.
+            const k = Math.min(1, dt * 30);
+            this.moveVX += ((this.pos.x - this.prevX) / dt - this.moveVX) * k;
+            this.moveVY += ((this.pos.y - this.prevY) / dt - this.moveVY) * k;
+        }
+        this.prevX = this.pos.x;
+        this.prevY = this.pos.y;
+        const sdt = Math.min(dt, 1 / 30);
+        const stiff = 520, damp = 2 * Math.sqrt(stiff) * 0.32;
+        r.vx += (-stiff * r.ox - damp * r.vx) * sdt;
+        r.vy += (-stiff * r.oy - damp * r.vy) * sdt;
+        r.ox += r.vx * sdt;
+        r.oy += r.vy * sdt;
+        r.pop = Math.max(0, r.pop - dt * 4.5);
+        if (r.spin) {
+            this.rotation += r.spin * dt;
+            r.spin *= Math.exp(-dt * 2.2);
+            if (Math.abs(r.spin) < 0.01) r.spin = 0;
+        }
+        // Anticipation: the body brightens as the ball closes in.
+        const ball = window.game?.ball;
+        let target = 0;
+        if (ball?.pos && this.active) {
+            const size = Math.max(this.w, this.h) * 0.5;
+            const gap = Math.hypot(ball.pos.x - this.cx, ball.pos.y - this.cy) - size - ball.r;
+            const reach = size * 2 + 70 * (window.game?.getObjectScale?.() || 1);
+            target = Math.max(0, Math.min(1, 1 - gap / reach));
+        }
+        r.aware += (target - r.aware) * Math.min(1, dt * 10);
+        let write = 0;
+        for (let i = 0; i < this.sparks.length; i++) {
+            const p = this.sparks[i];
+            p.life -= dt;
+            if (p.life <= 0) continue;
+            const drag = Math.pow(0.04, dt);
+            p.vx *= drag; p.vy *= drag;
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            this.sparks[write++] = p;
+        }
+        this.sparks.length = write;
+    }
+
+    // A moving body hands part of its own velocity to the ball along the
+    // contact normal, so a gate sliding into the ball bats it away.
+    _transferMotion(ball, nx, ny) {
+        const push = this.moveVX * nx + this.moveVY * ny;
+        if (!(push > 0)) return;
+        const add = Math.min(push * 0.85, 900);
+        ball.vel.x += nx * add;
+        ball.vel.y += ny * add;
+        const speed = Math.hypot(ball.vel.x, ball.vel.y);
+        const cap = ball.maxSpeed || speed;
+        if (speed > cap) { ball.vel.x *= cap / speed; ball.vel.y *= cap / speed; }
     }
 
     _onHit(ball, hitX, hitY) {
         this.glowIntensity = 1;
         this.hitFlash = 1;
         this.damageLevel = 0;
+
+        const game = window.game;
+        const scale = game?.getObjectScale?.() || 1;
+        const speed = Math.hypot(ball.vel.x, ball.vel.y);
+        const impact = Math.max(0, Math.min(1, speed / (ball.maxSpeed || 1400)));
+        // The body is knocked away from the ball and springs back.
+        let nx = this.cx - ball.pos.x, ny = this.cy - ball.pos.y;
+        const len = Math.hypot(nx, ny) || 1;
+        nx /= len; ny /= len;
+        const round = this.obstacleType === 'node' || this.obstacleType === 'bumper' || this.obstacleType === 'repulsor' || this.obstacleType === 'magnet';
+        const knock = (round ? 260 : 150) + 420 * impact;
+        this.react.vx += nx * knock * scale;
+        this.react.vy += ny * knock * scale;
+        this.react.pop = 1;
+        if (this.obstacleType === 'rotor' || this.obstacleType === 'spinner') {
+            // Hitting a blade off-centre spins it up, the way the ball struck it.
+            const cross = (hitX - this.cx) * ball.vel.y - (hitY - this.cy) * ball.vel.x;
+            this.react.spin += Math.sign(cross || 1) * (2.2 + impact * 4.5);
+        }
+        if (areParticleEffectsEnabledSafe()) {
+            const count = 4 + Math.round(impact * 6);
+            const base = Math.atan2(-ny, -nx);
+            const color = this.activeRailColor || this.colorGlow;
+            for (let i = 0; i < count; i++) {
+                const a = base + (Math.random() - 0.5) * 1.9;
+                const v = (200 + Math.random() * 420) * (0.6 + impact) * Math.max(0.6, scale * 1.6);
+                if (this.sparks.length > 18) this.sparks.shift();
+                this.sparks.push({ x: hitX, y: hitY, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.22 + Math.random() * 0.22, max: 0.44, color });
+            }
+        }
+        game?.onObstacleHit?.(this, ball, hitX, hitY, impact);
 
         this.hitRipples.push({
             x: hitX, y: hitY,
@@ -1449,8 +1557,27 @@ class Obstacle {
         // Dead particles / ripples still render even when inactive
         this._renderRipples(ctx);
         this._renderParticles(ctx);
+        this._renderSparks(ctx);
         if (!this.active) return;
 
+        const r = this.react;
+        const round = this.obstacleType === 'node' || this.obstacleType === 'bumper' || this.obstacleType === 'repulsor' || this.obstacleType === 'magnet';
+        const pop = r.pop > 0 ? Math.sin(Math.min(1, (1 - r.pop) * 2.2) * Math.PI) * r.pop : 0;
+        const scale = 1 + pop * (round ? 0.24 : 0.07) + r.aware * (round ? 0.05 : 0.015);
+        const moved = Math.abs(r.ox) + Math.abs(r.oy) > 0.05 || scale !== 1;
+        if (r.aware > 0.04) this._renderAwareness(ctx, r.aware, round);
+        if (moved) {
+            ctx.save();
+            const cx = this.cx, cy = this.cy;
+            ctx.translate(cx + r.ox, cy + r.oy);
+            ctx.scale(scale, scale);
+            ctx.translate(-cx, -cy);
+        }
+        this._renderBody(ctx);
+        if (moved) ctx.restore();
+    }
+
+    _renderBody(ctx) {
         switch (this.obstacleType) {
             case 'gate': this._renderGate(ctx); break;
             case 'node': this._renderNode(ctx); break;
@@ -1595,6 +1722,45 @@ class Obstacle {
         ctx.beginPath();
         ctx.arc(0, 0, this.h * 0.55, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
+    }
+
+    // A thin outline that brightens as the ball approaches.
+    _renderAwareness(ctx, aware, round) {
+        const r = this.react;
+        const color = this.activeRailColor || this.colorGlow;
+        const pad = 4 + aware * 4;
+        ctx.save();
+        ctx.globalAlpha = aware * 0.55;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (round) {
+            ctx.arc(this.cx + r.ox, this.cy + r.oy, Math.min(this.w, this.h) / 2 + pad, 0, Math.PI * 2);
+        } else if (this.obstacleType === 'rotor' || this.obstacleType === 'spinner') {
+            ctx.translate(this.cx + r.ox, this.cy + r.oy);
+            ctx.rotate(this.rotation);
+            ctx.roundRect(-this.w / 2 - pad, -this.h / 2 - pad, this.w + pad * 2, this.h + pad * 2, this.h / 2 + pad);
+        } else {
+            ctx.roundRect(this.pos.x + r.ox - pad, this.pos.y + this.floatOffset + r.oy - pad, this.w + pad * 2, this.h + pad * 2, 6 + pad);
+        }
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    _renderSparks(ctx) {
+        if (!this.sparks.length) return;
+        ctx.save();
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 2;
+        for (const p of this.sparks) {
+            ctx.globalAlpha = Math.min(1, p.life / p.max * 1.6);
+            ctx.strokeStyle = p.color;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - p.vx * 0.03, p.y - p.vy * 0.03);
+            ctx.stroke();
+        }
         ctx.restore();
     }
 
