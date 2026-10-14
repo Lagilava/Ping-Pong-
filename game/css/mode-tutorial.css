@@ -11,39 +11,63 @@
     backdrop-filter: blur(12px);
 }
 .mode-tutorial-card {
-    width: min(760px, 100%);
+    width: min(820px, 100%);
     max-height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     color: #eefaff;
-    background: radial-gradient(circle at 88% 0, color-mix(in srgb, var(--tutorial-accent) 13%, transparent), transparent 40%), linear-gradient(155deg, #14223a, #080f20 65%);
+    background: radial-gradient(circle at 88% 0, color-mix(in srgb, var(--tutorial-accent) 16%, transparent), transparent 40%), linear-gradient(155deg, #14223a, #080f20 65%);
     border: 1px solid color-mix(in srgb, var(--tutorial-accent) 55%, #426078);
     border-radius: 24px;
     box-shadow: 0 30px 100px rgba(0, 0, 0, .7), 0 0 42px color-mix(in srgb, var(--tutorial-accent) 18%, transparent);
     font-family: 'Rajdhani', sans-serif;
 }
-.mode-tutorial-head { display: flex; justify-content: space-between; gap: 20px; padding: 28px 32px 23px; border-bottom: 1px solid rgba(173, 227, 255, .14); }
+.mode-tutorial-head { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 210px; align-items: center; gap: 20px; padding: 28px 72px 25px 32px; border-bottom: 1px solid rgba(173, 227, 255, .14); }
 .mode-tutorial-eyebrow, .mode-tutorial-label { display: block; color: var(--tutorial-accent); font: 700 12px/1.2 'Share Tech Mono', monospace; letter-spacing: .16em; text-transform: uppercase; }
 .mode-tutorial-head h2 { margin: 9px 0 5px; color: #fff; font: 900 clamp(25px, 4vw, 37px)/1.1 'Orbitron', sans-serif; letter-spacing: .025em; text-transform: uppercase; }
 .mode-tutorial-head h2 span { color: var(--tutorial-accent); }
 .mode-tutorial-head p { margin: 0; color: #b8cedd; font-size: 19px; }
+.mode-tutorial-fact { display: inline-block; margin-top: 17px; padding: 7px 10px; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 45%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--tutorial-accent) 12%, transparent); color: var(--tutorial-accent); font: 700 11px/1.2 'Share Tech Mono', monospace; letter-spacing: .08em; }
 .mode-tutorial button { font-family: 'Rajdhani', sans-serif; letter-spacing: 0; text-transform: none; }
-.mode-tutorial-close { flex: none; width: 42px; height: 42px; padding: 0; border: 1px solid rgba(166, 219, 247, .35); border-radius: 12px; background: rgba(255,255,255,.04); color: #e4f4ff; font-size: 28px; line-height: 1; }
+.mode-tutorial-close { position: absolute; top: 24px; right: 24px; width: 42px; height: 42px; padding: 0; border: 1px solid rgba(166, 219, 247, .35); border-radius: 12px; background: rgba(255,255,255,.04); color: #e4f4ff; font-size: 28px; line-height: 1; }
 .mode-tutorial-close:hover, .mode-tutorial-close:focus-visible { border-color: var(--tutorial-accent); background: rgba(255,255,255,.1); }
+.mode-tutorial-visual { min-width: 0; aspect-ratio: 1.7; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 32%, transparent); border-radius: 14px; background: radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--tutorial-accent) 13%, transparent), transparent 65%), repeating-linear-gradient(0deg, transparent 0 15px, rgba(130,210,240,.05) 16px), #080f1d; box-shadow: inset 0 0 25px rgba(0,0,0,.45); }
+.mode-tutorial-court { position: relative; width: 86%; height: 70%; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 60%, transparent); border-radius: 4px; box-shadow: 0 0 12px color-mix(in srgb, var(--tutorial-accent) 20%, transparent), inset 0 0 18px rgba(0,0,0,.4); overflow: hidden; }
+.mode-tutorial-midline { position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px dashed color-mix(in srgb, var(--tutorial-accent) 45%, transparent); }
+.mode-tutorial-paddle { position: absolute; width: 5px; height: 32%; top: 34%; border-radius: 4px; background: var(--tutorial-accent); box-shadow: 0 0 10px var(--tutorial-accent); }
+.mode-tutorial-paddle.left { left: 7%; }.mode-tutorial-paddle.right { right: 7%; top: 22%; }
+.mode-tutorial-ball { position: absolute; width: 10px; height: 10px; top: 47%; left: 55%; border-radius: 50%; background: #fff; box-shadow: 0 0 12px 4px var(--tutorial-accent); }
+.mode-tutorial-effect { position: absolute; }
+.mode-tutorial[data-mode="zombie"] .mode-tutorial-effect { left: 65%; top: 14%; width: 12px; height: 12px; border: 2px solid var(--tutorial-accent); border-radius: 50%; box-shadow: 0 0 10px var(--tutorial-accent); }
+.mode-tutorial[data-mode="zombie"] .mode-tutorial-effect.second { left: 78%; top: 67%; }
+.mode-tutorial[data-mode="gravity"] .mode-tutorial-effect { left: 35%; top: 22%; width: 38px; height: 38px; border: 2px solid var(--tutorial-accent); border-radius: 50%; box-shadow: 0 0 14px var(--tutorial-accent), inset 0 0 15px color-mix(in srgb, var(--tutorial-accent) 40%, transparent); }
+.mode-tutorial[data-mode="gravity"] .mode-tutorial-effect.second { left: 68%; top: 56%; width: 24px; height: 24px; }
+.mode-tutorial[data-mode="speed"] .mode-tutorial-effect { left: 27%; top: 45%; width: 18%; border-top: 2px solid var(--tutorial-accent); box-shadow: 0 0 10px var(--tutorial-accent); transform: skewY(-15deg); }
+.mode-tutorial[data-mode="speed"] .mode-tutorial-effect.second { top: 60%; left: 32%; width: 13%; }
+.mode-tutorial[data-mode="obstacle"] .mode-tutorial-effect { top: 12%; left: 37%; width: 6px; height: 42%; border-radius: 5px; background: var(--tutorial-accent); box-shadow: 0 0 10px var(--tutorial-accent); }
+.mode-tutorial[data-mode="obstacle"] .mode-tutorial-effect.second { top: 47%; left: 70%; }
+.mode-tutorial[data-mode="customise"] .mode-tutorial-effect { top: 16%; left: 30%; width: 28%; height: 58%; border: 1px dashed var(--tutorial-accent); border-radius: 7px; transform: rotate(-13deg); }
+.mode-tutorial[data-mode="customise"] .mode-tutorial-effect.second { left: 52%; transform: rotate(13deg); }
 .mode-tutorial-content { overflow-y: auto; padding: 26px 32px 22px; }
+.mode-tutorial-content:focus-visible { outline: 2px solid var(--tutorial-accent); outline-offset: -3px; }
 .mode-tutorial-goal { padding: 20px 23px; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 35%, transparent); border-left: 4px solid var(--tutorial-accent); border-radius: 14px; background: color-mix(in srgb, var(--tutorial-accent) 9%, transparent); }
 .mode-tutorial-goal p { margin: 8px 0 0; font-size: 21px; font-weight: 600; line-height: 1.35; }
-.mode-tutorial-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+.mode-tutorial-section-title { display: flex; align-items: center; justify-content: space-between; margin-top: 23px; color: rgba(180, 215, 232, .55); font: 700 12px/1 'Share Tech Mono', monospace; letter-spacing: .12em; }
+.mode-tutorial-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 11px 0 16px; }
 .mode-tutorial-step { display: flex; gap: 12px; padding: 17px 16px; border: 1px solid rgba(139, 197, 225, .17); border-radius: 14px; background: rgba(255,255,255,.035); }
 .mode-tutorial-step-number { color: var(--tutorial-accent); font: 700 13px/1.5 'Share Tech Mono', monospace; }
-.mode-tutorial-step h3 { margin: 0 0 6px; color: #fff; font: 800 17px/1.2 'Rajdhani', sans-serif; }
+.mode-tutorial-step h3 { margin: 0 0 6px; color: #fff; font: 800 18px/1.2 'Rajdhani', sans-serif; }
 .mode-tutorial-step p, .mode-tutorial-tip p, .mode-tutorial-controls { margin: 0; color: #c8dce8; font-size: 16px; line-height: 1.4; }
 .mode-tutorial-tip { padding: 15px 18px; border-radius: 12px; background: rgba(116, 172, 211, .09); }
 .mode-tutorial-tip p { margin-top: 5px; }
-.mode-tutorial-controls { margin-top: 17px; color: #a9c1d0; font-size: 14px; }
-.mode-tutorial-controls b { color: #fff; margin-right: 8px; }
+.mode-tutorial-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 15px; margin-top: 20px; padding-top: 17px; border-top: 1px solid rgba(173, 227, 255, .14); color: #c3d8e4; font-size: 15px; }
+.mode-tutorial-controls .mode-tutorial-label { width: 100%; margin-bottom: 2px; }
+.mode-tutorial-controls kbd { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 4px; margin-right: 2px; border: 1px solid rgba(173,227,255,.36); border-bottom-width: 2px; border-radius: 5px; background: rgba(255,255,255,.06); color: #fff; font: 700 12px/1 'Share Tech Mono', monospace; }
+.mode-tutorial-action { color: var(--tutorial-accent); }
+.mode-tutorial-rebind { margin: 8px 0 0; color: #819dad; font: 500 13px/1.3 'Rajdhani', sans-serif; }
 .mode-tutorial-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 32px; border-top: 1px solid rgba(173, 227, 255, .14); color: #a9c1d0; font-size: 16px; }
+.mode-tutorial-scroll-hint.has-more { color: var(--tutorial-accent); }
 .mode-tutorial-foot button { padding: 10px 18px; border: 0; border-radius: 10px; background: var(--tutorial-accent); color: #061322; font-size: 17px; font-weight: 800; }
 .mode-tutorial-foot button:hover, .mode-tutorial-foot button:focus-visible { filter: brightness(1.1); box-shadow: 0 0 18px color-mix(in srgb, var(--tutorial-accent) 45%, transparent); }
 .mode-tutorial-foot button span { margin-left: 10px; }
@@ -59,11 +83,26 @@
 @media (max-width: 680px) {
     .mode-tutorial { padding: 9px; }
     .mode-tutorial-card { border-radius: 16px; }
-    .mode-tutorial-head { padding: 20px 19px 17px; }
+    .mode-tutorial-head { grid-template-columns: minmax(0, 1fr) 105px; gap: 10px; padding: 20px 61px 17px 19px; }
+    .mode-tutorial-head h2 { font-size: clamp(20px, 5vw, 28px); }
+    .mode-tutorial-head p { font-size: 16px; }
+    .mode-tutorial-fact { margin-top: 10px; font-size: 9px; }
+    .mode-tutorial-close { top: 17px; right: 14px; width: 36px; height: 36px; }
     .mode-tutorial-content { padding: 18px 19px; }
     .mode-tutorial-steps { grid-template-columns: 1fr; gap: 8px; }
     .mode-tutorial-step { padding: 11px 13px; }
     .mode-tutorial-goal p { font-size: 18px; }
     .mode-tutorial-foot { padding: 12px 19px; }
     .modal .btns button { flex: 1 1 calc(50% - 5px); padding: 10px 8px; }
+}
+@media (max-width: 430px) {
+    .mode-tutorial-head { grid-template-columns: 1fr; }
+    .mode-tutorial-visual { display: none; }
+    .mode-tutorial-foot { flex-direction: column; align-items: stretch; gap: 7px; }
+    .mode-tutorial-scroll-hint { text-align: center; font-size: 13px; }
+    .mode-tutorial-scroll-hint:not(.has-more) { display: none; }
+    .mode-tutorial-foot button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mode-tutorial-card, .mode-tutorial button { animation: none; transition: none; }
 }
