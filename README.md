@@ -16,6 +16,9 @@ Keep the small console window open while you play; close it to stop.
 
 - **Esc** pauses · **W / S**, or hold the mouse button / touch and drag, moves the left paddle · **↑ / ↓** moves
   the right paddle in local 1v1 · **Space** fires the laser power-up
+- **Main menu:** **← / →** (or a gamepad's d-pad / left stick) choose a mode,
+  **Enter** (**A**) selects it, **Esc** (**B**) backs out of the opponent picker.
+  The mode you played last says *Play again* and is where the selection starts.
 - **Gamepad:** left stick or d-pad moves (analog), **A** fires the laser / skips
   intros, **Start** pauses; a second pad controls the right paddle in local 1v1.
   Controllers rumble on hits and goals.

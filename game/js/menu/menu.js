@@ -461,6 +461,7 @@
                 <div class="card-desc">${m.desc}</div>
                 <div class="card-meta">${(m.tags || []).map(t => `<span>${t}</span>`).join('')}</div>
                 <div class="card-badge">${m.id === 'customise' ? 'Build &#9656;' : 'Play &#9656;'}</div>`;
+            el.dataset.mode = m.id;
             el.addEventListener('pointerenter', () => { menuActiveIdx = i; scrollMenuCards(0); }, false);
             el.addEventListener('focus', () => { menuActiveIdx = i; scrollMenuCards(0); }, false);
             el.addEventListener('keydown', (e) => {
@@ -478,7 +479,33 @@
             }, false);
             row.appendChild(el);
         });
+        markLastPlayed();
         updateMenuCards();
+    }
+
+    // The mode you played last says "Play again" and is where keyboard and
+    // gamepad navigation starts.
+    const LAST_MODE_KEY = 'pp-menu-last-mode';
+    function getLastMode() {
+        try { return localStorage.getItem(LAST_MODE_KEY); } catch (e) { return null; }
+    }
+    function rememberLastMode(id) {
+        try { localStorage.setItem(LAST_MODE_KEY, id); } catch (e) { }
+        markLastPlayed();
+    }
+    function markLastPlayed() {
+        const last = getLastMode();
+        document.querySelectorAll('#cardRow .card').forEach((card) => {
+            const m = MENU_CONFIG.modes.find((x) => x.id === card.dataset.mode);
+            if (!m) return;
+            const isLast = m.id === last;
+            card.classList.toggle('is-last', isLast);
+            const badge = card.querySelector('.card-badge');
+            const label = (m.id === 'customise' ? 'Build' : isLast ? 'Play again' : 'Play') + ' \u25B8';
+            if (badge && badge.textContent !== label) badge.textContent = label;
+            const desc = isLast ? `${m.desc}. You played this last` : m.desc;
+            card.setAttribute('aria-label', `Play ${m.name.toLowerCase()}: ${desc}`);
+        });
     }
 
     function hexToRgba(hex, alpha = 1) {
@@ -567,7 +594,11 @@
             opt.style.setProperty('--modal-primary-glow', hexToRgba(color, 0.45));
         });
         m.style.display = 'flex';
-        requestAnimationFrame(() => m.classList.add('on'));
+        requestAnimationFrame(() => {
+            m.classList.add('on');
+            const sel = m.querySelector('.opt.sel:not([hidden])') || m.querySelector('.opt:not([hidden])');
+            sel?.focus({ preventScroll: true });
+        });
     }
 
     function closeMenuModal() {
@@ -1597,6 +1628,7 @@
                     const overlay = document.getElementById('overlay');
                     if (overlay) { overlay.classList.remove('visible'); overlay.classList.add('hidden'); }
                     document.body.classList.remove('has-overlay');
+                    rememberLastMode(menuSelected);
                     if (menuSelected === 'customise') {
                         window.game.setGameMode?.('customise');
                     } else {
@@ -2061,8 +2093,158 @@
     // ─────────────────────────────────────────────────────────────────
     // INIT
     // ─────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────
+    // KEYBOARD + GAMEPAD NAVIGATION
+    // ─────────────────────────────────────────────────────────────────
+    // ←/→ (or d-pad / left stick) move between modes, Enter (A) opens one,
+    // and in the opponent picker ←/→ change the opponent, Enter (A) plays
+    // and Esc (B) goes back. Nothing here runs while a match, a settings
+    // panel, a mode tutorial, the online lobby, the results card or the
+    // Custom screen is up (B closes a tutorial, or leaves the Custom screen).
+    function isShown(id) {
+        const el = document.getElementById(id);
+        // (offsetParent is always null for position:fixed dialogs.)
+        if (!el || el.hidden || !el.getClientRects().length) return false;
+        const cs = getComputedStyle(el);
+        return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
+    }
+    function menuNavState() {
+        const overlay = document.getElementById('overlay');
+        if (!overlay || !overlay.classList.contains('visible') || overlay.classList.contains('hidden')) return null;
+        if (window.game?.isInMatch?.()) return null;
+        if (document.body.classList.contains('pp-panel-open')) return null;
+        if (document.querySelector('#customiseOverlay.active, .achievement-sidebar.visible')) return null;
+        if (isShown('pp-online') || isShown('pp-results') || isShown('modeTutorial')) return null;
+        return document.getElementById('modal')?.classList.contains('on') ? 'modal' : 'cards';
+    }
+    function menuCards() { return [...(document.getElementById('cardRow')?.children || [])]; }
+    function startCardIndex() {
+        const i = MENU_CONFIG.modes.findIndex((m) => m.id === getLastMode());
+        return i >= 0 ? i : 0;
+    }
+    function focusCard(i) {
+        const cards = menuCards();
+        const card = cards[Math.max(0, Math.min(cards.length - 1, i))];
+        if (!card) return;
+        card.focus({ preventScroll: true });
+        if (isNativeCardScroll(card.parentElement)) card.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    }
+    function moveCard(dir) {
+        const cards = menuCards();
+        let cur = cards.indexOf(document.activeElement);
+        if (cur < 0 && menuActiveIdx !== null) cur = menuActiveIdx;
+        focusCard(cur < 0 ? startCardIndex() : cur + dir);
+    }
+    function moveOpt(dir) {
+        const opts = [...document.querySelectorAll('#modal .opt:not([hidden])')];
+        if (!opts.length) return;
+        let cur = opts.indexOf(document.activeElement);
+        if (cur < 0) cur = opts.findIndex((o) => o.classList.contains('sel'));
+        const next = opts[(cur + dir + opts.length) % opts.length];
+        next.click();
+        next.focus({ preventScroll: true });
+    }
+    function closeModalToCards() {
+        closeMenuModal();
+        const i = MENU_CONFIG.modes.findIndex((m) => m.id === menuSelected);
+        if (i >= 0) focusCard(i);
+    }
+    function activateMenu(state) {
+        if (state === 'modal') { document.getElementById('btnGo')?.click(); return; }
+        const cards = menuCards();
+        const focused = cards.indexOf(document.activeElement);
+        if (focused >= 0) cards[focused].click();
+        else if (menuActiveIdx !== null && cards[menuActiveIdx]) cards[menuActiveIdx].click();
+        else focusCard(startCardIndex());
+    }
+
+    function setupMenuNavigation() {
+        document.addEventListener('keydown', (e) => {
+            if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+            const state = menuNavState();
+            if (!state) return;
+            const t = e.target;
+            if (t?.closest?.('input, textarea, select, [contenteditable]')) return;
+            if (state === 'cards') {
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    moveCard(e.key === 'ArrowLeft' ? -1 : 1);
+                } else if ((e.key === 'Enter' || e.key === ' ') && !t?.closest?.('button, a, [role="button"]')) {
+                    e.preventDefault();
+                    activateMenu(state);
+                }
+                return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                moveOpt(e.key === 'ArrowLeft' ? -1 : 1);
+            } else if (e.key === 'Enter' && !t?.closest?.('#modal .btns button')) {
+                e.preventDefault();
+                activateMenu(state);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                closeModalToCards();
+            }
+        }, false);
+
+        // Gamepad: polled only while a pad is connected. Selecting happens
+        // when A is released, so the same press can't also skip the match
+        // intro that it starts.
+        const overlay = document.getElementById('overlay');
+        let raf = 0, prev = {}, prevDir = 0, repeatAt = 0;
+        const pads = () => [...(navigator.getGamepads?.() || [])].filter((p) => p && p.connected);
+        const poll = () => {
+            const list = pads();
+            if (!list.length) { raf = 0; overlay?.classList.remove('menu-pad'); return; }
+            raf = requestAnimationFrame(poll);
+            const p = list[0];
+            const btn = (i) => !!p.buttons[i]?.pressed;
+            const x = p.axes[0] || 0;
+            const cur = { a: btn(0), b: btn(1), start: btn(9) };
+            const dir = (btn(14) || x < -0.55) ? -1 : (btn(15) || x > 0.55) ? 1 : 0;
+            const state = menuNavState();
+            if (state) {
+                const now = performance.now();
+                if (dir && (dir !== prevDir || now >= repeatAt)) {
+                    if (state === 'cards') moveCard(dir); else moveOpt(dir);
+                    repeatAt = now + (dir !== prevDir ? 380 : 170);
+                }
+                if ((prev.a && !cur.a) || (prev.start && !cur.start)) activateMenu(state);
+                if (!prev.b && cur.b && state === 'modal') closeModalToCards();
+            } else if (!prev.b && cur.b && isShown('modeTutorial')) {
+                document.querySelector('#modeTutorial [data-close-tutorial]')?.click();
+            } else if (!prev.b && cur.b && document.querySelector('#customiseOverlay.active')
+                && !document.body.classList.contains('pp-panel-open') && !window.Forge?.editor?.isOpen?.()) {
+                document.getElementById('customiseBackBtn')?.click();
+            }
+            prevDir = dir;
+            prev = cur;
+        };
+        const start = () => {
+            if (!pads().length) return;
+            overlay?.classList.add('menu-pad');
+            if (!raf) raf = requestAnimationFrame(poll);
+        };
+        window.addEventListener('gamepadconnected', start);
+        start();
+
+        window.addEventListener('pp-returned-to-menu', () => {
+            // Start fresh from the mode just played, not the card that was
+            // highlighted before the match.
+            menuActiveIdx = null;
+            markLastPlayed();
+            updateMenuCards();
+        });
+        // A Custom match started from the Custom screen counts as played.
+        document.addEventListener('click', (e) => {
+            if (e.target.closest?.('#customStartMatchBtn')) rememberLastMode('customise');
+        }, true);
+    }
+
     function initMenuSystem() {
         buildMenuCards();
+        setupMenuNavigation();
         window.addEventListener('resize', () => updateMenuCards(), false);
         document.fonts?.ready?.then(() => updateMenuCards());
         initMenuThreeJS();

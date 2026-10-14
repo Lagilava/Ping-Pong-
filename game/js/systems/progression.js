@@ -973,6 +973,8 @@ class ProgressionSystem {
         if (els.menuLvl) els.menuLvl.textContent = this.level;
         if (els.menuXpBar) els.menuXpBar.style.width = `${progress}%`;
         if (els.menuXpText) els.menuXpText.textContent = `${this.xp}/${this.requiredXP} XP`;
+        const menuXpLabel = document.getElementById('menuXpLabel');
+        if (menuXpLabel) menuXpLabel.textContent = `To level ${this.level + 1}`;
     }
 
     recordGameWin(wasComeback, gameMode = 'classic', matchStats = {}) {

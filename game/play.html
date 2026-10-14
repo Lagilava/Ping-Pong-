@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="css/results.css">
     <link rel="stylesheet" href="css/textures.css">
     <link rel="stylesheet" href="css/achievement-redesign.css">
+    <link rel="stylesheet" href="css/main-menu.css">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js"></script>
 </head>
@@ -153,6 +154,16 @@
             <div class="hdr">
                 <h1>PING PONG</h1>
                 <p>NEON EDITION · CHOOSE YOUR ARENA</p>
+                <div class="menu-keys" id="menuKeys" aria-hidden="true">
+                    <span data-input="keys"><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Choose mode</span>
+                    <span data-input="keys"><kbd>Enter</kbd> Select</span>
+                    <span data-input="keys"><kbd>Esc</kbd> Back</span>
+                    <span data-input="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>A</kbd> Achievements</span>
+                    <span data-input="pad"><kbd>D-pad</kbd> Choose mode</span>
+                    <span data-input="pad"><kbd>A</kbd> Select</span>
+                    <span data-input="pad"><kbd>B</kbd> Back</span>
+                </div>
+                <div class="hint" hidden>Scroll or drag for more modes</div>
             </div>
             <div class="menu-right-panel">
                 <div class="menu-progress-panel" id="menuProgressPanel" aria-label="Player level and XP">
@@ -174,7 +185,7 @@
                         </div>
                         <div class="menu-progress-meter">
                             <div class="menu-progress-meta">
-                                <span>Match XP</span>
+                                <span id="menuXpLabel">Next level</span>
                                 <span id="menuXpText">0/100 XP</span>
                             </div>
                             <div class="menu-progress-bar-shell" aria-hidden="true">
@@ -191,7 +202,6 @@
                     <ul class="menu-achievements-list" id="menuAchievementsList"></ul>
                 </div>
             </div>
-            <div class="hint" hidden>Scroll or drag for more modes</div>
             <div id="cards-hud">
                 <button class="arr-btn left" id="btnL" type="button" aria-label="Previous modes">&#8592;</button>
                 <div class="card-row" id="cardRow"></div>

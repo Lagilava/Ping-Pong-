@@ -1,0 +1,164 @@
+/* Main menu layout (loaded last, after game.css and mobile.css).
+ *
+ * One spacing scale for the whole screen: the title, the progress panel and
+ * the mode cards share the same outer gutter, the cards size themselves to
+ * fill the row (so all six fit from ~830px wide up and grow on 1440p/4K
+ * instead of staying small), and the text inside each card scales with the
+ * card. Phones and tablets keep their own swipe layout from mobile.css. */
+
+#overlay {
+    --mm-gutter: clamp(16px, 2.4vw, 44px);
+    --mm-gap: clamp(8px, 1.15vw, 22px);
+    --mm-panel-w: clamp(320px, 25vw, 400px);
+    --mm-ink: rgba(225, 245, 255, 0.96);
+    --mm-ink-2: rgba(190, 228, 255, 0.78);
+    --mm-line: rgba(106, 227, 255, 0.2);
+}
+
+/* ── Title block ─────────────────────────────────────────────────────── */
+html:not(.pp-mobile) #overlay .hdr {
+    top: var(--mm-gutter);
+    left: var(--mm-gutter);
+    max-width: calc(100vw - var(--mm-panel-w) - var(--mm-gutter) * 3);
+}
+
+html:not(.pp-mobile) #overlay .hdr p {
+    font-size: clamp(.62rem, .82vw, .9rem);
+    letter-spacing: .42em;
+    line-height: 1.7;
+}
+
+/* Scroll hint now sits in the title block's flow, so it never collides
+   with the title on narrow windows. */
+#overlay .hdr .hint {
+    position: static;
+    display: inline-block;
+    margin-top: 12px;
+}
+#overlay .hdr .hint[hidden] { display: none; }
+
+/* Controls legend under the title. */
+.menu-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: clamp(12px, 1.8vh, 20px);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(.66rem, .72vw, .8rem);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--mm-ink-2);
+}
+.menu-keys > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.menu-keys kbd {
+    font: inherit;
+    min-width: 1.9em;
+    text-align: center;
+    color: var(--mm-ink);
+    padding: 2px 6px;
+    border: 1px solid rgba(120, 190, 245, 0.42);
+    border-radius: 4px;
+    background: rgba(40, 80, 130, 0.25);
+}
+.menu-keys [data-input="pad"] { display: none; }
+#overlay.menu-pad .menu-keys [data-input="keys"] { display: none; }
+#overlay.menu-pad .menu-keys [data-input="pad"] { display: inline-flex; }
+
+html.pp-mobile .menu-keys { display: none; }
+@media (hover: none) { .menu-keys { display: none; } }
+
+/* ── Right column: progress + recent achievements ──────────────────── */
+html:not(.pp-mobile) #overlay .menu-right-panel {
+    top: var(--mm-gutter);
+    right: var(--mm-gutter);
+    width: var(--mm-panel-w);
+    gap: clamp(.6rem, 1.2vh, 1rem);
+}
+
+/* Level on the left, XP to the next level on the right. */
+html:not(.pp-mobile) #overlay .menu-progress-panel { padding: .7rem .85rem .8rem; border-color: var(--mm-line); }
+html:not(.pp-mobile) #overlay .menu-progress-head { margin-bottom: .55rem; }
+html:not(.pp-mobile) #overlay .menu-progress-row {
+    flex-direction: row;
+    align-items: center;
+    gap: .9rem;
+}
+html:not(.pp-mobile) #overlay .menu-progress-level {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: auto;
+    min-width: 62px;
+    padding-right: .9rem;
+    border-right: 1px solid rgba(106, 227, 255, 0.16);
+}
+html:not(.pp-mobile) #overlay .menu-progress-value { font-size: clamp(1.7rem, 2.3vw, 2.6rem); }
+html:not(.pp-mobile) #overlay .menu-progress-meter { flex: 1; width: auto; gap: .45rem; }
+html:not(.pp-mobile) #overlay .menu-progress-meta { font-size: .68rem; }
+html:not(.pp-mobile) #overlay .menu-progress-bar-shell { height: 10px; }
+
+/* ── Mode cards ──────────────────────────────────────────────────────── */
+html:not(.pp-mobile) #overlay #cards-hud { padding-bottom: clamp(10px, 2vh, 24px); }
+html:not(.pp-mobile) #overlay .card-row { gap: var(--mm-gap); padding: 0 var(--mm-gutter); }
+
+html:not(.pp-mobile) #overlay .card {
+    width: clamp(126px, calc((100vw - var(--mm-gutter) * 2 - var(--mm-gap) * 5) / 6), 232px);
+    padding: clamp(10px, .9vw, 16px);
+    gap: clamp(5px, .6vw, 9px);
+    container-type: inline-size;
+}
+html:not(.pp-mobile) #overlay .card-top { font-size: clamp(.56rem, 4.6cqi, .74rem); min-height: 1.9em; }
+html:not(.pp-mobile) #overlay .card-live { font-size: clamp(.5rem, 4cqi, .64rem); }
+html:not(.pp-mobile) #overlay .card-icon { width: clamp(44px, 30cqi, 72px); height: clamp(44px, 30cqi, 72px); }
+html:not(.pp-mobile) #overlay .card-name { font-size: clamp(.7rem, 7.2cqi, 1.06rem); letter-spacing: .16em; }
+html:not(.pp-mobile) #overlay .card-desc { font-size: clamp(.66rem, 6.2cqi, .92rem); }
+html:not(.pp-mobile) #overlay .card-meta span { font-size: clamp(.55rem, 4.6cqi, .72rem); }
+html:not(.pp-mobile) #overlay .card-badge { font-size: clamp(.56rem, 4.8cqi, .76rem); padding: clamp(7px, 5cqi, 11px) 10px; }
+
+/* Keyboard/gamepad focus ring in the card's own colour (the global cyan
+   ring clashed with the yellow, red and orange cards). */
+#overlay .card:focus-visible { outline: 2px solid var(--c); outline-offset: 3px; }
+
+/* Scroll arrows sit in the gutter beside the row, never over a card. */
+html:not(.pp-mobile) #overlay #cards-hud .arr-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 1rem;
+    line-height: 1;
+}
+html:not(.pp-mobile) #overlay #cards-hud:not(.cards-fit) { padding-left: 56px; padding-right: 56px; }
+html:not(.pp-mobile) #overlay #cards-hud .arr-btn.left { left: 10px; }
+html:not(.pp-mobile) #overlay #cards-hud .arr-btn.right { right: 10px; }
+
+/* ── Short windows (small laptop, browser not full screen) ─────────── */
+@media (max-height: 620px) {
+    html:not(.pp-mobile) #overlay .menu-right-panel > .menu-recent-achievements { display: none; }
+    html:not(.pp-mobile) #overlay .menu-keys { display: none; }
+}
+
+@media (max-height: 470px) {
+    html:not(.pp-mobile) #overlay .hdr h1 { font-size: clamp(1.2rem, 3.4vw, 2rem); }
+    html:not(.pp-mobile) #overlay .hdr p { font-size: .58rem; margin-top: 4px; }
+    html:not(.pp-mobile) html:not(.pp-mobile) #overlay .menu-progress-panel { padding: .45rem .7rem .55rem; }
+    html:not(.pp-mobile) html:not(.pp-mobile) #overlay .menu-progress-head { margin-bottom: .3rem; }
+    html:not(.pp-mobile) html:not(.pp-mobile) #overlay .menu-progress-value { font-size: 1.5rem; }
+    html:not(.pp-mobile) #overlay .card-meta { display: none; }
+    html:not(.pp-mobile) #overlay .card-icon { width: clamp(36px, 22cqi, 48px); height: clamp(36px, 22cqi, 48px); }
+    html:not(.pp-mobile) #overlay .card-desc { min-height: 0; }
+}
+
+/* The hover lift needs headroom; keep it inside short windows. */
+@media (max-height: 470px) {
+    html:not(.pp-mobile) #overlay .card:hover,
+    html:not(.pp-mobile) #overlay .card.active,
+    html:not(.pp-mobile) #overlay .card:focus-visible { transform: translateY(-6px); }
+}
+
+/* Phones held upright: the progress chip spans the top, so the title
+   starts below it instead of underneath it. */
+@media (orientation: portrait) {
+    html.pp-mobile #overlay .hdr { top: calc(max(10px, env(safe-area-inset-top)) + 96px); }
+}
