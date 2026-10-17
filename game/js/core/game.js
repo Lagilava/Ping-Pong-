@@ -1,6 +1,9 @@
 class Game {
     // Obstacle mode's arena is this many times the normal size (see getArenaScale).
     static OBSTACLE_ARENA_SCALE = 2.5;
+    // Obstacle paddles are a fifth longer (length only) so the wide course
+    // stays playable; the ball, hazards and paddle thickness are unchanged.
+    static OBSTACLE_PADDLE_LENGTH = 1.2;
     static ARENA_SERVE_DELAY = 2;
 
     // Per-mode colour grade, applied inside the existing post-process pass
@@ -940,9 +943,10 @@ class Game {
         }
 
         const k = this.getObjectScale();
+        const lengthK = this.gameMode === 'obstacle' ? Game.OBSTACLE_PADDLE_LENGTH : 1;
         return {
             height: Math.round(Math.max(50, Math.min(160, Math.floor(this.height * paddleHFactor))) *
-                (this.isForgeArenaActive?.() ? (this.customSettings.forge?.rules?.paddleSize || 1) : 1) * k),
+                (this.isForgeArenaActive?.() ? (this.customSettings.forge?.rules?.paddleSize || 1) : 1) * k * lengthK),
             width: Math.round(Math.max(10, Math.min(35, Math.floor(this.width * paddleWFactor))) * k),
             margin: Math.max(16, Math.min(40, this.width * 0.025)) * k
         };
