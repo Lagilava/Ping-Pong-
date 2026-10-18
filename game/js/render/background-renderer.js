@@ -1634,20 +1634,6 @@ class BackgroundRenderer {
         halo.addColorStop(1, 'rgba(64,112,140,0)');
         zctx.fillStyle = halo;
         zctx.fillRect(0, 0, w, h);
-        // Broad shafts share a single source behind the ruined treeline.
-        for (const [end, width, alpha] of [[0.14, 0.12, 0.10], [0.45, 0.07, 0.07], [0.86, 0.15, 0.14]]) {
-            const beam = zctx.createLinearGradient(moonX, moonY, w * end, groundY);
-            beam.addColorStop(0, `rgba(189,225,234,${alpha})`);
-            beam.addColorStop(0.75, `rgba(116,182,197,${alpha * 0.55})`);
-            beam.addColorStop(1, 'rgba(116,182,197,0)');
-            zctx.fillStyle = beam;
-            zctx.beginPath();
-            zctx.moveTo(moonX - unit * 0.025, moonY);
-            zctx.lineTo(w * (end - width), groundY);
-            zctx.lineTo(w * (end + width), groundY);
-            zctx.lineTo(moonX + unit * 0.025, moonY);
-            zctx.fill();
-        }
         zctx.fillStyle = '#d7e5df';
         zctx.beginPath();
         zctx.arc(moonX, moonY, unit * 0.047, 0, Math.PI * 2);
@@ -1661,6 +1647,12 @@ class BackgroundRenderer {
                 unit * (0.004 + i * 0.0006), unit * 0.0035, i, 0, Math.PI * 2);
             zctx.fill();
         }
+        // Separate sky from opaque scenery so moving shafts pass behind it.
+        this._zombieSkyCanvas = document.createElement('canvas');
+        this._zombieSkyCanvas.width = w;
+        this._zombieSkyCanvas.height = h;
+        this._zombieSkyCanvas.getContext('2d').drawImage(this._zombieStaticCanvas, 0, 0);
+        zctx.clearRect(0, 0, w, h);
         // Ruined chapel sits behind the graves, off the central ball lane.
         // Bake the masonry, rim light and window glow into the same static layer.
         zctx.save();
@@ -1810,6 +1802,47 @@ class BackgroundRenderer {
                 zctx.stroke();
             }
         }
+        // Cache a low-resolution surface mask before translucent mist/vignette.
+        // The same moving light field is intersected with this mask each frame.
+        this._zombieLightMask = document.createElement('canvas');
+        this._zombieLightMask.width = Math.max(1, Math.ceil(w * 0.25));
+        this._zombieLightMask.height = Math.max(1, Math.ceil(h * 0.25));
+        this._zombieLightMask.getContext('2d').drawImage(this._zombieStaticCanvas,
+            0, 0, this._zombieLightMask.width, this._zombieLightMask.height);
+        this._zombieLightCanvas = document.createElement('canvas');
+        this._zombieLightCanvas.width = this._zombieLightMask.width;
+        this._zombieLightCanvas.height = this._zombieLightMask.height;
+        this._zombieLightCtx = this._zombieLightCanvas.getContext('2d');
+        this._zombieFieldCanvas = document.createElement('canvas');
+        this._zombieFieldCanvas.width = this._zombieLightMask.width;
+        this._zombieFieldCanvas.height = this._zombieLightMask.height;
+        this._zombieFieldCtx = this._zombieFieldCanvas.getContext('2d');
+        // A feathered shaft sprite: all gradients are created only on resize.
+        this._zombieRayCanvas = document.createElement('canvas');
+        this._zombieRayCanvas.width = 128;
+        this._zombieRayCanvas.height = 512;
+        const ray = this._zombieRayCanvas.getContext('2d');
+        const feather = ray.createLinearGradient(0, 0, 128, 0);
+        feather.addColorStop(0, 'rgba(161,212,231,0)');
+        feather.addColorStop(0.25, 'rgba(161,212,231,0.35)');
+        feather.addColorStop(0.5, 'rgba(196,230,240,0.65)');
+        feather.addColorStop(0.75, 'rgba(161,212,231,0.35)');
+        feather.addColorStop(1, 'rgba(161,212,231,0)');
+        ray.fillStyle = feather;
+        ray.beginPath();
+        ray.moveTo(60, 0);
+        ray.lineTo(0, 512);
+        ray.lineTo(128, 512);
+        ray.lineTo(68, 0);
+        ray.fill();
+        ray.globalCompositeOperation = 'destination-in';
+        const fade = ray.createLinearGradient(0, 0, 0, 512);
+        fade.addColorStop(0, 'rgba(0,0,0,0.2)');
+        fade.addColorStop(0.2, 'rgba(0,0,0,1)');
+        fade.addColorStop(0.7, 'rgba(0,0,0,0.75)');
+        fade.addColorStop(1, 'rgba(0,0,0,0)');
+        ray.fillStyle = fade;
+        ray.fillRect(0, 0, 128, 512);
         const mist = zctx.createLinearGradient(0, h * 0.66, 0, h);
         mist.addColorStop(0, 'rgba(115,177,189,0)');
         mist.addColorStop(0.42, 'rgba(115,177,189,0.20)');
@@ -1826,10 +1859,59 @@ class BackgroundRenderer {
         return this._zombieStaticCanvas;
     }
 
+    _drawZombieMoonRays(ctx, w, h, strength = 1) {
+        if (!this._zombieRayCanvas) return;
+        const mx = w * 0.76, my = h * 0.22;
+        // Slow angular movement, not a blinking opacity effect. Surface lighting
+        // below uses these exact transforms, so it follows the visible shafts.
+        for (let i = 0; i < 3; i++) {
+            const angle = [0.78, 0.35, -0.24][i]
+                + Math.sin(this.time * (0.12 + i * 0.025) + i * 2.1) * 0.12;
+            const length = h * (1.05 + i * 0.05);
+            const width = w * [0.24, 0.14, 0.19][i];
+            ctx.save();
+            ctx.translate(mx, my);
+            ctx.rotate(angle);
+            ctx.globalAlpha *= strength * (0.78 + Math.sin(this.time * 0.19 + i) * 0.12);
+            ctx.drawImage(this._zombieRayCanvas, -width / 2, 0, width, length);
+            ctx.restore();
+        }
+    }
+
+    _renderZombieMoonlight(ctx, w, h) {
+        const light = this._zombieLightCtx;
+        if (!light || !this._zombieLightMask) return;
+        const lw = this._zombieLightCanvas.width, lh = this._zombieLightCanvas.height;
+        light.clearRect(0, 0, lw, lh);
+        // Build the complete light field before masking, so shafts combine
+        // rather than erasing each other under source-in compositing.
+        light.drawImage(this._zombieFieldCanvas, 0, 0);
+        light.globalCompositeOperation = 'destination-in';
+        light.drawImage(this._zombieLightMask, 0, 0);
+        light.globalCompositeOperation = 'source-over';
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.55;
+        ctx.drawImage(this._zombieLightCanvas, 0, 0, w, h);
+        ctx.restore();
+    }
+
     renderZombie(ctx, w, h) {
         const groundY = h * 0.90;
         const staticLayer = this._ensureZombieStaticLayer(w, h, groundY);
+        if (this._zombieSkyCanvas) ctx.drawImage(this._zombieSkyCanvas, 0, 0);
+        const field = this._zombieFieldCtx;
+        if (field) {
+            const fw = this._zombieFieldCanvas.width, fh = this._zombieFieldCanvas.height;
+            field.clearRect(0, 0, fw, fh);
+            this._drawZombieMoonRays(field, fw, fh, 1);
+            ctx.save();
+            ctx.globalAlpha *= 0.28;
+            ctx.drawImage(this._zombieFieldCanvas, 0, 0, w, h);
+            ctx.restore();
+        }
         if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
+        this._renderZombieMoonlight(ctx, w, h);
 
         // Match the cached moon so hand lighting stays anchored to its source.
         const moonX = w * 0.76;
@@ -3741,6 +3823,13 @@ class BackgroundRenderer {
     _buildCityLights() { /* no-op */ }
 
     _cleanupZombieCache() {
+        this._zombieSkyCanvas = null;
+        this._zombieLightMask = null;
+        this._zombieLightCanvas = null;
+        this._zombieLightCtx = null;
+        this._zombieFieldCanvas = null;
+        this._zombieFieldCtx = null;
+        this._zombieRayCanvas = null;
         this._zombieStaticCanvas = null;
         this._zombieStaticCtx = null;
         this._zombieStaticInitialized = false;
