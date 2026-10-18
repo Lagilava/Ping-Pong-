@@ -186,48 +186,7 @@ class AudioEngine {
 
     laser() {
         this.ensure();
-        if (!this.ctx) return;
-
-        const now = this.ctx.currentTime;
-
-        const laserOsc = this.ctx.createOscillator();
-        const laserGain = this.ctx.createGain();
-        const laserFilter = this.ctx.createBiquadFilter();
-        laserOsc.type = 'triangle';
-        laserOsc.frequency.setValueAtTime(2200, now);
-        laserOsc.frequency.exponentialRampToValueAtTime(420, now + 0.11);
-        laserFilter.type = 'bandpass';
-        laserFilter.frequency.setValueAtTime(3400, now);
-        laserFilter.frequency.exponentialRampToValueAtTime(900, now + 0.11);
-        laserFilter.Q.value = 7;
-        laserGain.gain.setValueAtTime(0.0001, now);
-        laserGain.gain.linearRampToValueAtTime(0.24, now + 0.003);
-        laserGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-        laserOsc.connect(laserFilter);
-        laserFilter.connect(laserGain);
-        laserGain.connect(this.gain);
-        laserOsc.start(now);
-        laserOsc.stop(now + 0.125);
-
-        const noiseBuffer = this.ctx.createBuffer(1, Math.max(1, Math.floor(this.ctx.sampleRate * 0.07)), this.ctx.sampleRate);
-        const noiseData = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < noiseData.length; i++) noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseData.length);
-
-        const noiseSrc = this.ctx.createBufferSource();
-        const noiseFilter = this.ctx.createBiquadFilter();
-        const noiseGain = this.ctx.createGain();
-        noiseSrc.buffer = noiseBuffer;
-        noiseFilter.type = 'highpass';
-        noiseFilter.frequency.setValueAtTime(1800, now);
-        noiseFilter.frequency.exponentialRampToValueAtTime(950, now + 0.07);
-        noiseGain.gain.setValueAtTime(0.0001, now);
-        noiseGain.gain.linearRampToValueAtTime(0.11, now + 0.002);
-        noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
-        noiseSrc.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(this.gain);
-        noiseSrc.start(now);
-        noiseSrc.stop(now + 0.07);
+        window.PPLaserAudio?.play(this.ctx, this.gain, 0.65);
     }
 
     // NEW: Start bassy gravity well sound

@@ -244,8 +244,8 @@ class Paddle {
             // dart projectile
             width: 14,
             height: 4,
-            color: isPlayer ? '#ff0000' : '#00ffff',
-            glowColor: isPlayer ? '#ff5252' : '#00bcd4',
+            color: isPlayer ? '#ff513c' : '#53dfff',
+            glowColor: isPlayer ? '#ff513c' : '#53dfff',
             owner: isPlayer ? 'player' : 'ai',
             active: true,
             life: 2,
@@ -262,8 +262,12 @@ class Paddle {
         }
 
         this.laserReadyGlow = 0;
+        this._laserFiredAt = Date.now();
+        if (!window.PPSettings?.get('reduceMotion')) this.kick(-direction, 0.24);
         this.energyPulse = 1.0;
-        this.particleSystem.spawnSparkleWave(laser.pos.x, laser.pos.y, laser.color, 500);
+        if (window.PPSettings?.get('particles') !== false && !window.PPSettings?.get('reduceMotion')) {
+            this.particleSystem.spawnSparkle(laser.pos.x, laser.pos.y, laser.glowColor, 2, 0.15);
+        }
 
         if (game) {
             game.screenShake = Math.max(game.screenShake, 5);
@@ -322,18 +326,6 @@ class Paddle {
             laser.pulsePhase += dt * 10; // Update pulse phase
             laser.energy -= dt * 0.5; // Laser loses energy over time
 
-            // Update trail
-            laser.trail.push({ x: laser.pos.x, y: laser.pos.y, life: 0.3 });
-            if (laser.trail.length > 10) {
-                laser.trail.shift();
-            }
-
-            // Update trail life
-            laser.trail.forEach(point => {
-                point.life -= dt;
-            });
-            laser.trail = laser.trail.filter(point => point.life > 0);
-
             // Remove if expired or off-screen
             if (laser.life <= 0 || laser.energy <= 0 ||
                 laser.pos.x < -100 ||
@@ -345,7 +337,7 @@ class Paddle {
             }
 
             // Add sparkle effect periodically
-            if (laser.sparkleTimer > 0.05) {
+            if (laser.sparkleTimer > 0.09 && window.PPSettings?.get('particles') !== false && !window.PPSettings?.get('reduceMotion')) {
                 laser.sparkleTimer = 0;
                 this.particleSystem.spawnSparkle(
                     laser.pos.x + (Math.random() - 0.5) * 10,
@@ -460,120 +452,7 @@ class Paddle {
 
     // Render lasers from this paddle
     renderLasers(ctx) {
-        this.lasers.forEach(laser => {
-            ctx.save();
-
-            const pulseIntensity = Math.sin(laser.pulsePhase) * 0.3 + 0.7;
-            const energyMultiplier = laser.energy;
-            const tipX = laser.vel.x > 0 ?
-                laser.pos.x + laser.width / 2 :
-                laser.pos.x - laser.width / 2;
-
-            // ===== MULTI-LAYER GLOW SYSTEM =====
-            // Outer atmospheric glow (large)
-            ctx.shadowColor = laser.glowColor;
-            ctx.shadowBlur = 50 * pulseIntensity * energyMultiplier;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-
-            // ===== ENHANCED TRAIL =====
-            if (laser.trail && laser.trail.length > 0) {
-                for (let i = 1; i < laser.trail.length; i++) {
-                    const point = laser.trail[i];
-                    const prevPoint = laser.trail[i - 1];
-                    const trailAlpha = point.life * 0.7;
-
-                    // Glow trail
-                    ctx.strokeStyle = laser.glowColor;
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-                    ctx.globalAlpha = trailAlpha * 0.4;
-                    ctx.lineWidth = laser.height * point.life * 3;
-                    ctx.beginPath();
-                    ctx.moveTo(prevPoint.x, prevPoint.y);
-                    ctx.lineTo(point.x, point.y);
-                    ctx.stroke();
-
-                    // Main trail
-                    ctx.strokeStyle = laser.color;
-                    ctx.globalAlpha = trailAlpha;
-                    ctx.lineWidth = laser.height * point.life * 1.5;
-                    ctx.beginPath();
-                    ctx.moveTo(prevPoint.x, prevPoint.y);
-                    ctx.lineTo(point.x, point.y);
-                    ctx.stroke();
-                }
-                ctx.globalAlpha = 1;
-            }
-
-            // ===== LASER CORE WITH QUANTUM EFFECT =====
-            // Intense core glow
-            ctx.shadowColor = laser.glowColor;
-            ctx.shadowBlur = 35 * pulseIntensity * energyMultiplier;
-
-            // Multi-stop gradient for depth
-            const gradient = ctx.createLinearGradient(
-                laser.pos.x - laser.width,
-                laser.pos.y,
-                laser.pos.x + laser.width,
-                laser.pos.y
-            );
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
-            gradient.addColorStop(0.15, laser.glowColor);
-            gradient.addColorStop(0.35, 'rgba(255, 255, 255, 0.9)');
-            gradient.addColorStop(0.5, laser.color);
-            gradient.addColorStop(0.65, 'rgba(255, 255, 255, 0.9)');
-            gradient.addColorStop(0.85, laser.glowColor);
-            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-            ctx.fillStyle = gradient;
-            ctx.globalAlpha = 0.95 * energyMultiplier;
-            ctx.fillRect(
-                laser.pos.x - laser.width / 2,
-                laser.pos.y - laser.height / 2 - 2,
-                laser.width * energyMultiplier,
-                laser.height + 4
-            );
-
-            // ===== LASER BODY - MAIN BEAM =====
-            ctx.globalAlpha = 1 * energyMultiplier;
-            ctx.fillStyle = laser.color;
-            ctx.fillRect(
-                laser.pos.x - laser.width / 2,
-                laser.pos.y - laser.height / 2,
-                laser.width * energyMultiplier,
-                laser.height
-            );
-
-            // ===== ANIMATED SHIMMER EFFECT =====
-            ctx.globalAlpha = 0.6 * energyMultiplier * pulseIntensity;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-            const shimmerOffset = (laser.pulsePhase * 100) % (laser.width * energyMultiplier);
-            ctx.fillRect(
-                laser.pos.x - laser.width / 2 + shimmerOffset - 5,
-                laser.pos.y - laser.height / 2,
-                10,
-                laser.height
-            );
-
-            // ===== LASER TIP GLOW =====
-            // replace angular "dart" tip with a simple glowing disc to make the beam
-            // look like a continuous laser rather than a projectile.
-            ctx.globalAlpha = 0.8 * energyMultiplier * pulseIntensity;
-            ctx.fillStyle = laser.glowColor;
-            ctx.beginPath();
-            ctx.arc(tipX, laser.pos.y, laser.height * 1.4, 0, Math.PI * 2);
-            ctx.fill();
-
-            // small bright core at the front
-            ctx.globalAlpha = 0.9 * energyMultiplier;
-            ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.beginPath();
-            ctx.arc(tipX, laser.pos.y, laser.height * 0.7, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.restore();
-        });
+        window.LaserFX?.shots(ctx, this);
     }
 
     // Get stunned by opponent laser
@@ -688,6 +567,7 @@ class Paddle {
         }
 
         if (!this.isZombieBoss) this._renderAnimatedAccents(ctx, time, hitGlow, style !== 'classic');
+        window.LaserFX?.ready(ctx, this, time);
 
         ctx.restore();
 
@@ -788,21 +668,9 @@ class Paddle {
             return;
         }
 
-        if (this.hasLaser && this.laserCharges > 0) {
-            ctx.save();
-            const weaponPulse = Math.sin(time * 8) * 0.15 + 0.85;
-            ctx.scale(weaponPulse, weaponPulse);
-            ctx.fillStyle = '#FF0033';
-            ctx.font = 'bold 18px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.globalAlpha = 0.35;
-            ctx.fillText(this.isAI ? 'LOCK' : 'PULSE', 0, -this.h / 2 - 27);
-            ctx.globalAlpha = 1;
-            ctx.fillText(this.isAI ? 'LOCK' : 'PULSE', 0, -this.h / 2 - 28);
-            ctx.restore();
-        }
 
-        if (this.powerUpPulse > 0) {
+
+        if (this.powerUpPulse > 0 && !this.hasLaser) {
             ctx.save();
             ctx.lineWidth = 5;
             ctx.strokeStyle = this.secondaryColor;
@@ -1015,38 +883,7 @@ class Paddle {
         ctx.restore();
 
         // LASER HUD - ENHANCED WEAPON DISPLAY
-        if (this.hasLaser && this.laserCharges > 0) {
-            ctx.save();
 
-            // Dynamic rotation and scaling
-            const weaponPulse = Math.sin(time * 8) * 0.15 + 0.85;
-            const wobble = Math.sin(time * 12) * 0.06;
-            ctx.rotate(wobble);
-            ctx.scale(weaponPulse, weaponPulse);
-
-            const weaponY = -this.h / 2 - 40;
-            const hotY = -this.h / 2 - 10;
-
-            // ===== WEAPON TEXT IS ACTIVE (RED) =====
-            // Back glow layer - massive
-            ctx.shadowColor = '#FF0033';
-            ctx.shadowBlur = 40;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-            ctx.fillStyle = '#FF0033';
-            ctx.font = 'bold 24px "Courier New", monospace';
-            ctx.textAlign = 'center';
-            ctx.fillText('TARGET', 0, weaponY);
-            ctx.fillText('LOCKED', 0, weaponY + 25);
-
-            // Front text layer
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillText('TARGET', 0, weaponY);
-            ctx.fillText('LOCKED', 0, weaponY + 25);
-
-            ctx.restore();
-        }
     }
 
     // ────── Helpers ──────
@@ -1125,153 +962,10 @@ class Paddle {
         ctx.fillRect(-this.w / 2, this.h / 2 - 30, this.w, 30);
 
         // LASER HUD - ENHANCED WEAPON DISPLAY
-        if (this.hasLaser && this.laserCharges > 0) {
-            ctx.save();
 
-            // Dynamic rotation and scaling
-            const weaponPulse = Math.sin(time * 8) * 0.15 + 0.85;
-            const wobble = Math.sin(time * 12) * 0.06;
-            ctx.rotate(wobble);
-            ctx.scale(weaponPulse, weaponPulse);
-
-            const weaponY = -this.h / 2 - 40;
-            const hotY = -this.h / 2 - 10;
-
-            // The label is wider than the paddle: when the paddle hugs the left
-            // edge, slide it right so "WEAPON" isn't cut off by the screen edge.
-            ctx.font = 'bold 48px "Transformers", "Arial Black", sans-serif';
-            const labelHalf = ctx.measureText('WEAPON').width / 2 + 16;
-            const edgeShift = Math.max(0, labelHalf - (this.pos.x + this.w / 2));
-            if (edgeShift) ctx.translate(edgeShift, 0);
-
-            // ===== WEAPON TEXT IS ACTIVE (RED) =====
-            // Back glow layer - massive
-            ctx.shadowColor = '#FF0033';
-            ctx.shadowBlur = 40;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-            ctx.globalAlpha = 0.7;
-            ctx.font = 'bold 48px "Transformers", "Arial Black", sans-serif';
-            ctx.fillStyle = '#AA0022';
-            ctx.strokeStyle = '#FF0033';
-            ctx.lineWidth = 10;
-            ctx.textAlign = 'center';
-            ctx.strokeText('WEAPON', 0, weaponY);
-
-            // Core text
-            ctx.globalAlpha = 1;
-            ctx.shadowBlur = 20;
-            ctx.fillStyle = '#FF0033';
-            ctx.fillText('WEAPON', 0, weaponY);
-
-            // Bright highlight
-            ctx.globalAlpha = 0.8 * pulseIntensity;
-            ctx.fillStyle = '#FF6666';
-            ctx.strokeStyle = '#FFAAAAA';
-            ctx.lineWidth = 3;
-            ctx.strokeText('WEAPON', 0, weaponY);
-            ctx.fillText('WEAPON', 0, weaponY - 2);
-
-            // ===== HOT TEXT IS BLAZING (YELLOW + ORANGE) =====
-            ctx.globalAlpha = 1;
-            ctx.font = 'bold 44px "Transformers", "Arial Black", sans-serif';
-
-            // Triple-layer glow for that FIRE effect
-            ctx.shadowColor = '#FF6600';
-            ctx.shadowBlur = 50;
-            ctx.globalAlpha = 0.6;
-            ctx.fillStyle = '#994400';
-            ctx.strokeStyle = '#FF6600';
-            ctx.lineWidth = 12;
-            ctx.textAlign = 'center';
-            ctx.strokeText('HOT', 0, hotY);
-
-            // Mid layer
-            ctx.shadowColor = '#FFDD00';
-            ctx.shadowBlur = 30;
-            ctx.globalAlpha = 0.9;
-            ctx.fillStyle = '#FFFF00';
-            ctx.strokeStyle = '#FFDD00';
-            ctx.lineWidth = 6;
-            ctx.strokeText('HOT', 0, hotY);
-
-            // Bright core
-            ctx.globalAlpha = 1;
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillText('HOT', 0, hotY - 1);
-
-            // Pulsing accent glow
-            ctx.globalAlpha = 0.7 * Math.sin(time * 10) * 0.5 + 0.5;
-            ctx.shadowColor = '#FFFF00';
-            ctx.shadowBlur = 25;
-            ctx.fillStyle = '#FFFF00';
-            ctx.fillText('HOT', 0, hotY);
-
-            // ===== CHARGE INDICATORS - MUCH MORE DRAMATIC =====
-            for (let i = 0; i < 3; i++) {
-                const charged = i < this.laserCharges;
-                const x = (i - 1) * 30;
-                ctx.globalAlpha = 1;
-
-                if (charged) {
-                    // CHARGED - Blazing effect
-                    ctx.shadowColor = '#FFFF00';
-                    ctx.shadowBlur = 25;
-                    ctx.fillStyle = '#FFFF00';
-                    ctx.strokeStyle = '#FF6600';
-                    ctx.lineWidth = 6;
-
-                    // Outer glow
-                    ctx.globalAlpha = 0.5 * (Math.sin(time * 15 + i) * 0.5 + 0.5);
-                    ctx.beginPath();
-                    ctx.moveTo(x - 14, this.h / 2 + 10);
-                    ctx.lineTo(x + 14, this.h / 2 + 10);
-                    ctx.lineTo(x, this.h / 2 + 38);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    // Main bolt
-                    ctx.globalAlpha = 1;
-                    ctx.fillStyle = '#FFFF00';
-                    ctx.beginPath();
-                    ctx.moveTo(x - 10, this.h / 2 + 15);
-                    ctx.lineTo(x + 10, this.h / 2 + 15);
-                    ctx.lineTo(x, this.h / 2 + 30);
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
-
-                    // Inner bright
-                    ctx.globalAlpha = 0.9;
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.beginPath();
-                    ctx.moveTo(x - 5, this.h / 2 + 17);
-                    ctx.lineTo(x + 5, this.h / 2 + 17);
-                    ctx.lineTo(x, this.h / 2 + 27);
-                    ctx.closePath();
-                    ctx.fill();
-                } else {
-                    // NOT CHARGED - Dimmer
-                    ctx.shadowColor = '#440000';
-                    ctx.shadowBlur = 5;
-                    ctx.globalAlpha = 0.4;
-                    ctx.fillStyle = '#440000';
-                    ctx.strokeStyle = '#220000';
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    ctx.moveTo(x - 10, this.h / 2 + 15);
-                    ctx.lineTo(x + 10, this.h / 2 + 15);
-                    ctx.lineTo(x, this.h / 2 + 30);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-            }
-            ctx.restore();
-        }
 
         // POWER-UP SHOCKWAVE
-        if (this.powerUpPulse > 0) {
+        if (this.powerUpPulse > 0 && !this.hasLaser) {
             ctx.lineWidth = 8;
             ctx.strokeStyle = '#00FFFF';
             ctx.globalAlpha = this.powerUpPulse;

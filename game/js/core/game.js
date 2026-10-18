@@ -5796,10 +5796,10 @@ class Game {
                 // Touch: a second finger on your side fires the laser power-up
                 // (the keyboard's Space/Enter), without letting go of the paddle.
                 const paddle = target === 'ai' ? this.aiPaddle : this.player;
-                if (e.pointerType === 'touch' && ['speed', 'gravity', 'obstacle'].includes(this.gameMode) && this.modeAbilities.trigger(target)) {
-                    e.preventDefault();
-                } else if (e.pointerType === 'touch' && paddle?.hasLaser) {
+                if (e.pointerType === 'touch' && this.hasLoadedLaser(paddle)) {
                     this.keys[target === 'ai' ? 'enter' : ' '] = true;
+                    e.preventDefault();
+                } else if (e.pointerType === 'touch' && ['speed', 'gravity', 'obstacle'].includes(this.gameMode) && this.modeAbilities.trigger(target)) {
                     e.preventDefault();
                 } else if (e.pointerType === 'touch' && target === 'player' && this.isZombieWaveMode() && this.zombiePull.touchId === null) {
                     // Second finger on your half holds the Undead Pull.
@@ -5899,7 +5899,9 @@ class Game {
             const names = this.translateKey(e.key.toLowerCase());
             let abilityFired = false;
             if (!e.repeat && (names.includes(' ') || (this.isMultiplayer && names.includes('enter')))) {
-                abilityFired = this.modeAbilities.trigger(names.includes('enter') && !names.includes(' ') ? 'ai' : 'player');
+                const side = names.includes('enter') && !names.includes(' ') ? 'ai' : 'player';
+                const paddle = this.net?.role === 'guest' ? this.aiPaddle : (side === 'ai' ? this.aiPaddle : this.player);
+                if (!this.hasLoadedLaser(paddle)) abilityFired = this.modeAbilities.trigger(side);
             }
             for (let i = 0; i < names.length; i++) if (!abilityFired || (names[i] !== ' ' && names[i] !== 'enter')) this.keys[names[i]] = true;
             if (names.includes(' ') || names.includes('enter')) e.preventDefault();
@@ -6924,6 +6926,10 @@ class Game {
     // ── Gamepads ────────────────────────────────────────────────────────────
     // Pad 1 drives the left paddle, pad 2 the right paddle in local 1v1.
     // Left stick / d-pad move (analog), A = laser (or skip intro), Start = pause.
+    hasLoadedLaser(paddle) {
+        return !!(paddle?.hasLaser && paddle.laserCharges > 0 && !paddle.laserStunned);
+    }
+
     pollGamepads() {
         if (!navigator.getGamepads) return;
         const list = navigator.getGamepads();
@@ -6953,7 +6959,8 @@ class Game {
             const st = this.padState[i];
             if (!st.aPressed) continue;
             if (this.introActive && this.intro?.active) { this.skipIntro(); continue; }
-            if (!this.modeAbilities.trigger(i === 0 ? 'player' : 'ai')) {
+            const paddle = this.net?.role === 'guest' ? this.aiPaddle : (i === 0 ? this.player : this.aiPaddle);
+            if (this.hasLoadedLaser(paddle) || !this.modeAbilities.trigger(i === 0 ? 'player' : 'ai')) {
                 this.keys[i === 0 ? ' ' : 'enter'] = true;   // laser, consumed in updatePaddles
             }
         }

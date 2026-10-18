@@ -1859,91 +1859,20 @@ class EnhancedAudioEngine {
     }
 
     laser() {
-        this.ensureContext().then(() => {
-            const sound = this.sounds.laser;
+        if (!this.enabled || this.sfxVolume <= 0) return;
+        return this.ensureContext().then(() => {
+            if (!this.enabled || this.sfxVolume <= 0) return;
             const now = this.ctx.currentTime;
-            const laserVol = Math.max(0, Math.min(1, sound.vol * this.sfxVolume));
-            const laserOsc = this.ctx.createOscillator();
-            const laserGain = this.ctx.createGain();
-            const laserFilter = this.ctx.createBiquadFilter();
-            const punchOsc = this.ctx.createOscillator();
-            const punchGain = this.ctx.createGain();
-
-            // more modern weapon shot: hard transient + compact energy sweep
-            laserOsc.type = 'sawtooth';
-            laserOsc.frequency.setValueAtTime(2400, now);
-            laserOsc.frequency.exponentialRampToValueAtTime(480, now + 0.09);
-            laserFilter.type = 'bandpass';
-            laserFilter.frequency.setValueAtTime(3200, now);
-            laserFilter.frequency.exponentialRampToValueAtTime(980, now + 0.09);
-            laserFilter.Q.value = 8;
-            laserGain.gain.setValueAtTime(0.001, now);
-            laserGain.gain.linearRampToValueAtTime(laserVol * 0.72, now + 0.002);
-            laserGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
-            laserOsc.connect(laserFilter);
-            laserFilter.connect(laserGain);
-            laserGain.connect(this.masterGain);
-            laserOsc.start(now);
-            laserOsc.stop(now + 0.13);
-
-            punchOsc.type = 'sine';
-            punchOsc.frequency.setValueAtTime(220, now);
-            punchOsc.frequency.exponentialRampToValueAtTime(84, now + 0.07);
-            punchGain.gain.setValueAtTime(0.001, now);
-            punchGain.gain.linearRampToValueAtTime(laserVol * 0.42, now + 0.004);
-            punchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-            punchOsc.connect(punchGain);
-            punchGain.connect(this.masterGain);
-            punchOsc.start(now);
-            punchOsc.stop(now + 0.1);
-
-            // add a short burst of filtered noise for a harder attack
-            const noiseBuffer = this.ctx.createBuffer(1, Math.max(1, Math.floor(this.ctx.sampleRate * 0.035)), this.ctx.sampleRate);
-            const noiseData = noiseBuffer.getChannelData(0);
-            for (let i = 0; i < noiseData.length; i++) {
-                // fade the noise so it doesn't click hard at the end
-                noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseData.length);
-            }
-
-            const noiseSrc = this.ctx.createBufferSource();
-            const noiseFilter = this.ctx.createBiquadFilter();
-            const noiseGain = this.ctx.createGain();
-            noiseSrc.buffer = noiseBuffer;
-            noiseFilter.type = 'bandpass';
-            noiseFilter.frequency.setValueAtTime(2600, now);
-            noiseFilter.frequency.exponentialRampToValueAtTime(1200, now + 0.06);
-            noiseFilter.Q.value = 6;
-            noiseGain.gain.setValueAtTime(0.001, now);
-            noiseGain.gain.linearRampToValueAtTime(laserVol * 0.24, now + 0.002);
-            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
-            noiseSrc.connect(noiseFilter);
-            noiseFilter.connect(noiseGain);
-            noiseGain.connect(this.masterGain);
-            noiseSrc.start(now);
-            noiseSrc.stop(now + 0.06);
-
-            // Track oscillator for cleanup
-            laserOsc._finished = false;
-            laserOsc._startTime = Date.now();
-            laserOsc.onended = () => {
-                laserOsc._finished = true;
+            const volume = Math.min(1, this.sounds.laser.vol * 1.8 * this.sfxVolume);
+            const voices = window.PPLaserAudio?.play(this.ctx, this.masterGain, volume, source => {
+                this.activeOscillators.delete(source);
                 this.analytics.concurrentSounds = Math.max(0, this.analytics.concurrentSounds - 1);
-                this.analytics.totalPlayTime += 0.125;
-            };
-
-            this.activeOscillators.add(laserOsc);
-            this.activeOscillators.add(punchOsc);
-            punchOsc._finished = false;
-            punchOsc._startTime = Date.now();
-            punchOsc.onended = () => {
-                punchOsc._finished = true;
-                this.analytics.concurrentSounds = Math.max(0, this.analytics.concurrentSounds - 1);
-                this.analytics.totalPlayTime += 0.1;
-            };
+            }) || [];
+            for (const source of voices) this.activeOscillators.add(source);
             this.analytics.soundsPlayed++;
-            this.analytics.concurrentSounds += 2;
+            this.analytics.concurrentSounds += voices.length;
             this.analytics.maxConcurrent = Math.max(this.analytics.maxConcurrent, this.analytics.concurrentSounds);
-            this.analytics.lastPlayed['laser'] = now;
+            this.analytics.lastPlayed.laser = now;
         });
     }
 
