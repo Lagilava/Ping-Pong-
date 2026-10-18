@@ -190,7 +190,9 @@
                 // Mirror a half-court inlay about the real net; no painted duplicate net.
                 vec2 courtUv = vec2(suv.y, abs(suv.x - 0.5) * 2.0);
                 vec3 inlay = texture2D(uCourtArt, courtUv).rgb;
-                base = mix(base, inlay * vec3(0.55, 0.70, 0.85), 0.72);
+                base = mix(base, inlay * vec3(1.20, 1.35, 1.50), 0.95);
+                specCol *= 0.22;
+                skyRefl *= 0.35;
             }
 
             // ── Compose ─────────────────────────────────────────────
@@ -249,7 +251,15 @@
         }
 
         void main() {
-            vec3 col = texture2D(uMap, vUv).rgb * uBackdropGrade;
+            // Keep the stadium horizon fixed while sky and under-clouds drift.
+            // Periodic offsets remain continuous at the panorama seam.
+            float cloudMask = smoothstep(0.62, 0.78, vUv.y)
+                + (1.0 - smoothstep(0.22, 0.38, vUv.y));
+            vec2 cloudUv = vUv;
+            cloudUv.x += uTime * 0.0025 * cloudMask;
+            cloudUv.y += sin(vUv.x * 6.2831853 + uTime * 0.09)
+                * 0.006 * cloudMask;
+            vec3 col = texture2D(uMap, cloudUv).rgb * uBackdropGrade;
             vec3 d = normalize(vDir);
             float up = clamp(d.y, -0.2, 1.0);
 
@@ -1521,9 +1531,9 @@
                 ball.rotation.y += delta * 2.2 + Math.cos(time * 1.4) * 0.0015;
                 ball.rotation.z = Math.sin(time * 0.8) * 0.28;
                 ball.scale.setScalar(1 + Math.sin(time * 3.4) * 0.03 + Math.cos(time * 1.2) * 0.02);
-                ballMat.emissiveIntensity = 0.5 + Math.sin(time * 3.1 + ball.userData.phase) * 0.2
-                    + Math.abs(ball.position.y - ballHome.y) * 0.06
-                    + sceneGlitch * 0.3;
+                ballMat.emissiveIntensity = 0.10 + Math.sin(time * 3.1 + ball.userData.phase) * 0.03
+                    + Math.abs(ball.position.y - ballHome.y) * 0.02
+                    + sceneGlitch * 0.08;
 
                 // Ball halo
                 ballHalo.position.copy(ball.position);
@@ -1598,7 +1608,7 @@
                 leftPaddle.rotation.y = 0.06 + Math.sin(time * 0.62) * 0.07 + Math.cos(time * 2.8 + leftPaddle.userData.swingPhase) * 0.025;
                 leftPaddle.position.y += Math.sin(time * 2.45 + leftPaddle.userData.swingPhase) * 0.02;
                 leftPaddle.scale.setScalar(1 + Math.sin(time * 2.05) * 0.025);
-                leftPaddleMat.emissiveIntensity = 0.5 + Math.abs(Math.sin(time * 2.3 + leftPaddle.userData.phase)) * 0.28 + sceneGlitch * 0.1;
+                leftPaddleMat.emissiveIntensity = 0.12 + Math.abs(Math.sin(time * 2.3 + leftPaddle.userData.phase)) * 0.06 + sceneGlitch * 0.04;
 
                 // ── Right Paddle ──────────────────────────────────────
                 rightTarget.set(
@@ -1619,7 +1629,7 @@
                 rightPaddle.rotation.y = -0.06 - Math.cos(time * 0.66) * 0.07 + Math.sin(time * 2.3 + rightPaddle.userData.swingPhase) * 0.02;
                 rightPaddle.position.y += Math.cos(time * 2.55 + rightPaddle.userData.swingPhase) * 0.02;
                 rightPaddle.scale.setScalar(1 + Math.cos(time * 2.15) * 0.025);
-                rightPaddleMat.emissiveIntensity = 0.5 + Math.abs(Math.cos(time * 2.6 + rightPaddle.userData.phase)) * 0.28 + sceneGlitch * 0.1;
+                rightPaddleMat.emissiveIntensity = 0.12 + Math.abs(Math.cos(time * 2.6 + rightPaddle.userData.phase)) * 0.06 + sceneGlitch * 0.04;
 
                 keepAboveFloor(leftPaddle, floorY + paddleHalfH + 0.02);
                 keepAboveFloor(rightPaddle, floorY + paddleHalfH + 0.02);

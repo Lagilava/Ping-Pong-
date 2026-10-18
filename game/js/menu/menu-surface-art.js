@@ -90,6 +90,30 @@
                 if (material) {
                     material.map = tex;
                     material.bumpMap = tex;
+                    // Mask glow with albedo: dark rubber stays dark during animation.
+                    material.emissiveMap = tex;
+                    material.emissive.setHex(0xffffff);
+                    material.onBeforeCompile = shader => {
+                        // Retain some lit curvature without letting the strong arena lights
+                        // flatten the generated albedo into a solid white/cyan surface.
+                        if (name === 'ball-shell') {
+                            // Broad shell bands survive the ball's ~30px menu footprint;
+                            // the generated ceramic dimples remain the fine surface layer.
+                            shader.fragmentShader = shader.fragmentShader.replace(
+                                '#include <map_fragment>',
+                                '#include <map_fragment>\nfloat shellBand = 1.0 - smoothstep(0.045, 0.065, abs(vUv.y - 0.5 + sin(vUv.x * 12.56637) * 0.09));\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.015, 0.35, 0.48), shellBand * 0.92);');
+                        }
+                        shader.fragmentShader = shader.fragmentShader.replace(
+                            '#include <tonemapping_fragment>',
+                            'gl_FragColor.rgb = mix(gl_FragColor.rgb, diffuseColor.rgb * 0.85, 0.78);\n#include <tonemapping_fragment>');
+                    };
+                    material.customProgramCacheKey = () => `menu-readable-albedo-v2-${name}`;
+                    if (name.startsWith('paddle-')) {
+                        // Crop to a narrow rubber strip instead of squeezing a square
+                        // atlas cell onto the tall paddle face.
+                        tex.repeat.set(0.28, 1);
+                        tex.offset.set(0.35, 0);
+                    }
                     material.bumpScale = name === 'ball-shell' ? 0.006 : 0.012;
                     material.roughness = name === 'ball-shell' ? 0.36 : 0.65;
                     material.needsUpdate = true;
