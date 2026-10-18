@@ -2748,6 +2748,7 @@ class Game {
             zombies: [],
             spitBalls: [],
             pickups: [],
+            pickupBursts: [],
             breachLimit: 12,
             // One pool of lives for the whole run: the ball getting past you or
             // a zombie reaching the barricade costs one.
@@ -2832,7 +2833,8 @@ class Game {
             this._zombiePickupPalette = {
                 rage: { color: '#ff5a1f', accent: '#ffd59d', label: 'Rage' },
                 shield: { color: '#42b6ff', accent: '#d9f4ff', label: 'Shield' },
-                slow: { color: '#68ff95', accent: '#d8ffe0', label: 'Slow' }
+                slow: { color: '#68ff95', accent: '#d8ffe0', label: 'Slow' },
+                life: { color: '#ff73b6', accent: '#ffe0f0', label: 'Extra Life' }
             };
         }
         return this._zombiePickupPalette;
@@ -2978,7 +2980,7 @@ class Game {
 
         const buttons = this.zombieWaveChoice.querySelectorAll('.zombie-wave-choice-btn');
         buttons.forEach(button => {
-            if (button.dataset.powerup === 'repair') button.disabled = state.hearts >= state.maxHearts;
+            if (button.dataset.powerup === 'life' || button.dataset.powerup === 'repair') button.disabled = state.hearts >= state.maxHearts;
             button.onclick = () => this.applyZombieWaveChoice(button.dataset.powerup || 'shield');
         });
 
@@ -3080,7 +3082,14 @@ class Game {
         if (zombieMode) {
             this._setHTML(this.zombieProgressWave,
                 `<span class="zombie-wave-label">Wave</span> <strong>${String(currentWave).padStart(2, '0')}<small> / ${state.maxWave}</small></strong><span class="zombie-wave-status">${bossWave ? 'Final stand' : `${hordeLeft} remaining`}</span>`);
-            this._setHTML(this.zombieProgressBoosts, boostParts.length ? boostParts.join(' &middot; ') : '');
+            const badges = [];
+            const badge = window.ZombiePowerups?.badge;
+            if (badge) {
+                if (state.shieldCharges > 0) badges.push(badge('shield', `Shield ×${state.shieldCharges}`));
+                if (rageSeconds > 0) badges.push(badge('rage', `Rage ${rageSeconds}s`));
+                if (slowSeconds > 0) badges.push(badge('slow', `Slow ${slowSeconds}s`));
+            }
+            this._setHTML(this.zombieProgressBoosts, badges.length ? badges.join('') : boostParts.join(' · '));
             if (this.zombieProgressBoosts) this.zombieProgressBoosts.classList.toggle('empty', !boostParts.length);
         }
 
@@ -3261,6 +3270,12 @@ class Game {
         };
     }
 
+    getZombiePickupTypes() {
+        const types = ['rage', 'shield', 'slow'];
+        if (this.zombieState.hearts < this.zombieState.maxHearts) types.push('life');
+        return types;
+    }
+
     spawnZombiePickup(type) {
         const palette = this.getZombiePickupPalette();
         const pickup = palette[type];
@@ -3362,7 +3377,7 @@ class Game {
         this.zombieSprites.prewarm(state.zombies);
 
         if (wave === 1 || wave % 2 === 0 || Math.random() < 0.45) {
-            const pickupTypes = ['rage', 'shield', 'slow'];
+            const pickupTypes = this.getZombiePickupTypes();
             this.spawnZombiePickup(pickupTypes[Math.floor(Math.random() * pickupTypes.length)]);
         }
 
@@ -3439,9 +3454,9 @@ class Game {
         } else if (type === 'shield') {
             state.shieldCharges = Math.min(3, state.shieldCharges + 1);
             this.showNotification('Shield!', 'Blocks fire breath, spits, and a breach', '#42b6ff');
-        } else if (type === 'repair') {
+        } else if (type === 'life' || type === 'repair') {
             state.hearts = Math.min(state.maxHearts, state.hearts + 1);
-            this.showNotification('Barricade Repaired', `${state.hearts}/${state.maxHearts} lives`, '#ff8fa3');
+            this.showNotification('Extra Life!', `${state.hearts}/${state.maxHearts} lives`, '#ff73b6');
         }
         this.audio?.powerUp?.();
         this.syncZombieHUD();
@@ -3552,6 +3567,7 @@ class Game {
 
         const state = this.zombieState;
         state.active = true;
+        state.pickupBursts = (state.pickupBursts || []).filter(effect => (effect.age += dt) < 0.65);
         this.zombiePull.update(dt);
         this.zombieSprites.pump(2);
         this.syncZombiePullHUD();
@@ -3816,23 +3832,7 @@ class Game {
         }
         state.spitBalls = nextSpitBalls;
 
-        const nextPickups = [];
-        for (let i = 0; i < state.pickups.length; i++) {
-            const pickup = state.pickups[i];
-            pickup.pulse += dt * 4.8;
-            pickup.life -= dt;
-
-            if (Math.hypot(this.ball.pos.x - pickup.x, this.ball.pos.y - pickup.y) < this.ball.r + pickup.r) {
-                this.applyZombiePickup(pickup.type);
-                this.particles.spawnGodTierHit(pickup.x, pickup.y, pickup.color, 720);
-                continue;
-            }
-
-            if (pickup.life > 0) {
-                nextPickups.push(pickup);
-            }
-        }
-        state.pickups = nextPickups;
+        this.updateZombiePickups(dt);
 
         if (state.zombies.length === 0) {
             if (state.wave >= state.maxWave) {
@@ -3846,6 +3846,32 @@ class Game {
         }
 
         this.syncZombieHUD();
+    }
+
+    updateZombiePickups(dt) {
+        const state = this.zombieState;
+        const nextPickups = [];
+        for (let i = 0; i < state.pickups.length; i++) {
+            const pickup = state.pickups[i];
+            pickup.pulse += dt * 4.8;
+            pickup.life -= dt;
+
+            if (Math.hypot(this.ball.pos.x - pickup.x, this.ball.pos.y - pickup.y) < this.ball.r + pickup.r) {
+                const gainedLife = state.hearts < state.maxHearts;
+                this.applyZombiePickup(pickup.type);
+                state.pickupBursts.push({ type: pickup.type, x: pickup.x, y: pickup.y,
+                    r: pickup.r, color: pickup.color, age: 0 });
+                const label = pickup.type === 'life' ? (gainedLife ? '+1 LIFE' : 'LIVES FULL') : this.getZombiePickupPalette()[pickup.type].label.toUpperCase();
+                this.popText(label, pickup.x, pickup.y - pickup.r * 2, pickup.color, 19);
+                continue;
+            }
+
+            if (pickup.life > 0) {
+                nextPickups.push(pickup);
+            }
+        }
+        state.pickups = nextPickups;
+
     }
 
     handleZombieBallCollisions(ball = this.ball) {
@@ -3915,7 +3941,7 @@ class Game {
                 this.screenFlash = Math.max(this.screenFlash, 0.2);
 
                 if (Math.random() < 0.18 && state.pickups.length < 2) {
-                    const lootTypes = ['rage', 'shield', 'slow'];
+                    const lootTypes = this.getZombiePickupTypes();
                     this.spawnZombiePickup(lootTypes[Math.floor(Math.random() * lootTypes.length)]);
                 }
             }
@@ -3945,6 +3971,7 @@ class Game {
             this.renderZombieEnemy(ctx, state.zombies[i]);
         }
         this.zombiePull.renderTethers(ctx, state.zombies);
+        for (const effect of state.pickupBursts || []) window.ZombiePowerups?.burst(ctx, effect, this.player);
         for (let i = 0; i < state.spitBalls.length; i++) {
             this.renderZombieSpit(ctx, state.spitBalls[i]);
         }
@@ -3983,64 +4010,7 @@ class Game {
     }
 
     renderZombiePickup(ctx, pickup) {
-        const pulse = 1 + Math.sin(pickup.pulse) * 0.12;
-
-        ctx.save();
-        ctx.translate(pickup.x, pickup.y);
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = pickup.color;
-        ctx.fillStyle = pickup.color;
-        ctx.globalAlpha = 0.18;
-        ctx.beginPath();
-        ctx.arc(0, 0, pickup.r * 1.6 * pulse, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.globalAlpha = 1;
-        const orb = ctx.createRadialGradient(-pickup.r * 0.25, -pickup.r * 0.35, pickup.r * 0.12, 0, 0, pickup.r * 1.12);
-        orb.addColorStop(0, pickup.accent);
-        orb.addColorStop(0.45, pickup.color);
-        orb.addColorStop(1, '#10151b');
-        ctx.fillStyle = orb;
-        ctx.beginPath();
-        ctx.arc(0, 0, pickup.r * pulse, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = pickup.accent;
-        ctx.beginPath();
-        ctx.arc(0, 0, pickup.r * pulse, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.shadowBlur = 0;
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = pickup.accent;
-        ctx.lineCap = 'round';
-
-        if (pickup.type === 'rage') {
-            ctx.beginPath();
-            ctx.moveTo(-pickup.r * 0.18, -pickup.r * 0.7);
-            ctx.lineTo(pickup.r * 0.12, -pickup.r * 0.18);
-            ctx.lineTo(-pickup.r * 0.08, -pickup.r * 0.18);
-            ctx.lineTo(pickup.r * 0.2, pickup.r * 0.72);
-            ctx.lineTo(-pickup.r * 0.12, pickup.r * 0.08);
-            ctx.lineTo(pickup.r * 0.08, pickup.r * 0.08);
-            ctx.stroke();
-        } else if (pickup.type === 'shield') {
-            ctx.beginPath();
-            ctx.moveTo(0, -pickup.r * 0.74);
-            ctx.quadraticCurveTo(pickup.r * 0.72, -pickup.r * 0.42, pickup.r * 0.52, pickup.r * 0.34);
-            ctx.quadraticCurveTo(0, pickup.r * 0.86, -pickup.r * 0.52, pickup.r * 0.34);
-            ctx.quadraticCurveTo(-pickup.r * 0.72, -pickup.r * 0.42, 0, -pickup.r * 0.74);
-            ctx.stroke();
-        } else {
-            ctx.beginPath();
-            ctx.arc(0, 0, pickup.r * 0.38, 0, Math.PI * 2);
-            ctx.moveTo(-pickup.r * 0.72, 0);
-            ctx.quadraticCurveTo(0, pickup.r * 0.76, pickup.r * 0.72, 0);
-            ctx.stroke();
-        }
-
-        ctx.restore();
+        window.ZombiePowerups?.draw(ctx, pickup);
     }
 
     renderZombieSpit(ctx, spit) {
@@ -8482,7 +8452,7 @@ class Game {
                 ctx.lineWidth = 4;
                 ctx.strokeStyle = `rgba(92, 209, 255, ${0.8 + pulse * 0.15})`;
                 ctx.shadowColor = '#57d6ff';
-                ctx.shadowBlur = 18 + pulse * 10;
+                ctx.shadowBlur = 0;
                 ctx.strokeRect(baseX - 7, baseY - 7, baseW + 14, baseH + 14);
                 ctx.globalAlpha = 0.35;
                 ctx.lineWidth = 2;
@@ -8494,7 +8464,7 @@ class Game {
                 ctx.lineWidth = 3;
                 ctx.strokeStyle = `rgba(255, 132, 58, ${0.75 + pulse * 0.2})`;
                 ctx.shadowColor = '#ff7c32';
-                ctx.shadowBlur = 14 + pulse * 8;
+                ctx.shadowBlur = 0;
                 ctx.strokeRect(baseX - 3, baseY - 3, baseW + 6, baseH + 6);
                 ctx.beginPath();
                 ctx.moveTo(baseX + baseW + 4, baseY + baseH * 0.2);

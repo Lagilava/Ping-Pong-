@@ -261,3 +261,45 @@ html.pp-mobile #zombieProgressBoosts { font-size: 9px; }
     #zombieBriefing, #zombieWaveChoice { padding: 10px; }
     :is(#zombieBriefing, #zombieWaveChoice) .zombie-wave-choice-panel { width: calc(100vw - 20px); padding: 18px; }
 }
+
+/* One generated atlas serves the reward cards and compact live effect badges. */
+.zombie-powerup-art {
+    display: inline-block;
+    flex-shrink: 0;
+    background-image: url('../assets/images/powerups/zombie-powerups.webp');
+    background-repeat: no-repeat;
+    background-size: 200% 200%;
+}
+.zombie-art-rage { background-position: 0 0; }
+.zombie-art-shield { background-position: 100% 0; }
+.zombie-art-slow { background-position: 0 100%; }
+.zombie-art-life { background-position: 100% 100%; }
+#zombieProgressBoosts:not(.empty) { display: flex; flex-wrap: wrap; gap: 5px; }
+.zombie-boost { display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px 2px 1px; border: 1px solid currentColor; border-radius: 5px; background: #030b12c9; font-size: 10px; white-space: nowrap; }
+.zombie-boost .zombie-powerup-art { width: 24px; height: 24px; }
+.zombie-boost-rage { color: #ffb28a; }
+.zombie-boost-shield { color: #8fe6ff; }
+.zombie-boost-slow { color: #a4ffd0; }
+#zombieWaveChoice .zombie-wave-choice-btn { grid-template-columns: 76px 1fr; overflow: hidden; transition: transform .18s ease, border-color .18s ease, background .18s ease; }
+#zombieWaveChoice .choice-icon.zombie-powerup-art { width: 76px; height: 76px; align-self: center; }
+#zombieWaveChoice .zombie-wave-choice-btn[data-powerup="rage"] { border-color: #ff874866; }
+#zombieWaveChoice .zombie-wave-choice-btn[data-powerup="shield"] { border-color: #65dfff66; }
+#zombieWaveChoice .zombie-wave-choice-btn[data-powerup="slow"] { border-color: #7effb566; }
+#zombieWaveChoice .zombie-wave-choice-btn[data-powerup="life"] { border-color: #ff73b666; }
+#zombieWaveChoice .zombie-wave-choice-btn:is(:hover, :focus-visible):not(:disabled) .zombie-powerup-art { transform: translateY(-3px) scale(1.08); }
+#zombieWaveChoice .zombie-powerup-art { transition: transform .2s ease; }
+@media (max-width: 700px), (max-height: 520px) {
+    #zombieWaveChoice .zombie-wave-choice-btn { grid-template-columns: 54px 1fr; column-gap: 6px; }
+    #zombieWaveChoice .choice-icon.zombie-powerup-art { width: 54px; height: 54px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #zombieWaveChoice .zombie-powerup-art { transition: none; transform: none !important; }
+}
+body.pp-reduce-motion #zombieWaveChoice .zombie-powerup-art { transition: none; transform: none !important; }
+#zombieWaveChoice .zombie-wave-choice-btn { text-transform: none; letter-spacing: 0; }
+@media (max-width: 480px) {
+    #zombieWaveChoice .zombie-wave-choice-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 16px; }
+    #zombieWaveChoice .zombie-wave-choice-btn { min-height: 78px; grid-template-columns: 56px minmax(0, 1fr); column-gap: 12px; padding: 8px 12px; }
+    #zombieWaveChoice .choice-label { font-size: 20px; }
+    #zombieWaveChoice .zombie-wave-choice-timer { margin-top: 14px; padding-top: 12px; }
+}

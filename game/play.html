@@ -94,27 +94,27 @@
             <div class="zombie-wave-choice-panel">
                 <div class="zombie-wave-choice-kicker">Wave Clear</div>
                 <h3 id="zombieWaveChoiceTitle">Choose your reward</h3>
-                <p id="zombieWaveChoiceCopy">Pick one powerup before the next wave begins.</p>
+                <p id="zombieWaveChoiceCopy">Pick one power-up before the next wave begins.</p>
                 <div class="zombie-wave-choice-grid">
                     <button class="zombie-wave-choice-btn" data-powerup="rage">
-                        <span class="choice-icon" data-rule-icon="reward-rage"></span>
+                        <span class="choice-icon zombie-powerup-art zombie-art-rage" aria-hidden="true"></span>
                         <span class="choice-label">Rage</span>
                         <span class="choice-desc">Stronger returns</span>
                     </button>
                     <button class="zombie-wave-choice-btn" data-powerup="shield">
-                        <span class="choice-icon" data-rule-icon="reward-shield"></span>
+                        <span class="choice-icon zombie-powerup-art zombie-art-shield" aria-hidden="true"></span>
                         <span class="choice-label">Shield</span>
                         <span class="choice-desc">Block a fatal hit</span>
                     </button>
                     <button class="zombie-wave-choice-btn" data-powerup="slow">
-                        <span class="choice-icon" data-rule-icon="reward-slow"></span>
+                        <span class="choice-icon zombie-powerup-art zombie-art-slow" aria-hidden="true"></span>
                         <span class="choice-label">Slow</span>
                         <span class="choice-desc">Cripple the horde</span>
                     </button>
-                    <button class="zombie-wave-choice-btn" data-powerup="repair">
-                        <span class="choice-icon" data-rule-icon="reward-repair"></span>
-                        <span class="choice-label">Repair</span>
-                        <span class="choice-desc">Win back a life</span>
+                    <button class="zombie-wave-choice-btn" data-powerup="life">
+                        <span class="choice-icon zombie-powerup-art zombie-art-life" aria-hidden="true"></span>
+                        <span class="choice-label">Extra Life</span>
+                        <span class="choice-desc">Restore one lost life</span>
                     </button>
                 </div>
                 <div class="zombie-wave-choice-timer" id="zombieWaveChoiceTimer">Auto-pick in 8s</div>
@@ -610,6 +610,7 @@
     <script src="js/modes/zombie-boss-look.js"></script>
     <script src="js/modes/zombie-pull.js"></script>
     <script src="js/modes/zombie-sprites.js"></script>
+    <script src="js/modes/zombie-powerups.js"></script>
     <script src="js/modes/zombie-boss.js"></script>
     <script src="js/audio/ai-voice.js"></script>
     <script src="js/entities/power-up.js"></script>
