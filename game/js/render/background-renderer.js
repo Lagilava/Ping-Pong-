@@ -947,6 +947,12 @@ class BackgroundRenderer {
     }
 
     _getBackgroundRenderScale(w, h) {
+        // Bound decorative fill/blend work independently of display resolution.
+        // Gameplay entities and HUD are drawn later at native resolution.
+        if (this.mode === 'zombie') {
+            const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
+            return Math.min(1, (mobile ? 768 : 1024) / w, (mobile ? 432 : 576) / h);
+        }
         const pixels = w * h;
         let scale = 1;
         if (pixels > 1800000) {
@@ -968,6 +974,12 @@ class BackgroundRenderer {
         // Expensive scenery has its own cadence. Paddles, ball, particles and
         // post effects still render at the display's refresh rate.
         const tier = typeof PerfGovernor !== 'undefined' ? PerfGovernor.current : null;
+        if (this.mode === 'zombie') {
+            const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
+            const target = mobile ? 24 : 30;
+            const configured = tier && Number.isFinite(tier.bgFps) && tier.bgFps > 0 ? tier.bgFps : target;
+            return 1000 / Math.min(target, configured);
+        }
         if (tier && Number.isFinite(tier.bgFps)) {
             return tier.bgFps > 0 ? 1000 / tier.bgFps : 0;
         }
@@ -1024,9 +1036,17 @@ class BackgroundRenderer {
         if (cache.dirty || needsMode || needsFrame) {
             const cctx = cache.ctx;
             cctx.save();
-            cctx.setTransform(scale, 0, 0, scale, 0, 0);
-            cctx.clearRect(0, 0, w, h);
-            this._renderModeBackground(cctx, w, h);
+            if (this.mode === 'zombie') {
+                // Build scenery caches at their actual texture size, avoiding
+                // full-resolution intermediates that would be resampled here.
+                cctx.setTransform(1, 0, 0, 1, 0, 0);
+                cctx.clearRect(0, 0, cacheW, cacheH);
+                this._renderModeBackground(cctx, cacheW, cacheH);
+            } else {
+                cctx.setTransform(scale, 0, 0, scale, 0, 0);
+                cctx.clearRect(0, 0, w, h);
+                this._renderModeBackground(cctx, w, h);
+            }
             cctx.restore();
 
             cache.mode = this.mode;
@@ -1172,6 +1192,9 @@ class BackgroundRenderer {
     // ENHANCED LIGHTING
     // ------------------------------------------------------------------
     renderEnhancedLighting(ctx, w, h) {
+        // Zombie's moonlight already includes its tint and surface lighting.
+        // The legacy overlay gradients duplicated that work every game frame.
+        if (this.mode === 'zombie') return;
         if (!this.dynamicLights || this.lightLayers.length === 0) return;
 
         const prev = ctx.globalCompositeOperation;
@@ -1807,8 +1830,15 @@ class BackgroundRenderer {
         this._zombieLightMask = document.createElement('canvas');
         this._zombieLightMask.width = Math.max(1, Math.ceil(w * 0.25));
         this._zombieLightMask.height = Math.max(1, Math.ceil(h * 0.25));
-        this._zombieLightMask.getContext('2d').drawImage(this._zombieStaticCanvas,
+        const maskCtx = this._zombieLightMask.getContext('2d');
+        maskCtx.drawImage(this._zombieStaticCanvas,
             0, 0, this._zombieLightMask.width, this._zombieLightMask.height);
+        // One light map for air AND surfaces: air receives 0.28 intensity,
+        // solid cemetery shapes 0.55. Avoid a second full-screen shaft pass.
+        maskCtx.globalCompositeOperation = 'destination-over';
+        maskCtx.fillStyle = 'rgba(0,0,0,0.5091)';
+        maskCtx.fillRect(0, 0, this._zombieLightMask.width, this._zombieLightMask.height);
+        maskCtx.globalCompositeOperation = 'source-over';
         this._zombieLightCanvas = document.createElement('canvas');
         this._zombieLightCanvas.width = this._zombieLightMask.width;
         this._zombieLightCanvas.height = this._zombieLightMask.height;
@@ -1855,6 +1885,15 @@ class BackgroundRenderer {
         vignette.addColorStop(1, 'rgba(0,2,6,0.78)');
         zctx.fillStyle = vignette;
         zctx.fillRect(0, 0, w, h);
+        // Merge the fixed scenery, sky, edge lights and readability shading
+        // once. Only the moving moonlight, fog and hands remain live.
+        zctx.globalCompositeOperation = 'destination-over';
+        zctx.drawImage(this._zombieSkyCanvas, 0, 0);
+        zctx.globalCompositeOperation = 'source-over';
+        this.renderPeripheralLightRigs(zctx, w, h,
+            'rgba(65,105,125,ALPHA)', 'rgba(120,165,180,ALPHA)', 0.45);
+        this._paintGameplayVisibilityPass(zctx, w, h, 0.05, 0.4);
+        this._zombieSkyCanvas = null;
         this._zombieStaticInitialized = true;
         return this._zombieStaticCanvas;
     }
@@ -1900,18 +1939,13 @@ class BackgroundRenderer {
     renderZombie(ctx, w, h) {
         const groundY = h * 0.90;
         const staticLayer = this._ensureZombieStaticLayer(w, h, groundY);
-        if (this._zombieSkyCanvas) ctx.drawImage(this._zombieSkyCanvas, 0, 0);
+        if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
         const field = this._zombieFieldCtx;
         if (field) {
             const fw = this._zombieFieldCanvas.width, fh = this._zombieFieldCanvas.height;
             field.clearRect(0, 0, fw, fh);
             this._drawZombieMoonRays(field, fw, fh, 1);
-            ctx.save();
-            ctx.globalAlpha *= 0.28;
-            ctx.drawImage(this._zombieFieldCanvas, 0, 0, w, h);
-            ctx.restore();
         }
-        if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
         this._renderZombieMoonlight(ctx, w, h);
 
         // Match the cached moon so hand lighting stays anchored to its source.
@@ -1923,7 +1957,10 @@ class BackgroundRenderer {
                 const p = this.fogParticles[i];
                 if (!p.sprite) p.sprite = this._buildZombieFogSprite(p);
                 if (!p.sprite) continue;
-                ctx.drawImage(p.sprite, p.x - p.sprite.width * 0.5, p.y - p.sprite.height * 0.5);
+                const sx = w / this.width, sy = h / this.height;
+                ctx.drawImage(p.sprite, (p.x - p.sprite.width * 0.5) * sx,
+                    (p.y - p.sprite.height * 0.5) * sy,
+                    p.sprite.width * sx, p.sprite.height * sy);
             }
         }
 
@@ -1973,9 +2010,6 @@ class BackgroundRenderer {
         handsToDraw.forEach(hand => this._renderZombieHand(ctx, hand, w, h, groundY, moonX, moonY));
         ctx.restore();
 
-        this.renderPeripheralLightRigs(ctx, w, h,
-            'rgba(65,105,125,ALPHA)', 'rgba(120,165,180,ALPHA)', 0.45);
-        this.applyGameplayVisibilityPass(ctx, w, h, 0.05, 0.4);
     }
 
     _degToRad(deg) {
