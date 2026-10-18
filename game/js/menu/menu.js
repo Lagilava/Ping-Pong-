@@ -82,6 +82,8 @@
     // ─────────────────────────────────────────────────────────────────
     const SEA_FS = `
         uniform sampler2D uSurface;
+        uniform sampler2D uArtSurface;
+        uniform float uArtSurfaceReady;
         uniform float uTime;
         uniform vec3  uCamPos;
         uniform float uLightningFlash;
@@ -173,6 +175,14 @@
             float wear = texture2D(uSurface, suv * 0.7 + 0.31).a;
             base += vec3(0.045, 0.100, 0.150) * surf * (0.55 + wear * 0.7);
             base += vec3(0.020, 0.070, 0.115) * smoothstep(6.0, 0.0, length((vWorldPos.xz - vec2(0.0, -2.4)) * vec2(0.6, 1.0)));
+
+            // Generated albedo augments the packed procedural gloss/wear map.
+            // One extra sample in this pass; no overlay or post-process pass.
+            if (uArtSurfaceReady > 0.5) {
+                vec3 art = texture2D(uArtSurface, suv * vec2(3.5, 2.0)).rgb;
+                base = mix(base, base * 0.65 + art * vec3(0.12, 0.20, 0.26), 0.8);
+                specCol *= 0.80 + art.g * 0.8;
+            }
 
             // ── Compose ─────────────────────────────────────────────
             vec3 col = base + skyRefl + sssC;
@@ -981,8 +991,11 @@
             const ringLights = [];
 
             // ── STORM OCEAN ──────────────────────────────────────────
+            const courtSurface = createCourtSurfaceTexture(menuRenderer);
             seaUniforms = {
-                uSurface: { value: createCourtSurfaceTexture(menuRenderer) },
+                uSurface: { value: courtSurface },
+                uArtSurface: { value: courtSurface },
+                uArtSurfaceReady: { value: 0 },
                 uTime: { value: 0 },
                 uCamPos: { value: menuCam.position.clone() },
                 uLightningFlash: { value: 0 },
@@ -1102,6 +1115,8 @@
             arenaLight.shadow.bias = -0.001;
             arena.add(arenaLight);
             menuScene.add(arena);
+            window.MenuSurfaceArt?.install({renderer: menuRenderer, arena,
+                railMat, postMat, netMat, seaUniforms});
 
             // ── STORM CLOUDS ─────────────────────────────────────────
             const cloudCfg = [
