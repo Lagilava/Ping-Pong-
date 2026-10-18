@@ -1,7 +1,7 @@
 /**
- * Illustrated scenes for the main menu's mode cards. Each scene is a small
- * hand-built SVG (gradients and shapes only, no filters), used as a CSS
- * background image so the browser rasterises it once and caches it.
+ * Generated key art for menu cards and opponent-selection panels only.
+ * The original SVG scenes remain beneath the WebP art as offline/load fallbacks.
+ * CSS backgrounds are decorative and never enter the gameplay renderer.
  * window.ModeArt.url(id) returns a ready-to-use url("data:...") value.
  */
 (function () {
@@ -218,7 +218,8 @@
     };
 
     // Vertical focus when a card crops a scene to a wider panel.
-    const focus = { classic: '80%', zombie: '55%', gravity: '50%', speed: '55%', obstacle: '20%', custom: '35%' };
+    const focus = { classic: '38%', zombie: '45%', gravity: '46%', speed: '44%', obstacle: '48%', custom: '48%' };
+    const artBase = new URL('assets/images/menu-art/', document.baseURI);
 
     const cache = {};
     window.ModeArt = {
@@ -228,9 +229,10 @@
             if (!scenes[key]) return '';
             if (!cache[key]) {
                 const svg = `<svg xmlns="http://www.w3.org/2000/svg" ${VB}>${scenes[key]()}</svg>`;
-                cache[key] = `url("data:image/svg+xml,${encodeURIComponent(svg.replace(/\s+/g, ' '))}")`;
+                cache[key] = `url("${new URL(key + '.webp', artBase).href}"), url("data:image/svg+xml,${encodeURIComponent(svg.replace(/\s+/g, ' '))}")`;
             }
             return cache[key];
         },
     };
 })();
+
