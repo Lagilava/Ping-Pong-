@@ -91,7 +91,7 @@ body .xbox-gamerscore { color:#f8d58c; }
 .summary-heading p { margin:7px 0 0; color:#a8bfd0; font:400 13px/1.4 'Segoe UI',sans-serif; }
 .summary-count { flex:0 0 auto; padding:6px 9px; border:1px solid #8c754a; border-radius:999px; color:#ffe0a2; background:#554b3b; font:700 10px/1 'Segoe UI',sans-serif; }
 .summary-items { min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:9px; padding-right:3px; }
-.summary-item { display:flex; gap:13px; align-items:center; padding:12px; border:1px solid #3b5570; border-radius:13px; background:#1e334c; animation:summary-reveal .38s both; animation-delay:calc(var(--item-index) * 65ms); }
+.summary-item { display:flex; gap:13px; align-items:center; margin:0; padding:12px; border:1px solid #3b5570; border-radius:13px; background:#1e334c; opacity:1; transform:none; animation:summary-reveal .38s both; animation-delay:calc(var(--item-index) * 65ms); }
 .summary-icon { display:grid; place-items:center; flex:0 0 49px; width:49px; height:49px; color:#f9d183; background:#4b453c; border:1px solid #a28a5c; border-radius:11px; }
 .summary-icon .pp-achievement-svg { width:27px; height:27px; }
 .summary-content { min-width:0; flex:1; }
@@ -104,4 +104,5 @@ body .xbox-gamerscore { color:#f8d58c; }
 .summary-continue:hover,.summary-continue:focus-visible { background:#ffdc97; outline:2px solid #fff; outline-offset:2px; }
 @keyframes summary-reveal { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 @media (max-width:540px) { .achievement-summary-content { padding:18px; } .summary-heading { flex-wrap:wrap; } .summary-heading h3 { font-size:19px; } .summary-item { gap:9px; padding:10px; } .summary-icon { width:39px; height:39px; flex-basis:39px; } .summary-icon .pp-achievement-svg { width:23px; height:23px; } .summary-footer { flex-direction:column; align-items:stretch; } .summary-continue { width:100%; } }
-@media (prefers-reduced-motion:reduce) { .summary-item { animation:none; } .achievement-summary-modal,.achievement-summary-content { transition:none; } }
+/* achievement-toasts.css hides old .summary-item rows (opacity 0) and turns animation off under reduced motion, so keep rows visible here. */
+@media (prefers-reduced-motion:reduce) { .summary-item { animation:none; opacity:1; transform:none; } .achievement-summary-modal,.achievement-summary-content { transition:none; } }
