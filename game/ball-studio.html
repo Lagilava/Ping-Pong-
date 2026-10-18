@@ -655,6 +655,32 @@
         min-height: 460px;
       }
     }
+
+    .hero-actions { gap: 8px; flex-wrap: wrap; min-width: 0; }
+    .panel, .hero-copy, .hero-stats, .control > * { min-width: 0; }
+    .btn:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .btn, select, input[type="text"] { min-height: 44px; }
+    input[type="range"] { min-height: 36px; }
+    .preview-shell { position: sticky; top: 12px; }
+    @media (max-width: 1200px) {
+      .preview-shell { position: static; grid-row: 1; }
+      .preview-frame, #previewCanvas { min-height: 0; height: clamp(280px, 45dvh, 460px); }
+      .hero { gap: 14px; padding-bottom: 16px; }
+      .hero-actions { justify-content: flex-start; }
+    }
+    @media (max-width: 720px) {
+      .hero p { font-size: 0.88rem; line-height: 1.5; }
+      .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .hero-stats .stat:first-child { grid-column: 1 / -1; }
+      .panel-head { flex-wrap: wrap; padding: 12px 14px; }
+      .control { grid-template-columns: minmax(0, 1fr); }
+      .control input, .control select { max-width: 100%; }
+      .preview-frame, #previewCanvas { height: clamp(260px, 40dvh, 360px); }
+      .code-actions .btn { flex: 1 1 120px; }
+      textarea { font-size: 16px; }
+      .app-shell { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+    }
+    @media (prefers-reduced-motion: reduce) { body::after { animation: none; } }
   </style>
 </head>
 <body>
@@ -666,6 +692,8 @@
         <p>Pick the ball's colors, add a picture and a glow effect. Every edit saves as you go and your Custom matches use this ball. The preview draws it with the match's own renderer, close up and at match size. Presets keep looks you want to come back to.</p>
       </div>
       <div class="hero-actions">
+        <button class="btn" id="undoBtn" type="button" disabled>Undo</button>
+        <button class="btn" id="redoBtn" type="button" disabled>Redo</button>
         <button class="btn primary back" id="backToMenuBtn" type="button">Back to Menu</button>
       </div>
       <div class="hero-stats">
@@ -804,7 +832,8 @@
             </div>
           </div>
           <div class="textarea-wrap">
-            <textarea id="effectCode" spellcheck="false" placeholder="Paste raw canvas code here. The variables ctx, ball, time, and api are available."></textarea>
+            <label for="effectCode">Effect code</label>
+            <textarea id="effectCode" aria-describedby="effectCodeHelp" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Paste raw canvas code here. The variables ctx, ball, time, and api are available."></textarea>
             <div class="code-actions">
               <button class="btn primary" id="saveBtn" type="button">Save to Game</button>
               <button class="btn" id="copyJsonBtn" type="button">Copy JSON</button>
@@ -815,7 +844,7 @@
             <div class="group-title">Settings as JSON</div>
             <div class="json-box" id="jsonBox"></div>
           </div>
-          <p class="footnote">Tip: the code runs every frame, centred on the ball, with <code>ctx</code>, <code>ball</code> (<code>ball.r</code> is the radius), <code>time</code> in seconds and <code>api</code> (<code>api.color</code>, <code>api.trailColor</code>, <code>api.speedRatio</code>, <code>api.drawImageCover()</code>, <code>api.drawImageContain()</code>). Stick to drawing. If the code throws, the effect switches off until you edit it.</p>
+          <p class="footnote" id="effectCodeHelp">Tip: the code runs every frame, centred on the ball, with <code>ctx</code>, <code>ball</code> (<code>ball.r</code> is the radius), <code>time</code> in seconds and <code>api</code> (<code>api.color</code>, <code>api.trailColor</code>, <code>api.speedRatio</code>, <code>api.drawImageCover()</code>, <code>api.drawImageContain()</code>). Stick to drawing. If the code throws, the effect switches off until you edit it.</p>
         </div>
       </section>
     </main>
@@ -1220,6 +1249,7 @@
 
       function scheduleSave() {
         state.dirty = true;
+        if (!state.compileError) setStatus('warn', 'Saving…', 'Applying your latest edit to Custom matches.');
         window.clearTimeout(state.persistTimer);
         state.persistTimer = window.setTimeout(() => saveNow(), 260);
       }
@@ -1321,7 +1351,53 @@
         scheduleSave();
       }
 
+      // Keep whole looks so picture changes, presets and resets are reversible too.
+      const editHistory = [];
+      let historyIndex = -1;
+      let restoringHistory = false;
+      let lastHistoryControl = null;
+      let lastHistoryTime = 0;
+
+      function updateHistoryButtons() {
+        document.getElementById('undoBtn').disabled = historyIndex <= 0;
+        document.getElementById('redoBtn').disabled = historyIndex >= editHistory.length - 1;
+      }
+
+      function restoreHistory(direction) {
+        const next = historyIndex + direction;
+        if (next < 0 || next >= editHistory.length) return;
+        historyIndex = next;
+        restoringHistory = true;
+        state.config = { ...editHistory[next] };
+        syncPresetSelection('', { persist: true });
+        syncControlsFromConfig();
+        renderPresetLibrary();
+        checkEffectSyntax();
+        applyConfigToPreview();
+        state.dirty = true;
+        saveNow(direction < 0 ? 'Previous look restored.' : 'Edit restored.');
+        restoringHistory = false;
+        lastHistoryControl = null;
+        updateHistoryButtons();
+      }
+
       function updateSnapshot() {
+        if (!restoringHistory && JSON.stringify(editHistory[historyIndex]) !== JSON.stringify(state.config)) {
+          const control = document.activeElement;
+          const continuous = control && /^(INPUT|TEXTAREA)$/.test(control.tagName);
+          const now = performance.now();
+          const merge = continuous && control === lastHistoryControl && now - lastHistoryTime < 600 && historyIndex > 0 && historyIndex === editHistory.length - 1;
+          editHistory.splice(historyIndex + 1);
+          if (merge) editHistory[historyIndex] = { ...state.config };
+          else {
+            editHistory.push({ ...state.config });
+            if (editHistory.length > 60) editHistory.shift();
+            historyIndex = editHistory.length - 1;
+          }
+          lastHistoryControl = continuous ? control : null;
+          lastHistoryTime = now;
+        }
+        updateHistoryButtons();
         const shown = { ...state.config };
         if (shown.imageSrc && shown.imageSrc.length > 80) {
           shown.imageSrc = `${shown.imageSrc.slice(0, 48)}… (${Math.round(shown.imageSrc.length / 1024)} KB)`;
@@ -1654,6 +1730,18 @@
       }
 
       function bindControls() {
+        document.getElementById('undoBtn').addEventListener('click', () => restoreHistory(-1));
+        document.getElementById('redoBtn').addEventListener('click', () => restoreHistory(1));
+        document.addEventListener('keydown', event => {
+          if (!(event.ctrlKey || event.metaKey) || event.altKey || event.defaultPrevented) return;
+          // Text fields keep their native caret and undo behavior.
+          if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) return;
+          const key = event.key.toLowerCase();
+          if (key === 'z' || key === 'y') {
+            event.preventDefault();
+            restoreHistory(key === 'y' || event.shiftKey ? 1 : -1);
+          }
+        });
         const liveInputs = [
           els.ballColor,
           els.trailColor,
@@ -1762,6 +1850,9 @@
           // Another tab changed the ball or the presets.
           if (event.key === STORAGE_KEY) {
             state.config = loadConfig();
+            editHistory.length = 0;
+            historyIndex = -1;
+            lastHistoryControl = null;
             syncControlsFromConfig();
             checkEffectSyntax();
             applyConfigToPreview();

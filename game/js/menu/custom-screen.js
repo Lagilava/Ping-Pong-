@@ -72,7 +72,8 @@
             const on = b.dataset.customTab === name;
             b.setAttribute('aria-selected', on ? 'true' : 'false');
             b.tabIndex = on ? 0 : -1;
-            if (on && focus) b.focus();
+            if (on && focus) b.focus({ preventScroll: true });
+            if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
         });
         document.querySelectorAll('#customisePanel [data-custom-panel]').forEach((panel) => {
             panel.hidden = panel.dataset.customPanel !== name;

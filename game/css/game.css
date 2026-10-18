@@ -8141,3 +8141,26 @@ body:has(#skipIntro:not(.hidden)) .zombie-progress-overlay.visible {
     .obstacle-coin-hud .coin-goal { font-size: 9px; letter-spacing: 0; }
     .obstacle-coin-hud .coin-icon { width: 14px; height: 14px; flex-shrink: 0; }
 }
+
+/* Keep Custom setup usable on narrow phones and around display cutouts. */
+.customise-overlay .customise-overlay-content { min-height: 0; overscroll-behavior: contain; }
+.customise-tabs { scroll-padding-inline: 16px; }
+.customise-overlay .customise-powerups-head { flex-wrap: wrap; }
+.customise-overlay .forge-arena-card, .customise-overlay .forge-rules { min-width: 0; }
+@media (max-width: 600px) {
+    .customise-overlay .customise-overlay-header { gap: 8px; flex-wrap: wrap; padding: max(10px, env(safe-area-inset-top)) 12px 10px; }
+    .customise-overlay .customise-overlay-actions { gap: 6px; flex-wrap: wrap; }
+    .customise-overlay .customise-overlay-back-btn { min-height: 44px; padding: 8px 12px; }
+    .customise-tabs { padding: 8px 12px; }
+    .customise-tab { min-height: 48px; }
+    .customise-overlay .customise-overlay-content { padding: 12px; }
+    .customise-overlay .forge-layout { grid-template-columns: minmax(0, 1fr); }
+    .customise-overlay .forge-arena-preview { width: 100%; }
+    .customise-overlay .forge-arena-row { flex-wrap: wrap; }
+    .customise-overlay .forge-arena-row input { min-width: 0; flex: 1 1 140px; }
+    .customise-overlay select, .customise-overlay input[type="text"] { min-height: 44px; max-width: 100%; }
+    .customise-overlay .customise-powerup-option { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .customise-overlay [data-custom-panel] { animation: none; }
+}
