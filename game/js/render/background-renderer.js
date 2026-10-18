@@ -1661,6 +1661,105 @@ class BackgroundRenderer {
                 unit * (0.004 + i * 0.0006), unit * 0.0035, i, 0, Math.PI * 2);
             zctx.fill();
         }
+        // Ruined chapel sits behind the graves, off the central ball lane.
+        // Bake the masonry, rim light and window glow into the same static layer.
+        zctx.save();
+        zctx.translate(w * 0.745, h * 0.735);
+        zctx.scale(unit / 720, unit / 720);
+        zctx.fillStyle = '#09131b';
+        zctx.strokeStyle = 'rgba(123,173,189,0.38)';
+        zctx.lineWidth = 1.4;
+        const chapel = new Path2D();
+        chapel.moveTo(-112, 0);
+        chapel.lineTo(-112, -77);
+        chapel.lineTo(-122, -77);
+        chapel.lineTo(-57, -143);
+        // Missing roof slates break the nave silhouette.
+        chapel.lineTo(-33, -119);
+        chapel.lineTo(-22, -127);
+        chapel.lineTo(-13, -106);
+        chapel.lineTo(9, -88);
+        chapel.lineTo(9, -204);
+        chapel.lineTo(1, -204);
+        chapel.lineTo(1, -219);
+        chapel.lineTo(17, -219);
+        chapel.lineTo(17, -206);
+        chapel.lineTo(31, -209);
+        chapel.lineTo(38, -236);
+        chapel.lineTo(48, -222);
+        chapel.lineTo(62, -227);
+        chapel.lineTo(70, -209);
+        chapel.lineTo(85, -209);
+        chapel.lineTo(85, -220);
+        chapel.lineTo(99, -216);
+        chapel.lineTo(99, -201);
+        chapel.lineTo(92, -201);
+        chapel.lineTo(92, 0);
+        chapel.closePath();
+        zctx.fill(chapel);
+        zctx.stroke(chapel);
+        // Buttresses and a roofless side wall add readable depth in silhouette.
+        zctx.fillStyle = '#060e15';
+        for (const x of [-104, -25, 13, 78]) {
+            zctx.beginPath();
+            zctx.moveTo(x - 7, 0);
+            zctx.lineTo(x - 3, -62);
+            zctx.lineTo(x + 3, -66);
+            zctx.lineTo(x + 10, 0);
+            zctx.fill();
+        }
+        const arch = (x, y, width, height) => {
+            zctx.beginPath();
+            zctx.moveTo(x - width / 2, y);
+            zctx.lineTo(x - width / 2, y - height * 0.65);
+            zctx.quadraticCurveTo(x - width / 2, y - height * 0.85, x, y - height);
+            zctx.quadraticCurveTo(x + width / 2, y - height * 0.85, x + width / 2, y - height * 0.65);
+            zctx.lineTo(x + width / 2, y);
+            zctx.closePath();
+        };
+        // Open belfry, with a still-hanging bell under the shattered crown.
+        arch(51, -153, 33, 42);
+        zctx.fillStyle = '#03080e';
+        zctx.fill();
+        zctx.strokeStyle = 'rgba(125,169,184,0.3)';
+        zctx.stroke();
+        zctx.fillStyle = '#293b43';
+        zctx.fillRect(49, -190, 3, 12);
+        zctx.beginPath();
+        zctx.moveTo(46, -180);
+        zctx.quadraticCurveTo(39, -178, 39, -167);
+        zctx.lineTo(63, -167);
+        zctx.quadraticCurveTo(63, -178, 56, -180);
+        zctx.closePath();
+        zctx.fill();
+        arch(-58, 0, 30, 56);
+        zctx.fillStyle = '#02070c';
+        zctx.fill();
+        // One dim amber window provides a focal point without rivaling the ball.
+        const windowGlow = zctx.createRadialGradient(51, -93, 2, 51, -93, 43);
+        windowGlow.addColorStop(0, 'rgba(188,139,75,0.16)');
+        windowGlow.addColorStop(1, 'rgba(188,139,75,0)');
+        zctx.fillStyle = windowGlow;
+        zctx.fillRect(8, -136, 86, 86);
+        arch(51, -73, 17, 37);
+        zctx.fillStyle = '#86734b';
+        zctx.fill();
+        zctx.fillStyle = '#0a141b';
+        zctx.fillRect(49.5, -108, 3, 36);
+        zctx.fillRect(42, -86, 18, 3);
+        // Sparse cracks, no per-frame texture generation.
+        zctx.strokeStyle = 'rgba(78,106,120,0.28)';
+        zctx.lineWidth = 1;
+        zctx.beginPath();
+        zctx.moveTo(82, -188);
+        zctx.lineTo(73, -173);
+        zctx.lineTo(78, -162);
+        zctx.lineTo(68, -148);
+        zctx.moveTo(-83, -106);
+        zctx.lineTo(-70, -91);
+        zctx.lineTo(-76, -82);
+        zctx.stroke();
+        zctx.restore();
         // Two silhouette depths: far graves are lifted by the backlight;
         // nearer headstones and bare branches cut sharply across it.
         for (let layer = 0; layer < 2; layer++) {
