@@ -3294,8 +3294,18 @@ class BackgroundRenderer {
         grid.cellH = grid.cellH || ((grid.bottom - grid.top) / Math.max(1, grid.rows - 1));
 
         const phase = course?.phase || this.time;
-        const shaded = this._renderObstacleFloorShader(ctx, w, h, grid, phase, ball, game);
-        if (!shaded) this._renderObstacleFloorCanvas(ctx, w, h, grid, phase);
+        // Sunset citadel art replaces the opaque neon shader floor. Bake the
+        // environment and court once; keep gameplay rails and bodies live.
+        let skyScene = false;
+        if (typeof ObstacleSkyScene !== 'undefined') {
+            if (!this._obstacleSkyScene) {
+                this._obstacleSkyScene = new ObstacleSkyScene(() => this._invalidateBackgroundRenderCache());
+            }
+            this._obstacleSkyScene.render(ctx, w, h, grid, this.time);
+            skyScene = true;
+        } else {
+            this._renderObstacleFloorCanvas(ctx, w, h, grid, phase);
+        }
         ctx.save();
 
         if (course && typeof course.renderRails === 'function') {
@@ -3325,7 +3335,7 @@ class BackgroundRenderer {
         }
 
         ctx.restore();
-        if (!shaded) this.applyGameplayVisibilityPass(ctx, w, h, 0.04, 0.20);
+        if (!skyScene) this.applyGameplayVisibilityPass(ctx, w, h, 0.04, 0.20);
         return;
         const arena = this._obstacleArenaState || {
             activeCount: 0,
@@ -3877,6 +3887,7 @@ class BackgroundRenderer {
     }
 
     _cleanupObstacleCache() {
+        this._obstacleSkyScene?.invalidate();
         this._obstacleStaticBaseCanvas = null;
         this._obstacleStaticBaseCtx = null;
         this._obstacleStaticOverlayCanvas = null;
