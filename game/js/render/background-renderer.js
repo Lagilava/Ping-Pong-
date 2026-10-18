@@ -410,11 +410,11 @@ class BackgroundRenderer {
                         y: Math.random() * H,
                         size: Math.random() * 200 + 80,
                         speed: Math.random() * 2 + 0.5,
-                        alpha: Math.random() * 0.09 + 0.03,
+                        alpha: Math.random() * this._modeColor(0.09, 0.12) + this._modeColor(0.03, 0.045),
                         drift: (Math.random() - 0.5) * 0.3,
                         hue: Math.random() > 0.5
-                            ? 10 + Math.random() * 30
-                            : 200 + Math.random() * 30,
+                            ? this._modeColor(10, 260) + Math.random() * 30
+                            : this._modeColor(200, 210) + Math.random() * 30,
                         sprite: null,
                     });
                 }
@@ -424,7 +424,7 @@ class BackgroundRenderer {
                 }));
                 this.lightLayers.push(this._makeLight('linear', {
                     x1: W * 0.72, y1: H * 0.65, x2: W * 0.28, y2: H * 0.35,
-                    color: 'rgba(255,140,70,0.03)',
+                    color: this._modeColor('rgba(255,140,70,0.03)', 'rgba(153,92,255,0.05)'),
                 }));
                 break;
 
@@ -944,6 +944,10 @@ class BackgroundRenderer {
             this._backgroundRenderCache.dirty = true;
             this._backgroundRenderCache.lastRenderMs = -Infinity;
         }
+    }
+
+    _modeColor(original, matched) {
+        return window.game?.gameMode === 'customise' ? original : matched;
     }
 
     _getBackgroundRenderScale(w, h) {
@@ -1644,20 +1648,20 @@ class BackgroundRenderer {
         // blurred or rebuilt in the frame loop. Keep the central ball lane dark.
         zctx.clearRect(0, 0, w, h);
         const sky = zctx.createLinearGradient(0, 0, 0, h);
-        sky.addColorStop(0, '#050a0d');
-        sky.addColorStop(0.62, '#142325');
-        sky.addColorStop(1, '#030709');
+        sky.addColorStop(0, this._modeColor('#050a0d', '#04120f'));
+        sky.addColorStop(0.62, this._modeColor('#142325', '#103c36'));
+        sky.addColorStop(1, this._modeColor('#030709', '#030e0c'));
         zctx.fillStyle = sky;
         zctx.fillRect(0, 0, w, h);
         const moonX = w * 0.76, moonY = h * 0.22;
         const unit = Math.min(w, h);
         const halo = zctx.createRadialGradient(moonX, moonY, unit * 0.025, moonX, moonY, unit * 0.52);
-        halo.addColorStop(0, 'rgba(201,222,210,0.42)');
-        halo.addColorStop(0.22, 'rgba(129,159,157,0.19)');
-        halo.addColorStop(1, 'rgba(86,117,121,0)');
+        halo.addColorStop(0, this._modeColor('rgba(201,222,210,0.42)', 'rgba(183,255,218,0.50)'));
+        halo.addColorStop(0.22, this._modeColor('rgba(129,159,157,0.19)', 'rgba(82,192,165,0.25)'));
+        halo.addColorStop(1, this._modeColor('rgba(86,117,121,0)', 'rgba(36,126,111,0)'));
         zctx.fillStyle = halo;
         zctx.fillRect(0, 0, w, h);
-        zctx.fillStyle = '#d7e5df';
+        zctx.fillStyle = this._modeColor('#d7e5df', '#c0f7dc');
         zctx.beginPath();
         zctx.arc(moonX, moonY, unit * 0.047, 0, Math.PI * 2);
         zctx.fill();
@@ -1681,7 +1685,7 @@ class BackgroundRenderer {
         zctx.save();
         zctx.translate(w * 0.745, h * 0.735);
         zctx.scale(unit / 720, unit / 720);
-        zctx.fillStyle = '#09131b';
+        zctx.fillStyle = this._modeColor('#09131b', '#071f1c');
         zctx.strokeStyle = 'rgba(123,173,189,0.38)';
         zctx.lineWidth = 1.4;
         const chapel = new Path2D();
@@ -1714,7 +1718,7 @@ class BackgroundRenderer {
         zctx.fill(chapel);
         zctx.stroke(chapel);
         // Buttresses and a roofless side wall add readable depth in silhouette.
-        zctx.fillStyle = '#060e15';
+        zctx.fillStyle = this._modeColor('#060e15', '#041712');
         for (const x of [-104, -25, 13, 78]) {
             zctx.beginPath();
             zctx.moveTo(x - 7, 0);
@@ -1738,7 +1742,7 @@ class BackgroundRenderer {
         zctx.fill();
         zctx.strokeStyle = 'rgba(125,169,184,0.3)';
         zctx.stroke();
-        zctx.fillStyle = '#293b43';
+        zctx.fillStyle = this._modeColor('#293b43', '#235348');
         zctx.fillRect(49, -190, 3, 12);
         zctx.beginPath();
         zctx.moveTo(46, -180);
@@ -1752,12 +1756,12 @@ class BackgroundRenderer {
         zctx.fill();
         // One dim amber window provides a focal point without rivaling the ball.
         const windowGlow = zctx.createRadialGradient(51, -93, 2, 51, -93, 43);
-        windowGlow.addColorStop(0, 'rgba(188,139,75,0.16)');
-        windowGlow.addColorStop(1, 'rgba(188,139,75,0)');
+        windowGlow.addColorStop(0, this._modeColor('rgba(188,139,75,0.16)', 'rgba(102,232,179,0.18)'));
+        windowGlow.addColorStop(1, this._modeColor('rgba(188,139,75,0)', 'rgba(102,232,179,0)'));
         zctx.fillStyle = windowGlow;
         zctx.fillRect(8, -136, 86, 86);
         arch(51, -73, 17, 37);
-        zctx.fillStyle = '#86734b';
+        zctx.fillStyle = this._modeColor('#86734b', '#66b79e');
         zctx.fill();
         zctx.fillStyle = '#0a141b';
         zctx.fillRect(49.5, -108, 3, 36);
@@ -1779,7 +1783,7 @@ class BackgroundRenderer {
         // nearer headstones and bare branches cut sharply across it.
         for (let layer = 0; layer < 2; layer++) {
             const baseY = h * (0.73 + layer * 0.12);
-            zctx.fillStyle = layer ? '#050c10' : '#172b33';
+            zctx.fillStyle = layer ? '#050c10' : this._modeColor('#172b33', '#174039');
             zctx.strokeStyle = layer ? '#09151b' : '#253d46';
             zctx.lineWidth = Math.max(1, unit * 0.002);
             for (let i = 0; i < 14; i++) {
@@ -1853,11 +1857,11 @@ class BackgroundRenderer {
         this._zombieRayCanvas.height = 512;
         const ray = this._zombieRayCanvas.getContext('2d');
         const feather = ray.createLinearGradient(0, 0, 128, 0);
-        feather.addColorStop(0, 'rgba(157,188,187,0)');
-        feather.addColorStop(0.25, 'rgba(157,188,187,0.35)');
-        feather.addColorStop(0.5, 'rgba(198,218,208,0.65)');
-        feather.addColorStop(0.75, 'rgba(157,188,187,0.35)');
-        feather.addColorStop(1, 'rgba(157,188,187,0)');
+        feather.addColorStop(0, this._modeColor('rgba(157,188,187,0)', 'rgba(114,222,191,0)'));
+        feather.addColorStop(0.25, this._modeColor('rgba(157,188,187,0.35)', 'rgba(114,222,191,0.38)'));
+        feather.addColorStop(0.5, this._modeColor('rgba(198,218,208,0.65)', 'rgba(190,255,221,0.70)'));
+        feather.addColorStop(0.75, this._modeColor('rgba(157,188,187,0.35)', 'rgba(114,222,191,0.38)'));
+        feather.addColorStop(1, this._modeColor('rgba(157,188,187,0)', 'rgba(114,222,191,0)'));
         ray.fillStyle = feather;
         ray.beginPath();
         ray.moveTo(60, 0);
@@ -1874,9 +1878,9 @@ class BackgroundRenderer {
         ray.fillStyle = fade;
         ray.fillRect(0, 0, 128, 512);
         const mist = zctx.createLinearGradient(0, h * 0.66, 0, h);
-        mist.addColorStop(0, 'rgba(115,148,145,0)');
-        mist.addColorStop(0.42, 'rgba(115,148,145,0.20)');
-        mist.addColorStop(0.65, 'rgba(85,116,116,0.08)');
+        mist.addColorStop(0, this._modeColor('rgba(115,148,145,0)', 'rgba(73,170,145,0)'));
+        mist.addColorStop(0.42, this._modeColor('rgba(115,148,145,0.20)', 'rgba(73,170,145,0.26)'));
+        mist.addColorStop(0.65, this._modeColor('rgba(85,116,116,0.08)', 'rgba(45,127,107,0.12)'));
         mist.addColorStop(1, 'rgba(0,4,8,0.8)');
         zctx.fillStyle = mist;
         zctx.fillRect(0, h * 0.66, w, h * 0.34);
@@ -1891,7 +1895,7 @@ class BackgroundRenderer {
         zctx.drawImage(this._zombieSkyCanvas, 0, 0);
         zctx.globalCompositeOperation = 'source-over';
         this.renderPeripheralLightRigs(zctx, w, h,
-            'rgba(81,110,111,ALPHA)', 'rgba(137,163,157,ALPHA)', 0.45);
+            this._modeColor('rgba(81,110,111,ALPHA)', 'rgba(51,129,112,ALPHA)'), this._modeColor('rgba(137,163,157,ALPHA)', 'rgba(127,211,174,ALPHA)'), 0.45);
         this._paintGameplayVisibilityPass(zctx, w, h, 0.05, 0.4);
         this._paintZombieGroundDetails(zctx, w, h, groundY);
         const hands = this._zombieHandsByScale.length ? this._zombieHandsByScale : this.zombieHands;
@@ -2224,10 +2228,10 @@ class BackgroundRenderer {
 
         palmPath();
         const base = ctx.createLinearGradient(-hw, botY, hw, botY);
-        base.addColorStop(0, '#424d4b');
-        base.addColorStop(0.35, '#2b3535');
-        base.addColorStop(0.7, '#1b2729');
-        base.addColorStop(1, '#111b1e');
+        base.addColorStop(0, this._modeColor('#424d4b', '#3b5e53'));
+        base.addColorStop(0.35, this._modeColor('#2b3535', '#253e35'));
+        base.addColorStop(0.7, this._modeColor('#1b2729', '#152d27'));
+        base.addColorStop(1, this._modeColor('#111b1e', '#0c211c'));
         ctx.fillStyle = base;
         ctx.fill();
 
@@ -2243,7 +2247,7 @@ class BackgroundRenderer {
         const ly = Math.sin(lightAngle) * ph * 0.55;
         palmPath();
         const glow = ctx.createRadialGradient(lx, ly + topY, 0, lx, ly + topY, hw * 1.5);
-        glow.addColorStop(0, 'rgba(183,207,207,0.22)');
+        glow.addColorStop(0, this._modeColor('rgba(183,207,207,0.22)', 'rgba(164,237,202,0.28)'));
         glow.addColorStop(0.4, 'rgba(87,119,128,0.06)');
         glow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = glow;
@@ -2259,7 +2263,7 @@ class BackgroundRenderer {
         ctx.globalCompositeOperation = 'screen';
         palmPath();
         const rim = ctx.createLinearGradient(0, -ph, 0, -ph * 0.4);
-        rim.addColorStop(0, 'rgba(207,225,220,0.22)');
+        rim.addColorStop(0, this._modeColor('rgba(207,225,220,0.22)', 'rgba(190,255,223,0.26)'));
         rim.addColorStop(0.6, 'rgba(119,153,157,0.02)');
         rim.addColorStop(1, 'transparent');
         ctx.fillStyle = rim;
@@ -2291,16 +2295,16 @@ class BackgroundRenderer {
 
         wristPath();
         const base = ctx.createLinearGradient(-hw, palmBotY, hw, palmBotY);
-        base.addColorStop(0, '#424d4b');
-        base.addColorStop(0.4, '#2b3535');
-        base.addColorStop(0.76, '#1b2729');
-        base.addColorStop(1, '#111b1e');
+        base.addColorStop(0, this._modeColor('#424d4b', '#3b5e53'));
+        base.addColorStop(0.4, this._modeColor('#2b3535', '#253e35'));
+        base.addColorStop(0.76, this._modeColor('#1b2729', '#152d27'));
+        base.addColorStop(1, this._modeColor('#111b1e', '#0c211c'));
         ctx.fillStyle = base;
         ctx.fill();
 
         wristPath();
         const glow = ctx.createRadialGradient(Math.cos(lightAngle) * hw, Math.sin(lightAngle) * h * 0.4, 0, 0, 0, hw * 2);
-        glow.addColorStop(0, 'rgba(183,207,207,0.18)');
+        glow.addColorStop(0, this._modeColor('rgba(183,207,207,0.18)', 'rgba(164,237,202,0.24)'));
         glow.addColorStop(0.5, 'rgba(87,119,128,0.04)');
         glow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = glow;
@@ -2316,7 +2320,7 @@ class BackgroundRenderer {
         ctx.globalCompositeOperation = 'screen';
         wristPath();
         const rim = ctx.createLinearGradient(0, palmBotY, 0, palmBotY + h * 0.4);
-        rim.addColorStop(0, 'rgba(207,225,220,0.16)');
+        rim.addColorStop(0, this._modeColor('rgba(207,225,220,0.16)', 'rgba(190,255,223,0.20)'));
         rim.addColorStop(1, 'transparent');
         ctx.fillStyle = rim;
         ctx.fill();
@@ -2406,7 +2410,7 @@ class BackgroundRenderer {
         // Light angle and sss are continuous; quantise so the cache stays bounded.
         const qAngle = Math.round(lightAngle / (Math.PI / 16)) * (Math.PI / 16);
         const qSss = Math.round(sssAmt * 10) / 10;
-        const key = `${len}|${wb}|${wt}|${nailW}|${qAngle.toFixed(3)}|${qSss}|${knuckleBase ? 1 : 0}${knuckleTip ? 1 : 0}${nail ? 1 : 0}${bone ? 1 : 0}|${wound}`;
+        const key = `${window.game?.gameMode === 'customise' ? 'original' : 'card'}|${len}|${wb}|${wt}|${nailW}|${qAngle.toFixed(3)}|${qSss}|${knuckleBase ? 1 : 0}${knuckleTip ? 1 : 0}${nail ? 1 : 0}${bone ? 1 : 0}|${wound}`;
 
         let sprite = ZOMBIE_PHALANX_SPRITES.get(key);
         if (!sprite) {
@@ -2464,10 +2468,10 @@ class BackgroundRenderer {
         skinPath();
         const base = this._phalanxGradient(ctx, `b${wb2}`, () => {
             const g = ctx.createLinearGradient(-wb2, 0, wb2, 0);
-            g.addColorStop(0, '#424d4b');
-            g.addColorStop(0.28, '#2b3535');
-            g.addColorStop(0.62, '#1b2729');
-            g.addColorStop(1, '#111b1e');
+            g.addColorStop(0, this._modeColor('#424d4b', '#3b5e53'));
+            g.addColorStop(0.28, this._modeColor('#2b3535', '#253e35'));
+            g.addColorStop(0.62, this._modeColor('#1b2729', '#152d27'));
+            g.addColorStop(1, this._modeColor('#111b1e', '#0c211c'));
             return g;
         });
         ctx.fillStyle = base;
@@ -2496,7 +2500,7 @@ class BackgroundRenderer {
         const gly = Math.round(ly * 4) / 4;
         const glow = this._phalanxGradient(ctx, `g${glx},${gly},${wb2}`, () => {
             const g = ctx.createRadialGradient(glx, gly, 0, glx, gly, wb2 * 2.5);
-            g.addColorStop(0, 'rgba(183,207,207,0.28)');
+            g.addColorStop(0, this._modeColor('rgba(183,207,207,0.28)', 'rgba(164,237,202,0.32)'));
             g.addColorStop(0.5, 'rgba(87,119,128,0.08)');
             g.addColorStop(1, 'rgba(0,0,0,0)');
             return g;
@@ -2516,7 +2520,7 @@ class BackgroundRenderer {
             ctx.fill();
 
             const rim = ctx.createLinearGradient(0, -len, 0, -len * 0.3);
-            rim.addColorStop(0, 'rgba(207,225,220,0.24)');
+            rim.addColorStop(0, this._modeColor('rgba(207,225,220,0.24)', 'rgba(190,255,223,0.28)'));
             rim.addColorStop(1, 'transparent');
             ctx.fillStyle = rim;
             ctx.fill();
@@ -2695,15 +2699,15 @@ class BackgroundRenderer {
     _ensureGravityGlowSprites() {
         if (!this._gravityClusterSprite) {
             this._gravityClusterSprite = this._buildRadialSprite(240, [
-                [0, 'rgba(140,200,255,0.18)'],
+                [0, this._modeColor('rgba(140,200,255,0.18)', 'rgba(92,209,255,0.23)')],
                 [0.4, 'rgba(100,160,255,0.08)'],
                 [1, 'transparent'],
             ]);
         }
         if (!this._gravityCoreSprite) {
             this._gravityCoreSprite = this._buildRadialSprite(360, [
-                [0, 'rgba(255,140,40,0.16)'],
-                [0.4, 'rgba(200,80,20,0.08)'],
+                [0, this._modeColor('rgba(255,140,40,0.16)', 'rgba(153,76,255,0.22)')],
+                [0.4, this._modeColor('rgba(200,80,20,0.08)', 'rgba(94,48,207,0.12)')],
                 [1, 'transparent'],
             ]);
         }
@@ -2876,7 +2880,7 @@ class BackgroundRenderer {
             // built once here and each star's alpha goes through globalAlpha
             // (same pixels). Building and parsing four hsla() strings per star
             // got expensive once the wells pulled most of the field.
-            const coldHue = 210 + hueShift, warmHue = 50 + hueShift;
+            const coldHue = 210 + hueShift, warmHue = this._modeColor(50, 265) + hueShift;
             const starColors = this._gravityStarColors || (this._gravityStarColors = { hueShift: NaN });
             if (starColors.hueShift !== hueShift) {
                 starColors.hueShift = hueShift;
@@ -2884,7 +2888,7 @@ class BackgroundRenderer {
                 starColors.line = [`hsla(${warmHue}, 100%, 80%, 1)`, `hsla(${coldHue}, 100%, 80%, 1)`];
                 starColors.core = [`hsla(${warmHue}, 85%, 75%, 1)`, `hsla(${coldHue}, 90%, 85%, 1)`];
                 starColors.bloom = [`hsla(${warmHue}, 100%, 60%, 1)`, `hsla(${coldHue}, 100%, 70%, 1)`];
-                starColors.halo = ['rgb(255,200,100)', 'rgb(150,190,255)'];
+                starColors.halo = [this._modeColor('rgb(255,200,100)', 'rgb(182,131,255)'), 'rgb(150,190,255)'];
             }
             const baseAlpha = ctx.globalAlpha;
             const alphaOf = (v) => baseAlpha * (v > 1 ? 1 : (v > 0 ? v : 0));
@@ -2994,7 +2998,8 @@ class BackgroundRenderer {
         }
 
         this.renderPeripheralLightRigs(ctx, w, h,
-            'rgba(115,170,255,ALPHA)', 'rgba(255,140,70,ALPHA)', 1.12);
+            this._modeColor('rgba(115,170,255,ALPHA)', 'rgba(83,175,255,ALPHA)'),
+            this._modeColor('rgba(255,140,70,ALPHA)', 'rgba(156,92,255,ALPHA)'), 1.12);
         this.applyGameplayVisibilityPass(ctx, w, h, 0.06, 0.27);
     }
 

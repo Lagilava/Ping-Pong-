@@ -12,6 +12,8 @@
  */
 (function () {
     const TAU = Math.PI * 2;
+    // Custom Match retains its original palette when it selects this backdrop.
+    const cardColor = (original, matched) => window.game?.gameMode === 'customise' ? original : matched;
     const FLOOR = 0.6;      // floor horizon as a fraction of the screen height
     const SPOTS = [0.1, 0.29, 0.5, 0.71, 0.9];
 
@@ -75,7 +77,7 @@
 
         // Warm haze hanging under the roof, brightest in the middle.
         const hz = x.createRadialGradient(w * 0.5, h * 0.12, 0, w * 0.5, h * 0.12, w * 0.6);
-        hz.addColorStop(0, 'rgba(255,60,90,0.22)');
+        hz.addColorStop(0, cardColor('rgba(255,60,90,0.22)', 'rgba(255,35,95,0.28)'));
         hz.addColorStop(0.5, 'rgba(160,20,70,0.1)');
         hz.addColorStop(1, 'rgba(60,0,30,0)');
         x.fillStyle = hz;
@@ -150,7 +152,7 @@
         for (const l of lights) {
             const s = l.s * (l.spot ? 1.6 : 1);
             x.drawImage(l.warm ? glowW : glowR, l.x - s, l.y - s, s * 2, s * 2);
-            x.fillStyle = l.warm ? '#fff3e8' : '#ffd0dc';
+            x.fillStyle = l.warm ? cardColor('#fff3e8', '#ffe5f0') : '#ffd0dc';
             x.beginPath();
             x.arc(l.x, l.y, l.spot ? 3.2 : 1.4, 0, TAU);
             x.fill();
@@ -170,8 +172,8 @@
 
         // Cloth: a slight fold shading across, lit from above.
         const cloth = x.createLinearGradient(0, top, 0, top + bh);
-        cloth.addColorStop(0, far ? '#c0233a' : '#e3283f');
-        cloth.addColorStop(0.55, far ? '#8a1028' : '#b3122d');
+        cloth.addColorStop(0, far ? cardColor('#c0233a', '#d62646') : cardColor('#e3283f', '#f12c46'));
+        cloth.addColorStop(0.55, far ? cardColor('#8a1028', '#a41030') : cardColor('#b3122d', '#cc1237'));
         cloth.addColorStop(1, far ? '#4a0716' : '#650a1d');
         x.fillStyle = cloth;
         x.beginPath();
@@ -334,8 +336,8 @@
             const px = i * pw;
             const red = i % 2 === 0;
             const g = x.createLinearGradient(0, 0, 0, ph);
-            g.addColorStop(0, red ? '#ff3150' : '#2a0a18');
-            g.addColorStop(1, red ? '#a3102a' : '#14050c');
+            g.addColorStop(0, red ? cardColor('#ff3150', '#ff285b') : '#2a0a18');
+            g.addColorStop(1, red ? cardColor('#a3102a', '#c01444') : '#14050c');
             x.fillStyle = g;
             x.fillRect(px + 1, 1, pw - 2, ph - 2);
             x.fillStyle = red ? '#fff3f3' : '#ff5a74';
@@ -361,8 +363,8 @@
     function paintFloor(x, w, h, L) {
         const fy = L.fy, fh = h - fy;
         const g = x.createLinearGradient(0, fy, 0, h);
-        g.addColorStop(0, '#2b0d2c');
-        g.addColorStop(0.18, '#1a0a26');
+        g.addColorStop(0, cardColor('#2b0d2c', '#380e30'));
+        g.addColorStop(0.18, cardColor('#1a0a26', '#220a29'));
         g.addColorStop(0.6, '#0d0718');
         g.addColorStop(1, '#06040c');
         x.fillStyle = g;
@@ -370,8 +372,8 @@
 
         // Mirror glow of the courtside boards.
         const m = x.createLinearGradient(0, fy, 0, fy + fh * 0.22);
-        m.addColorStop(0, 'rgba(255,50,90,0.35)');
-        m.addColorStop(1, 'rgba(255,50,90,0)');
+        m.addColorStop(0, cardColor('rgba(255,50,90,0.35)', 'rgba(255,38,115,0.46)'));
+        m.addColorStop(1, cardColor('rgba(255,50,90,0)', 'rgba(255,38,115,0)'));
         x.fillStyle = m;
         x.fillRect(0, fy, w, fh * 0.22);
 
@@ -384,8 +386,8 @@
             x.fillStyle = sg;
             x.fillRect(cx - width / 2, fy, width, fh);
         };
-        for (const s of SPOTS) streak(w * s, w * 0.018, 0.16, '255,190,200');
-        for (const s of [0.17, 0.83]) streak(w * s, w * 0.07, 0.12, '255,40,70');
+        for (const s of SPOTS) streak(w * s, w * 0.018, 0.16, cardColor('255,190,200', '255,170,212'));
+        for (const s of [0.17, 0.83]) streak(w * s, w * 0.07, 0.12, cardColor('255,40,70', '255,35,102'));
 
         // Court markings in perspective toward a point above the floor line.
         const vx = w * 0.5, vy = fy - fh * 0.9;
@@ -435,8 +437,8 @@
         const [c, x] = canvas(bw, len, sx, sy);
         if ('filter' in x) x.filter = `blur(${Math.max(2, bw * 0.05)}px)`;
         const g = x.createLinearGradient(0, 0, 0, len);
-        g.addColorStop(0, 'rgba(255,230,235,1)');
-        g.addColorStop(0.2, 'rgba(255,140,165,0.7)');
+        g.addColorStop(0, cardColor('rgba(255,230,235,1)', 'rgba(255,220,239,1)'));
+        g.addColorStop(0.2, cardColor('rgba(255,140,165,0.7)', 'rgba(255,116,180,0.76)'));
         g.addColorStop(0.7, 'rgba(255,70,110,0.26)');
         g.addColorStop(1, 'rgba(255,60,100,0)');
         x.fillStyle = g;
@@ -474,12 +476,12 @@
         _bake(ctx, w, h) {
             const m = ctx.getTransform();
             const sx = Math.hypot(m.a, m.b) || 1, sy = Math.hypot(m.c, m.d) || 1;
-            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}`;
+            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}`;
             if (key === this.key) return;
             this.key = key;
             const L = this.L = layout(w, h);
-            const glowW = glowSprite('255,215,190');
-            const glowR = glowSprite('255,70,110');
+            const glowW = glowSprite(cardColor('255,215,190', '255,198,225'));
+            const glowR = glowSprite(cardColor('255,70,110', '255,50,125'));
             this.glowW = glowW;
             this.glowR = glowR;
             this.pool = glowSprite('255,90,130', 256);

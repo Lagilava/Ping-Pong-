@@ -27,7 +27,9 @@ class ObstacleSkyScene {
     }
 
     _bake(w, h, grid) {
-        const key = [w, h, grid.left, grid.right, grid.top, grid.bottom, grid.cols, grid.rows, this.ready].join(':');
+        const originalPalette = window.game?.gameMode === 'customise';
+        const color = (original, matched) => originalPalette ? original : matched;
+        const key = [originalPalette, w, h, grid.left, grid.right, grid.top, grid.bottom, grid.cols, grid.rows, this.ready].join(':');
         if (this.canvas && this.key === key) return this.canvas;
         const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
         const scale = Math.min(1, (mobile ? 960 : 1280) / w, (mobile ? 540 : 720) / h);
@@ -37,9 +39,9 @@ class ObstacleSkyScene {
         const ctx = c.getContext('2d', {alpha: false});
         ctx.scale(c.width / w, c.height / h);
         const sky = ctx.createLinearGradient(0, 0, w, h);
-        sky.addColorStop(0, '#343044');
-        sky.addColorStop(0.65, '#725052');
-        sky.addColorStop(1, '#c28b58');
+        sky.addColorStop(0, color('#343044', '#3b3036'));
+        sky.addColorStop(0.65, color('#725052', '#97684f'));
+        sky.addColorStop(1, color('#c28b58', '#dba16b'));
         ctx.fillStyle = sky;
         ctx.fillRect(0, 0, w, h);
         if (this.ready) {
@@ -69,14 +71,20 @@ class ObstacleSkyScene {
                 }
             }
         }
-        ctx.fillStyle = 'rgba(9,8,20,0.32)';
+        if (!originalPalette) {
+            ctx.globalCompositeOperation = 'soft-light';
+            ctx.fillStyle = 'rgba(255,181,104,0.16)';
+            ctx.fillRect(0, 0, w, h);
+            ctx.globalCompositeOperation = 'source-over';
+        }
+        ctx.fillStyle = color('rgba(9,8,20,0.32)', 'rgba(25,16,13,0.25)');
         ctx.fillRect(0, 0, w, h);
         // Soft darkening keeps the sunset legible at the edges and the ball
         // readable through the whole playfield, without a hard UI-like panel.
         const shade = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.65);
-        shade.addColorStop(0, 'rgba(10,12,24,0.83)');
-        shade.addColorStop(0.55, 'rgba(10,12,24,0.57)');
-        shade.addColorStop(1, 'rgba(10,12,24,0.08)');
+        shade.addColorStop(0, color('rgba(10,12,24,0.83)', 'rgba(19,15,18,0.81)'));
+        shade.addColorStop(0.55, color('rgba(10,12,24,0.57)', 'rgba(25,19,20,0.54)'));
+        shade.addColorStop(1, color('rgba(10,12,24,0.08)', 'rgba(29,20,17,0.06)'));
         ctx.fillStyle = shade;
         ctx.fillRect(0, 0, w, h);
 

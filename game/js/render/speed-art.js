@@ -8,6 +8,8 @@
  */
 (function () {
     const TAU = Math.PI * 2;
+    // Custom Match retains its original palette when it selects this backdrop.
+    const cardColor = (original, matched) => window.game?.gameMode === 'customise' ? original : matched;
     const NEAR = 1;          // depth of the bottom edge of the screen
     const FAR = 34;          // depth at which objects fade in from the haze
     const HORIZON = 0.44;    // horizon height as a fraction of the screen
@@ -34,9 +36,9 @@
         const sky = x.createLinearGradient(0, 0, 0, hy);
         sky.addColorStop(0, '#03020d');
         sky.addColorStop(0.42, '#0d0526');
-        sky.addColorStop(0.72, '#2a0943');
-        sky.addColorStop(0.9, '#5e1356');
-        sky.addColorStop(1, '#9a2a5e');
+        sky.addColorStop(0.72, cardColor('#2a0943', '#3e104e'));
+        sky.addColorStop(0.9, cardColor('#5e1356', '#96225f'));
+        sky.addColorStop(1, cardColor('#9a2a5e', '#d34c68'));
         x.fillStyle = sky;
         x.fillRect(0, 0, w, hy + 1);
 
@@ -111,7 +113,7 @@
         x.fillStyle = asphalt;
         x.fill();
         const sheen = x.createRadialGradient(cx, hy, 0, cx, hy, gh * 1.1);
-        sheen.addColorStop(0, 'rgba(255,120,170,0.20)');
+        sheen.addColorStop(0, cardColor('rgba(255,120,170,0.20)', 'rgba(255,65,161,0.30)'));
         sheen.addColorStop(0.5, 'rgba(120,60,200,0.05)');
         sheen.addColorStop(1, 'rgba(0,0,0,0)');
         x.fillStyle = sheen;
@@ -174,7 +176,7 @@
         x.restore();
         const haze = x.createLinearGradient(0, hy - gh * 0.12, 0, hy + gh * 0.14);
         haze.addColorStop(0, 'rgba(255,80,150,0)');
-        haze.addColorStop(0.5, 'rgba(255,80,150,0.16)');
+        haze.addColorStop(0.5, cardColor('rgba(255,80,150,0.16)', 'rgba(255,85,145,0.24)'));
         haze.addColorStop(1, 'rgba(255,80,150,0)');
         x.fillStyle = haze;
         x.fillRect(0, hy - gh * 0.12, w, gh * 0.26);
@@ -187,7 +189,7 @@
         const cx = S / 2, cy = S * 0.62 - R * 0.12; // centre sits just above the cut
         // Halo
         const halo = x.createRadialGradient(cx, cy, R * 0.8, cx, cy, R * 1.4);
-        halo.addColorStop(0, 'rgba(255,90,140,0.32)');
+        halo.addColorStop(0, cardColor('rgba(255,90,140,0.32)', 'rgba(255,125,100,0.42)'));
         halo.addColorStop(0.5, 'rgba(255,60,150,0.10)');
         halo.addColorStop(1, 'rgba(255,60,150,0)');
         x.fillStyle = halo;
@@ -195,10 +197,10 @@
         // Disc on its own layer so the stripes can cut it.
         const [dc, dx] = canvas(S, S * 0.62, sx, sy);
         const g = dx.createLinearGradient(0, cy - R, 0, cy + R);
-        g.addColorStop(0, '#ffe98a');
-        g.addColorStop(0.3, '#ffa94a');
-        g.addColorStop(0.55, '#ff5d6c');
-        g.addColorStop(0.85, '#e0287f');
+        g.addColorStop(0, cardColor('#ffe98a', '#fff18a'));
+        g.addColorStop(0.3, cardColor('#ffa94a', '#ffbd4a'));
+        g.addColorStop(0.55, cardColor('#ff5d6c', '#ff8357'));
+        g.addColorStop(0.85, cardColor('#e0287f', '#f54489'));
         g.addColorStop(1, '#b0108a');
         dx.fillStyle = g;
         dx.beginPath();
@@ -573,8 +575,8 @@
     function paintOverlay(x, w, h) {
         const cx = w * 0.5, cy = h * 0.5;
         const lane = x.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w, h) * 0.55);
-        lane.addColorStop(0, 'rgba(4,2,14,0.55)');
-        lane.addColorStop(0.6, 'rgba(4,2,14,0.32)');
+        lane.addColorStop(0, cardColor('rgba(4,2,14,0.55)', 'rgba(4,2,14,0.36)'));
+        lane.addColorStop(0.6, cardColor('rgba(4,2,14,0.32)', 'rgba(4,2,14,0.24)'));
         lane.addColorStop(1, 'rgba(4,2,14,0)');
         x.fillStyle = lane;
         x.fillRect(0, 0, w, h);
@@ -622,7 +624,7 @@
         _bake(ctx, w, h) {
             const m = ctx.getTransform();
             const sx = Math.hypot(m.a, m.b) || 1, sy = Math.hypot(m.c, m.d) || 1;
-            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}`;
+            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}`;
             if (key === this.key) return;
             this.key = key;
             const hy = Math.round(h * HORIZON);
@@ -636,12 +638,12 @@
             this.clouds = paintClouds(w, hy, sx, sy);
             this.far = paintMountains(w, h * 0.24, sx, sy, {
                 seed: 5, rough: 0.9, valley: 0.55, peaks: 9, top: '#3a1060', bottom: '#1a0634',
-                wire: 'rgba(255,90,200,0.10)', rim: 'rgba(255,120,210,0.75)',
+                wire: 'rgba(255,90,200,0.10)', rim: cardColor('rgba(255,120,210,0.75)', 'rgba(255,96,203,0.92)'),
             });
             this.city = paintCity(w, h * 0.12, sx, sy);
             this.near = paintMountains(w, h * 0.2, sx, sy, {
                 seed: 19, rough: 1.1, valley: 0.9, peaks: 7, top: '#1c0736', bottom: '#09021a',
-                wire: 'rgba(60,220,255,0.10)', rim: 'rgba(70,220,255,0.7)',
+                wire: 'rgba(60,220,255,0.10)', rim: cardColor('rgba(70,220,255,0.7)', 'rgba(70,232,255,0.88)'),
             });
             this.sprites = {
                 palmL: paintPalm(ps, ps, 1), palmR: paintPalm(ps, ps, -1),
