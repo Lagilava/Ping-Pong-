@@ -990,7 +990,7 @@ class BackgroundRenderer {
             case 'gravity': this.renderGravity(ctx, w, h); break;
             case 'speed': this.renderSpeedRush(ctx, w, h); break;
             case 'obstacle': this.renderObstacle(ctx, w, h); break;
-            case 'customise': this.renderClassic(ctx, w, h); break;
+            case 'customise': this._renderSynthwaveBackground(ctx, w, h); break;
         }
     }
 
@@ -1312,8 +1312,23 @@ class BackgroundRenderer {
     // ------------------------------------------------------------------
     // CLASSIC
     // ------------------------------------------------------------------
+    // The packed arena from the Classic key art (classic-art.js).
     renderClassic(ctx, w, h) {
-        this._renderSynthwaveBackground(ctx, w, h);
+        if (!this._classicArt && typeof ClassicArt === 'function') this._classicArt = new ClassicArt();
+        if (!this._classicArt) {
+            this._renderSynthwaveBackground(ctx, w, h);
+            return;
+        }
+        const game = typeof window !== 'undefined' ? window.game : null;
+        const prev = this._classicLast ?? this.time;
+        const dt = Math.max(0, Math.min(0.1, this.time - prev));
+        this._classicLast = this.time;
+        const scores = game?.scores;
+        this._classicArt.draw(ctx, w, h, {
+            dt,
+            rally: game?.rallyCount || 0,
+            score: scores ? (scores.player || 0) + (scores.ai || 0) : 0,
+        });
     }
 
     _renderSynthwaveBackground(ctx, w, h) {
