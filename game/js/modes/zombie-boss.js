@@ -1122,65 +1122,43 @@ class ZombieBoss {
     }
 
     renderHealthBar(ctx, now) {
-        const barWidth = 320;
-        const barHeight = 22;
-        const x = this.game.width / 2 - barWidth / 2;
-        // Sits under the top HUD bar so it never covers the menu button.
-        const y = 72;
-        const healthRatio = this.health / this.maxHealth;
-
-        ctx.fillStyle = '#220022';
-        ctx.fillRect(x, y, barWidth, barHeight);
-
-        const grad = ctx.createLinearGradient(x, y, x + barWidth, y);
-        if (healthRatio > 0.5) {
-            grad.addColorStop(0, '#ff9900');
-            grad.addColorStop(1, '#ffdd00');
-        } else if (healthRatio > 0.25) {
-            grad.addColorStop(0, '#ff5500');
-            grad.addColorStop(1, '#ff9900');
-        } else {
-            grad.addColorStop(0, '#ff1100');
-            grad.addColorStop(1, '#ff5500');
-        }
-
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, y, barWidth * healthRatio, barHeight);
-
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = '#ffffff';
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = '#ffffff';
-        ctx.strokeRect(x, y, barWidth, barHeight);
+        const uiScale = Math.max(0.85, Math.min(1.4, this.game.width / 1280));
+        const barWidth = Math.min(300 * uiScale, this.game.width * 0.56);
+        const x = (this.game.width - barWidth) / 2;
+        const y = 91;
+        const ratio = Math.max(0, Math.min(1, this.health / this.maxHealth));
+        ctx.save();
         ctx.shadowBlur = 0;
-
-        if (healthRatio < 0.3) {
-            const flash = 0.6 + Math.sin(now * 0.015) * 0.4;
-            ctx.strokeStyle = `rgba(255,0,0,${flash})`;
-            ctx.lineWidth = 5;
-            ctx.strokeRect(x - 3, y - 3, barWidth + 6, barHeight + 6);
-        }
-
-        ctx.font = 'bold 13px Arial';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = 'rgba(30, 6, 6, 0.75)';
-        ctx.lineWidth = 3;
-        ctx.lineJoin = 'round';
-        const pct = `${Math.ceil(Math.max(0, healthRatio) * 100)}%`;
-        ctx.textAlign = 'left';
-        ctx.strokeText('ZOMBIE BOSS', x + 10, y + barHeight / 2 + 1);
-        ctx.fillText('ZOMBIE BOSS', x + 10, y + barHeight / 2 + 1);
-        ctx.textAlign = 'right';
-        ctx.strokeText(pct, x + barWidth - 10, y + barHeight / 2 + 1);
-        ctx.fillText(pct, x + barWidth - 10, y + barHeight / 2 + 1);
-        ctx.fillStyle = 'rgba(255, 244, 230, 0.86)';
-        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(5,12,17,0.88)';
+        ctx.fillRect(x - 12, y - 28, barWidth + 24, 64);
+        ctx.strokeStyle = 'rgba(155,175,177,0.28)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - 12, y - 28);
+        ctx.lineTo(x - 12, y + 36);
+        ctx.moveTo(x + barWidth + 12, y - 28);
+        ctx.lineTo(x + barWidth + 12, y + 36);
+        ctx.stroke();
+        ctx.font = `600 ${Math.round(11 * uiScale)}px "Share Tech Mono", monospace`;
         ctx.textBaseline = 'alphabetic';
-        const hint = this.bossDisabled
-            ? 'KNOCKED OUT'
-            : (this.wave >= this.maxWave ? 'FINAL WAVE · SCORE PAST THE BOSS TO WIN' : 'SCORE PAST THE BOSS TO KNOCK IT OUT');
-        ctx.fillText(hint, this.game.width / 2, y + barHeight + 18);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#d4dedc';
+        ctx.fillText(this.wave >= this.maxWave ? 'THE FINAL GUARDIAN' : 'GRAVE GUARDIAN', x, y - 10, barWidth - 42);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#b9caca';
+        ctx.fillText(`${Math.ceil(ratio * 100)}%`, x + barWidth, y - 10);
+        ctx.fillStyle = '#243238';
+        ctx.fillRect(x, y, barWidth, 5);
+        const health = ctx.createLinearGradient(x, y, x + barWidth, y);
+        health.addColorStop(0, ratio < 0.3 ? '#9d4f4b' : '#597c81');
+        health.addColorStop(1, ratio < 0.3 ? '#d28a72' : '#b6cdca');
+        ctx.fillStyle = health;
+        ctx.fillRect(x, y, barWidth * ratio, 5);
+        ctx.font = `${Math.round(10 * uiScale)}px "Share Tech Mono", monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#9daeb0';
+        ctx.fillText(this.bossDisabled ? 'GUARDIAN DEFEATED' : 'Score past the guardian to defeat it', this.game.width / 2, y + 23, barWidth);
+        ctx.restore();
     }
 
     getPhaseDescription() {

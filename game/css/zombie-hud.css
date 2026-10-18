@@ -1,0 +1,249 @@
+/* Zombie-only HUD: live text on one cached, illustrated plaque. */
+body.zombie-mode .player-score,
+body.zombie-mode .ai-score {
+    color: #d3dfdc;
+    text-shadow: none;
+}
+body.zombie-mode .ai-score { color: #d79587; }
+body.zombie-mode .player-score::before,
+body.zombie-mode .ai-score::before { color: #a3b7b8; }
+
+.zombie-progress-overlay {
+    width: 310px;
+    min-height: 108px;
+    box-sizing: border-box;
+    padding: 24px 22px 24px 103px;
+    gap: 10px;
+    bottom: 18px;
+    right: 18px;
+    background: #060b0e url('../assets/images/zombie-hud-plaque.webp') center / 100% 100% no-repeat;
+    border: 0;
+    border-radius: 3px;
+    box-shadow: 0 6px 22px #0007;
+}
+.zombie-progress-overlay .zombie-progress-pill {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    color: #c4d2d0;
+    font: 12px/1.2 'Share Tech Mono', monospace;
+    letter-spacing: .06em;
+    text-shadow: 0 1px 3px #000;
+}
+#zombieProgressWave { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.zombie-wave-label { font-size: 10px; color: #aabcbf; }
+.zombie-progress-overlay strong { color: #e0e5d9; font: 600 23px/1 'Share Tech Mono', monospace; letter-spacing: 0; }
+.zombie-progress-overlay strong small { color: #9cafb1; font-size: 12px; font-weight: 400; }
+.zombie-wave-status { flex-basis: 100%; color: #b8c8c9; font-size: 10px; text-transform: none; }
+#zombieProgressBoosts { color: #c3b28a; font-size: 10px; order: 3; text-transform: none; }
+.zombie-pull-pill { gap: 7px; }
+.zombie-pull-label { font-size: 10px; }
+.zombie-pull-meter { min-width: 35px; height: 4px; background: #354448; border-radius: 0; }
+.zombie-pull-meter i { background: linear-gradient(90deg, #6b9c9c, #c0d7d1); }
+.zombie-pull-pill.low .zombie-pull-meter i { background: #c4816c; }
+.zombie-pull-pill kbd { font: 9px/1.3 'Share Tech Mono', monospace; color: #adbdbb; border: 1px solid #80918e55; border-radius: 2px; padding: 2px 4px; }
+@media (max-height: 520px) {
+    .zombie-progress-overlay { bottom: 10px; right: 10px; min-height: 96px; padding-top: 18px; padding-bottom: 18px; }
+}
+body.zombie-mode #pp-enhanced-hud {
+    background: linear-gradient(180deg, #050c12ed, #050c1255);
+    border-bottom-color: #94afb51c;
+}
+body.zombie-mode .player-side .pp-score-label { color: #a3b7b8; }
+body.zombie-mode .ai-side .pp-score-label { color: #c69b8c; }
+body.zombie-mode #cyber-menu-btn {
+    color: #cedbd5;
+    border-color: #899d9b77;
+    background: #081218eb;
+    box-shadow: 0 2px 10px #0006, inset 0 0 0 1px #b3a27b22;
+    text-shadow: none;
+}
+body.zombie-mode #cyber-menu-btn:hover { border-color: #bdc9bd; background: #16262b; }
+/* Briefing and rewards share the cemetery's quiet metal-and-moonlight palette. */
+#zombieBriefing, #zombieWaveChoice {
+    position: fixed;
+    background: #02080de0;
+    backdrop-filter: none;
+    padding: 18px;
+    box-sizing: border-box;
+}
+:is(#zombieBriefing, #zombieWaveChoice) .zombie-wave-choice-panel {
+    position: relative;
+    isolation: isolate;
+    box-sizing: border-box;
+    max-height: calc(100dvh - 36px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: #687f80 #091218;
+    border: 1px solid #8e9a8266;
+    border-radius: 8px;
+    background: linear-gradient(145deg, #11222a, #060e14 75%);
+    box-shadow: 0 24px 80px #000a, inset 0 0 0 4px #b2a47e09;
+    text-align: left;
+    padding: 30px;
+}
+:is(#zombieBriefing, #zombieWaveChoice) .zombie-wave-choice-kicker {
+    color: #b5a582;
+    font: 11px/1.4 'Share Tech Mono', monospace;
+    letter-spacing: .22em;
+    margin-bottom: 10px;
+}
+:is(#zombieBriefing, #zombieWaveChoice) h3 {
+    color: #e0e5d9;
+    font: 400 clamp(28px, 4vw, 42px)/1.1 Georgia, serif;
+    letter-spacing: -.025em;
+    text-shadow: none;
+}
+:is(#zombieBriefing, #zombieWaveChoice) .zombie-wave-choice-panel > p { color: #afc0c0; line-height: 1.5; }
+#zombieBriefing .zombie-wave-choice-panel {
+    width: min(940px, 94vw);
+    padding-left: 300px;
+}
+#zombieBriefing .zombie-wave-choice-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 270px;
+    border-right: 1px solid #89978733;
+    background: linear-gradient(0deg, #050e16d9, #050e1611 65%), url('../assets/images/menu-art/zombie.webp') center / cover;
+    z-index: -1;
+}
+#zombieBriefing .zombie-briefing-rules { gap: 0; margin-top: 22px; }
+#zombieBriefing .zombie-briefing-rules li {
+    padding: 12px 0;
+    gap: 12px;
+    border: 0;
+    border-bottom: 1px solid #8ba8a31c;
+    border-radius: 0;
+    background: none;
+    color: #acbfc1;
+    font: 13px/1.5 Arial, sans-serif;
+}
+#zombieBriefing .zombie-briefing-rules strong { color: #dce5dc; font-weight: 600; }
+#zombieBriefing .choice-icon { width: 32px; height: 32px; flex-basis: 32px; }
+#zombieBriefing .zombie-briefing-start {
+    width: 100%;
+    margin-top: 22px;
+    border: 1px solid #b0bb9c88;
+    border-radius: 4px;
+    background: linear-gradient(#a4b3a2, #788f87);
+    color: #071314;
+    font: 700 12px/1.4 'Share Tech Mono', monospace;
+    padding: 14px 20px;
+    letter-spacing: .12em;
+    box-shadow: none;
+}
+#zombieWaveChoice .zombie-wave-choice-panel { width: min(760px, 94vw); }
+#zombieWaveChoice .zombie-wave-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
+#zombieWaveChoice .zombie-wave-choice-btn {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 14px;
+    justify-items: start;
+    text-align: left;
+    min-height: 108px;
+    padding: 18px;
+    border: 1px solid #78918b55;
+    border-radius: 5px;
+    background: linear-gradient(135deg, #1a2c32, #0b161d);
+    color: #d9e0d5;
+    box-shadow: none;
+}
+#zombieWaveChoice .choice-icon { grid-row: 1 / 3; }
+#zombieWaveChoice .choice-label { align-self: end; font: 400 22px/1.2 Georgia, serif; letter-spacing: 0; }
+#zombieWaveChoice .choice-desc { align-self: start; color: #a9bec0; font: 12px/1.4 Arial, sans-serif; }
+#zombieWaveChoice .zombie-wave-choice-btn:hover:not(:disabled) { transform: translateY(-2px); border-color: #b5b48b; background: #23363a; }
+#zombieWaveChoice .zombie-wave-choice-btn:disabled { opacity: .38; cursor: not-allowed; }
+#zombieWaveChoice .zombie-wave-choice-timer { color: #b1a787; font: 11px/1.4 'Share Tech Mono', monospace; letter-spacing: .08em; border-top: 1px solid #85968c33; padding-top: 16px; margin-top: 20px; }
+/* Pause and end-of-run panels retain their existing actions and keyboard flow. */
+body.zombie-mode .pause-card,
+body.zombie-mode .ppres-box {
+    border-color: #91a19a66;
+    border-radius: 8px;
+    background: linear-gradient(155deg, #14262df5, #050e16fa);
+    box-shadow: 0 22px 70px #0009;
+}
+body.zombie-mode .pause-card .ui-art.is-scene { opacity: .3; }
+body.zombie-mode .pause-card h2,
+body.zombie-mode .ppres-title { color: #e0e5d9; font-family: Georgia, serif; font-weight: 400; text-shadow: none; letter-spacing: .02em; }
+body.zombie-mode .pause-card .pause-kicker,
+body.zombie-mode .ppres-kicker { color: #b6aa87; text-shadow: none; }
+body.zombie-mode .pause-side b { color: #c9d8d0; text-shadow: none; }
+body.zombie-mode .pause-side.right b { color: #d49d8b; }
+body.zombie-mode .pause-btn,
+body.zombie-mode .ppres-actions button {
+    border-color: #81999266;
+    border-radius: 4px;
+    background: #14252bdc;
+    color: #c8d6d2;
+    box-shadow: none;
+    text-shadow: none;
+}
+body.zombie-mode .pause-btn.primary,
+body.zombie-mode .ppres-actions button:first-child { background: #a1b2a3; color: #081616; border-color: #b2bfa8; }
+body.zombie-mode .pause-btn.danger { color: #dca99b; border-color: #9e726155; }
+body.zombie-mode .pause-btn:hover { background: #2b4144; color: #e8e8d6; }
+body.zombie-mode .pause-btn.confirm { background: #633f35; color: #fff0d9; }
+:is(#zombieBriefing, #zombieWaveChoice) button:focus-visible,
+body.zombie-mode .pause-btn:focus-visible,
+body.zombie-mode .ppres-actions button:focus-visible { outline: 2px solid #d4c79f; outline-offset: 3px; }
+@media (max-width: 700px), (max-height: 520px) {
+    :is(#zombieBriefing, #zombieWaveChoice) .zombie-wave-choice-panel { padding: 22px; }
+    #zombieBriefing .zombie-wave-choice-panel::before { display: none; }
+    #zombieBriefing .zombie-briefing-rules li { padding: 10px 0; }
+    #zombieWaveChoice .zombie-wave-choice-btn { padding: 12px; min-height: 92px; column-gap: 10px; grid-template-columns: 40px 1fr; }
+    #zombieWaveChoice .choice-icon { width: 40px; height: 40px; }
+}
+@media (max-width: 380px) {
+    #zombieWaveChoice .zombie-wave-choice-grid { grid-template-columns: 1fr; }
+}
+body.pp-reduce-motion #zombieWaveChoice .zombie-wave-choice-btn { transition: none; transform: none; }
+/* Modal choices take priority over the persistent score and corner readout. */
+body.zombie-mode:has(#zombieBriefing.visible, #zombieWaveChoice.visible) :is(#pp-enhanced-hud, #cyber-menu-btn, #zombieProgressOverlay) { visibility: hidden; }
+/* Bounded scaling: readable on large monitors without engulfing the court. */
+.zombie-progress-overlay {
+    width: clamp(280px, 24vw, 420px);
+    min-height: clamp(108px, 8.5vw, 144px);
+    padding: clamp(24px, 1.9vw, 32px) clamp(22px, 1.7vw, 30px) clamp(24px, 1.9vw, 32px) clamp(93px, 8vw, 140px);
+    right: max(18px, env(safe-area-inset-right));
+    bottom: max(18px, env(safe-area-inset-bottom));
+}
+.zombie-progress-overlay strong { font-size: clamp(23px, 1.8vw, 30px); }
+:is(.zombie-wave-label, .zombie-wave-status, .zombie-pull-label) { font-size: clamp(10px, .78vw, 13px); }
+#zombieBriefing .zombie-briefing-rules li { font-size: clamp(13px, .9vw, 16px); }
+body.zombie-mode .pause-card { max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow-y: auto; }
+body.zombie-mode .ppres-box { box-sizing: border-box; max-width: calc(100vw - 32px); }
+/* Touch controls already expose Pull energy: retain just wave/bonus status
+   between the two thumb zones instead of duplicating the desktop controls. */
+html.pp-mobile body.zombie-mode .zombie-progress-overlay {
+    display: flex !important;
+    left: 50%; right: auto;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: min(60vw, 320px);
+    min-height: 0;
+    padding: 7px 12px;
+    gap: 4px;
+    background: #08141beb;
+    border: 1px solid #91a19a55;
+    border-radius: 4px;
+    box-shadow: none;
+}
+html.pp-mobile .zombie-progress-overlay #zombiePullPill { display: none; }
+html.pp-mobile .zombie-progress-overlay strong { font-size: 18px; }
+html.pp-mobile .zombie-progress-overlay .zombie-wave-status { flex-basis: auto; margin-left: 4px; font-size: 10px; }
+html.pp-mobile .zombie-progress-overlay .zombie-wave-label { font-size: 9px; }
+html.pp-mobile #zombieProgressBoosts { font-size: 9px; }
+@media (max-width: 700px), (max-height: 520px) {
+    :is(#zombieBriefing, #zombieWaveChoice) .zombie-wave-choice-panel { max-height: calc(100dvh - 36px); }
+}
+@media (max-width: 380px) {
+    #zombieBriefing, #zombieWaveChoice { padding: 10px; }
+    :is(#zombieBriefing, #zombieWaveChoice) .zombie-wave-choice-panel { width: calc(100vw - 20px); padding: 18px; }
+}

@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="css/main-menu.css">
     <link rel="stylesheet" href="css/touch.css">
     <link rel="stylesheet" href="css/ui-art.css">
+    <link rel="stylesheet" href="css/zombie-hud.css">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js"></script>
 </head>
@@ -31,9 +32,8 @@
         <div class="speed-lines" id="speedLines"></div>
         <div class="zombie-progress-overlay" id="zombieProgressOverlay" aria-hidden="true">
             <div class="zombie-progress-pill" id="zombieProgressWave">Wave <strong>1/10</strong></div>
-            <div class="zombie-progress-pill" id="zombieProgressBreaches">Lives <strong class="zombie-hearts">&#9829;&#9829;&#9829;&#9829;&#9829;</strong></div>
             <div class="zombie-progress-pill empty" id="zombieProgressBoosts"></div>
-            <div class="zombie-progress-pill zombie-pull-pill" id="zombiePullPill">Pull <span class="zombie-pull-meter" aria-hidden="true"><i id="zombiePullBar"></i></span> <kbd>Hold Space</kbd></div>
+            <div class="zombie-progress-pill zombie-pull-pill" id="zombiePullPill"><span class="zombie-pull-label">Pull</span> <span class="zombie-pull-meter" aria-hidden="true"><i id="zombiePullBar"></i></span> <kbd>Hold Space</kbd></div>
         </div>
         <div class="hud" id="hud">
             <div class="score-container">
@@ -138,10 +138,10 @@
                 <div class="zombie-wave-choice-kicker">Zombie Mode</div>
                 <h3>Hold the line</h3>
                 <ul class="zombie-briefing-rules">
-                    <li><span class="choice-icon" data-rule-icon="zombie-wave"></span><span><strong>Clear each wave</strong> by smashing every zombie with the ball, or by scoring past the boss until its health bar is empty.</span></li>
-                    <li><span class="choice-icon" data-rule-icon="zombie-lives"></span><span><strong>5 lives for the whole run.</strong> You lose one when the ball gets past you or a zombie reaches your barricade.</span></li>
-                    <li><span class="choice-icon" data-rule-icon="zombie-pull"></span><span><strong><span class="pp-pc-only">Hold Space to pull zombies</span><span class="pp-touch-only">Hold the Pull button with your left thumb</span></strong> <span class="pp-touch-only">to drag zombies</span> towards your barricade line. They are destroyed there for points and cost no life. It reaches less than half the court and only above and below your paddle, and it needs energy<span class="pp-pc-only"> (the right mouse button works too)</span>.</span></li>
-                    <li><span class="choice-icon" data-rule-icon="zombie-reward"></span><span><strong>Pick a reward</strong> after every wave. Grab glowing orbs with the ball for bonus powers.</span></li>
+                    <li><span class="choice-icon" data-rule-icon="zombie-wave"></span><span><strong>Clear each wave</strong> by hitting every zombie, or score past the guardian until its health is empty.</span></li>
+                    <li><span class="choice-icon" data-rule-icon="zombie-lives"></span><span><strong>5 lives for the whole run.</strong> A missed ball or a zombie reaching your barricade costs one.</span></li>
+                    <li><span class="choice-icon" data-rule-icon="zombie-pull"></span><span><strong><span class="pp-pc-only">Hold Space to pull zombies</span><span class="pp-touch-only">Hold the Pull button with your left thumb</span></strong> <span class="pp-touch-only">to drag zombies</span> into your barricade for points. No life lost. Pull reaches only nearby zombies above and below your paddle, and uses energy<span class="pp-pc-only"> (the right mouse button works too)</span>.</span></li>
+                    <li><span class="choice-icon" data-rule-icon="zombie-reward"></span><span><strong>Pick a reward</strong> after every wave. Hit glowing orbs for extra powers.</span></li>
                     <li><span class="choice-icon" data-rule-icon="zombie-boss"></span><span><strong>Wave 10 is the boss fight.</strong> Knock the boss out to win.</span></li>
                 </ul>
                 <button class="zombie-briefing-start" id="zombieBriefingStart">Start wave 1</button>

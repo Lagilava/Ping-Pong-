@@ -127,7 +127,6 @@ class Game {
         this.zombiePowerDisplay = document.getElementById('zombiePowerDisplay');
         this.zombieProgressOverlay = document.getElementById('zombieProgressOverlay');
         this.zombieProgressWave = document.getElementById('zombieProgressWave');
-        this.zombieProgressBreaches = document.getElementById('zombieProgressBreaches');
         this.zombieProgressBoosts = document.getElementById('zombieProgressBoosts');
         this.zombiePullPill = document.getElementById('zombiePullPill');
         this.zombiePullBar = document.getElementById('zombiePullBar');
@@ -2968,7 +2967,6 @@ class Game {
         this.zombieWaveChoice.classList.add('visible');
         this.zombieWaveChoice.setAttribute('aria-hidden', 'false');
         this.setChallengePaused(true);
-        this.showNotification('Wave Clear', `Choose a reward for wave ${nextWave}`, '#ffd166');
         this.audio?.zombieChoice?.();
 
         const buttons = this.zombieWaveChoice.querySelectorAll('.zombie-wave-choice-btn');
@@ -3042,7 +3040,6 @@ class Game {
         const slowSeconds = Math.ceil(state.powerups.slow || 0);
         const currentWave = Math.min(state.wave, state.maxWave);
         const hearts = Math.max(0, state.hearts);
-        const heartText = '\u2665'.repeat(hearts) + '\u2661'.repeat(Math.max(0, state.maxHearts - hearts));
         const hordeLeft = state.zombies.length;
         const bossWave = currentWave >= state.maxWave;
         const boostParts = [];
@@ -3074,10 +3071,8 @@ class Game {
             this.zombieProgressOverlay.setAttribute('aria-hidden', zombieMode ? 'false' : 'true');
         }
         if (zombieMode) {
-            this._setHTML(this.zombieProgressWave, bossWave
-                ? `Wave <strong>${currentWave}/${state.maxWave}</strong> &middot; boss fight`
-                : `Wave <strong>${currentWave}/${state.maxWave}</strong> &middot; <strong>${hordeLeft}</strong> left`);
-            this._setHTML(this.zombieProgressBreaches, `Lives <strong class="zombie-hearts">${heartText}</strong>`);
+            this._setHTML(this.zombieProgressWave,
+                `<span class="zombie-wave-label">Wave</span> <strong>${String(currentWave).padStart(2, '0')}<small> / ${state.maxWave}</small></strong><span class="zombie-wave-status">${bossWave ? 'Final stand' : `${hordeLeft} remaining`}</span>`);
             this._setHTML(this.zombieProgressBoosts, boostParts.length ? boostParts.join(' &middot; ') : '');
             if (this.zombieProgressBoosts) this.zombieProgressBoosts.classList.toggle('empty', !boostParts.length);
         }
@@ -3093,7 +3088,7 @@ class Game {
         }
     }
 
-    // Pull meter in the corner pills (desktop). The paddle carries its own bar.
+    // Pull energy shares the wave plaque (desktop). Touch has its own control.
     syncZombiePullHUD() {
         const pull = this.zombiePull;
         if (!this.zombiePullBar) return;
@@ -3372,8 +3367,6 @@ class Game {
         this.audio?.zombieWave?.();
         if (wave >= state.maxWave) {
             this.showNotification('Final Wave', 'Knock out the boss to win', '#ffd166');
-        } else {
-            this.showNotification(`Wave ${wave}`, `${state.waveTarget} undead · kill them all or knock out the boss`, '#7dff9b');
         }
         this.syncZombieHUD();
     }
