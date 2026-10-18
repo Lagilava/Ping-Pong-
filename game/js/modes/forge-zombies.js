@@ -127,6 +127,7 @@
                 a.attackPulse = z.typeKey === 'spitter' ? Math.max(a.threat * 0.6, 1 - z.spitTimer / 1.1) : a.threat * 0.8;
                 a.inhale = z.typeKey === 'spitter' ? Math.max(0, 1 - z.spitTimer / 1.25) : 0;
 
+                z.spitAnim = Math.max(0, (z.spitAnim || 0) - dt);
                 if (z.typeKey === 'spitter' && live && !guest) {
                     z.spitTimer -= dt;
                     if (z.spitTimer <= 0) {
@@ -159,6 +160,7 @@
 
         // Spit at the paddle on the zombie's half of the court.
         spit(z) {
+            z.spitAnim = 0.22;
             const g = this.game;
             const side = z.x < g.width / 2 ? 'player' : 'ai';
             const p = side === 'player' ? g.player : g.aiPaddle;

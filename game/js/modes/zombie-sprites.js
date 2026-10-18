@@ -1,10 +1,6 @@
-// Zombie sprites. The procedural zombie renderer (Game.renderZombieEnemyLive)
-// draws dozens of gradients and paths per zombie; doing that for a whole
-// horde every frame was the main cost of Zombie mode. Each walk frame of each
-// zombie type and variant is rendered once into an offscreen canvas, finished
-// with a light-from-above shade and a dark outline, and then drawn with a
-// single drawImage. Hit flashes, hit points, the pull stretch and the walk
-// speed stay live.
+// Generated cel-shaded enemy atlas, decoded into reusable animation frames.
+// The previous procedural sprites remain as a loading/error fallback.
+// Hit points, movement, facing, pull deformation and attacks stay live.
 (function () {
     'use strict';
 
@@ -14,17 +10,132 @@
     const MAX_ENTRIES = 320;
     const SPEED_RATIO = { shambler: 0.45, runner: 0.8, spitter: 0.5, tank: 0.35 };
 
+    const GENERATED_TYPES = ['shambler', 'runner', 'tank', 'spitter'];
+    const GENERATED_PACE = { shambler: 0.65, runner: 0.95, tank: 0.5, spitter: 0.6 };
+    let generatedAtlas = null;
+    let generatedLoad = null;
+
+    // Image generation can place a claw over a nominal cell edge. Extract the
+    // six connected silhouettes in each row instead of slicing off those limbs
+    // or letting neighboring pixels bleed into a frame. This runs once, yields
+    // between rows, and preserves the generated colors and antialiased edges.
+    async function prepareGeneratedAtlas(image) {
+        if (image.naturalWidth !== 1536 || image.naturalHeight !== 1024) throw new Error('Expected a 1536 × 1024 enemy atlas');
+        const source = document.createElement('canvas');
+        source.width = 1536; source.height = 256;
+        const ctx = source.getContext('2d', { willReadFrequently: true });
+        const atlas = {};
+        for (let row = 0; row < 4; row++) {
+            ctx.clearRect(0, 0, 1536, 256);
+            ctx.drawImage(image, 0, row * 256, 1536, 256, 0, 0, 1536, 256);
+            const pixels = ctx.getImageData(0, 0, 1536, 256);
+            const labels = new Uint16Array(1536 * 256);
+            const queue = new Int32Array(labels.length);
+            const parts = [];
+            let label = 0;
+            for (let start = 0; start < labels.length; start++) {
+                if (labels[start] || pixels.data[start * 4 + 3] < 80) continue;
+                label++;
+                let head = 0, tail = 1;
+                queue[0] = start; labels[start] = label;
+                let x0 = 1536, x1 = 0, y0 = 256, y1 = 0;
+                while (head < tail) {
+                    const index = queue[head++], x = index % 1536, y = (index / 1536) | 0;
+                    x0 = Math.min(x0, x); x1 = Math.max(x1, x);
+                    y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+                    for (let d = 0; d < 4; d++) {
+                        const next = d === 0 ? (x ? index - 1 : -1)
+                            : d === 1 ? (x < 1535 ? index + 1 : -1)
+                            : d === 2 ? (y ? index - 1536 : -1)
+                            : (y < 255 ? index + 1536 : -1);
+                        if (next >= 0 && !labels[next] && pixels.data[next * 4 + 3] >= 80) {
+                            labels[next] = label; queue[tail++] = next;
+                        }
+                    }
+                }
+                if (tail > 2000) parts.push({ label, x0, x1, y0, y1 });
+            }
+            if (parts.length !== 6) throw new Error(`Expected six ${GENERATED_TYPES[row]} silhouettes; found ${parts.length}`);
+            parts.sort((a, b) => a.x0 - b.x0);
+            const bodyHeight = Math.max(...parts.slice(0, 4).map(p => p.y1 - p.y0 + 1));
+            const frames = [];
+            for (let col = 0; col < parts.length; col++) {
+                const part = parts[col];
+                const x0 = Math.max(0, part.x0 - 4), y0 = Math.max(0, part.y0 - 4);
+                const width = Math.min(1536, part.x1 + 5) - x0;
+                const height = Math.min(256, part.y1 + 5) - y0;
+                const canvas = document.createElement('canvas');
+                canvas.width = width; canvas.height = height;
+                const frameCtx = canvas.getContext('2d');
+                const frame = frameCtx.createImageData(width, height);
+                for (let y = 0; y < height; y++) {
+                    for (let x = 0; x < width; x++) {
+                        const sx = x0 + x, sy = y0 + y, sourceIndex = sy * 1536 + sx;
+                        if (!pixels.data[sourceIndex * 4 + 3]) continue;
+                        let belongs = labels[sourceIndex] === part.label;
+                        // Retain up to four pixels of the original soft edge.
+                        for (let dy = -4; !belongs && dy <= 4; dy++) {
+                            for (let dx = -4; dx <= 4; dx++) {
+                                const nx = sx + dx, ny = sy + dy;
+                                if (nx >= 0 && nx < 1536 && ny >= 0 && ny < 256 && labels[ny * 1536 + nx] === part.label) { belongs = true; break; }
+                            }
+                        }
+                        if (!belongs) continue;
+                        const to = (y * width + x) * 4, from = sourceIndex * 4;
+                        frame.data[to] = pixels.data[from]; frame.data[to + 1] = pixels.data[from + 1];
+                        frame.data[to + 2] = pixels.data[from + 2]; frame.data[to + 3] = pixels.data[from + 3];
+                    }
+                }
+                frameCtx.putImageData(frame, 0, 0);
+                const hit = document.createElement('canvas');
+                hit.width = width; hit.height = height;
+                const hitCtx = hit.getContext('2d');
+                hitCtx.drawImage(canvas, 0, 0);
+                hitCtx.globalCompositeOperation = 'source-in';
+                hitCtx.fillStyle = '#e5f3e8'; hitCtx.fillRect(0, 0, width, height);
+                frames.push({ canvas, hit, ox: col * 256 + 128 - x0,
+                    // Align the feet while preserving the smaller coiled pose.
+                    oy: part.y1 - bodyHeight * 0.5 - y0, bodyHeight });
+            }
+            atlas[GENERATED_TYPES[row]] = frames;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        return atlas;
+    }
+
+    function loadGeneratedAtlas() {
+        if (generatedLoad) return generatedLoad;
+        generatedLoad = new Promise(resolve => {
+            const image = new Image();
+            image.onload = async () => {
+                try { generatedAtlas = await prepareGeneratedAtlas(image); resolve(true); }
+                catch (error) { console.warn('[ZombieSprites] Generated atlas unavailable; using procedural sprites.', error); resolve(false); }
+            };
+            image.onerror = () => resolve(false);
+            const src = 'assets/images/enemies/zombie-atlas.webp';
+            image.src = window.resolveAssetUrl?.(src) || src;
+        });
+        return generatedLoad;
+    }
+
     class ZombieSprites {
         constructor(game) {
             this.game = game;
             this.cache = new Map();
             this.reps = new Map();   // type|variant -> the zombie whose look the sprites copy
             this.failed = false;
+            this.artLoaded = false;
+            this.artReady = loadGeneratedAtlas().then(loaded => {
+                this.artLoaded = loaded;
+                if (loaded) this.clear();
+                return loaded;
+            });
         }
 
         // Queue every walk frame for the zombies of a new wave; pump() bakes a
         // couple per update so no single frame pays for them.
         prewarm(zombies) {
+            if (generatedAtlas) return;
             const tr = this.game.ctx.getTransform();
             const scale = Math.max(1, Math.round(Math.hypot(tr.a, tr.b) * 4) / 4);
             this.queue = this.queue || [];
@@ -50,7 +161,7 @@
             }
         }
 
-        clear() { this.cache.clear(); this.reps.clear(); }
+        clear() { this.cache.clear(); this.reps.clear(); this.queue = []; }
 
         // A stand-in zombie that is mid-stride at a given frame.
         _pose(rep, frame, flash, state = 'walk') {
@@ -146,6 +257,7 @@
 
         // Returns true when the zombie was drawn.
         draw(ctx, zombie) {
+            if (generatedAtlas?.[zombie.typeKey]) return this._drawGenerated(ctx, zombie);
             if (this.failed || !zombie.visual) return false;
             try {
                 const tr = ctx.getTransform();
@@ -204,6 +316,57 @@
                 this.failed = true;
                 return false;
             }
+        }
+
+        _generatedFrame(zombie) {
+            if (zombie.typeKey === 'spitter') {
+                if (zombie.spitAnim > 0) return 5;
+                if (zombie.spitTimer <= 0.85) return 4;
+            } else if ((zombie.anim?.attackPulse || 0) > 0.72) {
+                return 4 + (Math.floor((zombie.frameT || 0) * 0.45) % 2);
+            }
+            const pace = GENERATED_PACE[zombie.typeKey];
+            return Math.floor((zombie.frameT || 0) * pace) % 4;
+        }
+
+        _drawGenerated(ctx, zombie) {
+            const frame = generatedAtlas[zombie.typeKey][this._generatedFrame(zombie)];
+            const radius = zombie.radius;
+            const scale = radius * 2.6 / frame.bodyHeight;
+            const visualScale = Math.max(0.9, Math.min(1.1, zombie.visual?.visualScale || 1));
+            const anim = zombie.anim || {};
+            let facing = anim.facingX || (zombie.vx >= 0 ? 1 : -1);
+            if (zombie.typeKey === 'spitter' && this.game.isZombieWaveMode?.()) {
+                facing = Math.sign(this.game.player.pos.x + this.game.player.w / 2 - zombie.x) || facing;
+            }
+            const pull = Math.max(0, Math.min(1, zombie.pullAmt || 0));
+            const motion = !window.PPSettings?.get('reduceMotion');
+            const tilt = motion ? Math.max(-0.15, Math.min(0.15, (zombie.vx || 0) * 0.001)) : 0;
+            const bob = motion ? Math.sin((zombie.frameT || 0) * Math.PI / 2) * radius * 0.025 : 0;
+            ctx.save();
+            ctx.translate(zombie.x, zombie.y);
+            ctx.fillStyle = 'rgba(0,4,8,0.4)';
+            ctx.beginPath();
+            ctx.ellipse(0, radius * 1.3, radius * 0.85, radius * 0.18, 0, 0, TAU);
+            ctx.fill();
+            ctx.rotate(tilt - pull * 0.12);
+            ctx.translate(0, bob);
+            ctx.scale(facing * scale * visualScale * (1 + pull * 0.18), scale * visualScale * (1 - pull * 0.08));
+            ctx.drawImage(frame.canvas, -frame.ox, -frame.oy);
+            const flash = Math.max(0, Math.min(1, zombie.flash || 0));
+            if (flash > 0.04 && (window.PPSettings?.flashEnabled?.() ?? true)) {
+                ctx.globalAlpha *= flash * 0.6;
+                ctx.drawImage(frame.hit, -frame.ox, -frame.oy);
+            }
+            ctx.restore();
+            if (zombie.typeKey === 'tank' || zombie.typeKey === 'spitter') {
+                ctx.save();
+                ctx.translate(zombie.x, zombie.y + (zombie.typeKey === 'tank' ? radius * 0.25 : 0));
+                this.game._renderGrittyZombieStatus(ctx, zombie, radius, zombie.typeKey,
+                    this.game.time || performance.now() * 0.001, 0, zombie.type.eyeColor);
+                ctx.restore();
+            }
+            return true;
         }
 
         _get(repKey, rep, frame, flash, radius, scale, state = 'walk') {

@@ -3742,6 +3742,7 @@ class Game {
             }
 
             if (zombie.typeKey === 'spitter') {
+                zombie.spitAnim = Math.max(0, (zombie.spitAnim || 0) - dt);
                 zombie.spitTimer -= dt;
                 if (zombie.spitTimer <= 0) {
                     const tx = this.player.pos.x + this.player.w * 0.5;
@@ -3759,6 +3760,7 @@ class Game {
                         life: 3.2
                     });
                     this.audio?.zombieSpit?.();
+                    zombie.spitAnim = 0.22;
                     zombie.spitTimer = 4 + Math.random() * 0.8;
                 }
             }
