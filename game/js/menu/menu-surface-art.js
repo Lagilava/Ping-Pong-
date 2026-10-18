@@ -76,6 +76,37 @@
         ]);
         return api.ready;
     }
+    function installEquipment({renderer, ballMat, leftPaddleMat, rightPaddleMat, skyUniforms, seaUniforms}) {
+        const tasks = [
+            ['ball-shell', ballMat], ['paddle-cyan', leftPaddleMat],
+            ['paddle-magenta', rightPaddleMat], ['court-inlay', null], ['stadium-360', null]
+        ].map(([name, material]) => new Promise(resolve => {
+            new THREE.TextureLoader().load(`assets/images/menu-textures/${name}.webp`, tex => {
+                tex.name = `menu-${name}`;
+                tex.encoding = material ? THREE.sRGBEncoding : THREE.LinearEncoding;
+                tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+                tex.wrapS = name === 'stadium-360' ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
+                tex.wrapT = THREE.ClampToEdgeWrapping;
+                if (material) {
+                    material.map = tex;
+                    material.bumpMap = tex;
+                    material.bumpScale = name === 'ball-shell' ? 0.006 : 0.012;
+                    material.roughness = name === 'ball-shell' ? 0.36 : 0.65;
+                    material.needsUpdate = true;
+                } else if (name === 'stadium-360') {
+                    skyUniforms.uMap.value = tex;
+                    skyUniforms.uBackdropGrade.value = 0.55;
+                } else {
+                    seaUniforms.uCourtArt.value = tex;
+                    seaUniforms.uCourtArtReady.value = 1;
+                }
+                resolve();
+            }, undefined, () => resolve());
+        }));
+        api.ready = Promise.all([api.ready, ...tasks]);
+        return api.ready;
+    }
+    api.installEquipment = installEquipment;
     api.install = install;
     window.MenuSurfaceArt = api;
 })();

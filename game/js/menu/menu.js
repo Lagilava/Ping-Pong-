@@ -84,6 +84,8 @@
         uniform sampler2D uSurface;
         uniform sampler2D uArtSurface;
         uniform float uArtSurfaceReady;
+        uniform sampler2D uCourtArt;
+        uniform float uCourtArtReady;
         uniform float uTime;
         uniform vec3  uCamPos;
         uniform float uLightningFlash;
@@ -184,6 +186,13 @@
                 specCol *= 0.80 + art.g * 0.8;
             }
 
+            if (uCourtArtReady > 0.5) {
+                // Mirror a half-court inlay about the real net; no painted duplicate net.
+                vec2 courtUv = vec2(suv.y, abs(suv.x - 0.5) * 2.0);
+                vec3 inlay = texture2D(uCourtArt, courtUv).rgb;
+                base = mix(base, inlay * vec3(0.55, 0.70, 0.85), 0.72);
+            }
+
             // ── Compose ─────────────────────────────────────────────
             vec3 col = base + skyRefl + sssC;
             col += specCol * (1.0 + uLightningFlash * 1.5);
@@ -222,6 +231,7 @@
     `;
     const SKY_FS = `
         uniform sampler2D uMap;
+        uniform float uBackdropGrade;
         uniform float uTime;
         uniform float uFlash;
         varying vec2 vUv;
@@ -239,7 +249,7 @@
         }
 
         void main() {
-            vec3 col = texture2D(uMap, vUv).rgb;
+            vec3 col = texture2D(uMap, vUv).rgb * uBackdropGrade;
             vec3 d = normalize(vDir);
             float up = clamp(d.y, -0.2, 1.0);
 
@@ -894,6 +904,7 @@
             const backdropTexture = createMenuBackdropTexture();
             skyUniforms = {
                 uMap: { value: backdropTexture },
+                uBackdropGrade: { value: 1 },
                 uTime: { value: 0 },
                 uFlash: { value: 0 },
             };
@@ -996,6 +1007,8 @@
                 uSurface: { value: courtSurface },
                 uArtSurface: { value: courtSurface },
                 uArtSurfaceReady: { value: 0 },
+                uCourtArt: { value: courtSurface },
+                uCourtArtReady: { value: 0 },
                 uTime: { value: 0 },
                 uCamPos: { value: menuCam.position.clone() },
                 uLightningFlash: { value: 0 },
@@ -1027,7 +1040,7 @@
                 blending: THREE.AdditiveBlending,
                 depthWrite: false
             });
-            // Material grain belongs only to menu rails/posts, never paddles.
+            // Hardware grain is separate from the generated equipment rubber textures.
             const hardwareCanvas = document.createElement('canvas');
             hardwareCanvas.width = hardwareCanvas.height = 128;
             const hardwareCtx = hardwareCanvas.getContext('2d');
@@ -1258,6 +1271,8 @@
             rightPaddle.rotation.y = -0.06;
             rightPaddle.userData = { targetY: 0, phase: Math.random() * Math.PI * 2, swingPhase: Math.random() * Math.PI * 2 };
             menuScene.add(rightPaddle);
+            window.MenuSurfaceArt?.installEquipment({renderer: menuRenderer, ballMat,
+                leftPaddleMat, rightPaddleMat, skyUniforms, seaUniforms});
 
             // ── TRAIL PARTICLES ───────────────────────────────────────
             const trailParticles = [];
