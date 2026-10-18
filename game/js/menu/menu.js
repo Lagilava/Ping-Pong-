@@ -251,17 +251,24 @@
         }
 
         void main() {
-            // Keep the stadium horizon fixed while sky and under-clouds drift.
-            // Periodic offsets remain continuous at the panorama seam.
-            float cloudMask = smoothstep(0.62, 0.78, vUv.y)
-                + (1.0 - smoothstep(0.22, 0.38, vUv.y));
-            vec2 cloudUv = vUv;
-            cloudUv.x += uTime * 0.0025 * cloudMask;
-            cloudUv.y += sin(vUv.x * 6.2831853 + uTime * 0.09)
-                * 0.006 * cloudMask;
-            vec3 col = texture2D(uMap, cloudUv).rgb * uBackdropGrade;
+            // The photographed stadium is immutable. Only the independent
+            // atmospheric density field below is advected, never its UVs.
+            vec3 col = texture2D(uMap, vUv).rgb * uBackdropGrade;
             vec3 d = normalize(vDir);
             float up = clamp(d.y, -0.2, 1.0);
+
+            // Separate translucent cloud veil, continuous around the dome.
+            // Direction-space noise avoids a seam at longitude +/- pi.
+            vec2 cloudP = d.xz / (abs(d.y) + 0.45) * 3.5;
+            vec2 wind = vec2(uTime * 0.018, uTime * 0.006);
+            float density = n2(cloudP + wind) * 0.57
+                + n2(cloudP * 2.03 + wind * 1.35) * 0.29
+                + n2(cloudP * 4.07 + wind * 1.7) * 0.14;
+            float cloudRegion = 1.0 - smoothstep(-0.48, -0.12, d.y);
+            float veil = smoothstep(0.43, 0.78, density) * cloudRegion * 0.23;
+            vec3 cloudColor = mix(vec3(0.035, 0.060, 0.095),
+                vec3(0.14, 0.19, 0.27), density);
+            col = mix(col, cloudColor, veil);
 
             // Aurora: a few drifting ribbons high in the sky.
             float az = atan(d.z, d.x);
