@@ -9,16 +9,16 @@ body.zombie-mode .player-score::before,
 body.zombie-mode .ai-score::before { color: #a3b7b8; }
 
 .zombie-progress-overlay {
-    width: 310px;
-    min-height: 108px;
+    width: clamp(248px, 20vw, 300px);
+    min-height: 80px;
     box-sizing: border-box;
-    padding: 24px 22px 24px 103px;
-    gap: 10px;
+    padding: 12px 12px 12px 68px;
+    gap: 7px;
     bottom: 18px;
     right: 18px;
-    background: #060b0e url('../assets/images/zombie-hud-plaque.webp') center / 100% 100% no-repeat;
-    border: 0;
-    border-radius: 3px;
+    background: linear-gradient(135deg, #102129ed, #060e14f2);
+    border: 1px solid #91a19a55;
+    border-radius: 5px;
     box-shadow: 0 6px 22px #0007;
 }
 .zombie-progress-overlay .zombie-progress-pill {
@@ -36,10 +36,10 @@ body.zombie-mode .ai-score::before { color: #a3b7b8; }
 }
 #zombieProgressWave { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
 .zombie-wave-label { font-size: 10px; color: #aabcbf; }
-.zombie-progress-overlay strong { color: #e0e5d9; font: 600 23px/1 'Share Tech Mono', monospace; letter-spacing: 0; }
+.zombie-progress-overlay strong { color: #e0e5d9; font: 600 20px/1 'Share Tech Mono', monospace; letter-spacing: 0; }
 .zombie-progress-overlay strong small { color: #9cafb1; font-size: 12px; font-weight: 400; }
-.zombie-wave-status { flex-basis: 100%; color: #b8c8c9; font-size: 10px; text-transform: none; }
-#zombieProgressBoosts { color: #c3b28a; font-size: 10px; order: 3; text-transform: none; }
+.zombie-wave-status { margin-left: auto; color: #c4d3d1; font-size: 11px; text-transform: none; white-space: nowrap; }
+#zombieProgressBoosts { color: #d3c49c; font-size: 11px; order: 3; text-transform: none; }
 .zombie-pull-pill { gap: 7px; }
 .zombie-pull-label { font-size: 10px; }
 .zombie-pull-meter { min-width: 35px; height: 4px; background: #354448; border-radius: 0; }
@@ -47,7 +47,7 @@ body.zombie-mode .ai-score::before { color: #a3b7b8; }
 .zombie-pull-pill.low .zombie-pull-meter i { background: #c4816c; }
 .zombie-pull-pill kbd { font: 9px/1.3 'Share Tech Mono', monospace; color: #adbdbb; border: 1px solid #80918e55; border-radius: 2px; padding: 2px 4px; }
 @media (max-height: 520px) {
-    .zombie-progress-overlay { bottom: 10px; right: 10px; min-height: 96px; padding-top: 18px; padding-bottom: 18px; }
+    .zombie-progress-overlay { bottom: 10px; right: 10px; }
 }
 body.zombie-mode #pp-enhanced-hud {
     background: linear-gradient(180deg, #050c12ed, #050c1255);
@@ -205,16 +205,28 @@ body.zombie-mode .ppres-actions button:focus-visible { outline: 2px solid #d4c79
 body.pp-reduce-motion #zombieWaveChoice .zombie-wave-choice-btn { transition: none; transform: none; }
 /* Modal choices take priority over the persistent score and corner readout. */
 body.zombie-mode:has(#zombieBriefing.visible, #zombieWaveChoice.visible) :is(#pp-enhanced-hud, #cyber-menu-btn, #zombieProgressOverlay) { visibility: hidden; }
-/* Bounded scaling: readable on large monitors without engulfing the court. */
+/* Keep status readable without scaling a large art panel over the court. */
 .zombie-progress-overlay {
-    width: clamp(280px, 24vw, 420px);
-    min-height: clamp(108px, 8.5vw, 144px);
-    padding: clamp(24px, 1.9vw, 32px) clamp(22px, 1.7vw, 30px) clamp(24px, 1.9vw, 32px) clamp(93px, 8vw, 140px);
-    right: max(18px, env(safe-area-inset-right));
-    bottom: max(18px, env(safe-area-inset-bottom));
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
 }
-.zombie-progress-overlay strong { font-size: clamp(23px, 1.8vw, 30px); }
-:is(.zombie-wave-label, .zombie-wave-status, .zombie-pull-label) { font-size: clamp(10px, .78vw, 13px); }
+.zombie-progress-overlay strong { font-size: clamp(20px, 1.4vw, 24px); }
+.zombie-wave-label, .zombie-pull-label { font-size: 10px; }
+.zombie-hud-emblem {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 46px;
+    height: 58px;
+    object-fit: cover;
+    object-position: left center;
+    border-radius: 3px;
+    pointer-events: none;
+}
+.zombie-progress-overlay.no-emblem { padding-left: 12px; }
+.zombie-progress-overlay.no-emblem .zombie-hud-emblem { display: none; }
+html.pp-mobile .zombie-hud-emblem { display: none; }
 #zombieBriefing .zombie-briefing-rules li { font-size: clamp(13px, .9vw, 16px); }
 body.zombie-mode .pause-card { max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow-y: auto; }
 body.zombie-mode .ppres-box { box-sizing: border-box; max-width: calc(100vw - 32px); }

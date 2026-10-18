@@ -126,6 +126,13 @@ class Game {
         this.breachDisplay = document.getElementById('breachDisplay');
         this.zombiePowerDisplay = document.getElementById('zombiePowerDisplay');
         this.zombieProgressOverlay = document.getElementById('zombieProgressOverlay');
+        const zombieEmblem = document.getElementById('zombieHudEmblem');
+        if (zombieEmblem) {
+            const syncEmblem = () => this.zombieProgressOverlay?.classList.toggle('no-emblem', !zombieEmblem.naturalWidth);
+            zombieEmblem.addEventListener('load', syncEmblem);
+            zombieEmblem.addEventListener('error', syncEmblem);
+            if (zombieEmblem.complete) syncEmblem();
+        }
         this.zombieProgressWave = document.getElementById('zombieProgressWave');
         this.zombieProgressBoosts = document.getElementById('zombieProgressBoosts');
         this.zombiePullPill = document.getElementById('zombiePullPill');
