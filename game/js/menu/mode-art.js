@@ -82,7 +82,7 @@
             <circle cx="22" cy="118" r="1.4" fill="#b6ff7a"/><circle cx="28" cy="118" r="1.4" fill="#b6ff7a"/>
             <circle cx="186" cy="126" r="1.2" fill="#b6ff7a" opacity=".8"/><circle cx="191" cy="126" r="1.2" fill="#b6ff7a" opacity=".8"/>`,
 
-        // A black hole bending the ball's path, deep space behind.
+        // The ball warps into a black hole and out of a smaller one up the court.
         gravity: () => `
             <defs>
                 <radialGradient id="bg" cx=".6" cy=".45" r=".9"><stop offset="0" stop-color="#0b1a3a"/><stop offset=".6" stop-color="#050a1c"/><stop offset="1" stop-color="#02040c"/></radialGradient>
@@ -101,10 +101,17 @@
             <circle cx="122" cy="70" r="15" fill="#000"/>
             <circle cx="122" cy="70" r="15.5" fill="none" stroke="#cfe9ff" stroke-width="1" opacity=".8"/>
             <path d="M72 70 A50 10 -14 0 0 172 64" fill="none" stroke="url(#disc)" stroke-width="4.5" transform="rotate(-14 122 70)"/>
-            <path d="M8 120 Q70 118 98 96 Q118 80 138 92 Q156 104 150 122 Q146 134 172 136" fill="none" stroke="#9fd4ff" stroke-width="1.4" stroke-dasharray="2 4" opacity=".85"/>
-            <circle cx="172" cy="136" r="9" fill="url(#ballg)"/><circle cx="172" cy="136" r="3" fill="#fff"/>
-            <circle cx="30" cy="104" r="9" fill="url(#planet)"/>
-            <ellipse cx="30" cy="104" rx="15" ry="3.5" fill="none" stroke="#9fd4ff" stroke-width=".8" opacity=".7" transform="rotate(-12 30 104)"/>`,
+            <path d="M6 126 Q60 124 92 92 Q100 84 108 78" fill="none" stroke="#9fd4ff" stroke-width="1.4" stroke-dasharray="2 4" opacity=".85"/>
+            <circle cx="40" cy="34" r="13" fill="url(#lens)"/>
+            <ellipse cx="40" cy="34" rx="13" ry="3" fill="none" stroke="url(#disc)" stroke-width="2" transform="rotate(10 40 34)"/>
+            <circle cx="40" cy="34" r="5" fill="#000" stroke="#cfe9ff" stroke-width=".6"/>
+            <path d="M48 30 Q70 18 92 22" fill="none" stroke="#9fd4ff" stroke-width="1.4" stroke-dasharray="2 4" opacity=".85"/>
+            <g fill="none" stroke="#9fd4ff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity=".9">
+                <path d="M54 22 l3 3 -3 3"/><path d="M60 19 l3 3 -3 3"/>
+            </g>
+            <circle cx="94" cy="22" r="8" fill="url(#ballg)"/><circle cx="94" cy="22" r="2.8" fill="#fff"/>
+            <circle cx="176" cy="118" r="9" fill="url(#planet)"/>
+            <ellipse cx="176" cy="118" rx="15" ry="3.5" fill="none" stroke="#9fd4ff" stroke-width=".8" opacity=".7" transform="rotate(-12 176 118)"/>`,
 
         // The new Speed scene in miniature: sun, mountains, road, palms.
         speed: () => `
