@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
     });
     try {
         const page = await browser.newPage();
+        page.on('pageerror', error => console.error('Browser error:', error.message));
         await page.goto((process.env.GAME_TEST_URL || 'http://127.0.0.1:8080') + '/play.html?from_intro=1');
         await page.waitForFunction(() => window.game);
         const result = await page.evaluate(() => {
@@ -51,6 +52,44 @@ const assert = require('node:assert/strict');
         assert(result.directionError < 2 && result.changed > 50 && result.reused);
         assert.equal(result.outside, 0);
         console.log('Waterfalls flow down inside their silhouettes with reused caches and no GPU.', result);
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        for (const viewport of [{width: 1366, height: 768}, {width: 390, height: 844}]) {
+            await page.setViewportSize(viewport);
+            // A reload must not capture reduced motion as a frozen clock.
+            // Boot removes its entry hint from the URL; restore it to test
+            // reloading the game rather than the separate title-screen gate.
+            await page.evaluate(() => history.replaceState(null, '', location.pathname + '?from_intro=1'));
+            await page.reload();
+            await page.waitForFunction(() => window.game);
+            await page.evaluate(() => {
+                game.setGameMode('obstacle'); game.stop(); game.bgRenderer.render();
+            });
+            await page.waitForFunction(() => game.bgRenderer._obstacleSkyScene.ready);
+            const ambient = await page.evaluate(() => {
+                const renderer = game.bgRenderer, scene = renderer._obstacleSkyScene;
+                const canvas = document.createElement('canvas');
+                canvas.width = game.width; canvas.height = game.height;
+                const ctx = canvas.getContext('2d');
+                // Exercise the non-WebGL path that previously froze too.
+                scene.shader.ok = false;
+                const sample = () => {
+                    scene.render(ctx, canvas.width, canvas.height, game.obstacleCourse.grid, renderer.time);
+                    return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                };
+                const before = sample(), baked = scene.canvas;
+                renderer.update(1);
+                const after = sample();
+                let changed = 0;
+                for (let i = 0; i < before.length; i += 4) {
+                    if (Math.abs(before[i] - after[i]) + Math.abs(before[i + 1] - after[i + 1]) +
+                        Math.abs(before[i + 2] - after[i + 2]) > 5) changed++;
+                }
+                return {changed, reducedMotion: scene.reducedMotion.matches, cached: scene.canvas === baked};
+            });
+            assert(ambient.reducedMotion && ambient.changed > 100 && ambient.cached);
+            console.log('Reduced-motion waterfall animation survives reload without WebGL.', viewport, ambient);
+        }
+
     } finally {
         await browser.close();
     }

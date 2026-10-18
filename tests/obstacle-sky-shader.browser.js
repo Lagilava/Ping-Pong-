@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
         args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']
     });
     try {
-        const page = await browser.newPage({viewport: {width: 1280, height: 720}});
+        const page = await browser.newPage({viewport: {width: 1280, height: 720}, reducedMotion: 'reduce'});
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
         await page.goto((process.env.GAME_TEST_URL || 'http://127.0.0.1:8080') + '/play.html?from_intro=1');
@@ -32,6 +32,14 @@ const assert = require('node:assert/strict');
                 ctx.drawImage(shader.render(source, time, motion), 0, 0);
                 return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
             };
+            scene.render(ctx, canvas.width, canvas.height, game.obstacleCourse.grid, 1);
+            const ambientBefore = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            scene.render(ctx, canvas.width, canvas.height, game.obstacleCourse.grid, 4);
+            const ambientAfter = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            let ambientChanged = 0;
+            for (let i = 0; i < ambientBefore.length; i += 4) {
+                if (Math.abs(ambientBefore[i + 1] - ambientAfter[i + 1]) > 2) ambientChanged++;
+            }
             const before = sample(1, true), after = sample(4, true);
             const paused = sample(1, false), pausedLater = sample(4, false);
             let changed = 0, stationary = 0;
@@ -41,9 +49,11 @@ const assert = require('node:assert/strict');
                 if (paused[i] !== pausedLater[i] || paused[i + 1] !== pausedLater[i + 1] ||
                     paused[i + 2] !== pausedLater[i + 2]) stationary++;
             }
-            return {ok: shader.ok, changed, stationary, error: shader.gl.getError(), reused: shader.source === source};
+            return {ok: shader.ok, changed, stationary, ambientChanged, reducedMotion: scene.reducedMotion.matches,
+                error: shader.gl.getError(), reused: shader.source === source};
         });
         assert(result.ok && result.changed > 100 && result.stationary === 0 && result.error === 0 && result.reused);
+        assert(result.reducedMotion && result.ambientChanged > 100, 'reduced motion must retain gentle scenery animation');
         const lost = await page.evaluate(() => {
             const scene = game.bgRenderer._obstacleSkyScene;
             scene.shader.gl.getExtension('WEBGL_lose_context').loseContext();
@@ -57,7 +67,7 @@ const assert = require('node:assert/strict');
         });
         assert(fallback);
         assert.deepEqual(errors, []);
-        console.log('Obstacle shader animation, reduced motion, texture reuse and context-loss fallback passed.', result);
+        console.log('Obstacle shader animation, explicit pause, texture reuse and context-loss fallback passed.', result);
     } finally {
         await browser.close();
     }

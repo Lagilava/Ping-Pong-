@@ -5,7 +5,7 @@ class ObstacleSkyScene {
         this.canvas = null;
         this.waterfalls = null;
         this.key = '';
-        this.motion = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        this.reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
         this.shader = typeof ObstacleSkyShader !== 'undefined' ? new ObstacleSkyShader() : null;
         this.art = new Image();
         this.ready = false;
@@ -124,7 +124,7 @@ class ObstacleSkyScene {
     render(ctx, w, h, grid, time) {
         const source = this._bake(w, h, grid);
         const start = performance.now();
-        const shaded = this.shader?.render(source, time, this.motion);
+        const shaded = this.shader?.render(source, time, true);
         ctx.drawImage(shaded || source, 0, 0, w, h);
         if (shaded) {
             // Cross-canvas GPU readback can be expensive on hybrid devices.
@@ -134,9 +134,11 @@ class ObstacleSkyScene {
             this.shader.samples = (this.shader.samples || 0) + 1;
             if (this.shader.samples > 30 && this.shader.costMs > 2 && !ObstacleSkyShader.allowSoftware) this.shader.ok = false;
         }
-        ctx.save();
-        if (!this.motion) time = 0;
+        // Reduced motion removes decorative motes, not the gentle ambient
+        // waterfall flow or cloud light. Never freeze the scenery clock.
         this.waterfalls?.render(ctx, w, h, time);
+        if (this.reducedMotion?.matches) return;
+        ctx.save();
         // Small cyan falling glints suggest energy spilling into the abyss.
         // All accents stay in the gutters, away from the playable course.
         ctx.fillStyle = '#8ce9ff';
