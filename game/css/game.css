@@ -8106,3 +8106,23 @@ body:has(#skipIntro:not(.hidden)) .zombie-progress-overlay.visible {
     .customise-overlay .forge-arena-preview { width: min(100%, max(240px, calc((100dvh - 320px) * 16 / 9))); }
     .customise-overlay .forge-layout { grid-template-columns: minmax(0, 1.3fr) minmax(190px, 1fr); }
 }
+
+/* Coin payment is separate from the collection counter: gold becomes cyan. */
+.obstacle-coin-hud .coin-count { font-variant-numeric: tabular-nums; }
+.obstacle-coin-hud .coin-pill.spending {
+    border-color: rgba(110, 240, 255, 0.8);
+    background: rgba(10, 42, 49, 0.9);
+    box-shadow: 0 0 14px rgba(80, 220, 255, 0.22);
+}
+@media (max-width: 900px) {
+    .obstacle-coin-hud {
+        left: max(12px, env(safe-area-inset-left));
+        right: max(12px, env(safe-area-inset-right));
+        bottom: calc(76px + env(safe-area-inset-bottom));
+        gap: 8px;
+        justify-content: space-between;
+    }
+    .obstacle-coin-hud .coin-pill { gap: 5px; padding: 5px 8px; font-size: 12px; }
+    .obstacle-coin-hud .coin-goal { font-size: 9px; letter-spacing: 0; }
+    .obstacle-coin-hud .coin-icon { width: 14px; height: 14px; flex-shrink: 0; }
+}

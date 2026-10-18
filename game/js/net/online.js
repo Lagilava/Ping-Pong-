@@ -1040,6 +1040,10 @@
                     }
                     return;
                 }
+                case 'arcadeCoin':
+                    g.obstacleArcade?.queueCoinFlights(msg.side, Math.max(1, Math.min(8, num(msg.count, 1))),
+                        num(msg.x, g.width / 2), num(msg.y, g.height / 2), !!msg.spend, true);
+                    return;
                 case 'note':
                     this.applyingRemote = true;
                     try { g.showNotification(String(msg.title || '').slice(0, 40), String(msg.message || '').slice(0, 80), String(msg.color || '#ffffff').slice(0, 24)); } finally { this.applyingRemote = false; }

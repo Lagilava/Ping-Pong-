@@ -3,6 +3,7 @@
 class ObstacleSkyScene {
     constructor(onReady) {
         this.canvas = null;
+        this.waterfalls = null;
         this.key = '';
         this.motion = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
         this.shader = typeof ObstacleSkyShader !== 'undefined' ? new ObstacleSkyShader() : null;
@@ -20,6 +21,7 @@ class ObstacleSkyScene {
 
     invalidate() {
         this.canvas = null;
+        this.waterfalls = null;
         this.key = '';
         if (this.shader) this.shader.source = null;
     }
@@ -113,6 +115,7 @@ class ObstacleSkyScene {
         ctx.strokeStyle = 'rgba(243,206,145,0.22)';
         ctx.setLineDash([5, 13]);
         ctx.beginPath(); ctx.moveTo(w / 2, top); ctx.lineTo(w / 2, bottom); ctx.stroke();
+        this.waterfalls = this.ready && typeof ObstacleWaterfalls !== 'undefined' ? new ObstacleWaterfalls(c) : null;
         this.canvas = c;
         this.key = key;
         return c;
@@ -133,6 +136,7 @@ class ObstacleSkyScene {
         }
         ctx.save();
         if (!this.motion) time = 0;
+        this.waterfalls?.render(ctx, w, h, time);
         // Small cyan falling glints suggest energy spilling into the abyss.
         // All accents stay in the gutters, away from the playable course.
         ctx.fillStyle = '#8ce9ff';

@@ -14,6 +14,9 @@ class ObstacleArcade {
         this.confetti = [];
         this.rings = [];
         this.trail = [];
+        this.coinFlights = [];
+        this.chargeFlare = {player: 0, ai: 0};
+        this.coinSpent = {player: 0, ai: 0};
         this.wallet = { player: 0, ai: 0 };
         this.shield = { player: 0, ai: 0 };
         this.starOwner = 'player';
@@ -36,6 +39,9 @@ class ObstacleArcade {
         this.confetti.length = 0;
         this.rings.length = 0;
         this.trail.length = 0;
+        this.coinFlights.length = 0;
+        this.chargeFlare.player = this.chargeFlare.ai = 0;
+        this.coinSpent.player = this.coinSpent.ai = 0;
         this.wallet.player = 0;
         this.wallet.ai = 0;
         this.shield.player = 0;
@@ -71,14 +77,29 @@ class ObstacleArcade {
             if (!paddle) continue;
             const star = this.starTime > 0 && this.starOwner === side;
             const color = star ? '#ffe675' : '#62eaff';
+            const flare = Math.min(1, this.chargeFlare[side] / 0.8);
+            const charging = this.coinFlights.find(flight => flight.side === side && flight.spend);
             const x = paddle.pos.x - 8, y = paddle.pos.y - 8;
             const w = paddle.w + 16, h = paddle.h + 16;
             ctx.save();
+            if (flare > 0 && this.sprites?.chargeGlow) {
+                const scale = this.game.getObjectScale?.() || 1;
+                const extent = Math.max(36, 70 * scale);
+                ctx.globalAlpha = flare * 0.75;
+                ctx.drawImage(this.sprites.chargeGlow, x + w / 2 - extent, y - extent / 2, extent * 2, h + extent);
+                ctx.strokeStyle = '#c5fbff';
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = flare * 0.8;
+                ctx.beginPath();
+                ctx.ellipse(x + w / 2, y + h / 2, w / 2 + (1 - flare) * extent * 0.5,
+                    h / 2 + (1 - flare) * extent * 0.35, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            }
             ctx.strokeStyle = color;
             ctx.lineWidth = 3;
-            ctx.globalAlpha = 0.8 + Math.sin(this.time * 5) * 0.15;
+            ctx.globalAlpha = charging ? 0.2 + Math.max(0, charging.t / charging.life) * 0.4 : 0.8 + Math.sin(this.time * 5) * 0.15;
             ctx.strokeRect(x, y, w, h);
-            ctx.globalAlpha = 0.35;
+            ctx.globalAlpha = charging ? 0.12 : 0.35;
             ctx.lineWidth = 2;
             ctx.strokeRect(x - 5, y - 5, w + 10, h + 10);
             ctx.globalAlpha = 1;
@@ -225,7 +246,15 @@ class ObstacleArcade {
             ctx.fillRect(-starR * 0.2, -starR * 0.18, starR * 0.1, starR * 0.3);
             ctx.fillRect(starR * 0.1, -starR * 0.18, starR * 0.1, starR * 0.3);
         });
-        this.sprites = { key, coin, coinR, block: drawBlock(false), blockUsed: drawBlock(true), blockS, pad, padW, padH, star, starR };
+        const chargeGlow = make(80, 80, (ctx, w, h) => {
+            const glow = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+            glow.addColorStop(0, 'rgba(225,255,255,0.9)');
+            glow.addColorStop(0.2, 'rgba(105,240,255,0.6)');
+            glow.addColorStop(0.55, 'rgba(30,190,255,0.2)');
+            glow.addColorStop(1, 'rgba(0,140,255,0)');
+            ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+        });
+        this.sprites = { key, chargeGlow, coin, coinR, block: drawBlock(false), blockUsed: drawBlock(true), blockS, pad, padW, padH, star, starR };
         return this.sprites;
     }
 
@@ -331,6 +360,7 @@ class ObstacleArcade {
         const ball = game.ball;
         if (!ball || (!this.fixedLayout && !course?.grid)) return;
         this.time += dt;
+        this.updateCoinFlights(dt);
 
         if (!this.fixedLayout) {
             const key = `${course.patternIndex}:${course.scoreStamp}:${game.width}x${game.height}`;
@@ -346,7 +376,7 @@ class ObstacleArcade {
         this.boostTime = Math.max(0, this.boostTime - dt);
         this.syncHud();
         const owner = ball.vel.x >= 0 ? 'player' : 'ai';
-        const canCollect = this.rewards(owner);
+        const canCollect = game.net?.role !== 'guest' && this.rewards(owner);
 
         // Boost trail samples (fixed-size ring buffer).
         if (this.boostTime > 0 || this.starTime > 0) {
@@ -490,20 +520,77 @@ class ObstacleArcade {
 
     addCoins(side, count, x, y) {
         const game = this.game;
-        if (!this.rewards(side)) return;
-        for (let i = 0; i < count; i++) {
-            this.pops.push({ kind: 'coin', x, y, vx: (i - (count - 1) / 2) * 90, vy: -520 - i * 40, t: 0, life: 0.55 });
-        }
-        game.audio?.createOscillatorSound?.(988, 'square', 0.07, 0.18);
-        setTimeout(() => game.audio?.createOscillatorSound?.(1319, 'square', 0.22, 0.16), 70);
+        if (game.net?.role === 'guest' || !this.rewards(side)) return;
+        const spend = this.shield[side] <= 0;
         this.wallet[side] += count;
-        // Coins arm one shield until it saves a goal.
-        if (this.shield[side] <= 0) {
-            const who = side === 'player' ? (game.isMultiplayer ? 'P1' : 'You') : (game.isMultiplayer ? 'P2' : 'AI');
-            game.showNotification('Shield!', `${who} can block one goal`, '#00bcd4');
-        }
-        this.shield[side] = 1;
+        // Reserve protection immediately so the new animation cannot cost a
+        // goal. Settle its one-coin payment when the coin reaches the paddle.
+        if (spend) this.shield[side] = 1;
+        this.queueCoinFlights(side, count, x, y, spend);
+        game.net?.hostEvent({k: 'arcadeCoin', side, count, x, y, spend});
+        game.audio?.createOscillatorSound?.(988, 'sine', 0.08, 0.14);
         this.syncHud();
+    }
+
+    queueCoinFlights(side, count, x, y, spend, visualOnly = false) {
+        if (side !== 'player' && side !== 'ai') return;
+        const n = Math.max(1, Math.min(8, Math.floor(count)));
+        for (let i = 0; i < n; i++) {
+            // Bound cosmetic work during rapid pickups; never drop payment.
+            if (this.coinFlights.length >= 32) {
+                if (spend && i === 0 && !visualOnly) this.wallet[side] = Math.max(0, this.wallet[side] - 1);
+                continue;
+            }
+            this.coinFlights.push({side, x: x / this.game.width, y: y / this.game.height,
+                t: -i * 0.06, life: 0.58, spend: spend && i === 0, visualOnly});
+        }
+    }
+
+    updateCoinFlights(dt) {
+        for (const side of ['player', 'ai']) {
+            this.chargeFlare[side] = Math.max(0, this.chargeFlare[side] - dt);
+            this.coinSpent[side] = Math.max(0, this.coinSpent[side] - dt);
+        }
+        for (let i = this.coinFlights.length - 1; i >= 0; i--) {
+            const flight = this.coinFlights[i];
+            flight.t += dt;
+            if (flight.t < flight.life) continue;
+            if (flight.spend) {
+                if (!flight.visualOnly) this.wallet[flight.side] = Math.max(0, this.wallet[flight.side] - 1);
+                this.coinSpent[flight.side] = 0.8;
+                this.game.audio?.createOscillatorSound?.(660, 'sine', 0.16, 0.12);
+            }
+            this.chargeFlare[flight.side] = Math.max(this.chargeFlare[flight.side], flight.spend ? 0.8 : 0.25);
+            this.coinFlights.splice(i, 1);
+        }
+    }
+
+    renderCoinFlights(ctx) {
+        const s = this.sprites;
+        if (!s) return;
+        const game = this.game, scale = game.getObjectScale?.() || 1;
+        ctx.save();
+        for (const flight of this.coinFlights) {
+            if (flight.t < 0) continue;
+            const paddle = flight.side === 'player' ? game.player : game.aiPaddle;
+            if (!paddle) continue;
+            const targetX = paddle.pos.x + paddle.w / 2, targetY = paddle.pos.y + paddle.h / 2;
+            const point = progress => {
+                const t = 1 - Math.pow(1 - progress, 2);
+                return {x: flight.x * game.width * (1 - t) + targetX * t,
+                    y: flight.y * game.height * (1 - t) + targetY * t - Math.sin(t * Math.PI) * Math.min(80 * scale, game.height * 0.12)};
+            };
+            const progress = Math.min(1, flight.t / flight.life);
+            // Short gold afterimages lead into the cyan shield, following the
+            // moving paddle and normalized start position across resizes.
+            for (let tail = 3; tail >= 0; tail--) {
+                const p = point(Math.max(0, progress - tail * 0.045));
+                const size = Math.max(12, 28 * scale) * (tail ? 0.65 : 1);
+                ctx.globalAlpha = tail ? 0.12 * (4 - tail) : 1;
+                ctx.drawImage(s.coin, p.x - size / 2, p.y - size / 2, size, size);
+            }
+        }
+        ctx.restore();
     }
 
     openBlock(block, owner) {
@@ -690,6 +777,8 @@ class ObstacleArcade {
         }
         ctx.globalAlpha = 1;
 
+        this.renderCoinFlights(ctx);
+
         // Goal explosion.
         for (const r of this.rings) {
             if (r.t < 0) continue;
@@ -746,7 +835,10 @@ class ObstacleArcade {
         const goals = this.hud.querySelectorAll('.coin-goal');
         ['player', 'ai'].forEach((side, i) => {
             const star = this.starTime > 0 && this.starOwner === side;
-            const status = star ? `STAR ${Math.ceil(this.starTime)}s` : (this.shield[side] ? 'SHIELD 1 HIT' : '');
+            const charging = this.coinFlights.some(flight => flight.side === side && flight.spend);
+            const spent = this.coinSpent[side] > 0;
+            goals[i]?.closest('.coin-pill')?.classList.toggle('spending', spent);
+            const status = charging && this.shield[side] ? '1 COIN → SHIELD' : spent ? (this.shield[side] ? '−1 COIN · SHIELD' : '−1 COIN') : star ? `STAR ${Math.ceil(this.starTime)}s` : (this.shield[side] ? 'SHIELD 1 HIT' : '');
             if (this.hudShield[side] === status || !goals[i]) return;
             this.hudShield[side] = status;
             goals[i].textContent = status;
