@@ -2521,6 +2521,8 @@ class Game {
     }
 
     setGameMode(mode) {
+        window.MatchEndTransition?.cancel();
+        this._matchEndToken = null;
         // Starting any other match ends an online session.
         if (this.net && !this.net.launching) this.net.leave();
         window.PPResults?.hide();
@@ -6101,6 +6103,8 @@ class Game {
     // Leave the match and go straight back to the mode menu, in place (no
     // page reload). Starting a new match resets scores via setGameMode.
     returnToMenu() {
+        window.MatchEndTransition?.cancel();
+        this._matchEndToken = null;
         // Leaving an online match leaves the room too.
         if (this.net) this.net.leave();
         // Stop any code background's sandbox; it restarts with the next match.
@@ -6177,6 +6181,8 @@ class Game {
     }
 
     resetMatch() {
+        window.MatchEndTransition?.cancel();
+        this._matchEndToken = null;
         // Stop music while the outgoing Intro still owns its media element.
         // Replacing it first would leave a detached Audio playing forever.
         this.audio?.stopMusic?.('all');
@@ -7089,8 +7095,21 @@ class Game {
         b.trailCount = 0;
     }
 
+    isObstacleServeWaiting() {
+        return this.gameMode === 'obstacle' && !!(this.introActive || this.arenaReveal || this.serveHold > 0);
+    }
+
     updateServeHold(dt) {
         const b = this.ball;
+        // Course forces must never release Obstacle's pending serve. Its clock
+        // starts after the reveal, independently of how often rendering runs.
+        if (this.gameMode === 'obstacle' && this.pendingServe) {
+            b.vel.set(0, 0);
+            if (this.arenaReveal || this.introActive) {
+                b.prev.set(b.pos.x, b.pos.y);
+                return true;
+            }
+        }
         // A reset may already have served the ball.
         if (Math.abs(b.vel.x) + Math.abs(b.vel.y) > 1 || !this.pendingServe) {
             this.serveHold = 0;
@@ -7434,7 +7453,7 @@ class Game {
     }
 
     physicsStep(dt, updateGravityWells = true) {
-        if (this.paused) return;
+        if (this.paused || this.matchEnding) return;
         // Online: hold still until both players are in, and trade state.
         if (this.net && !this.net.preStep(dt)) return;
         // Hit-stop: on a hard paddle hit the world briefly runs at a crawl, which
@@ -7529,7 +7548,7 @@ class Game {
             this.obstacleArcade?.update(dt);
 
             if (this.bgRenderer && typeof this.bgRenderer.syncObstacleArenaState === 'function') {
-                this.bgRenderer.syncObstacleArenaState(this.obstacles, this.ball, this, dt);
+                this.bgRenderer.syncObstacleArenaState(this.obstacles, this.ball, this, this.isObstacleServeWaiting() ? 0 : dt);
             }
         }
         const forgeWells = this.isForgeArenaActive() && this.gravityWells.length > 0;
@@ -8064,6 +8083,11 @@ class Game {
         }
 
         this.running = false;
+        this.stop();
+        const endToken = this._matchEndToken = {};
+        const transition = window.MatchEndTransition?.play(this, {
+            duration: Number.isFinite(options.delayMs) ? options.delayMs : 1100
+        });
         if (typeof this.audio?.stopAllGravityWellSounds === 'function') {
             this.audio.stopAllGravityWellSounds();
         }
@@ -8072,7 +8096,8 @@ class Game {
             this.ai.onGameEnd(!playerWon);
         }
 
-        setTimeout(() => {
+        const showResults = () => {
+            if (!this.matchEnding || this._matchEndToken !== endToken) return;
             this.stop();
             const overlay = document.getElementById('overlay');
             if (!overlay) return;
@@ -8106,7 +8131,9 @@ class Game {
             if (net && this.net === net) window.PPOnline?.bindResults(box);
 
             this.progression.showEndGameAchievementSummary();
-        }, Number.isFinite(options.delayMs) ? options.delayMs : 1800);
+        };
+        if (transition) transition.then(completed => { if (completed) showResults(); });
+        else setTimeout(showResults, Number.isFinite(options.delayMs) ? options.delayMs : 1100);
     }
 
     // The end-of-match card for a local match (vs AI, local 1v1, Custom, Zombie).
@@ -8238,7 +8265,7 @@ class Game {
     // the last two steps (like the ball) so they don't judder on 144/165 Hz
     // screens, where frames don't divide evenly into physics steps.
     render(interp) {
-        if (this.introActive || this.paused) return;
+        if (this.introActive || this.paused || this.matchEnding) return;
         const paddles = [this.player, this.aiPaddle];
         const realY = [];
         for (let i = 0; i < paddles.length; i++) {
@@ -8549,6 +8576,7 @@ class Game {
     }
 
     step() {
+        if (this.matchEnding) { this.rafId = null; return; }
         // Safety check: prevent multiple concurrent loops
         if (this.rafId !== null && !this.running && !this.introActive) {
             if (this.rafId) {

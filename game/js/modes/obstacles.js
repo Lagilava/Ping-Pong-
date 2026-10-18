@@ -959,6 +959,7 @@ class ObstacleCourse {
 
     update(dt) {
         this.rebuild(false);
+        if (this.game.isObstacleServeWaiting?.()) return;
         this.phase += dt;
         const rally = Math.max(0, this.game?.rallyCount || 0);
         this.difficultyTier = Math.min(6, Math.floor(rally / 4));

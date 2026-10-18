@@ -359,9 +359,6 @@ class ObstacleArcade {
         const course = game.obstacleCourse;
         const ball = game.ball;
         if (!ball || (!this.fixedLayout && !course?.grid)) return;
-        this.time += dt;
-        this.updateCoinFlights(dt);
-
         if (!this.fixedLayout) {
             const key = `${course.patternIndex}:${course.scoreStamp}:${game.width}x${game.height}`;
             if (key !== this.layoutKey) {
@@ -369,6 +366,9 @@ class ObstacleArcade {
                 this.layout();
             }
         }
+        if (game.isObstacleServeWaiting?.()) return;
+        this.time += dt;
+        this.updateCoinFlights(dt);
         const s = this.sprites;
         if (!s) return;
 
