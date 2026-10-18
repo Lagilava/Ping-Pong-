@@ -25,6 +25,7 @@
                 if (!tex) return;
                 railMat.map = railMat.bumpMap = tex;
                 railMat.color.setHex(0x819aa3);
+                railMat.emissiveIntensity = 0.08;
                 railMat.bumpScale = 0.018;
                 railMat.roughness = 0.56;
                 railMat.needsUpdate = true;
@@ -35,7 +36,7 @@
                 postMat.color.setHex(0xb7ac86);
                 postMat.bumpScale = 0.012;
                 postMat.roughness = 0.42;
-                postMat.emissiveIntensity = 0.45;
+                postMat.emissiveIntensity = 0.12;
                 postMat.needsUpdate = true;
             }),
             load('mesh', {repeat: [9, 1]}).then(tex => {
@@ -76,14 +77,14 @@
         ]);
         return api.ready;
     }
-    function installEquipment({renderer, ballMat, leftPaddleMat, rightPaddleMat, skyUniforms, seaUniforms}) {
+    function installEquipment({renderer, scene, ballMat, leftPaddleMat, rightPaddleMat, skyUniforms, seaUniforms}) {
         const tasks = [
             ['ball-shell', ballMat], ['paddle-cyan', leftPaddleMat],
             ['paddle-magenta', rightPaddleMat], ['court-inlay', null], ['stadium-360', null]
         ].map(([name, material]) => new Promise(resolve => {
             new THREE.TextureLoader().load(`assets/images/menu-textures/${name}.webp`, tex => {
                 tex.name = `menu-${name}`;
-                tex.encoding = material ? THREE.sRGBEncoding : THREE.LinearEncoding;
+                tex.encoding = material || name === 'stadium-360' ? THREE.sRGBEncoding : THREE.LinearEncoding;
                 tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
                 tex.wrapS = name === 'stadium-360' ? THREE.RepeatWrapping : THREE.ClampToEdgeWrapping;
                 tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -105,9 +106,9 @@
                         }
                         shader.fragmentShader = shader.fragmentShader.replace(
                             '#include <tonemapping_fragment>',
-                            'gl_FragColor.rgb = mix(gl_FragColor.rgb, diffuseColor.rgb * 0.85, 0.78);\n#include <tonemapping_fragment>');
+                            'gl_FragColor.rgb = mix(gl_FragColor.rgb, diffuseColor.rgb * 0.65, 0.18);\n#include <tonemapping_fragment>');
                     };
-                    material.customProgramCacheKey = () => `menu-readable-albedo-v2-${name}`;
+                    material.customProgramCacheKey = () => `menu-lit-albedo-v3-${name}`;
                     if (name.startsWith('paddle-')) {
                         // Crop to a narrow rubber strip instead of squeezing a square
                         // atlas cell onto the tall paddle face.
@@ -118,7 +119,46 @@
                     material.roughness = name === 'ball-shell' ? 0.36 : 0.65;
                     material.needsUpdate = true;
                 } else if (name === 'stadium-360') {
-                    skyUniforms.uMap.value = tex;
+                    // Prefilter the same stadium into a reflection environment once.
+                    // This gives ceramic and metal plausible light/reflection response.
+                    if (scene && THREE.PMREMGenerator && (window.PerfGovernor?.tier || 0) < 2) {
+                        const pmrem = new THREE.PMREMGenerator(renderer);
+                        try {
+                            api.environmentTarget = pmrem.fromEquirectangular(tex);
+                            scene.environment = api.environmentTarget.texture;
+                            scene.traverse(object => {
+                                if (object.material?.isMeshStandardMaterial) {
+                                    object.material.envMapIntensity = 0.45;
+                                    object.material.needsUpdate = true;
+                                }
+                            });
+                        } catch (error) {
+                            console.warn('[Menu] Stadium reflections unavailable.', error);
+                        } finally {
+                            pmrem.dispose();
+                        }
+                    }
+                    // Defocus the distant image once. Wrap the source horizontally
+                    // while drawing so the panorama seam stays continuous.
+                    const canvas = document.createElement('canvas');
+                    canvas.width = tex.image.width;
+                    canvas.height = tex.image.height;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx && 'filter' in ctx) {
+                        ctx.filter = 'blur(2px)';
+                        for (const x of [-canvas.width, 0, canvas.width]) {
+                            ctx.drawImage(tex.image, x, 0);
+                        }
+                        const blurred = new THREE.CanvasTexture(canvas);
+                        blurred.name = 'menu-stadium-360-defocused';
+                        blurred.encoding = tex.encoding;
+                        blurred.wrapS = THREE.RepeatWrapping;
+                        blurred.wrapT = THREE.ClampToEdgeWrapping;
+                        skyUniforms.uMap.value = blurred;
+                        tex.dispose();
+                    } else {
+                        skyUniforms.uMap.value = tex;
+                    }
                     skyUniforms.uBackdropGrade.value = 0.55;
                 } else {
                     seaUniforms.uCourtArt.value = tex;

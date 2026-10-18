@@ -24,6 +24,9 @@
     let lightningActive = false;
     let activeBolts = [];
     let ambLight = null;
+    // One lighting direction for the stadium grade, court shader and PBR key.
+    const MENU_KEY = [-6, 12, 7];
+    const MENU_RIM = [8, 5, -10];
 
     // ─────────────────────────────────────────────────────────────────
     // OCEAN VERTEX SHADER  (Gerstner waves)
@@ -58,19 +61,19 @@
             vec3 disp = vec3(0.0);
             vec3 norm = vec3(0.0, 1.0, 0.0);
 
-            // Low rain ripples for a wet arena floor, not open-water waves.
-            disp += gerstner(p, normalize(vec2( 1.0,  0.3)), 0.055, 8.8, 0.55, 0.18, t);
-            disp += gerstner(p, normalize(vec2(-0.4,  1.0)), 0.040, 5.4, 0.70, 0.16, t);
-            disp += gerstner(p, normalize(vec2( 0.7, -0.5)), 0.024, 2.6, 1.05, 0.12, t);
-            disp += gerstner(p, normalize(vec2(-0.8, -0.2)), 0.014, 1.4, 1.40, 0.08, t);
+            // Nearly rigid court: only sub-centimeter rain disturbance.
+            disp += gerstner(p, normalize(vec2( 1.0,  0.3)), 0.006, 8.8, 0.55, 0.18, t);
+            disp += gerstner(p, normalize(vec2(-0.4,  1.0)), 0.004, 5.4, 0.70, 0.16, t);
+            disp += gerstner(p, normalize(vec2( 0.7, -0.5)), 0.002, 2.6, 1.05, 0.12, t);
+            disp += gerstner(p, normalize(vec2(-0.8, -0.2)), 0.001, 1.4, 1.40, 0.08, t);
 
-            norm += gerstnerN(p, normalize(vec2( 1.0,  0.3)), 0.055, 8.8, 0.55, 0.18, t);
-            norm += gerstnerN(p, normalize(vec2(-0.4,  1.0)), 0.040, 5.4, 0.70, 0.16, t);
-            norm += gerstnerN(p, normalize(vec2( 0.7, -0.5)), 0.024, 2.6, 1.05, 0.12, t);
+            norm += gerstnerN(p, normalize(vec2( 1.0,  0.3)), 0.006, 8.8, 0.55, 0.18, t);
+            norm += gerstnerN(p, normalize(vec2(-0.4,  1.0)), 0.004, 5.4, 0.70, 0.16, t);
+            norm += gerstnerN(p, normalize(vec2( 0.7, -0.5)), 0.002, 2.6, 1.05, 0.12, t);
 
             p += disp;
             vWorldPos = (modelMatrix * vec4(p, 1.0)).xyz;
-            vNormal   = normalize(normalMatrix * normalize(norm));
+            vNormal   = normalize(mat3(modelMatrix) * normalize(norm));
             vFoam     = clamp((disp.y - 0.032) * 7.5, 0.0, 1.0);
             vDepth    = disp.y;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
@@ -90,6 +93,9 @@
         uniform vec3  uCamPos;
         uniform float uLightningFlash;
         uniform vec3  uLightningPos;
+        uniform vec3 uBallPosition;
+        uniform vec3 uLeftPaddlePosition;
+        uniform vec3 uRightPaddlePosition;
         varying vec3  vWorldPos;
         varying vec3  vNormal;
         varying float vFoam;
@@ -108,10 +114,24 @@
             return v;
         }
 
+        float equipmentShadow(vec3 actor, float radius, float halfHeight) {
+            // Soft projected contact shadow using the same stadium key direction.
+            vec2 slope = vec2(-6.0, 7.0) / 12.0;
+            float height = max(actor.y + 1.05, 0.0);
+            vec2 a = actor.xz - slope * max(height - halfHeight, 0.0);
+            vec2 b = actor.xz - slope * (height + halfHeight);
+            vec2 segment = b - a;
+            float t = clamp(dot(vWorldPos.xz - a, segment) / max(dot(segment, segment), 0.001), 0.0, 1.0);
+            vec2 offset = vWorldPos.xz - mix(a, b, t);
+            float softness = radius + 0.08 + height * 0.06;
+            return exp(-dot(offset, offset) / (softness * softness) * 1.7)
+                * 0.42 / (1.0 + height * 0.15);
+        }
+
         void main() {
             vec3 N = normalize(vNormal);
             vec3 V = normalize(uCamPos - vWorldPos);
-            vec3 L = normalize(vec3(0.25, 0.85, 0.4));
+            vec3 L = normalize(vec3(-6.0, 12.0, 7.0));
 
             // ── Base ocean colour (storm-dark) ──────────────────────
             vec3 deep    = vec3(0.004, 0.010, 0.019);
@@ -195,6 +215,22 @@
                 skyRefl *= 0.35;
             }
 
+            // Broad softbox reflections and colored bounce from stadium lights.
+            vec3 keyHalf = normalize(L + V);
+            vec3 rimDir = normalize(vec3(8.0, 5.0, -10.0));
+            float softKey = pow(max(dot(N, keyHalf), 0.0), 32.0);
+            float softRim = pow(max(dot(N, normalize(rimDir + V)), 0.0), 48.0);
+            base *= 0.56 + 0.34 * max(dot(N, L), 0.0);
+            base += vec3(0.12, 0.19, 0.24) * softKey * 0.32;
+            base += vec3(0.16, 0.055, 0.12) * softRim * 0.28;
+            base += vec3(0.025, 0.018, 0.010)
+                * exp(-length(vWorldPos.xz - vec2(-4.5, -1.0)) * 0.25);
+
+            float shadow = max(equipmentShadow(uBallPosition, 0.34, 0.0),
+                max(equipmentShadow(uLeftPaddlePosition, 0.14, 0.85),
+                    equipmentShadow(uRightPaddlePosition, 0.14, 0.85)));
+            base *= 1.0 - shadow;
+
             // ── Compose ─────────────────────────────────────────────
             vec3 col = base + skyRefl + sssC;
             col += specCol * (1.0 + uLightningFlash * 1.5);
@@ -253,6 +289,7 @@
         void main() {
             // The photographed stadium is immutable. Only the independent
             // atmospheric density field below is advected, never its UVs.
+            // Defocus is baked once on texture load, never applied to foreground.
             vec3 col = texture2D(uMap, vUv).rgb * uBackdropGrade;
             vec3 d = normalize(vDir);
             float up = clamp(d.y, -0.2, 1.0);
@@ -269,6 +306,13 @@
             vec3 cloudColor = mix(vec3(0.035, 0.060, 0.095),
                 vec3(0.14, 0.19, 0.27), density);
             col = mix(col, cloudColor, veil);
+
+            // Directional stadium light spill matches the physical key and rim.
+            float keySpill = pow(max(dot(d, normalize(vec3(-6.0, 12.0, 7.0))), 0.0), 9.0);
+            float rimSpill = pow(max(dot(d, normalize(vec3(8.0, 5.0, -10.0))), 0.0), 12.0);
+            col *= vec3(0.86, 0.94, 1.04);
+            col += vec3(0.13, 0.20, 0.28) * keySpill * 0.30;
+            col += vec3(0.20, 0.065, 0.15) * rimSpill * 0.22;
 
             // Aurora: a few drifting ribbons high in the sky.
             float az = atan(d.z, d.x);
@@ -454,7 +498,7 @@
             { id: 'customise', name: 'CUSTOM', desc: 'Build your own rules', col: 0x00ffc8, hex: '#00ffc8', icon: 'custom', tags: ['Forge', '1v1'], online: true },
         ],
         // Lower-end devices (as classified by PerfGovernor) start at 1x.
-        renderer: { pixelRatio: Math.min(devicePixelRatio, (window.PerfGovernor?.tier || 0) >= 1 ? 1 : 1.5), exposure: 1.28 },
+        renderer: { pixelRatio: Math.min(devicePixelRatio, (window.PerfGovernor?.tier || 0) >= 1 ? 1 : 1.5), exposure: 1.05 },
         camera: { fov: 58, pos: [0, 5.2, 12], near: 0.1, far: 200 },
     };
 
@@ -986,24 +1030,30 @@
 
             // ── LIGHTING ─────────────────────────────────────────────
             // Ambient + hemisphere for ground/sky bounce
-            ambLight = new THREE.AmbientLight(0x07101a, 1.25);
+            ambLight = new THREE.AmbientLight(0x8293b0, 0.28);
             menuScene.add(ambLight);
-            const hemiLight = new THREE.HemisphereLight(0x88b8ff, 0x0b1220, 0.36);
+            const hemiLight = new THREE.HemisphereLight(0xb6d7ed, 0x38251c, 0.65);
             menuScene.add(hemiLight);
 
-            // Main directional "moon" key light (casts soft shadows)
-            const moonLight = new THREE.DirectionalLight(0x5f8fcf, 0.95);
-            moonLight.position.set(10, 30, -15);
+            // Stadium overhead soft key (one directional shadow map)
+            const moonLight = new THREE.DirectionalLight(0xc6e1f5, 1.65);
+            moonLight.position.set(...MENU_KEY);
+            moonLight.target.position.set(0, 0, 0);
+            menuScene.add(moonLight.target);
             moonLight.castShadow = true;
             moonLight.shadow.mapSize.set(1024, 1024);
             moonLight.shadow.camera.near = 1;
             moonLight.shadow.camera.far = 120;
             moonLight.shadow.bias = -0.0006;
+            moonLight.shadow.camera.left = moonLight.shadow.camera.bottom = -10;
+            moonLight.shadow.camera.right = moonLight.shadow.camera.top = 10;
+            moonLight.shadow.normalBias = 0.025;
+            moonLight.shadow.radius = 3;
             menuScene.add(moonLight);
 
-            // Key rim light (cool blue-white, simulates lightning ambient)
-            const rimLight = new THREE.DirectionalLight(0x66d8ff, 0.62);
-            rimLight.position.set(-15, 12, 8);
+            // Restrained magenta rim motivated by the stadium sign strips
+            const rimLight = new THREE.DirectionalLight(0xd387b8, 0.72);
+            rimLight.position.set(...MENU_RIM);
             rimLight.castShadow = false;
             menuScene.add(rimLight);
 
@@ -1029,7 +1079,10 @@
                 uTime: { value: 0 },
                 uCamPos: { value: menuCam.position.clone() },
                 uLightningFlash: { value: 0 },
-                uLightningPos: { value: new THREE.Vector3(0, 28, -12) }
+                uLightningPos: { value: new THREE.Vector3(0, 28, -12) },
+                uBallPosition: {value: new THREE.Vector3(0, 1.1, -2.5)},
+                uLeftPaddlePosition: {value: new THREE.Vector3(-6, 0.1, -2.5)},
+                uRightPaddlePosition: {value: new THREE.Vector3(6, 0.1, -2.5)}
             };
 
             const seaGeo = new THREE.PlaneGeometry(13.2, 6.4, MENU_MOBILE ? 48 : 96, MENU_MOBILE ? 32 : 64);
@@ -1117,6 +1170,7 @@
             ].forEach(([x, z, w, h, d]) => {
                 const rail = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), railMat);
                 rail.position.set(x, arenaFloorY + h * 0.5, z);
+                rail.castShadow = rail.receiveShadow = true;
                 arena.add(rail);
             });
 
@@ -1138,9 +1192,9 @@
                 arena.add(post);
             });
 
-            const arenaLight = new THREE.PointLight(0x41eaff, 3.8, 16, 1.75);
+            const arenaLight = new THREE.PointLight(0xffc78c, 2.0, 16, 2.0);
             arenaLight.position.set(0, arenaFloorY + 2.4, 0.2);
-            arenaLight.castShadow = true;
+            arenaLight.castShadow = false;
             arenaLight.shadow.mapSize.set(1024, 1024);
             arenaLight.shadow.bias = -0.001;
             arena.add(arenaLight);
@@ -1245,6 +1299,7 @@
             ball.userData.phase = Math.random() * Math.PI * 2;
             ball.userData.speedPhase = Math.random() * Math.PI * 2;
             ball.userData.wobblePhase = Math.random() * Math.PI * 2;
+            ball.castShadow = true;
             menuScene.add(ball);
 
             // Ball halo
@@ -1260,7 +1315,7 @@
 
             // Ball point light
             const ballLight = new THREE.PointLight(0x3366ff, 8, 18);
-            ballLight.castShadow = true;
+            ballLight.castShadow = false;
             ballLight.shadow.mapSize.set(1024, 1024);
             menuScene.add(ballLight);
 
@@ -1275,6 +1330,7 @@
             leftPaddle.position.set(-6, 0.1, -2.5);
             leftPaddle.rotation.y = 0.06;
             leftPaddle.userData = { targetY: 0, phase: Math.random() * Math.PI * 2, swingPhase: Math.random() * Math.PI * 2 };
+            leftPaddle.castShadow = true;
             menuScene.add(leftPaddle);
 
             const rightPaddleTexture = createPaddleTexture('#ff0044', '#ff78a2');
@@ -1287,8 +1343,9 @@
             rightPaddle.position.set(6, 0.1, -2.5);
             rightPaddle.rotation.y = -0.06;
             rightPaddle.userData = { targetY: 0, phase: Math.random() * Math.PI * 2, swingPhase: Math.random() * Math.PI * 2 };
+            rightPaddle.castShadow = true;
             menuScene.add(rightPaddle);
-            window.MenuSurfaceArt?.installEquipment({renderer: menuRenderer, ballMat,
+            window.MenuSurfaceArt?.installEquipment({renderer: menuRenderer, scene: menuScene, ballMat,
                 leftPaddleMat, rightPaddleMat, skyUniforms, seaUniforms});
 
             // ── TRAIL PARTICLES ───────────────────────────────────────
@@ -1492,10 +1549,10 @@
                     const rawIntensity = Math.max(0, lightningDuration / 0.25);
                     const intensity = rawIntensity * (0.55 + flicker * 0.45);
 
-                    flashLight.intensity = intensity * 120;
+                    flashLight.intensity = intensity * 35;
                     seaUniforms.uLightningFlash.value = intensity * 0.48;
-                    menuRenderer.toneMappingExposure = MENU_CONFIG.renderer.exposure + intensity * 0.55;
-                    ambLight.intensity = 1.55 + intensity * 1.4;
+                    menuRenderer.toneMappingExposure = MENU_CONFIG.renderer.exposure + intensity * 0.12;
+                    ambLight.intensity = 0.28 + intensity * 0.18;
                     menuScene.fog.density = 0.018 + intensity * 0.004;
 
                     cloudMeshes.forEach(c => {
@@ -1510,7 +1567,7 @@
                         flashLight.intensity = 0;
                         seaUniforms.uLightningFlash.value = 0;
                         menuRenderer.toneMappingExposure = MENU_CONFIG.renderer.exposure;
-                        ambLight.intensity = 1.55;
+                        ambLight.intensity = 0.28;
                         menuScene.fog.density = 0.018;
                         cloudMeshes.forEach(c => {
                             if (c.userData.cMat) c.userData.cMat.uniforms.uFlash.value = 0;
@@ -1686,6 +1743,9 @@
                 lookTarget.y += Math.cos(time * 1.9) * sceneGlitch * 0.03;
                 menuCam.lookAt(lookTarget);
 
+                seaUniforms.uBallPosition.value.copy(ball.position);
+                seaUniforms.uLeftPaddlePosition.value.copy(leftPaddle.position);
+                seaUniforms.uRightPaddlePosition.value.copy(rightPaddle.position);
                 skyUniforms.uTime.value = time;
                 skyUniforms.uFlash.value = lightningActive ? seaUniforms.uLightningFlash.value : 0;
                 if (menuBloom) menuBloom.render(delta);
