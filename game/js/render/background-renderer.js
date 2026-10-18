@@ -1644,17 +1644,17 @@ class BackgroundRenderer {
         // blurred or rebuilt in the frame loop. Keep the central ball lane dark.
         zctx.clearRect(0, 0, w, h);
         const sky = zctx.createLinearGradient(0, 0, 0, h);
-        sky.addColorStop(0, '#030710');
-        sky.addColorStop(0.62, '#10212a');
+        sky.addColorStop(0, '#050a0d');
+        sky.addColorStop(0.62, '#142325');
         sky.addColorStop(1, '#030709');
         zctx.fillStyle = sky;
         zctx.fillRect(0, 0, w, h);
         const moonX = w * 0.76, moonY = h * 0.22;
         const unit = Math.min(w, h);
         const halo = zctx.createRadialGradient(moonX, moonY, unit * 0.025, moonX, moonY, unit * 0.52);
-        halo.addColorStop(0, 'rgba(194,228,235,0.42)');
-        halo.addColorStop(0.22, 'rgba(113,166,186,0.19)');
-        halo.addColorStop(1, 'rgba(64,112,140,0)');
+        halo.addColorStop(0, 'rgba(201,222,210,0.42)');
+        halo.addColorStop(0.22, 'rgba(129,159,157,0.19)');
+        halo.addColorStop(1, 'rgba(86,117,121,0)');
         zctx.fillStyle = halo;
         zctx.fillRect(0, 0, w, h);
         zctx.fillStyle = '#d7e5df';
@@ -1853,11 +1853,11 @@ class BackgroundRenderer {
         this._zombieRayCanvas.height = 512;
         const ray = this._zombieRayCanvas.getContext('2d');
         const feather = ray.createLinearGradient(0, 0, 128, 0);
-        feather.addColorStop(0, 'rgba(161,212,231,0)');
-        feather.addColorStop(0.25, 'rgba(161,212,231,0.35)');
-        feather.addColorStop(0.5, 'rgba(196,230,240,0.65)');
-        feather.addColorStop(0.75, 'rgba(161,212,231,0.35)');
-        feather.addColorStop(1, 'rgba(161,212,231,0)');
+        feather.addColorStop(0, 'rgba(157,188,187,0)');
+        feather.addColorStop(0.25, 'rgba(157,188,187,0.35)');
+        feather.addColorStop(0.5, 'rgba(198,218,208,0.65)');
+        feather.addColorStop(0.75, 'rgba(157,188,187,0.35)');
+        feather.addColorStop(1, 'rgba(157,188,187,0)');
         ray.fillStyle = feather;
         ray.beginPath();
         ray.moveTo(60, 0);
@@ -1874,9 +1874,9 @@ class BackgroundRenderer {
         ray.fillStyle = fade;
         ray.fillRect(0, 0, 128, 512);
         const mist = zctx.createLinearGradient(0, h * 0.66, 0, h);
-        mist.addColorStop(0, 'rgba(115,177,189,0)');
-        mist.addColorStop(0.42, 'rgba(115,177,189,0.20)');
-        mist.addColorStop(0.65, 'rgba(76,127,141,0.08)');
+        mist.addColorStop(0, 'rgba(115,148,145,0)');
+        mist.addColorStop(0.42, 'rgba(115,148,145,0.20)');
+        mist.addColorStop(0.65, 'rgba(85,116,116,0.08)');
         mist.addColorStop(1, 'rgba(0,4,8,0.8)');
         zctx.fillStyle = mist;
         zctx.fillRect(0, h * 0.66, w, h * 0.34);
@@ -1891,8 +1891,11 @@ class BackgroundRenderer {
         zctx.drawImage(this._zombieSkyCanvas, 0, 0);
         zctx.globalCompositeOperation = 'source-over';
         this.renderPeripheralLightRigs(zctx, w, h,
-            'rgba(65,105,125,ALPHA)', 'rgba(120,165,180,ALPHA)', 0.45);
+            'rgba(81,110,111,ALPHA)', 'rgba(137,163,157,ALPHA)', 0.45);
         this._paintGameplayVisibilityPass(zctx, w, h, 0.05, 0.4);
+        this._paintZombieGroundDetails(zctx, w, h, groundY);
+        const hands = this._zombieHandsByScale.length ? this._zombieHandsByScale : this.zombieHands;
+        for (const hand of hands) this._renderZombieHandMound(zctx, hand, w, h, groundY);
         this._zombieSkyCanvas = null;
         this._zombieStaticInitialized = true;
         return this._zombieStaticCanvas;
@@ -1948,10 +1951,6 @@ class BackgroundRenderer {
         }
         this._renderZombieMoonlight(ctx, w, h);
 
-        // Match the cached moon so hand lighting stays anchored to its source.
-        const moonX = w * 0.76;
-        const moonY = h * 0.22;
-
         if (areParticleEffectsEnabled()) {
             for (let i = 0; i < this.fogParticles.length; i++) {
                 const p = this.fogParticles[i];
@@ -1964,6 +1963,19 @@ class BackgroundRenderer {
             }
         }
 
+        const handsToDraw = this._zombieHandsByScale.length ? this._zombieHandsByScale : this.zombieHands;
+
+        // Animated sprite hands remain clipped to the ground.
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, w, groundY + 4);
+        ctx.clip();
+        handsToDraw.forEach(hand => this._renderZombieHand(ctx, hand, w, h, groundY));
+        ctx.restore();
+
+    }
+
+    _paintZombieGroundDetails(ctx, w, h, groundY) {
         // Simplified ground line
         ctx.save();
         ctx.globalAlpha = 0.4;
@@ -1986,7 +1998,7 @@ class BackgroundRenderer {
             ctx.beginPath();
             ctx.moveTo(x, y);
             for (let step = 1; step <= 2; step++) {
-                x += Math.sin(crack.phase + this.time * 0.12 + step * 0.9) * crack.spread * 0.35;
+                x += Math.sin(crack.phase + step * 0.9) * crack.spread * 0.35;
                 y += crack.length * h * 0.15;
                 ctx.lineTo(x, y);
             }
@@ -1994,20 +2006,6 @@ class BackgroundRenderer {
             ctx.lineWidth = crack.width;
             ctx.stroke();
         }
-        ctx.restore();
-
-        const hands = this._zombieHandsByScale.length ? this._zombieHandsByScale : this.zombieHands;
-        const handsToDraw = hands;
-
-        // 1. Draw Mounds First
-        handsToDraw.forEach(hand => this._renderZombieHandMound(ctx, hand, w, h, groundY));
-
-        // 2. Draw Hands (Clipped to groundY)
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, 0, w, groundY + 4);
-        ctx.clip();
-        handsToDraw.forEach(hand => this._renderZombieHand(ctx, hand, w, h, groundY, moonX, moonY));
         ctx.restore();
 
     }
@@ -2084,33 +2082,47 @@ class BackgroundRenderer {
         };
     }
 
-    _renderZombieHand(ctx, hand, w, h, groundY, lightX, lightY) {
+    _getZombieHandSprite(hand) {
+        // Four samples per transition, shared by both hands: at most 40 small
+        // textures (~4.4 MiB). Build only the requested pose, never an atlas burst.
+        if (!this._zombieHandSprites) this._zombieHandSprites = new Map();
+        const step = Math.min(3, Math.floor(Math.max(0, hand.poseBlend) * 4));
+        const key = (hand.poseSeq % 10) * 4 + step;
+        if (this._zombieHandSprites.has(key)) return this._zombieHandSprites.get(key);
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 224;
+        const spriteCtx = canvas.getContext('2d');
+        spriteCtx.translate(64, 154);
+        spriteCtx.scale(0.5, 0.5);
+        const pose = this._getZombieHandPose({ ...hand, poseBlend: step / 4,
+            twitch: 0, poseOffset: 0, splayAmp: 0 });
+        pose.splay = 0; // Stable cached silhouette, independent of first-use time.
+        this._paintZombieHandPose(spriteCtx, pose, -Math.PI / 3);
+        this._zombieHandSprites.set(key, canvas);
+        return canvas;
+    }
+
+    _renderZombieHand(ctx, hand, w, h, groundY) {
+        const state = this._getZombieHandState(hand, w, h, groundY);
+        const sprite = this._getZombieHandSprite(hand);
+        ctx.save();
+        ctx.translate(state.x, state.y);
+        ctx.rotate(this._degToRad(state.rot));
+        ctx.globalAlpha = Math.min(1, 0.48 + state.emerge * 0.78);
+        // Live drift, rotation and emergence; no live paths, gradients or blur.
+        ctx.drawImage(sprite, -128 * state.scale, -308 * state.scale,
+            256 * state.scale, 448 * state.scale);
+        ctx.restore();
+    }
+
+    _paintZombieHandPose(ctx, pose, lightAngle) {
         const fingerDefs = [
             { ox: -37, oy: 2, ang: -8, pl: 60, ml: 40, dl: 30, pw: 14, mw: 12, dw: 10, nw: 9 },
             { ox: -12, oy: -4, ang: -1, pl: 67, ml: 44, dl: 33, pw: 16, mw: 14, dw: 12, nw: 10 },
             { ox: 13, oy: -2, ang: 5, pl: 62, ml: 41, dl: 31, pw: 14, mw: 12, dw: 10, nw: 9 },
             { ox: 36, oy: 9, ang: 13, pl: 44, ml: 29, dl: 22, pw: 11, mw: 9, dw: 7.5, nw: 7 },
         ];
-        const state = this._getZombieHandState(hand, w, h, groundY);
-        const pose = this._getZombieHandPose(hand);
-        const lightAngle = Math.atan2(lightY - state.y, lightX - state.x);
-
-        // Animated shadow
-        ctx.save();
-        const shadowIntensity = 0.15 + hand.scale * 0.05 + Math.sin(this.time * 2 + hand.poseOffset) * 0.03;
-        ctx.fillStyle = `rgba(0,0,0,${shadowIntensity.toFixed(3)})`;
-        ctx.beginPath();
-        const shadowScale = 1 + Math.sin(this.time * 1.8 + hand.poseOffset) * 0.15;
-        ctx.ellipse(state.x, groundY + 15, (24 + hand.scale * 18) * shadowScale, (8 + hand.scale * 6) * shadowScale, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        ctx.save();
-        ctx.translate(state.x, state.y);
-        ctx.scale(state.scale, state.scale);
-        ctx.rotate(this._degToRad(state.rot));
-        ctx.globalAlpha = Math.min(1, 0.48 + state.emerge * 0.78);
-
         this._drawZombieWrist(ctx, lightAngle);
         this._drawZombieThumb(ctx, pose.thumb, lightAngle);
         this._drawZombiePalm(ctx, pose.splay, lightAngle);
@@ -2118,28 +2130,6 @@ class BackgroundRenderer {
             this._drawZombieFinger(ctx, def, pose.fingers[i], lightAngle, i === 1);
         });
 
-        // Subtle glow that pulses with emergence
-        if (hand.detail > 1.05) {
-            ctx.save();
-            ctx.globalCompositeOperation = 'lighter';
-            const glowAmount = 0.08 + (hand.detail - 1) * 0.12 + Math.sin(this.time * 3) * 0.06;
-            ctx.globalAlpha = Math.min(0.28, glowAmount * state.emerge);
-            ctx.shadowColor = 'rgba(180,225,255,0.3)';
-            ctx.shadowBlur = 8;
-            ctx.strokeStyle = 'rgba(180,225,255,0.3)';
-            ctx.lineWidth = 1.2;
-            // Under 'lighter' a shadowed stroke would otherwise go through a
-            // full-canvas layer; drawShadowUnderBlend gives the same pixels.
-            const er = 72 * state.scale + 1;
-            drawShadowUnderBlend(ctx, { x0: -er, y0: -40 - er, x1: er, y1: -40 + er }, (c) => {
-                c.beginPath();
-                c.ellipse(0, -40, 40 * state.scale, 72 * state.scale, -0.14, 0, Math.PI * 2);
-                c.stroke();
-            });
-            ctx.restore();
-        }
-
-        ctx.restore();
     }
 
     _renderZombieHandMound(ctx, hand, w, h, groundY) {
@@ -2234,16 +2224,16 @@ class BackgroundRenderer {
 
         palmPath();
         const base = ctx.createLinearGradient(-hw, botY, hw, botY);
-        base.addColorStop(0, '#3a4a26');
-        base.addColorStop(0.35, '#253018');
-        base.addColorStop(0.7, '#18240f');
-        base.addColorStop(1, '#121a0a');
+        base.addColorStop(0, '#424d4b');
+        base.addColorStop(0.35, '#2b3535');
+        base.addColorStop(0.7, '#1b2729');
+        base.addColorStop(1, '#111b1e');
         ctx.fillStyle = base;
         ctx.fill();
 
         palmPath();
         const shade = ctx.createLinearGradient(0, topY, 0, botY);
-        shade.addColorStop(0, 'rgba(80,110,48,0.12)');
+        shade.addColorStop(0, 'rgba(91,109,105,0.12)');
         shade.addColorStop(0.4, 'rgba(0,0,0,0)');
         shade.addColorStop(1, 'rgba(0,0,0,0.55)');
         ctx.fillStyle = shade;
@@ -2253,14 +2243,14 @@ class BackgroundRenderer {
         const ly = Math.sin(lightAngle) * ph * 0.55;
         palmPath();
         const glow = ctx.createRadialGradient(lx, ly + topY, 0, lx, ly + topY, hw * 1.5);
-        glow.addColorStop(0, 'rgba(180,215,255,0.22)');
-        glow.addColorStop(0.4, 'rgba(60,110,180,0.06)');
+        glow.addColorStop(0, 'rgba(183,207,207,0.22)');
+        glow.addColorStop(0.4, 'rgba(87,119,128,0.06)');
         glow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = glow;
         ctx.fill();
 
         palmPath();
-        ctx.strokeStyle = 'rgba(5,8,2,0.85)';
+        ctx.strokeStyle = 'rgba(5,9,10,0.85)';
         ctx.lineWidth = 0.8;
         ctx.stroke();
 
@@ -2269,8 +2259,8 @@ class BackgroundRenderer {
         ctx.globalCompositeOperation = 'screen';
         palmPath();
         const rim = ctx.createLinearGradient(0, -ph, 0, -ph * 0.4);
-        rim.addColorStop(0, 'rgba(210,240,255,0.22)');
-        rim.addColorStop(0.6, 'rgba(100,160,255,0.02)');
+        rim.addColorStop(0, 'rgba(207,225,220,0.22)');
+        rim.addColorStop(0.6, 'rgba(119,153,157,0.02)');
         rim.addColorStop(1, 'transparent');
         ctx.fillStyle = rim;
         ctx.fill();
@@ -2282,7 +2272,7 @@ class BackgroundRenderer {
             ctx.beginPath();
             ctx.moveTo(line[0], line[1]);
             ctx.quadraticCurveTo((line[0] + line[2]) * 0.35, (line[1] + line[3]) * 0.5 - 4, line[2], line[3]);
-            ctx.strokeStyle = `rgba(18,26,7,${(0.42 - i * 0.06).toFixed(3)})`;
+            ctx.strokeStyle = `rgba(18,27,28,${(0.42 - i * 0.06).toFixed(3)})`;
             ctx.lineWidth = 1 - i * 0.08;
             ctx.stroke();
         });
@@ -2301,23 +2291,23 @@ class BackgroundRenderer {
 
         wristPath();
         const base = ctx.createLinearGradient(-hw, palmBotY, hw, palmBotY);
-        base.addColorStop(0, '#3a4a26');
-        base.addColorStop(0.4, '#253018');
-        base.addColorStop(0.76, '#18240f');
-        base.addColorStop(1, '#121a0a');
+        base.addColorStop(0, '#424d4b');
+        base.addColorStop(0.4, '#2b3535');
+        base.addColorStop(0.76, '#1b2729');
+        base.addColorStop(1, '#111b1e');
         ctx.fillStyle = base;
         ctx.fill();
 
         wristPath();
         const glow = ctx.createRadialGradient(Math.cos(lightAngle) * hw, Math.sin(lightAngle) * h * 0.4, 0, 0, 0, hw * 2);
-        glow.addColorStop(0, 'rgba(180,215,255,0.18)');
-        glow.addColorStop(0.5, 'rgba(60,110,180,0.04)');
+        glow.addColorStop(0, 'rgba(183,207,207,0.18)');
+        glow.addColorStop(0.5, 'rgba(87,119,128,0.04)');
         glow.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = glow;
         ctx.fill();
 
         wristPath();
-        ctx.strokeStyle = 'rgba(5,8,2,0.85)';
+        ctx.strokeStyle = 'rgba(5,9,10,0.85)';
         ctx.lineWidth = 0.7;
         ctx.stroke();
 
@@ -2326,7 +2316,7 @@ class BackgroundRenderer {
         ctx.globalCompositeOperation = 'screen';
         wristPath();
         const rim = ctx.createLinearGradient(0, palmBotY, 0, palmBotY + h * 0.4);
-        rim.addColorStop(0, 'rgba(210,240,255,0.16)');
+        rim.addColorStop(0, 'rgba(207,225,220,0.16)');
         rim.addColorStop(1, 'transparent');
         ctx.fillStyle = rim;
         ctx.fill();
@@ -2336,7 +2326,7 @@ class BackgroundRenderer {
             ctx.beginPath();
             ctx.moveTo(tx, palmBotY);
             ctx.lineTo(tx + tx * 0.03, palmBotY + h);
-            ctx.strokeStyle = 'rgba(22,34,9,0.3)';
+            ctx.strokeStyle = 'rgba(22,33,34,0.3)';
             ctx.lineWidth = 0.9;
             ctx.stroke();
         });
@@ -2474,10 +2464,10 @@ class BackgroundRenderer {
         skinPath();
         const base = this._phalanxGradient(ctx, `b${wb2}`, () => {
             const g = ctx.createLinearGradient(-wb2, 0, wb2, 0);
-            g.addColorStop(0, '#3a4a26');
-            g.addColorStop(0.28, '#253018');
-            g.addColorStop(0.62, '#18240f');
-            g.addColorStop(1, '#121a0a');
+            g.addColorStop(0, '#424d4b');
+            g.addColorStop(0.28, '#2b3535');
+            g.addColorStop(0.62, '#1b2729');
+            g.addColorStop(1, '#111b1e');
             return g;
         });
         ctx.fillStyle = base;
@@ -2506,8 +2496,8 @@ class BackgroundRenderer {
         const gly = Math.round(ly * 4) / 4;
         const glow = this._phalanxGradient(ctx, `g${glx},${gly},${wb2}`, () => {
             const g = ctx.createRadialGradient(glx, gly, 0, glx, gly, wb2 * 2.5);
-            g.addColorStop(0, 'rgba(180,215,255,0.28)');
-            g.addColorStop(0.5, 'rgba(60,110,180,0.08)');
+            g.addColorStop(0, 'rgba(183,207,207,0.28)');
+            g.addColorStop(0.5, 'rgba(87,119,128,0.08)');
             g.addColorStop(1, 'rgba(0,0,0,0)');
             return g;
         });
@@ -2526,7 +2516,7 @@ class BackgroundRenderer {
             ctx.fill();
 
             const rim = ctx.createLinearGradient(0, -len, 0, -len * 0.3);
-            rim.addColorStop(0, 'rgba(210,240,255,0.24)');
+            rim.addColorStop(0, 'rgba(207,225,220,0.24)');
             rim.addColorStop(1, 'transparent');
             ctx.fillStyle = rim;
             ctx.fill();
@@ -2557,7 +2547,7 @@ class BackgroundRenderer {
 
         // Outline
         skinPath();
-        ctx.strokeStyle = 'rgba(5,8,2,0.8)';
+        ctx.strokeStyle = 'rgba(5,9,10,0.8)';
         ctx.lineWidth = 0.7;
         ctx.stroke();
 
@@ -2565,7 +2555,7 @@ class BackgroundRenderer {
         if (knuckleBase) {
             ctx.beginPath();
             ctx.ellipse(0, -wb * 0.05, wb * 0.48, wb * 0.18, 0, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(100,160,255,0.12)';
+            ctx.fillStyle = 'rgba(119,153,157,0.12)';
             ctx.fill();
         }
         if (knuckleTip) {
@@ -3868,6 +3858,7 @@ class BackgroundRenderer {
     _buildCityLights() { /* no-op */ }
 
     _cleanupZombieCache() {
+        this._zombieHandSprites = null;
         this._zombieSkyCanvas = null;
         this._zombieLightMask = null;
         this._zombieLightCanvas = null;
