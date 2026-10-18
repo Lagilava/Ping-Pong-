@@ -46,8 +46,17 @@
         dock.setAttribute('aria-label', `${link.provider} match music`);
         const header = document.createElement('div');
         header.className = 'pp-music-dock-head';
+        const eq = document.createElement('i');
+        eq.className = 'pp-music-eq';
+        eq.setAttribute('aria-hidden', 'true');
+        eq.innerHTML = '<b></b><b></b><b></b><b></b>';
         const title = document.createElement('span');
-        title.textContent = `${link.provider} · Match music`;
+        title.className = 'pp-music-title';
+        const label = document.createElement('small');
+        label.textContent = 'Match music';
+        const name = document.createElement('strong');
+        name.textContent = link.provider;
+        title.append(label, name);
         const hide = document.createElement('button');
         hide.type = 'button';
         hide.textContent = 'Hide';
@@ -61,7 +70,7 @@
         close.type = 'button';
         close.textContent = 'Stop';
         close.addEventListener('click', stop);
-        header.append(title, hide, close);
+        header.append(eq, title, hide, close);
         const frame = document.createElement('iframe');
         frame.src = link.src;
         frame.title = `${link.provider} music player`;
