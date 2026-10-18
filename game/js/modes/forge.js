@@ -475,26 +475,27 @@
             el.setAttribute('aria-label', 'Forge arena editor');
             el.innerHTML = `
                 <div class="forge-editor-top">
-                    <div class="forge-editor-title"><span class="forge-kicker">Forge</span><input class="forge-name" maxlength="32" aria-label="Map name"></div>
+                    <div class="forge-editor-title"><div><span class="studio-eyebrow">Arena builder</span><h2>Forge</h2></div><label class="forge-name-wrap"><span>Map name</span><input class="forge-name" maxlength="32" aria-label="Map name"></label></div>
+                    <div class="forge-commit-actions"><button type="button" data-act="save">Save map</button><button type="button" data-act="done" class="forge-primary">Done</button></div>
                     <div class="forge-editor-actions">
-                        <button type="button" data-act="background" class="forge-bg-btn" title="Choose or import the background">Background: <b class="forge-bg-name"></b></button>
+                        <div class="forge-action-group"><button type="button" data-act="background" class="forge-bg-btn" title="Choose or import the background">Background: <b class="forge-bg-name"></b></button>
                         <button type="button" data-act="mirror" class="forge-toggle" aria-pressed="true">Mirror</button>
-                        <button type="button" data-act="snap" class="forge-toggle" aria-pressed="true">Snap</button>
+                        <button type="button" data-act="snap" class="forge-toggle" aria-pressed="true">Snap</button></div>
+                        <div class="forge-action-group">
                         <button type="button" data-act="smaller" title="Smaller (-)">&minus;</button>
                         <button type="button" data-act="bigger" title="Bigger (+)">+</button>
                         <button type="button" data-act="turn" title="Turn (R)">Turn</button>
                         <button type="button" data-act="undo">Undo</button>
                         <button type="button" data-act="redo">Redo</button>
                         <button type="button" data-act="clear">Clear</button>
-                        <button type="button" data-act="save">Save map</button>
-                        <button type="button" data-act="done" class="forge-primary">Done</button>
+                        </div>
                     </div>
                 </div>
                 <div class="forge-editor-body">
-                    <div class="forge-palette">${TOOLS.map(t => `<button type="button" class="forge-tool" data-tool="${t.id}" title="${t.hint} (${t.key})"><canvas width="44" height="44"></canvas><span>${t.label}</span></button>`).join('')}</div>
-                    <div class="forge-stage"><canvas class="forge-canvas"></canvas></div>
+                    <div class="forge-palette"><div class="forge-palette-title">Object library</div>${TOOLS.map(t => `<button type="button" class="forge-tool" data-tool="${t.id}" title="${t.hint} (${t.key})"><canvas width="44" height="44"></canvas><span>${t.label}</span><kbd aria-hidden="true">${t.key}</kbd></button>`).join('')}</div>
+                    <div class="forge-stage"><div class="forge-stage-label">LIVE ARENA<span>Place · arrange · play</span></div><canvas class="forge-canvas"></canvas></div>
                     <div class="forge-inspector" aria-live="polite">
-                        <span class="forge-kicker">Object</span>
+                        <span class="forge-kicker">Selection</span>
                         <strong class="forge-object-name">Select an object</strong>
                         <p class="forge-object-hint">Choose any object on the court to edit it.</p>
                         <div class="forge-object-properties"><span class="forge-object-position"></span><span class="forge-object-size"></span></div>
@@ -617,7 +618,7 @@
             if (!this.el?.classList.contains('visible')) return;
             const stage = this.el.querySelector('.forge-stage');
             const r = stage.getBoundingClientRect();
-            const w = Math.max(200, Math.min(r.width, r.height * 16 / 9));
+            const w = Math.max(200, Math.min(Math.max(0, r.width - 32), Math.max(0, r.height - 32) * 16 / 9));
             const h = w * 9 / 16;
             const dpr = Math.min(2, window.devicePixelRatio || 1);
             this.canvas.style.width = `${w}px`;
@@ -628,7 +629,11 @@
 
         setTool(t) {
             this.tool = t;
-            this.el.querySelectorAll('.forge-tool').forEach(b => b.classList.toggle('active', b.dataset.tool === t));
+            this.el.querySelectorAll('.forge-tool').forEach(b => {
+                const selected = b.dataset.tool === t;
+                b.classList.toggle('active', selected);
+                b.setAttribute('aria-pressed', String(selected));
+            });
         }
 
         toNorm(e) {

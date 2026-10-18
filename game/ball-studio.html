@@ -682,14 +682,15 @@
     }
     @media (prefers-reduced-motion: reduce) { body::after { animation: none; } }
   </style>
+  <link rel="stylesheet" href="css/studio.css">
 </head>
-<body>
+<body class="studio-ball">
   <div class="app-shell">
     <header class="hero">
       <div class="hero-copy">
-        <div class="eyebrow">Custom matches</div>
+        <div class="eyebrow">The workshop / Ball design</div>
         <h1>Ball Studio</h1>
-        <p>Pick the ball's colors, add a picture and a glow effect. Every edit saves as you go and your Custom matches use this ball. The preview draws it with the match's own renderer, close up and at match size. Presets keep looks you want to come back to.</p>
+        <p>Shape your signature ball. Tune its colors, layer a picture, and bring it to life with glow. Every edit saves to your Custom matches.</p>
       </div>
       <div class="hero-actions">
         <button class="btn" id="undoBtn" type="button" disabled>Undo</button>
@@ -715,7 +716,7 @@
     <main class="workspace">
       <section class="panel">
         <div class="panel-head">
-          <h2>Look</h2>
+          <h2>Appearance</h2>
           <div class="hint">Colors and picture</div>
         </div>
         <div class="panel-body stack">
@@ -805,8 +806,8 @@
 
       <section class="panel">
         <div class="panel-head">
-          <h2>Glow Effect</h2>
-          <div class="hint">JavaScript canvas drawing</div>
+          <h2>Effects &amp; presets</h2>
+          <div class="hint">Make it glow</div>
         </div>
         <div class="panel-body split">
           <div class="effects-toolbar">
@@ -831,20 +832,21 @@
               <button class="btn danger" id="deletePresetBtn" type="button" disabled>Delete Selected</button>
             </div>
           </div>
+          <details class="studio-code"><summary>Custom effect code <span>JavaScript</span></summary>
           <div class="textarea-wrap">
             <label for="effectCode">Effect code</label>
             <textarea id="effectCode" aria-describedby="effectCodeHelp" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Paste raw canvas code here. The variables ctx, ball, time, and api are available."></textarea>
             <div class="code-actions">
-              <button class="btn primary" id="saveBtn" type="button">Save to Game</button>
-              <button class="btn" id="copyJsonBtn" type="button">Copy JSON</button>
-              <button class="btn danger" id="resetBtn" type="button">Reset Defaults</button>
+              <button class="btn primary" id="saveBtn" type="button">Apply code</button>
             </div>
           </div>
-          <div class="group">
-            <div class="group-title">Settings as JSON</div>
-            <div class="json-box" id="jsonBox"></div>
-          </div>
           <p class="footnote" id="effectCodeHelp">Tip: the code runs every frame, centred on the ball, with <code>ctx</code>, <code>ball</code> (<code>ball.r</code> is the radius), <code>time</code> in seconds and <code>api</code> (<code>api.color</code>, <code>api.trailColor</code>, <code>api.speedRatio</code>, <code>api.drawImageCover()</code>, <code>api.drawImageContain()</code>). Stick to drawing. If the code throws, the effect switches off until you edit it.</p>
+          </details>
+          <details class="studio-json"><summary>Export settings <span>JSON</span></summary>
+            <div class="json-box" id="jsonBox"></div>
+            <div class="footer-actions"><button class="btn" id="copyJsonBtn" type="button">Copy JSON</button></div>
+          </details>
+          <div class="footer-actions"><button class="btn danger" id="resetBtn" type="button">Reset ball</button></div>
         </div>
       </section>
     </main>
@@ -1262,6 +1264,7 @@
         const key = `${kind}|${title}|${message}`;
         if (key === state.statusKey) return;
         state.statusKey = key;
+        if (kind === 'error' && state.compileError) document.querySelector('.studio-code').open = true;
         els.statusBox.className = `status ${kind}`;
         els.statusBox.innerHTML = `<strong>${escapeHtml(title)}</strong><div>${message}</div>`;
         els.liveStateValue.textContent = title;
@@ -1481,6 +1484,7 @@
       }
 
       function addEffectBlock() {
+        document.querySelector('.studio-code').open = true;
         const template = getEffectTemplate();
         const textarea = els.effectCode;
         const start = textarea.selectionStart ?? textarea.value.length;

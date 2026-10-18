@@ -1,0 +1,247 @@
+/* Shared visual language for Custom Match, Forge and Ball Studio. */
+:is(.customise-overlay, .forge-editor, .studio-ball) {
+    --studio-bg: #090f15;
+    --studio-panel: #111c25;
+    --studio-line: #263640;
+    --studio-text: #e7eef0;
+    --studio-muted: #94a8af;
+    --studio-cyan: #7ce5d8;
+    --studio-gold: #e6bc78;
+    color: var(--studio-text);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: 0;
+}
+.studio-eyebrow { display: block; margin-bottom: 7px; color: var(--studio-gold); font: 11px 'IBM Plex Mono', monospace; letter-spacing: .18em; text-transform: uppercase; }
+:is(.customise-overlay, .forge-editor) button { min-height: 40px; text-transform: none; letter-spacing: 0; border-radius: 8px; font-family: inherit; box-shadow: none; }
+:is(.customise-overlay, .forge-editor) :is(button, input, select):focus-visible { outline: 2px solid var(--studio-cyan); outline-offset: 3px; }
+:is(.customise-overlay, .forge-editor) :is(select, input[type="text"]) { min-height: 44px; border: 1px solid #344751; border-radius: 8px; background: #0a131b; color: var(--studio-text); font: 14px 'Space Grotesk', sans-serif; }
+:is(.customise-overlay, .forge-editor) button:not(:disabled):hover { border-color: var(--studio-cyan); }
+.customise-overlay { background: radial-gradient(ellipse at 75% 0, #17333366, transparent 50%), var(--studio-bg); backdrop-filter: none; }
+.customise-overlay.active { display: grid; grid-template: auto minmax(0, 1fr) auto / 216px minmax(0, 1fr); }
+.customise-overlay .customise-overlay-header { grid-column: 1 / -1; padding: 25px 32px; align-items: center; border-bottom: 1px solid var(--studio-line); background: linear-gradient(90deg, #0d1821 40%, #0d1821dd), url('../assets/images/menu-art/custom.webp') 90% 48% / 480px auto no-repeat; }
+.customise-overlay .customise-overlay-title { color: #edf5f3; font: 600 clamp(25px, 3vw, 36px)/1.1 'Space Grotesk', sans-serif; letter-spacing: -.035em; text-transform: none; text-shadow: none; }
+.customise-overlay .customise-overlay-subtitle { color: var(--studio-muted); font-size: 13px; margin-top: 9px; }
+.customise-overlay .customise-overlay-back-btn { border: 1px solid #344751; background: #14212a; color: #cad9dd; font-size: 12px; }
+.customise-overlay .customise-overlay-back-btn::before { display: none; }
+.customise-tabs { grid-column: 1; grid-row: 2; flex-direction: column; justify-content: flex-start; gap: 8px; padding: 24px 16px; border: 0; border-right: 1px solid var(--studio-line); background: #0c151d; overflow: auto; counter-reset: studio-section; }
+.customise-tab { position: relative; flex: 0 0 auto; width: 100%; min-width: 0; gap: 6px; padding: 16px 14px 16px 39px; border: 1px solid transparent; border-radius: 10px; background: transparent; }
+.customise-tab::before { counter-increment: studio-section; content: '0' counter(studio-section); position: absolute; left: 11px; top: 17px; color: #5d7a83; font: 10px 'IBM Plex Mono', monospace; }
+.customise-tab b { font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+.customise-tab small { color: #8299a1; font-size: 11px; font-weight: 400; }
+.customise-tab[aria-selected="true"] { background: #173330; border-color: #477d73; color: #c5fff0; box-shadow: none; }
+.customise-tab[aria-selected="true"]::before { color: #8debd6; }
+.customise-overlay .customise-overlay-content { grid-column: 2; grid-row: 2; padding: 28px; }
+.customise-overlay .customise-overlay-scrollable { max-width: 1400px; }
+.customise-overlay .customise-controls-heading { display: block !important; margin: 0 0 22px; }
+.customise-overlay .customise-controls-heading .customise-kicker { display: none; }
+.customise-overlay .customise-controls-heading h3 { margin: 0; color: #e7efef; font: 500 21px 'Space Grotesk', sans-serif; letter-spacing: -.02em; text-transform: none; }
+.customise-overlay .customise-forge { padding: 0; border: 0; background: none; box-shadow: none; }
+.customise-overlay .forge-layout { grid-template-columns: minmax(0, 1.6fr) minmax(240px, .85fr); gap: 22px; }
+.customise-overlay :is(.forge-arena-card, .forge-rules, .customise-field, .customise-live-preview-wrapper, .customise-background-controls, .customise-look-previews, .customise-powerups-panel) { background: #111d26; border: 1px solid var(--studio-line); border-radius: 12px; box-shadow: none; }
+.customise-overlay .forge-arena-card { padding: 16px; }
+.customise-overlay .forge-arena-head { margin-bottom: 12px; flex-wrap: wrap; }
+.customise-overlay .forge-arena-preview { width: 100%; border: 1px solid #33434c; border-radius: 8px; }
+.customise-overlay .forge-arena-row { margin-top: 12px; gap: 7px; }
+.customise-overlay .forge-arena-row button { font-size: 12px; padding: 8px 12px; }
+.customise-overlay .forge-rules { padding: 18px; gap: 16px; }
+.customise-overlay .forge-rule > span { color: #c0d0d4; font: 12px 'Space Grotesk', sans-serif; text-transform: none; letter-spacing: 0; }
+.customise-overlay .forge-rules-note { color: #829ba5; font-size: 12px; line-height: 1.6; padding-top: 14px; border-top: 1px solid var(--studio-line); }
+.customise-overlay :is(.forge-primary, .customise-start-btn) { background: #e6bc78; border: 1px solid #f4d79d; color: #211c13; font-weight: 700; text-shadow: none; }
+.customise-overlay :is(.forge-primary, .customise-start-btn):hover { background: #f2cc8d; color: #211c13; }
+.customise-overlay .customise-actions { grid-column: 1 / -1; padding: 16px 28px max(16px, env(safe-area-inset-bottom)); background: #0d1821; border-top: 1px solid var(--studio-line); box-shadow: none; }
+.customise-overlay .customise-summary-line { color: #91aab2; font-size: 12px; line-height: 1.6; }
+.customise-overlay .customise-actions-buttons button { padding: 12px 22px; font-size: 13px; }
+.customise-overlay .customise-field { transform: none; }
+.customise-overlay .customise-field:hover { transform: none; box-shadow: none; border-color: #3b5960; }
+.customise-overlay .customise-field label { color: #c3d8da; font: 500 13px 'Space Grotesk', sans-serif; text-transform: none; letter-spacing: 0; }
+.customise-overlay .customise-summary-swatch { border-color: #30444d; background: #0a151d; box-shadow: none; height: 135px; }
+.customise-overlay .customise-summary-label { color: var(--studio-muted); font-size: 11px; letter-spacing: .07em; }
+.customise-overlay .customise-background-studio { grid-template-columns: minmax(240px, .7fr) minmax(0, 1.3fr); gap: 22px; }
+.customise-overlay .customise-live-preview { width: 100%; }
+.customise-overlay .customise-powerups-panel { padding: 24px; }
+.customise-overlay .customise-powerup-option { min-height: 52px; border: 1px solid #2c414a; background: #0c1821; border-radius: 8px; color: #a7bdc3; font-size: 13px; }
+.customise-overlay .customise-powerup-option:has(input:checked) { background: #173831; border-color: #598f7e; color: #d6fff0; }
+.customise-overlay .customise-powerups-title { color: #d2e2e5; font-size: 15px; letter-spacing: 0; text-transform: none; }
+.customise-overlay .customise-mini-btn { background: #192c34; border-color: #3a535b; }
+/* Forge: toolbar, object shelf, canvas and inspector each have a distinct surface. */
+.forge-editor { background: #0a1118; padding: 0; gap: 0; }
+.forge-editor-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; padding: 20px 24px 16px; background: #111d26; border-bottom: 1px solid var(--studio-line); }
+.forge-editor-title { min-width: 0; gap: 24px; }
+.forge-editor-title h2 { margin: 0; font: 600 26px 'Space Grotesk', sans-serif; letter-spacing: -.04em; }
+.forge-name-wrap { display: grid; gap: 5px; width: min(270px, 45vw); font-size: 10px; color: #8aa4ad; }
+.forge-editor .forge-name { width: 100%; box-sizing: border-box; background: #0a141d; }
+.forge-commit-actions { display: flex; align-items: center; gap: 8px; }
+.forge-editor-actions { grid-column: 1 / -1; gap: 12px; }
+.forge-action-group { display: flex; align-items: center; gap: 5px; padding-right: 12px; border-right: 1px solid var(--studio-line); }
+.forge-action-group:last-child { border: 0; }
+.forge-editor button { background: #152630; border-color: #30444d; font-size: 12px; padding: 8px 12px; }
+.forge-editor .forge-primary { background: #e6bc78; color: #211c13; border-color: #e6bc78; }
+.forge-editor [data-act="save"] { border-color: #658b81; color: #baf4e2; background: #1b3933; }
+.forge-editor .forge-toggle[aria-pressed="true"] { background: #1b3831; border-color: #507e70; color: #a7f2d5; }
+.forge-editor-body { padding: 18px; gap: 18px; min-height: 0; }
+.forge-palette { width: 116px; background: #101c25; border: 1px solid var(--studio-line); border-radius: 12px; padding: 10px; gap: 7px; }
+.forge-palette-title { color: #9ab0b7; font-size: 11px; padding: 3px 2px 10px; }
+.forge-editor .forge-tool { position: relative; min-height: 66px; border-radius: 8px; background: #0d1821; font-size: 11px; font-weight: 500; gap: 4px; padding: 8px 3px; }
+.forge-editor .forge-tool canvas { width: 35px; height: 35px; border-radius: 6px; }
+.forge-tool kbd { position: absolute; top: 5px; right: 5px; color: #69858d; font: 9px 'IBM Plex Mono', monospace; }
+.forge-editor .forge-tool.active { background: #1d3836; border-color: #74c6b5; color: #d3fff1; box-shadow: inset 3px 0 #83e0c9; }
+.forge-stage { position: relative; background: radial-gradient(ellipse, #17293277, transparent 70%), #090f15; border: 1px solid #23343d; border-radius: 12px; padding: 16px; }
+.forge-stage-label { position: absolute; top: 14px; left: 18px; right: 18px; display: flex; justify-content: space-between; color: #6e8e98; font: 10px 'IBM Plex Mono', monospace; letter-spacing: .1em; pointer-events: none; }
+.forge-stage-label span { color: #5f7882; letter-spacing: 0; }
+.forge-editor .forge-canvas { border: 1px solid #3a535a; border-radius: 6px; box-shadow: 0 12px 40px #0004; }
+.forge-inspector { width: 224px; flex-basis: 224px; padding: 20px; box-sizing: border-box; background: #111e27; border-color: var(--studio-line); border-radius: 12px; }
+.forge-inspector .forge-kicker { color: #91b7ba; font: 10px 'IBM Plex Mono', monospace; letter-spacing: .14em; }
+.forge-inspector strong { margin-top: 18px; font-size: 17px; font-weight: 500; }
+.forge-inspector p { font-size: 12px; line-height: 1.6; color: #8ca6b0; }
+.forge-object-properties { display: grid; gap: 8px; margin-top: 18px; font: 11px 'IBM Plex Mono', monospace; color: #9db4bc; }
+.forge-inspector-actions { border-top: 1px solid var(--studio-line); padding-top: 16px; gap: 6px; }
+.forge-editor .forge-inspector-actions button { min-width: 0; padding: 8px 4px; font-size: 11px; }
+.forge-editor-hint { border-top: 1px solid #22323a; padding: 12px 20px; color: #718d97; font: 11px/1.5 'Space Grotesk', sans-serif; }
+.forge-editor .forge-count { color: #9bdbcc; margin-right: 10px; }
+/* Ball Studio: a compact header and a preview-centered workspace. */
+.studio-ball { --accent: #7ce5d8; --accent-2: #e6bc78; --accent-3: #a9dfc3; --text: #e7eef0; --muted: #94a8af; --line: #283a44; --radius: 14px; background: radial-gradient(ellipse at 55% 0, #17363866, transparent 65%), #090f15; }
+.studio-ball::before, .studio-ball::after { display: none; }
+.studio-ball .app-shell { width: min(1600px, calc(100% - 48px)); padding: 24px 0; }
+.studio-ball .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 18px; margin-bottom: 22px; padding: 24px 28px 18px; border-radius: 14px; border-color: #2b4049; background: linear-gradient(90deg, #11212a, #111c25); box-shadow: none; backdrop-filter: none; }
+.studio-ball .hero::before { display: none; }
+.studio-ball .hero-copy { max-width: 700px; }
+.studio-ball .eyebrow { margin-bottom: 10px; color: var(--studio-gold); font-size: 10px; letter-spacing: .18em; }
+.studio-ball .eyebrow::before { display: none; }
+.studio-ball h1 { color: #edf6f4; background: none; font: 600 clamp(28px, 3vw, 42px)/1.1 'Space Grotesk', sans-serif; letter-spacing: -.04em; text-transform: none; }
+.studio-ball .hero p { font-size: 13px; line-height: 1.65; margin-top: 10px; max-width: 65ch; }
+.studio-ball .hero-actions { align-self: start; flex-wrap: nowrap; gap: 6px; }
+.studio-ball .hero-stats { grid-column: 1 / -1; display: flex; gap: 28px; min-width: 0; border-top: 1px solid #2a3b44; padding-top: 14px; }
+.studio-ball .stat { display: flex; gap: 12px; align-items: center; border: 0; padding: 0; background: none; backdrop-filter: none; }
+.studio-ball .stat-label { font-size: 10px; margin: 0; letter-spacing: .08em; color: #7f9ba5; }
+.studio-ball .stat-value { font: 12px 'IBM Plex Mono', monospace; letter-spacing: 0; }
+.studio-ball .workspace { grid-template-columns: 280px minmax(0, 1fr) 340px; gap: 18px; }
+.studio-ball .panel { background: #111c25; border-color: #293b44; border-radius: 14px; box-shadow: none; backdrop-filter: none; }
+.studio-ball .panel-head { background: #14242d; padding: 18px; gap: 8px; flex-wrap: wrap; }
+.studio-ball .panel-head h2 { font: 600 15px 'Space Grotesk', sans-serif; letter-spacing: 0; text-transform: none; }
+.studio-ball .panel-head .hint { color: #75949f; font-size: 10px; }
+.studio-ball .group { background: #0b161f; border-color: #273b45; border-radius: 10px; padding: 14px; }
+.studio-ball .group-title { color: #a2c0c4; font: 10px 'IBM Plex Mono', monospace; letter-spacing: .12em; }
+.studio-ball .btn { border: 1px solid #344b55; border-radius: 8px; background: #172b35; color: #c6dadd; font-size: 12px; padding: 10px 13px; min-height: 40px; }
+.studio-ball .btn.primary { border-color: #6e9b8d; background: #25433a; color: #caffea; }
+.studio-ball .btn.back { background: #e6bc78; border-color: #e6bc78; color: #231e14; }
+.studio-ball .btn.danger, .studio-ball .btn.warn { color: #d5a9a6; border-color: #62464b; background: #2c2229; }
+.studio-ball label.control { gap: 9px; margin-bottom: 18px; }
+.studio-ball .control span { font-size: 12px; }
+.studio-ball .control small { font-size: 10px; color: #7d9ba7; }
+.studio-ball .control strong { font-weight: 500; }
+.studio-ball :is(select, input[type="text"], textarea) { border-color: #304752; border-radius: 8px; background: #08131d; font-size: 12px; padding: 11px; }
+.studio-ball .group:first-child label.control:has(input[type="color"]) { display: grid; grid-template-columns: minmax(0, 1fr) 42px; align-items: center; margin-bottom: 12px; }
+.studio-ball .group:first-child .control:has(input[type="color"]) span { flex-direction: column; gap: 4px; }
+.studio-ball input[type="color"] { width: 42px; height: 42px; min-height: 42px; padding: 4px; border-color: #3c565e; border-radius: 9px; background: #14242e; }
+.studio-ball input[type="range"] { accent-color: #7ce5d8; }
+.studio-ball .preview-shell { position: sticky; top: 18px; }
+.studio-ball .preview-frame { min-height: 0; height: clamp(360px, calc(100dvh - 355px), 680px); border-radius: 10px; background: radial-gradient(ellipse at 50% 30%, #22454d66, transparent 60%), #07121b; border-color: #30454e; }
+.studio-ball #previewCanvas { min-height: 0; height: 100%; }
+.studio-ball .preview-frame::before { opacity: .2; }
+.studio-ball .pill, .studio-ball .chip { border-color: #2e444f; background: #11232c; color: #92b2ba; font-size: 10px; }
+.studio-ball .dropzone { background: #142c32; border: 1px dashed #508577; border-radius: 10px; color: #91b3b9; font-size: 11px; padding: 18px 12px; }
+.studio-ball .dropzone strong { display: block; color: #bcf0e1; font-size: 13px; margin-bottom: 6px; }
+.studio-ball .status { background: #152d29; border-color: #3b6555; color: #99baac; font-size: 11px; }
+.studio-ball .status strong { color: #bbefd7; }
+.studio-ball .status.error { background: #342028; border-color: #9f5c69; }
+.studio-ball .status.error strong { color: #ffb6be; }
+.studio-ball :is(.studio-code, .studio-json) { border: 1px solid #30454f; border-radius: 10px; background: #0b1720; padding: 13px; }
+.studio-ball summary { cursor: pointer; color: #b5d1d6; font-size: 12px; }
+.studio-ball summary span { float: right; font: 9px 'IBM Plex Mono', monospace; color: #76959f; }
+.studio-ball details[open] summary { margin-bottom: 14px; }
+.studio-ball textarea { min-height: 250px; line-height: 1.6; }
+.studio-ball .json-box { background: #08121b; border-radius: 7px; max-height: 200px; }
+.studio-ball .footnote { font-size: 10px; line-height: 1.7; color: #718f9c; }
+@media (max-width: 1190px) {
+    .studio-ball .workspace { grid-template-columns: 280px minmax(0, 1fr); }
+    .studio-ball .workspace > .panel:last-child { grid-column: 1 / -1; }
+    .studio-ball .preview-shell { grid-row: auto; position: sticky; }
+    .customise-overlay .forge-layout { grid-template-columns: minmax(0, 1fr); }
+    .forge-inspector { width: 200px; flex-basis: 200px; padding: 16px; }
+}
+@media (max-width: 850px), (max-height: 650px) {
+    .customise-overlay.active { display: flex; }
+    .customise-overlay .customise-overlay-header { padding: 16px 20px; }
+    .customise-tabs { flex-direction: row; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--studio-line); overflow-x: auto; }
+    .customise-tab { width: auto; min-width: 145px; padding: 12px 12px 12px 34px; }
+    .customise-tab::before { top: 14px; left: 9px; }
+    .customise-overlay .customise-overlay-content { padding: 20px; }
+    .customise-overlay .customise-background-studio { grid-template-columns: minmax(0, 1fr); }
+    .forge-editor-top { padding: 12px; gap: 12px; }
+    .forge-editor-body { flex-direction: column; gap: 10px; padding: 10px; }
+    .forge-palette { width: auto; flex-shrink: 0; flex-direction: row; overflow-x: auto; padding: 6px; }
+    .forge-palette-title { display: none; }
+    .forge-editor .forge-tool { flex: 0 0 76px; min-width: 76px; min-height: 62px; }
+    .forge-stage { min-height: 160px; padding: 8px; }
+    .forge-stage-label { display: none; }
+    .forge-inspector { width: auto; flex: 0 0 auto; padding: 12px; max-height: 145px; }
+    .forge-inspector strong { margin-top: 6px; font-size: 15px; }
+    .forge-inspector-actions { margin-top: 8px; padding-top: 8px; display: flex; flex-wrap: wrap; }
+    .forge-object-properties { margin-top: 5px; display: flex; }
+    .forge-editor-hint { padding: 8px 12px; font-size: 10px; }
+}
+@media (max-width: 640px) {
+    .customise-overlay .studio-eyebrow { font-size: 9px; margin-bottom: 5px; }
+    .customise-overlay .customise-overlay-header { padding: max(14px, env(safe-area-inset-top)) 16px 14px; gap: 12px; }
+    .customise-overlay .customise-overlay-title { font-size: 28px; }
+    .customise-overlay .customise-overlay-subtitle { font-size: 11px; line-height: 1.5; }
+    .customise-overlay .customise-overlay-actions { width: 100%; }
+    .customise-overlay .customise-overlay-back-btn { min-height: 36px; font-size: 11px; padding: 8px 12px; }
+    .customise-overlay .customise-overlay-content { padding: 18px 12px; }
+    .customise-overlay .customise-controls-heading { margin-bottom: 14px; }
+    .customise-overlay .customise-controls-heading h3 { font-size: 19px; }
+    .customise-overlay .forge-arena-card { padding: 12px; }
+    .customise-overlay .forge-arena-row { flex-wrap: wrap; }
+    .customise-overlay .forge-arena-row input { flex-basis: 100%; }
+    .customise-overlay .customise-actions { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); gap: 8px; }
+    .customise-overlay .customise-actions-buttons { width: 100%; gap: 6px; }
+    .customise-overlay .customise-actions-buttons button { min-height: 42px; padding: 10px; font-size: 11px; }
+    .customise-overlay .customise-summary-line { font-size: 10px; }
+    .forge-editor-title { gap: 10px; }
+    .forge-editor-title h2 { font-size: 21px; }
+    .forge-editor-title .studio-eyebrow { font-size: 8px; }
+    .forge-name-wrap { width: min(165px, 38vw); font-size: 9px; }
+    .forge-editor .forge-name { font-size: 12px; min-height: 38px; }
+    .forge-commit-actions { gap: 5px; }
+    .forge-commit-actions button { min-height: 38px; padding: 8px 10px; font-size: 11px; }
+    .forge-editor-actions { flex-wrap: nowrap; overflow-x: auto; gap: 8px; padding-bottom: 3px; }
+    .forge-action-group { flex: 0 0 auto; padding-right: 8px; }
+    .forge-editor-actions button { white-space: nowrap; min-height: 36px; font-size: 11px; padding: 8px 10px; }
+    .forge-editor-actions [data-act="smaller"], .forge-editor-actions [data-act="bigger"], .forge-editor-actions [data-act="turn"] { display: none; }
+    .studio-ball .app-shell { width: calc(100% - 24px); padding: 12px 0; }
+    .studio-ball .hero { padding: 18px; gap: 15px; grid-template-columns: minmax(0, 1fr); }
+    .studio-ball .hero p { font-size: 12px; margin-top: 8px; }
+    .studio-ball .hero-actions { justify-content: flex-start; flex-wrap: wrap; }
+    .studio-ball .hero-stats { gap: 12px; flex-wrap: wrap; }
+    .studio-ball .stat { gap: 6px; }
+    .studio-ball .stat-value { font-size: 10px; }
+    .studio-ball .workspace { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .studio-ball .preview-shell { grid-row: 1; position: static; }
+    .studio-ball .preview-frame { height: 280px; }
+    .studio-ball .workspace > .panel:last-child { grid-column: auto; }
+    .studio-ball .panel-head { padding: 14px 16px; }
+    .studio-ball :is(input[type="text"], select, textarea) { font-size: 16px; }
+}
+@media (max-height: 600px) and (min-width: 641px) {
+    .forge-editor-top { gap: 8px; padding: 8px 12px; }
+    .forge-editor-title h2 { font-size: 20px; }
+    .forge-editor-title .studio-eyebrow, .forge-name-wrap > span { display: none; }
+    .forge-editor .forge-name { min-height: 34px; }
+    .forge-editor-actions { flex-wrap: nowrap; overflow-x: auto; }
+    .forge-action-group { flex-shrink: 0; }
+    .forge-editor .forge-palette { padding: 3px; }
+    .forge-editor .forge-tool { flex-basis: 68px; min-width: 68px; min-height: 46px; padding: 4px; }
+    .forge-editor .forge-tool canvas { width: 24px; height: 24px; }
+    .forge-inspector { max-height: 90px; }
+    .forge-stage { min-height: 80px; }
+}
+/* A short landscape viewport needs its canvas beside the tools, not below them. */
+@media (max-height: 600px) and (min-width: 641px) {
+    .forge-editor-body { flex-direction: row; padding: 8px; gap: 8px; }
+    .forge-editor .forge-palette { flex-direction: column; width: 84px; overflow-x: hidden; overflow-y: auto; }
+    .forge-editor .forge-tool { flex: 0 0 auto; min-width: 0; }
+    .forge-stage { min-height: 0; }
+    .forge-inspector { width: 180px; flex: 0 0 180px; max-height: none; }
+    .forge-inspector-actions { display: grid; grid-template-columns: 1fr 1fr; }
+}
+.customise-overlay #customResetDefaultsBtn { text-transform: none; letter-spacing: 0; }
