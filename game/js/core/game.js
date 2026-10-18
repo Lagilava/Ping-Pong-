@@ -6203,6 +6203,19 @@ class Game {
     }
 
     resetMatch() {
+        // Stop music while the outgoing Intro still owns its media element.
+        // Replacing it first would leave a detached Audio playing forever.
+        this.audio?.stopMusic?.('all');
+        const outgoingMusic = this.intro?.bgMusic;
+        if (outgoingMusic) {
+            outgoingMusic.pause();
+            outgoingMusic.currentTime = 0;
+            outgoingMusic.removeAttribute('src');
+            outgoingMusic.load();
+        }
+        this.stopCustomHtmlTrack();
+        this._matchMusicKickAt = 0;
+
         // Stop any ongoing game loop
         this.stop();
         this.serveHold = 0;

@@ -584,6 +584,8 @@ class EnhancedAudioEngine {
 
     // ✅ STOP ALL MUSIC - Properly stops any playing audio tracks
     stopMusic(target = 'all') {
+        // Invalidate starts queued before this stop/restart.
+        this._musicGeneration = (this._musicGeneration || 0) + 1;
         this.stopAllGravityWellSounds(0.1);
         
         // Stop intro bg music if it exists
@@ -632,7 +634,9 @@ class EnhancedAudioEngine {
         }
 
         // Serialize music start/stop calls to prevent "AbortError: The play() request was interrupted by a call to pause()."
+        const generation = this._musicGeneration || 0;
         const doPlay = async () => {
+            if (generation !== (this._musicGeneration || 0)) return;
             this.lastMusicState.src = resolvedSrc;
             this.lastMusicState.volume = volume;
             this.lastMusicState.wasPlaying = !this.musicMuted && autoplay;
