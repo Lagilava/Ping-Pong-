@@ -2793,12 +2793,9 @@ function enhanceGameMethods() {
         originalPhysicsStep.call(this, dt);
 
         if (this.audio && this.audio.enabled) {
-            // Enhanced obstacle collision detection
-            this.obstacles?.forEach(obstacle => {
-                if (obstacle.active && obstacle.checkCollision && obstacle.checkCollision(this.ball)) {
-                    this.audio.obstacleHit && this.audio.obstacleHit();
-                }
-            });
+            // Obstacle hits are resolved and voiced by the game itself
+            // (handleCollisions / onObstacleHit). A second collision pass here
+            // used to knock a ball out of its serve hold and ignored star power.
 
             // Rally milestone sounds
             if (this.rallyCount > 0 && this.rallyCount % 5 === 0 && this.rallyCount !== this.audio.lastRallyMilestone) {
