@@ -6,8 +6,7 @@
     const COLORS = ['#ff8748', '#65dfff', '#7effb5', '#ff73b6'];
     const atlas = new Image();
     atlas.src = 'assets/images/powerups/zombie-powerups.webp';
-    const reduced = () => !!window.PPSettings?.get('reduceMotion') ||
-        !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    // Collectible feedback stays animated independently of scene motion settings.
 
     function icon(ctx, type, x, y, size) {
         const index = TYPES.indexOf(type === 'repair' ? 'life' : type);
@@ -26,11 +25,10 @@
     }
 
     function draw(ctx, pickup) {
-        const quiet = reduced();
         const age = Math.max(0, 12 - pickup.life);
-        const enter = quiet ? 1 : Math.min(1, age / 0.28);
-        const scale = quiet ? 1 : 1 - Math.pow(1 - enter, 3) + Math.sin(enter * Math.PI) * 0.12;
-        const bob = quiet ? 0 : Math.sin(pickup.pulse * 0.45) * Math.min(3, pickup.r * 0.1);
+        const enter = Math.min(1, age / 0.28);
+        const scale = 1 - Math.pow(1 - enter, 3) + Math.sin(enter * Math.PI) * 0.12;
+        const bob = Math.sin(pickup.pulse * 0.45) * Math.min(3, pickup.r * 0.1);
         const radius = pickup.r * 1.16;
         ctx.save();
         ctx.translate(pickup.x, pickup.y);
@@ -61,7 +59,7 @@
         ctx.lineWidth = 2 * (1 - t);
         ctx.globalAlpha = (1 - t) * 0.8;
         ctx.beginPath(); ctx.arc(effect.x, effect.y, effect.r * (1 + t * 2), 0, Math.PI * 2); ctx.stroke();
-        if (!reduced() && player) {
+        if (player) {
             const ease = t * t * (3 - 2 * t);
             const x = effect.x + (player.pos.x + player.w / 2 - effect.x) * ease;
             const y = effect.y + (player.pos.y + player.h / 2 - effect.y) * ease - Math.sin(t * Math.PI) * 28;

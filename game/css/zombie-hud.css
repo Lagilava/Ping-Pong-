@@ -292,10 +292,6 @@ html.pp-mobile #zombieProgressBoosts { font-size: 9px; }
     #zombieWaveChoice .zombie-wave-choice-btn { grid-template-columns: 54px 1fr; column-gap: 6px; }
     #zombieWaveChoice .choice-icon.zombie-powerup-art { width: 54px; height: 54px; }
 }
-@media (prefers-reduced-motion: reduce) {
-    #zombieWaveChoice .zombie-powerup-art { transition: none; transform: none !important; }
-}
-body.pp-reduce-motion #zombieWaveChoice .zombie-powerup-art { transition: none; transform: none !important; }
 #zombieWaveChoice .zombie-wave-choice-btn { text-transform: none; letter-spacing: 0; }
 @media (max-width: 480px) {
     #zombieWaveChoice .zombie-wave-choice-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 16px; }

@@ -57,3 +57,24 @@ context.window.ZombiePowerups.draw(ctx, {...pickup, life: 11});
 assert.equal(fallbacks, 1, 'life remains visible if generated art is unavailable');
 context.window.ZombiePowerups.burst(ctx, game.zombieState.pickupBursts[0], null);
 console.log('Zombie life drops, collision, caps, expiry and rendering fallback passed.');
+
+// Both game and system reduced-motion preferences must preserve collectible
+// feedback, without changing the global preference or the pickup hitbox.
+context.window.matchMedia = () => ({matches: true});
+const scales = [], icons = [];
+const animated = new Proxy({
+    scale(x, y) { scales.push([x, y]); },
+    fillText(text, x, y) { icons.push([text, x, y]); }
+}, {get(target, key) { return key in target ? target[key] : () => {}; }});
+const spawning = {...pickup, life: 11.9, pulse: 1};
+const originalRadius = spawning.r;
+context.window.ZombiePowerups.draw(animated, spawning);
+assert.ok(scales[0][0] > 0 && scales[0][0] < 1, 'spawn scales in despite reduced motion');
+assert.notEqual(icons[0][2], 0, 'hover remains animated despite reduced motion');
+assert.equal(spawning.r, originalRadius, 'animation preserves collision radius');
+const count = icons.length;
+context.window.ZombiePowerups.burst(animated,
+    {...game.zombieState.pickupBursts[0], age: 0.3},
+    {pos: {x: 30, y: 100}, w: 16, h: 80});
+assert.equal(icons.length, count + 1, 'collection flight remains visible despite reduced motion');
+assert.equal(context.window.PPSettings.get('reduceMotion'), true, 'global setting remains enabled');
