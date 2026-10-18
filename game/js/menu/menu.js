@@ -445,13 +445,31 @@
     function buildMenuCards() {
         const row = document.getElementById('cardRow');
         if (!row) return;
-        row.onpointerleave = () => { menuActiveIdx = null; updateMenuCards(); };
+        row.onpointerleave = event => {
+            if (event.pointerType === 'touch') return;
+            const focused = document.activeElement;
+            if (focused?.closest?.('#cardRow') && focused.matches(':focus-visible')) return;
+            menuActiveIdx = null;
+            updateMenuCards();
+        };
+        row.addEventListener('focusout', event => {
+            if (row.contains(event.relatedTarget) || row.matches(':hover')) return;
+            menuActiveIdx = null;
+            updateMenuCards();
+        });
+        document.addEventListener('pointerdown', event => {
+            if (row.contains(event.target)) return;
+            menuActiveIdx = null;
+            updateMenuCards();
+        }, {passive: true});
         row.innerHTML = '';
         MENU_CONFIG.modes.forEach((m, i) => {
             const el = document.createElement('div');
             el.className = 'card';
             el.tabIndex = 0;
             el.setAttribute('role', 'button');
+            el.setAttribute('aria-expanded', 'false');
+            el.setAttribute('aria-controls', `mode-details-${m.id}`);
             el.setAttribute('aria-label', `Play ${m.name.toLowerCase()}: ${m.desc}`);
             el.style.cssText = `--c:${m.hex};--cg:${m.hex}CC;--wash:${hexToRgba(m.hex, 0.65)};--wash2:${hexToRgba(m.hex, 0.22)};--accent:${hexToRgba(m.hex, 0.4)}`;
             const art = window.ModeArt?.url(m.id);
@@ -459,21 +477,58 @@
                 <div class="card-top"><span class="card-index">0${i + 1}</span>${m.online ? '<span class="card-live">ONLINE</span>' : ''}</div>
                 ${art ? `<div class="card-icon card-scene"><span class="card-scene-icon">${svgIcon(m.icon)}</span></div>` : `<div class="card-icon">${svgIcon(m.icon)}</div>`}
                 <div class="card-name">${m.name}</div>
-                <div class="card-desc">${m.desc}</div>
-                <div class="card-meta">${(m.tags || []).map(t => `<span>${t}</span>`).join('')}</div>
-                <div class="card-badge">${m.id === 'customise' ? 'Build &#9656;' : 'Play &#9656;'}</div>`;
+                <div class="card-details" id="mode-details-${m.id}" aria-hidden="true"><div class="card-details-inner">
+                    <div class="card-desc">${m.desc}</div>
+                    <div class="card-meta">${(m.tags || []).map(t => `<span>${t}</span>`).join('')}</div>
+                    <div class="card-badge">${m.id === 'customise' ? 'Build &#9656;' : 'Play &#9656;'}</div>
+                </div></div>`;
             if (art) {
                 const scene = el.querySelector('.card-scene');
                 scene.style.backgroundImage = art;
                 scene.style.backgroundPosition = `center ${window.ModeArt.focus(m.id)}`;
             }
             el.dataset.mode = m.id;
-            el.addEventListener('pointerenter', () => { menuActiveIdx = i; scrollMenuCards(0); }, false);
-            el.addEventListener('focus', () => { menuActiveIdx = i; scrollMenuCards(0); }, false);
+            let pointerType = '', touchMoved = false, touchX = 0, touchY = 0;
+            el.addEventListener('pointerdown', event => {
+                pointerType = event.pointerType;
+                touchMoved = false;
+                touchX = event.clientX; touchY = event.clientY;
+            }, {passive: true});
+            el.addEventListener('pointermove', event => {
+                if (event.pointerType === 'touch' && (Math.abs(event.clientX - touchX) > 12 || Math.abs(event.clientY - touchY) > 12)) touchMoved = true;
+            }, {passive: true});
+            el.addEventListener('pointercancel', () => { touchMoved = true; });
+            el.addEventListener('pointerenter', event => {
+                if (event.pointerType === 'touch') return;
+                menuActiveIdx = i; scrollMenuCards(0);
+            }, false);
+            el.addEventListener('focus', () => {
+                // Touch focus precedes click; it must not turn the first tap
+                // into an accidental launch. Keyboard and gamepad still preview.
+                if (pointerType === 'touch' && !el.matches(':focus-visible')) return;
+                menuActiveIdx = i; scrollMenuCards(0);
+            }, false);
             el.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
             }, false);
-            el.addEventListener('click', () => {
+            el.addEventListener('click', event => {
+                const touch = event.pointerType === 'touch' || (event.detail > 0 && window.matchMedia('(hover: none)').matches);
+                if (touch) {
+                    if (touchMoved) return;
+                    if (menuActiveIdx !== i) {
+                        menuActiveIdx = i;
+                        updateMenuCards();
+                        return;
+                    }
+                    // A second tap on the artwork can close a preview. Only
+                    // the revealed action launches a mode on a touch screen.
+                    if (!event.target.closest('.card-badge')) {
+                        menuActiveIdx = null;
+                        el.blur();
+                        updateMenuCards();
+                        return;
+                    }
+                }
                 menuSelected = m.id;
                 if (m.id === 'customise') {
                     const fn = window.openCustomiseOverlay;
@@ -524,13 +579,18 @@
     function updateMenuCards() {
         const row = document.getElementById('cardRow');
         const ch = row?.children || [];
-        for (let i = 0; i < ch.length; i++) ch[i].classList.toggle('active', i === menuActiveIdx);
+        for (let i = 0; i < ch.length; i++) {
+            const expanded = i === menuActiveIdx;
+            ch[i].classList.toggle('active', expanded);
+            ch[i].setAttribute('aria-expanded', String(expanded));
+            ch[i].querySelector('.card-details')?.setAttribute('aria-hidden', String(!expanded));
+        }
         // Hide the scroll arrows when every card is already on screen.
         const hud = document.getElementById('cards-hud');
         if (row && hud && ch.length) {
             const first = ch[0].getBoundingClientRect(), last = ch[ch.length - 1].getBoundingClientRect();
-            const oneRow = Math.abs(first.top - last.top) < 4;
-            const span = oneRow ? (last.right - first.left) : row.scrollWidth;
+            // Cards share a baseline; one preview can now be taller.
+            const span = last.right - first.left;
             const fits = span <= hud.clientWidth - 24;
             hud.classList.toggle('cards-fit', fits);
             // The scroll hint only makes sense when some cards are off screen.
@@ -2146,6 +2206,8 @@
         const cards = menuCards();
         const card = cards[Math.max(0, Math.min(cards.length - 1, i))];
         if (!card) return;
+        menuActiveIdx = cards.indexOf(card);
+        updateMenuCards();
         card.focus({ preventScroll: true });
         if (isNativeCardScroll(card.parentElement)) card.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
     }
@@ -2186,7 +2248,12 @@
             const t = e.target;
             if (t?.closest?.('input, textarea, select, [contenteditable]')) return;
             if (state === 'cards') {
-                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    menuActiveIdx = null;
+                    document.activeElement?.closest?.('#cardRow .card')?.blur();
+                    updateMenuCards();
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                     e.preventDefault();
                     moveCard(e.key === 'ArrowLeft' ? -1 : 1);
                 } else if ((e.key === 'Enter' || e.key === ' ') && !t?.closest?.('button, a, [role="button"]')) {

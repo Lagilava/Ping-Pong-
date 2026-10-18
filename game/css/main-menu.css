@@ -164,3 +164,103 @@ html:not(.pp-mobile) #overlay #cards-hud .arr-btn.right { right: 10px; }
 @media (orientation: portrait) {
     html.pp-mobile #overlay .hdr { top: calc(max(10px, env(safe-area-inset-top)) + 96px); }
 }
+
+/* Compact mode dock. Expansion grows upward from one shared baseline. */
+#overlay #cards-hud { max-height: none; }
+#overlay .card-row { align-items: flex-end; }
+#overlay .card { flex-shrink: 0; }
+#overlay .card .card-top {
+    max-height: 26px;
+    transition: max-height .24s ease, opacity .18s ease, margin .24s ease;
+}
+#overlay .card:not(.active) .card-top {
+    min-height: 0;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    margin-bottom: -6px;
+}
+#overlay .card-details {
+    display: grid;
+    grid-template-rows: 0fr;
+    width: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transition: grid-template-rows .24s ease, opacity .18s ease, visibility .24s;
+}
+#overlay .card-details-inner {
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+#overlay .card.active .card-details {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    visibility: visible;
+}
+#overlay .card:not(.active) .card-details { margin-top: -6px; }
+#overlay .card .card-icon.card-scene {
+    height: clamp(44px, 5vw, 66px);
+    transition: height .24s ease, transform .24s ease;
+}
+html:not(.pp-mobile) #overlay .card:not(.active) .card-icon.card-scene { height: clamp(44px, 4.6vw, 64px); }
+#overlay .card.active .card-icon.card-scene { height: clamp(58px, 6.5vw, 96px); }
+#overlay .card-badge { width: 100%; box-sizing: border-box; }
+#overlay .mode-card-hint {
+    position: absolute;
+    bottom: 100%;
+    left: var(--mm-gutter);
+    margin: 0 0 24px;
+    color: var(--mm-ink-2);
+    font: .65rem 'Share Tech Mono', monospace;
+    letter-spacing: .08em;
+    pointer-events: none;
+}
+#overlay .preview-touch { display: none; }
+
+/* Touch previews have a deliberate action and keep native horizontal swipes.
+   No transformed lift: overflow-x scrolling must not clip their contents. */
+html.pp-mobile #overlay .card {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+}
+html.pp-mobile #overlay .card.active { transform: none; }
+html.pp-mobile #overlay .card .card-icon.card-scene { height: 48px; }
+html.pp-mobile #overlay .card.active .card-icon.card-scene { height: 64px; }
+html.pp-mobile #overlay .card-badge {
+    min-height: 44px;
+    display: grid;
+    place-items: center;
+    font-size: .58rem;
+    padding: 8px 5px;
+    letter-spacing: .14em;
+}
+html.pp-mobile #overlay .card-details-inner { gap: 6px; }
+html.pp-mobile #overlay .mode-card-hint { left: max(16px, env(safe-area-inset-left)); margin-bottom: 8px; }
+html.pp-mobile #overlay .preview-desktop { display: none; }
+html.pp-mobile #overlay .preview-touch { display: inline; }
+@media (hover: none) {
+    #overlay .preview-desktop { display: none; }
+    #overlay .preview-touch { display: inline; }
+    #overlay .card:not(.active):hover {
+        transform: none;
+        border-color: rgba(255, 255, 255, .1);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, .3);
+    }
+    #overlay .card:not(.active):hover .card-icon { transform: none; }
+}
+@media (orientation: portrait) {
+    html.pp-mobile #overlay .card .card-icon.card-scene { height: 60px; }
+    html.pp-mobile #overlay .card.active .card-icon.card-scene { height: 84px; }
+}
+@media (max-height: 430px) {
+    #overlay .card.active .card-icon.card-scene { height: 48px; }
+    #overlay .card-details-inner { gap: 5px; }
+    #overlay .card-desc { min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #overlay .card-details, #overlay .card .card-icon.card-scene, #overlay .card .card-top { transition: none; }
+}
