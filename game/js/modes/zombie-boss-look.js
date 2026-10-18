@@ -10,10 +10,9 @@
 // included) at the canvas's pixel scale; per frame it is a few sprite blits,
 // small fills and the 'lighter' blend, with no shadowBlur.
 //
-// When the fire breath charges, the demon's jaws slide out towards the player
-// and prise open, rows of teeth heat up from the throat outwards, its eyes
-// flare white, its heartbeat races and the whole body shakes. The jaw tips
-// end exactly where the fire is emitted from (getCannonLength * cannonDeploy).
+// Fire charges behind a compact split in the existing obsidian face. The
+// silhouette stays intact: no extending snout, extra eyes or oversized teeth.
+// The visual jet bridges to the existing emitter; attack rules stay unchanged.
 (function () {
     'use strict';
 
@@ -21,7 +20,6 @@
     const PAD = 44;                       // room for horns, spikes and glow
     const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
     const seg = (d, a, b) => clamp((d - a) / (b - a), 0, 1);
-    const easeOutBack = (x) => { const c = 1.6; return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2; };
     const easeInOut = (x) => x * x * (3 - 2 * x);
 
     function pixelScale(ctx) {
@@ -328,8 +326,8 @@
         // Heartbeat speeds up with rage and races while charging.
         const rate = dazed ? 0.5 : 0.9 + rage * 0.6 + charge * 2.6;
         const beat = heartbeat(t, rate);
-        // Tremble while charging, a hard shudder while breathing.
-        const shake = breathing ? 1.6 : charge * charge * 1.4;
+        // A restrained tension cue; keep the original body silhouette stable.
+        const shake = window.PPSettings?.get('reduceMotion') ? 0 : (breathing ? 0.45 : charge * charge * 0.2);
         const jx = shake ? Math.sin(t * 71) * shake : 0;
         const jy = shake ? Math.cos(t * 53) * shake * 0.5 : 0;
 
@@ -438,48 +436,56 @@
         return (22 + (1 - spool) * 52) * (courtW / 100) * 0.95;
     }
 
+    let flameLobes = null;
+    function getFlameLobes() {
+        if (flameLobes) return flameLobes;
+        // Match the downstream particle palette and soft radial falloff. Bake
+        // once; the plume uses sprite blits, never a smooth filled ribbon.
+        flameLobes = [0.28, 0.68, 0.95].map(temp => {
+            const c = ZombieBoss.tRGB(temp);
+            const canvas = document.createElement('canvas');
+            canvas.width = canvas.height = 64;
+            const g = canvas.getContext('2d');
+            const glow = g.createRadialGradient(32, 32, 0, 32, 32, 31);
+            glow.addColorStop(0, `rgb(${Math.min(255, c[0] + 20)},${Math.min(255, c[1] + 16)},${Math.min(255, c[2] + 12)})`);
+            glow.addColorStop(0.4, `rgb(${c[0]},${c[1]},${c[2]})`);
+            glow.addColorStop(1, `rgba(${Math.max(0, c[0] - 50)},${Math.max(0, c[1] - 40)},0,0)`);
+            g.fillStyle = glow;
+            g.fillRect(0, 0, 64, 64);
+            return canvas;
+        });
+        return flameLobes;
+    }
+
     function drawJet(ctx, x0, y0, jetLen, t, cut, alpha) {
-        const steps = 26;
-        const f0 = clamp(cut / jetLen, 0, 1);
-        if (f0 >= 0.98 || alpha <= 0.01) return;
-        const layers = [
-            { w0: 7, w1: 26, col: 'rgba(255,70,10,', a: 0.5 },
-            { w0: 4.5, w1: 15, col: 'rgba(255,170,40,', a: 0.7 },
-            { w0: 2.2, w1: 6, col: 'rgba(255,248,215,', a: 0.95 },
-        ];
+        if (jetLen <= 0 || alpha <= 0.01) return;
+        const sprites = getFlameLobes();
         ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        for (const L of layers) {
-            const top = [], bot = [];
-            for (let i = 0; i <= steps; i++) {
-                const f = f0 + (1 - f0) * (i / steps);
-                const x = x0 - f * jetLen;
-                const wob = Math.sin(f * 9 - t * 38) * 2.2 * f + Math.sin(f * 23 + t * 61) * 1.3 * f;
-                const half = (L.w0 + (L.w1 - L.w0) * f) * (0.85 + 0.15 * Math.sin(f * 17 - t * 47));
-                top.push([x, y0 + wob - half]);
-                bot.push([x, y0 + wob + half]);
+        ctx.globalCompositeOperation = 'screen';
+        // A continuous flow of overlapping, uneven lobes grows out of the maw
+        // and fades into the existing simulation at its ignition distance.
+        for (let layer = 0; layer < 3; layer++) {
+            const count = 16 + layer * 4;
+            for (let i = 0; i < count; i++) {
+                const f = (t * (0.9 + layer * 0.22) + i / count) % 1;
+                const distance = f * jetLen;
+                if (distance < cut) continue;
+                const eddy = Math.sin(i * 2.4 + t * 4.1) * (3 + f * 15);
+                const y = y0 + eddy * (layer === 2 ? 0.35 : 1);
+                const radius = (4 + f * (layer === 0 ? 25 : 17))
+                    * (0.8 + 0.2 * Math.sin(i * 7.3 + t * 5));
+                const stretch = layer === 2 ? 2.4 : 1.7;
+                // Fade at both ends, leaving a tight hot source and a soft
+                // handoff. No round opaque bubbles or flat white centreline.
+                const fade = Math.min(1, f * 14) * Math.min(1, (1 - f) * 4);
+                ctx.globalAlpha = alpha * fade * (layer === 2 ? 0.72 : 0.6);
+                ctx.save();
+                ctx.translate(x0 - distance, y);
+                ctx.rotate(Math.sin(i * 3.7 + t * 2.5) * 0.28);
+                ctx.drawImage(sprites[layer], -radius * stretch, -radius,
+                    radius * stretch * 2, radius * 2);
+                ctx.restore();
             }
-            const g = ctx.createLinearGradient(x0, 0, x0 - jetLen, 0);
-            g.addColorStop(0, L.col + L.a + ')');
-            g.addColorStop(0.55, L.col + (L.a * 0.85) + ')');
-            g.addColorStop(1, L.col + '0)');
-            ctx.fillStyle = g;
-            ctx.globalAlpha = alpha;
-            ctx.beginPath();
-            ctx.moveTo(top[0][0], top[0][1]);
-            for (let i = 1; i < top.length; i++) ctx.lineTo(top[i][0], top[i][1]);
-            for (let i = bot.length - 1; i >= 0; i--) ctx.lineTo(bot[i][0], bot[i][1]);
-            ctx.closePath();
-            ctx.fill();
-        }
-        // Flame tongues licking off the jet.
-        for (let i = 0; i < 9; i++) {
-            const f = f0 + (1 - f0) * ((t * 2.6 + i * 0.137) % 1);
-            const x = x0 - f * jetLen;
-            const y = y0 + Math.sin(i * 7.3 + t * 9) * (4 + f * 14);
-            ctx.globalAlpha = (1 - f) * 0.55 * alpha;
-            ctx.fillStyle = f < 0.35 ? '#ffd27a' : '#ff6a1a';
-            ctx.beginPath(); ctx.arc(x, y, 3 + f * 9, 0, TAU); ctx.fill();
         }
         ctx.restore();
     }
@@ -490,7 +496,8 @@
         const dt = clamp(t - J.at, 0, 0.1);
         J.at = t;
         if (boss.fireBreathingState === 'breathing' && mouthX != null) {
-            J.alpha = 1; J.cut = 0; J.x = mouthX; J.y = mouthY; J.len = jetLength(boss);
+            J.alpha = 1; J.cut = 0; J.x = mouthX; J.y = mouthY; J.len = jetLength(boss) + Math.max(0,
+                mouthX - (boss.paddle.pos.x - boss.getCannonLength() * (boss.cannonDeploy || 0)));
         } else if (J.alpha > 0) {
             J.cut += dt * 900;              // the tail flies on at about jet speed
             J.alpha = Math.max(0, J.alpha - dt * 2.6);
@@ -498,157 +505,69 @@
         if (J.alpha > 0) drawJet(ctx, J.x, J.y, J.len, t, J.cut, J.alpha);
     }
 
-    // ── Maw: the fire breath animation ────────────────────────────────
-    function jawShape(len, depth) {
-        // Upper jaw in hinge space: the hinge is at (0,0), the jaw reaches
-        // to the left (-len), its inner edge runs along y = 0.
-        return [
-            [4, 0], [4, -depth], [-len * 0.35, -depth * 0.95], [-len * 0.78, -depth * 0.6],
-            [-len - 4, -depth * 0.15], [-len - 1, 3.5], [-len + 3, 0],
-        ];
-    }
-
+    // ── Fire windup: a restrained fissure in the existing face ─────────
     function renderMaw(boss, ctx) {
         const p = boss.paddle;
         if (!p) return;
         const { d, breathing, charge } = chargeState(boss);
         if (d <= 0.001) { renderJet(boss, ctx, null, null); return; }
         const t = boss.time || 0;
-
-        // The jaws end where the fire comes out: cannon length times deploy.
-        const reach = boss.getCannonLength() * d;
-        const ext = easeOutBack(seg(d, 0, 0.55));
-        const gape = easeInOut(seg(d, 0.3, 0.95)) * 0.36 + (breathing ? 0.16 + Math.sin(t * 34) * 0.035 : 0);
-        const recoil = (boss.cannonRecoil || 0) ** 2 * 8;
-        const shake = breathing ? 1.6 : charge * charge * 1.4;
-        const jx = shake ? Math.sin(t * 71) * shake : 0;
-        const jy = shake ? Math.cos(t * 53) * shake * 0.5 : 0;
-
-        const hingeX = p.pos.x + p.w * 0.6 + recoil + jx;
-        const cy = p.pos.y + p.h / 2 + jy;
-        const len = Math.max(4, (hingeX - p.pos.x) + reach * ext - 2);
-        const depth = Math.max(14, p.w * 0.95) * (0.6 + 0.4 * ext);
+        const opening = easeInOut(seg(d, 0.15, 0.95));
         const heat = breathing ? 1 : charge;
-
+        const mx = p.pos.x - 4;
+        const cy = p.pos.y + p.h / 2;
+        const halfHeight = Math.min(18, p.h * 0.13) * opening;
+        const halfWidth = Math.max(4, Math.min(10, p.w * 0.42));
         ctx.save();
-
-        // Throat: the glow between the jaws, white-hot at the back.
-        const mouthX = hingeX - len;
-        const tipY = Math.sin(gape) * len;
-        if (gape > 0.02) {
-            const tg = ctx.createLinearGradient(hingeX, cy, mouthX, cy);
-            tg.addColorStop(0, `rgba(255,250,220,${0.95 * heat})`);
-            tg.addColorStop(0.35, `rgba(255,170,50,${0.85 * heat + 0.1})`);
-            tg.addColorStop(1, `rgba(150,20,0,${0.5 * heat + 0.2})`);
-            ctx.fillStyle = tg;
-            ctx.beginPath();
-            ctx.moveTo(hingeX, cy);
-            ctx.lineTo(mouthX + 3, cy - tipY * 0.9);
-            ctx.quadraticCurveTo(mouthX - 2, cy, mouthX + 3, cy + tipY * 0.9);
-            ctx.closePath();
-            ctx.fill();
-        }
-
-        // Both jaws: same shape, the lower one mirrored.
-        const shape = jawShape(len, depth);
+        // The jaw separates slightly inside the armour instead of growing a
+        // second head. Dark chipped plates keep the original visual language.
+        ctx.fillStyle = '#080605';
+        ctx.strokeStyle = '#54362b';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(mx - halfWidth, cy);
+        ctx.lineTo(mx - halfWidth * 0.5, cy - halfHeight * 0.8);
+        ctx.lineTo(mx + 3, cy - halfHeight);
+        ctx.lineTo(mx + halfWidth, cy - halfHeight * 0.4);
+        ctx.lineTo(mx + halfWidth, cy + halfHeight * 0.55);
+        ctx.lineTo(mx + 1, cy + halfHeight);
+        ctx.lineTo(mx - halfWidth * 0.7, cy + halfHeight * 0.7);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // A furnace glow deep in the throat is the principal charge warning.
+        const radius = 8 + heat * 13;
+        const glow = ctx.createRadialGradient(mx, cy, 0, mx, cy, radius);
+        glow.addColorStop(0, `rgba(255,209,130,${heat * 0.85})`);
+        glow.addColorStop(0.28, `rgba(225,100,34,${heat * 0.6})`);
+        glow.addColorStop(1, 'rgba(130,35,12,0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(mx - radius, cy - radius, radius * 2, radius * 2);
+        // Short, uneven stone ridges, avoiding the previous rows of white fangs.
+        ctx.strokeStyle = `rgba(188,123,79,${0.2 + heat * 0.45})`;
         for (const dir of [-1, 1]) {
-            ctx.save();
-            ctx.translate(hingeX, cy);
-            ctx.scale(1, -dir);           // dir -1: upper jaw, dir 1: lower jaw
-            ctx.rotate(gape);
-            // Bone-and-obsidian jaw.
-            const jg = ctx.createLinearGradient(0, -depth, 0, 0);
-            jg.addColorStop(0, '#080303');
-            jg.addColorStop(0.55, '#2a1410');
-            jg.addColorStop(1, '#4a2a22');
-            ctx.fillStyle = jg;
-            poly(ctx, shape); ctx.fill();
-            ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-            // Back-swept spikes along the top of the jaw.
-            ctx.fillStyle = '#1a0b08';
-            for (let i = 0; i < 3; i++) {
-                const x = -len * (0.2 + i * 0.22);
-                const y = -depth * (0.95 - i * 0.12);
-                ctx.beginPath(); ctx.moveTo(x - 4, y + 1); ctx.lineTo(x + 5, y - 7 - (2 - i) * 2); ctx.lineTo(x + 3, y + 2); ctx.closePath(); ctx.fill();
-            }
-            // Hot lip along the inside of the jaw.
-            ctx.strokeStyle = `rgba(255,${90 + Math.round(heat * 130)},30,${0.25 + heat * 0.7})`;
-            ctx.lineWidth = 1.2;
-            ctx.beginPath(); ctx.moveTo(2, 0.2); ctx.lineTo(-len + 3, 0.2); ctx.stroke();
-            // Ridges along the snout.
-            ctx.strokeStyle = 'rgba(255,190,150,0.14)'; ctx.lineWidth = 0.8;
-            for (let x = -len * 0.15; x > -len * 0.85; x -= 7) {
-                ctx.beginPath(); ctx.moveTo(x, -depth * 0.9); ctx.lineTo(x - 3, -depth * 0.55); ctx.stroke();
-            }
-            // Teeth: fill the inner edge, heated from the throat outwards.
-            for (let x = -4, i = 0; x > -len + 2; x -= 5.2, i++) {
-                const tl = (i % 3 === 0 ? 6.5 : 4) * (0.7 + 0.3 * ext);
-                const fromThroat = clamp((-x) / len, 0, 1);
-                const lit = clamp(heat * 1.6 - fromThroat, 0, 1);
-                ctx.fillStyle = `rgb(${Math.round(225 + lit * 30)},${Math.round(210 - lit * 60)},${Math.round(190 - lit * 150)})`;
-                ctx.beginPath();
-                ctx.moveTo(x, 0.5); ctx.lineTo(x - 3, 0.5); ctx.lineTo(x - 1.6, tl);
-                ctx.closePath(); ctx.fill();
-            }
-            // The fang at the tip.
-            ctx.fillStyle = '#f2e6d0';
             ctx.beginPath();
-            ctx.moveTo(-len + 1, 0); ctx.lineTo(-len - 3, 0); ctx.lineTo(-len - 1.5, 9 * ext);
-            ctx.closePath(); ctx.fill();
-            // Nostril / eye slit on the upper jaw, lower jaw gets a glowing seam.
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.fillStyle = `rgba(255,${120 + Math.round(heat * 100)},30,${0.4 + heat * 0.5})`;
-            ctx.fillRect(-len * 0.72, -depth * 0.55, len * 0.25, 1.4);
-            ctx.restore();
+            ctx.moveTo(mx - halfWidth * 0.8, cy + dir * halfHeight * 0.7);
+            ctx.lineTo(mx - 2, cy + dir * halfHeight * 0.85);
+            ctx.lineTo(mx + 2, cy + dir * halfHeight * 0.7);
+            ctx.lineTo(mx + halfWidth * 0.7, cy + dir * halfHeight * 0.4);
+            ctx.stroke();
         }
-
-        // Smoke curling out of the nostrils while it charges.
-        if (!breathing && charge > 0.05) {
-            for (let i = 0; i < 5; i++) {
-                const life = (t * 0.9 + i / 5) % 1;
-                const x = mouthX + len * 0.25 - life * 10 + Math.sin(t * 3 + i) * 3;
-                const y = cy - tipY - depth * 0.6 - life * 26;
-                ctx.globalAlpha = (1 - life) * 0.35 * charge;
-                ctx.fillStyle = '#2a201c';
-                ctx.beginPath(); ctx.arc(x, y, 3 + life * 7, 0, TAU); ctx.fill();
+        if (!breathing && heat > 0.1) {
+            // A few embers pull inward; the signal stays local to the boss.
+            for (let i = 0; i < 6; i++) {
+                const life = (t * 0.55 + i / 6) % 1;
+                const distance = 8 + (1 - life) * 24;
+                const angle = i * 2.4 + t * 0.5;
+                ctx.globalAlpha = life * heat * 0.65;
+                ctx.fillStyle = '#cf8d51';
+                ctx.fillRect(mx - Math.abs(Math.cos(angle)) * distance,
+                    cy + Math.sin(angle) * distance * 0.65, 1.5, 1.5);
             }
             ctx.globalAlpha = 1;
         }
-
-        // Heat being sucked into the maw: embers spiral in from the court.
-        ctx.globalCompositeOperation = 'lighter';
-        const mx = p.pos.x - reach + jx, my = cy;
-        if (!breathing && heat > 0.05) {
-            for (let i = 0; i < 14; i++) {
-                const f = 1 - ((t * (1.6 + heat * 1.4) + i / 14) % 1);
-                const a = i * 2.39996 + t * 2.2;
-                const rr = 8 + f * (50 + heat * 40);
-                const x = mx + Math.cos(a + f * 2) * rr;
-                const y = my + Math.sin(a + f * 2) * rr * 0.75;
-                ctx.globalAlpha = (1 - f) * heat * 0.95;
-                ctx.fillStyle = f > 0.6 ? '#ff5a10' : '#ffd890';
-                const r = 0.8 + (1 - f) * 1.4;
-                ctx.fillRect(x - r, y - r, r * 2, r * 2);
-            }
-        }
-        if (ext > 0.6) renderJet(boss, ctx, mx, my);
-        else renderJet(boss, ctx, null, null);
-
-        // Ball of fire gathering between the fangs.
-        if (heat > 0.05 && ext > 0.6) {
-            const r = (6 + heat * 14) * (breathing ? 1.3 : 0.9 + 0.1 * Math.sin(t * 40));
-            const core = ctx.createRadialGradient(mx, my, 0, mx, my, r);
-            core.addColorStop(0, `rgba(255,255,235,${0.95 * heat})`);
-            core.addColorStop(0.3, `rgba(255,200,80,${0.75 * heat})`);
-            core.addColorStop(0.7, `rgba(255,70,10,${0.3 * heat})`);
-            core.addColorStop(1, 'rgba(200,20,0,0)');
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = core;
-            ctx.beginPath(); ctx.arc(mx, my, r, 0, TAU); ctx.fill();
-        }
-
+        // Only the visual bridge changes length; particle emission, damage,
+        // reach and the warning timer remain owned by zombie-boss.js.
+        renderJet(boss, ctx, breathing ? mx : null, breathing ? cy : null);
         ctx.restore();
     }
 
