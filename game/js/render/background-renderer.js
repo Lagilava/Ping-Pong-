@@ -329,36 +329,36 @@ class BackgroundRenderer {
                 for (let i = 0; i < 12; i++) {
                     this.fogParticles.push({
                         x: Math.random() * W,
-                        y: Math.random() * H,
-                        size: Math.random() * 90 + 36,
+                        y: H * (0.72 + Math.random() * 0.20),
+                        size: Math.random() * 70 + 36,
                         speed: Math.random() * 3.2 + 0.4,
                         alpha: Math.random() * 0.10 + 0.03,
                         drift: (Math.random() - 0.5) * 0.35,
-                        fogHue: 62 + Math.random() * 26,
+                        fogHue: 185 + Math.random() * 15,
                         sprite: null,
                     });
                 }
                 this.lightLayers.push(this._makeLight('radial', {
-                    x: W * 0.72, y: H * 0.18,
+                    x: W * 0.76, y: H * 0.22,
                     radius: Math.min(W, H) * 0.34,
-                    color: 'rgba(190,215,170,0.06)',
+                    color: 'rgba(170,210,225,0.06)',
                     pulseSpeed: 0.28, pulseMagnitude: 0.05,
                 }));
                 this.lightLayers.push(this._makeLight('radial', {
                     x: W * 0.42, y: H * 0.72,
                     radius: Math.min(W, H) * 0.48,
-                    color: 'rgba(85,110,58,0.05)',
+                    color: 'rgba(75,120,140,0.05)',
                     pulseSpeed: 0.55, pulseMagnitude: 0.10,
                 }));
                 this.lightLayers.push(this._makeLight('linear', {
                     x1: 0, y1: H * 0.72, x2: 0, y2: H,
-                    color: 'rgba(74,96,46,0.06)',
+                    color: 'rgba(70,110,130,0.06)',
                 }));
 
-                [0.22, 0.50, 0.78].forEach((xf, i) => {
+                [0.13, 0.87].forEach((xf, i) => {
                     this.zombieHands.push({
                         xf: Math.max(0.08, Math.min(0.92, xf + (Math.random() - 0.5) * 0.02)),
-                        scale: 0.92 + Math.random() * 0.18 + i * 0.03,  // larger hands for detail
+                        scale: 0.64 + Math.random() * 0.12,  // frame the court, leaving the ball lane open
                         riseBase: 0.44 + Math.random() * 0.16,
                         riseAmp: 0.06 + Math.random() * 0.08,
                         riseSpeed: 0.22 + Math.random() * 0.12,
@@ -691,7 +691,7 @@ class BackgroundRenderer {
             const p = this.fogParticles[i];
             p.y += p.speed * dt;
             p.x += p.drift * dt;
-            if (p.y > H + p.size) { p.y = -p.size; p.x = Math.random() * W; }
+            if (p.y > H + p.size) { p.y = this.mode === 'zombie' ? H * 0.72 : -p.size; p.x = Math.random() * W; }
             if (p.x < -p.size) p.x = W + p.size;
             if (p.x > W + p.size) p.x = -p.size;
         }
@@ -1617,129 +1617,112 @@ class BackgroundRenderer {
 
         const zctx = this._zombieStaticCtx;
         if (!zctx) return null;
-        const horizonY = h * 0.68;
-
+        // All scenery and volumetric-looking light are baked on resize, never
+        // blurred or rebuilt in the frame loop. Keep the central ball lane dark.
         zctx.clearRect(0, 0, w, h);
-
         const sky = zctx.createLinearGradient(0, 0, 0, h);
-        sky.addColorStop(0, '#020301');
-        sky.addColorStop(0.18, '#060804');
-        sky.addColorStop(0.52, '#0f0d09');
-        sky.addColorStop(0.76, '#14100c');
-        sky.addColorStop(1, '#0c0a07');
+        sky.addColorStop(0, '#030710');
+        sky.addColorStop(0.62, '#10212a');
+        sky.addColorStop(1, '#030709');
         zctx.fillStyle = sky;
         zctx.fillRect(0, 0, w, h);
-
-        // ── Draw Moon in static layer ──
-        const moonX = w * 0.72;
-        const moonY = h * 0.18;
-        const moonRadius = Math.min(w, h) * 0.06;
-        zctx.fillStyle = '#e8e8d8';
-        zctx.beginPath();
-        zctx.arc(moonX, moonY, moonRadius, 0, Math.PI * 2);
-        zctx.fill();
-
-        const moonGlow = zctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, Math.min(w, h) * 0.42);
-        moonGlow.addColorStop(0, 'rgba(185,210,160,0.22)');
-        moonGlow.addColorStop(0.25, 'rgba(148,166,125,0.12)');
-        moonGlow.addColorStop(0.65, 'rgba(90,110,68,0.05)');
-        moonGlow.addColorStop(1, 'transparent');
-        zctx.fillStyle = moonGlow;
+        const moonX = w * 0.76, moonY = h * 0.22;
+        const unit = Math.min(w, h);
+        const halo = zctx.createRadialGradient(moonX, moonY, unit * 0.025, moonX, moonY, unit * 0.52);
+        halo.addColorStop(0, 'rgba(194,228,235,0.42)');
+        halo.addColorStop(0.22, 'rgba(113,166,186,0.19)');
+        halo.addColorStop(1, 'rgba(64,112,140,0)');
+        zctx.fillStyle = halo;
         zctx.fillRect(0, 0, w, h);
-
-        const horizonGlow = zctx.createLinearGradient(0, horizonY - h * 0.08, 0, groundY + h * 0.08);
-        horizonGlow.addColorStop(0, 'transparent');
-        horizonGlow.addColorStop(0.4, 'rgba(50,66,36,0.14)');
-        horizonGlow.addColorStop(0.7, 'rgba(48,32,14,0.18)');
-        horizonGlow.addColorStop(1, 'rgba(15,10,5,0.35)');
-        zctx.fillStyle = horizonGlow;
-        zctx.fillRect(0, horizonY - h * 0.12, w, h - horizonY + h * 0.12);
-
-        const soil = zctx.createLinearGradient(0, groundY - 24, 0, h);
-        soil.addColorStop(0, 'rgba(30,22,12,0.65)');
-        soil.addColorStop(0.18, 'rgba(42,30,16,0.92)');
-        soil.addColorStop(0.65, '#181008');
-        soil.addColorStop(1, '#0b0805');
-        zctx.fillStyle = soil;
-        zctx.fillRect(0, groundY - 24, w, h - groundY + 24);
-
-        zctx.fillStyle = 'rgba(8,6,4,0.98)';
-        zctx.beginPath();
-        zctx.moveTo(0, horizonY + 12);
-        zctx.quadraticCurveTo(w * 0.18, horizonY - 22, w * 0.34, horizonY + 6);
-        zctx.quadraticCurveTo(w * 0.48, horizonY + 22, w * 0.64, horizonY - 10);
-        zctx.quadraticCurveTo(w * 0.82, horizonY - 34, w, horizonY + 18);
-        zctx.lineTo(w, h);
-        zctx.lineTo(0, h);
-        zctx.closePath();
-        zctx.fill();
-
-        // Front Fog
-        const frontFog = zctx.createLinearGradient(0, groundY - 18, 0, h);
-        frontFog.addColorStop(0, 'rgba(120,140,90,0)');
-        frontFog.addColorStop(0.24, 'rgba(84,102,60,0.07)');
-        frontFog.addColorStop(0.55, 'rgba(36,30,18,0.10)');
-        frontFog.addColorStop(1, 'rgba(10,8,6,0.26)');
-        zctx.fillStyle = frontFog;
-        zctx.fillRect(0, groundY - 18, w, h - groundY + 18);
-
-        // Vignette
-        const vig = zctx.createRadialGradient(w / 2, h / 2, h * 0.22, w / 2, h / 2, h * 0.92);
-        vig.addColorStop(0, 'transparent');
-        vig.addColorStop(1, 'rgba(0,0,0,0.82)');
-        zctx.fillStyle = vig;
-        zctx.fillRect(0, 0, w, h);
-
-        // Top Black gradient
-        const topBlack = zctx.createLinearGradient(0, 0, 0, h * 0.34);
-        topBlack.addColorStop(0, 'rgba(0,0,0,0.85)');
-        topBlack.addColorStop(0.7, 'rgba(0,0,0,0.3)');
-        topBlack.addColorStop(1, 'transparent');
-        zctx.fillStyle = topBlack;
-        zctx.fillRect(0, 0, w, h * 0.34);
-
-        // Static tree silhouettes
-        zctx.save();
-        zctx.strokeStyle = 'rgba(20,16,10,0.95)';
-        zctx.lineWidth = 1.6;
-        const treeX = [0.05, 0.11, 0.18, 0.26, 0.33, 0.41, 0.5, 0.58, 0.66, 0.74, 0.82, 0.9, 0.96];
-        for (let i = 0; i < treeX.length; i++) {
-            const x = treeX[i] * w;
-            const baseY = horizonY + 12 + (i % 3) * 4;
-            const hMul = 0.75 + (i % 5) * 0.08;
-            const trunkH = 38 * hMul;
-            const sway = (i % 2 === 0 ? -1 : 1) * (3 + (i % 4));
-
+        // Broad shafts share a single source behind the ruined treeline.
+        for (const [end, width, alpha] of [[0.14, 0.12, 0.10], [0.45, 0.07, 0.07], [0.86, 0.15, 0.14]]) {
+            const beam = zctx.createLinearGradient(moonX, moonY, w * end, groundY);
+            beam.addColorStop(0, `rgba(189,225,234,${alpha})`);
+            beam.addColorStop(0.75, `rgba(116,182,197,${alpha * 0.55})`);
+            beam.addColorStop(1, 'rgba(116,182,197,0)');
+            zctx.fillStyle = beam;
             zctx.beginPath();
-            zctx.moveTo(x, baseY + 28);
-            zctx.lineTo(x + sway, baseY - trunkH);
-            zctx.stroke();
-
-            zctx.beginPath();
-            zctx.moveTo(x + sway * 0.2, baseY - trunkH * 0.66);
-            zctx.lineTo(x - 12, baseY - trunkH * 0.88);
-            zctx.moveTo(x + sway * 0.2, baseY - trunkH * 0.62);
-            zctx.lineTo(x + 10, baseY - trunkH * 0.82);
-            zctx.moveTo(x + sway * 0.25, baseY - trunkH * 0.45);
-            zctx.lineTo(x - 8, baseY - trunkH * 0.58);
-            zctx.stroke();
-        }
-
-        // Static ground bumps
-        for (let i = 0; i < 8; i++) {
-            const x = (i * 0.125 + 0.05) * w;
-            const y = groundY + (i % 2 === 0 ? 4 : -2);
-            const size = 6 + (i % 3) * 2;
-            const clump = zctx.createRadialGradient(x, y, 0, x, y, size);
-            clump.addColorStop(0, 'rgba(25,18,10,0.25)');
-            clump.addColorStop(1, 'transparent');
-            zctx.fillStyle = clump;
-            zctx.beginPath();
-            zctx.arc(x, y, size, 0, Math.PI * 2);
+            zctx.moveTo(moonX - unit * 0.025, moonY);
+            zctx.lineTo(w * (end - width), groundY);
+            zctx.lineTo(w * (end + width), groundY);
+            zctx.lineTo(moonX + unit * 0.025, moonY);
             zctx.fill();
         }
-
-        zctx.restore();
+        zctx.fillStyle = '#d7e5df';
+        zctx.beginPath();
+        zctx.arc(moonX, moonY, unit * 0.047, 0, Math.PI * 2);
+        zctx.fill();
+        // Deterministic surface markings; no random flicker between resizes.
+        zctx.fillStyle = 'rgba(75,110,123,0.16)';
+        for (let i = 0; i < 9; i++) {
+            zctx.beginPath();
+            zctx.ellipse(moonX + Math.sin(i * 7) * unit * 0.029,
+                moonY + Math.cos(i * 5) * unit * 0.028,
+                unit * (0.004 + i * 0.0006), unit * 0.0035, i, 0, Math.PI * 2);
+            zctx.fill();
+        }
+        // Two silhouette depths: far graves are lifted by the backlight;
+        // nearer headstones and bare branches cut sharply across it.
+        for (let layer = 0; layer < 2; layer++) {
+            const baseY = h * (0.73 + layer * 0.12);
+            zctx.fillStyle = layer ? '#050c10' : '#172b33';
+            zctx.strokeStyle = layer ? '#09151b' : '#253d46';
+            zctx.lineWidth = Math.max(1, unit * 0.002);
+            for (let i = 0; i < 14; i++) {
+                const x = w * ((i + 0.35 + layer * 0.25) / 14);
+                const height = unit * (0.032 + (i % 4) * 0.012) * (1 + layer * 0.35);
+                const width = height * 0.43;
+                zctx.save();
+                zctx.translate(x, baseY + Math.sin(i * 2.7) * h * 0.014);
+                zctx.rotate(Math.sin(i * 9) * 0.15);
+                zctx.beginPath();
+                zctx.moveTo(-width / 2, 0);
+                zctx.lineTo(-width / 2, -height + width / 2);
+                zctx.arc(0, -height + width / 2, width / 2, Math.PI, Math.PI * 2);
+                zctx.lineTo(width / 2, 0);
+                zctx.closePath();
+                zctx.fill();
+                // Thin cold edge, no shadowBlur or extra compositing layer.
+                zctx.stroke();
+                zctx.restore();
+            }
+            zctx.fillRect(0, baseY, w, h - baseY);
+        }
+        // Crooked trees frame the edges rather than crossing the ball lane.
+        for (const [xf, lean] of [[0.055, 1], [0.94, -1]]) {
+            const x = w * xf, y = h * 0.8;
+            zctx.strokeStyle = '#060e14';
+            zctx.lineCap = 'round';
+            zctx.lineWidth = unit * 0.015;
+            zctx.beginPath();
+            zctx.moveTo(x, y);
+            zctx.bezierCurveTo(x - lean * w * 0.025, h * 0.61, x + lean * w * 0.025, h * 0.38, x + lean * w * 0.012, h * 0.12);
+            zctx.stroke();
+            zctx.lineWidth = unit * 0.005;
+            for (let i = 0; i < 5; i++) {
+                const by = h * (0.24 + i * 0.075);
+                const side = i % 2 ? -1 : 1;
+                zctx.beginPath();
+                zctx.moveTo(x, by + h * 0.08);
+                zctx.lineTo(x + side * w * 0.045, by);
+                zctx.lineTo(x + side * w * 0.068, by - h * 0.06);
+                zctx.moveTo(x + side * w * 0.045, by);
+                zctx.lineTo(x + side * w * 0.08, by - h * 0.015);
+                zctx.stroke();
+            }
+        }
+        const mist = zctx.createLinearGradient(0, h * 0.66, 0, h);
+        mist.addColorStop(0, 'rgba(115,177,189,0)');
+        mist.addColorStop(0.42, 'rgba(115,177,189,0.20)');
+        mist.addColorStop(0.65, 'rgba(76,127,141,0.08)');
+        mist.addColorStop(1, 'rgba(0,4,8,0.8)');
+        zctx.fillStyle = mist;
+        zctx.fillRect(0, h * 0.66, w, h * 0.34);
+        const vignette = zctx.createRadialGradient(w * 0.5, h * 0.45, unit * 0.2, w * 0.5, h * 0.45, Math.max(w, h) * 0.65);
+        vignette.addColorStop(0, 'rgba(0,3,9,0.20)');
+        vignette.addColorStop(1, 'rgba(0,2,6,0.78)');
+        zctx.fillStyle = vignette;
+        zctx.fillRect(0, 0, w, h);
         this._zombieStaticInitialized = true;
         return this._zombieStaticCanvas;
     }
@@ -1749,9 +1732,9 @@ class BackgroundRenderer {
         const staticLayer = this._ensureZombieStaticLayer(w, h, groundY);
         if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
 
-        // Moon coordinates for lighting (subtle movement)
-        const moonX = w * (0.72 + Math.sin(this.time * 0.06) * 0.012);
-        const moonY = h * (0.18 + Math.sin(this.time * 0.05) * 0.008);
+        // Match the cached moon so hand lighting stays anchored to its source.
+        const moonX = w * 0.76;
+        const moonY = h * 0.22;
 
         if (areParticleEffectsEnabled()) {
             for (let i = 0; i < this.fogParticles.length; i++) {
@@ -1809,7 +1792,7 @@ class BackgroundRenderer {
         ctx.restore();
 
         this.renderPeripheralLightRigs(ctx, w, h,
-            'rgba(70,90,50,ALPHA)', 'rgba(100,110,80,ALPHA)', 0.45);
+            'rgba(65,105,125,ALPHA)', 'rgba(120,165,180,ALPHA)', 0.45);
         this.applyGameplayVisibilityPass(ctx, w, h, 0.05, 0.4);
     }
 
