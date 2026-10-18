@@ -1862,11 +1862,12 @@ class BackgroundRenderer {
     _drawZombieMoonRays(ctx, w, h, strength = 1) {
         if (!this._zombieRayCanvas) return;
         const mx = w * 0.76, my = h * 0.22;
-        // Slow angular movement, not a blinking opacity effect. Surface lighting
-        // below uses these exact transforms, so it follows the visible shafts.
+        // A visible 11–15 second sweep; the old ~50 second cycle disappeared
+        // inside these broad feathered shafts. Surface lighting uses the exact
+        // same transforms. No flashing or camera movement is introduced.
         for (let i = 0; i < 3; i++) {
             const angle = [0.78, 0.35, -0.24][i]
-                + Math.sin(this.time * (0.12 + i * 0.025) + i * 2.1) * 0.12;
+                + Math.sin(this.time * (0.42 + i * 0.07) + i * 2.1) * 0.24;
             const length = h * (1.05 + i * 0.05);
             const width = w * [0.24, 0.14, 0.19][i];
             ctx.save();
