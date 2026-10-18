@@ -67,6 +67,19 @@
                     `<button type="button" class="ppres-btn${a.primary ? ' primary' : ''}" data-res="${i}"${a.data ? ` data-ppon="${esc(a.data)}"` : ''}>${esc(a.label)}</button>`).join('')}</div>
                 <p class="ppres-status ppon-result-status" aria-live="polite">${esc(opts.status || '')}</p>
             </div>`;
+        // The mode's scene (js/menu/mode-art.js) as a banner across the top.
+        const mode = opts.mode || window.game?.gameMode;
+        const art = window.ModeArt?.url(mode);
+        if (art) {
+            const box = root.querySelector('.ppres-box');
+            const layer = document.createElement('div');
+            layer.className = 'ppres-art';
+            layer.setAttribute('aria-hidden', 'true');
+            layer.style.backgroundImage = art;
+            layer.style.backgroundPosition = `center ${window.ModeArt.focus(mode)}`;
+            box.classList.add('has-art');
+            box.prepend(layer);
+        }
         lastFocus = document.activeElement;
         root.classList.add('open');
         root.setAttribute('aria-hidden', 'false');

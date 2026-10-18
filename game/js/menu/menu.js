@@ -454,13 +454,19 @@
             el.setAttribute('role', 'button');
             el.setAttribute('aria-label', `Play ${m.name.toLowerCase()}: ${m.desc}`);
             el.style.cssText = `--c:${m.hex};--cg:${m.hex}CC;--wash:${hexToRgba(m.hex, 0.65)};--wash2:${hexToRgba(m.hex, 0.22)};--accent:${hexToRgba(m.hex, 0.4)}`;
+            const art = window.ModeArt?.url(m.id);
             el.innerHTML = `
                 <div class="card-top"><span class="card-index">0${i + 1}</span>${m.online ? '<span class="card-live">ONLINE</span>' : ''}</div>
-                <div class="card-icon">${svgIcon(m.icon)}</div>
+                ${art ? `<div class="card-icon card-scene"><span class="card-scene-icon">${svgIcon(m.icon)}</span></div>` : `<div class="card-icon">${svgIcon(m.icon)}</div>`}
                 <div class="card-name">${m.name}</div>
                 <div class="card-desc">${m.desc}</div>
                 <div class="card-meta">${(m.tags || []).map(t => `<span>${t}</span>`).join('')}</div>
                 <div class="card-badge">${m.id === 'customise' ? 'Build &#9656;' : 'Play &#9656;'}</div>`;
+            if (art) {
+                const scene = el.querySelector('.card-scene');
+                scene.style.backgroundImage = art;
+                scene.style.backgroundPosition = `center ${window.ModeArt.focus(m.id)}`;
+            }
             el.dataset.mode = m.id;
             el.addEventListener('pointerenter', () => { menuActiveIdx = i; scrollMenuCards(0); }, false);
             el.addEventListener('focus', () => { menuActiveIdx = i; scrollMenuCards(0); }, false);
@@ -576,6 +582,20 @@
         if (!m) return;
         m.querySelector('[data-mode-tutorial]')?.setAttribute('data-mode-tutorial', menuSelected || 'classic');
         document.getElementById('mTitle').textContent = 'START ' + name.toUpperCase();
+        // The mode's scene sits behind the title, fading into the panel.
+        const box = m.querySelector('.modal-box');
+        const art = window.ModeArt?.url(menuSelected || 'classic');
+        if (box && art) {
+            let layer = box.querySelector('.modal-art');
+            if (!layer) {
+                layer = document.createElement('div');
+                layer.className = 'modal-art';
+                layer.setAttribute('aria-hidden', 'true');
+                box.prepend(layer);
+            }
+            layer.style.backgroundImage = art;
+            layer.style.backgroundPosition = `center ${window.ModeArt.focus(menuSelected || 'classic')}`;
+        }
         m.style.setProperty('--modal-primary', color);
         m.style.setProperty('--modal-primary-soft', hexToRgba(color, 0.12));
         m.style.setProperty('--modal-primary-strong', hexToRgba(color, 0.65));

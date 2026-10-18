@@ -111,6 +111,7 @@ html:not(.pp-mobile) #overlay .card {
 html:not(.pp-mobile) #overlay .card-top { font-size: clamp(.56rem, 4.6cqi, .74rem); min-height: 1.9em; }
 html:not(.pp-mobile) #overlay .card-live { font-size: clamp(.5rem, 4cqi, .64rem); }
 html:not(.pp-mobile) #overlay .card-icon { width: clamp(44px, 30cqi, 72px); height: clamp(44px, 30cqi, 72px); }
+html:not(.pp-mobile) #overlay .card-icon.card-scene { width: 100%; height: clamp(54px, 46cqi, 96px); aspect-ratio: auto; }
 html:not(.pp-mobile) #overlay .card-name { font-size: clamp(.7rem, 7.2cqi, 1.06rem); letter-spacing: .16em; }
 html:not(.pp-mobile) #overlay .card-desc { font-size: clamp(.66rem, 6.2cqi, .92rem); }
 html:not(.pp-mobile) #overlay .card-meta span { font-size: clamp(.55rem, 4.6cqi, .72rem); }
@@ -147,6 +148,7 @@ html:not(.pp-mobile) #overlay #cards-hud .arr-btn.right { right: 10px; }
     html:not(.pp-mobile) html:not(.pp-mobile) #overlay .menu-progress-value { font-size: 1.5rem; }
     html:not(.pp-mobile) #overlay .card-meta { display: none; }
     html:not(.pp-mobile) #overlay .card-icon { width: clamp(36px, 22cqi, 48px); height: clamp(36px, 22cqi, 48px); }
+    html:not(.pp-mobile) #overlay .card-icon.card-scene { width: 100%; height: clamp(40px, 28cqi, 56px); }
     html:not(.pp-mobile) #overlay .card-desc { min-height: 0; }
 }
 

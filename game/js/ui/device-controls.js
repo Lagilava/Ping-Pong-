@@ -297,6 +297,13 @@
                     <button type="button" class="pp-ct-go" data-ct-close>Got it, let’s play</button>
                 </div>
             </div>`;
+        // The mode's scene (js/menu/mode-art.js) frames the controls picture.
+        const art = window.ModeArt?.url(g.gameMode);
+        const vis = tutorial.querySelector('.pp-ct-visual');
+        if (art && vis) {
+            vis.classList.add('has-art');
+            vis.style.backgroundImage = `linear-gradient(180deg, rgba(3, 8, 20, .3), rgba(3, 8, 20, .62)), ${art}`;
+        }
         tutorial.hidden = false;
         document.body.classList.add('pp-controls-tutorial-open');
         g.setChallengePaused(true);

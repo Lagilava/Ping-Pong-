@@ -28,6 +28,18 @@
     text-align: center;
     animation: ppres-pop 0.32s cubic-bezier(.2, 1.3, .4, 1);
 }
+.ppres-box.has-art { position: relative; padding-top: 124px; }
+.ppres-box.has-art > :not(.ppres-art) { position: relative; z-index: 1; }
+.ppres-art {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 150px;
+    background-size: cover;
+    opacity: 0.85;
+    -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent);
+    mask-image: linear-gradient(180deg, #000 55%, transparent);
+    pointer-events: none;
+}
 @keyframes ppres-pop { from { transform: translateY(14px) scale(0.97); } to { transform: none; } }
 .ppres-box.win { border-color: rgba(0, 255, 214, 0.55); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65), 0 0 46px rgba(0, 255, 214, 0.14); }
 .ppres-box.loss { border-color: rgba(255, 90, 120, 0.5); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65), 0 0 46px rgba(255, 58, 92, 0.12); }

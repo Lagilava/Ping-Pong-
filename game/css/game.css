@@ -1903,6 +1903,37 @@ body.obstacle-mode .mode-btn.active[data-mode="obstacle"] {
 .card:hover .card-icon svg,
 .card.active .card-icon svg { transform: rotate(-8deg); }
 
+/* Illustrated scene for the mode (js/menu/mode-art.js) in place of the
+   round icon; the icon rides in a small chip on the scene's corner. */
+.card-icon.card-scene {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 200 / 118;
+    border-radius: 12px;
+    background-color: #05070d;
+    background-size: cover;
+    background-position: center;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06), 0 6px 16px rgba(0, 0, 0, .45);
+    place-items: end;
+    overflow: hidden;
+}
+.card:hover .card-icon.card-scene,
+.card.active .card-icon.card-scene,
+.card:focus-visible .card-icon.card-scene { transform: scale(1.03); }
+.card-scene-icon {
+    width: 28%;
+    max-width: 30px;
+    aspect-ratio: 1;
+    margin: 0 6px 6px 0;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(4, 7, 14, .78);
+    border: 1px solid var(--c);
+    box-shadow: 0 0 10px var(--accent, rgba(0, 217, 255, .4));
+}
+.card-scene-icon svg { width: 62%; height: 62%; }
+
 .card-name {
     font-family: 'Orbitron', sans-serif;
     font-size: .86rem;
@@ -2164,6 +2195,19 @@ html:not(.pp-mobile) #cards-hud:not(.cards-fit) .card-row { padding: 0; }
     animation: spin 22s linear infinite;
     pointer-events: none;
 }
+
+/* Mode scene (js/menu/mode-art.js) behind the opponent picker's title. */
+.modal-art {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 46%;
+    background-size: cover;
+    opacity: .42;
+    -webkit-mask-image: linear-gradient(180deg, #000 15%, transparent 92%);
+    mask-image: linear-gradient(180deg, #000 15%, transparent 92%);
+    pointer-events: none;
+}
+.modal-box > :not(.modal-art) { position: relative; z-index: 1; }
 
 @keyframes spin {
     to {

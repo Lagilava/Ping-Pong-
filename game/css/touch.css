@@ -238,7 +238,21 @@ body.pp-controls-tutorial-open #cyber-menu-btn { visibility: hidden; }
     .pp-ct-steps p { font-size: .72rem; line-height: 1.3; }
     .pp-ct-go { min-height: 40px; }
 }
+/* Mode scene behind the controls picture. */
+.pp-ct-visual.has-art {
+    align-self: stretch;
+    display: grid;
+    place-items: center;
+    min-height: 200px;
+    padding: 16px;
+    border-radius: 14px;
+    background-size: cover;
+    background-position: center;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 0 40px rgba(0, 0, 0, .55);
+}
+
 @media (orientation: portrait) and (max-width: 640px) {
+    .pp-ct-visual.has-art { min-height: 0; }
     .pp-ct-card { grid-template-columns: 1fr; }
     .pp-ct-visual { max-width: 340px; width: 100%; margin: 0 auto; }
 }
