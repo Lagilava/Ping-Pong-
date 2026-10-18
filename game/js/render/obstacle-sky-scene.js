@@ -134,10 +134,9 @@ class ObstacleSkyScene {
             this.shader.samples = (this.shader.samples || 0) + 1;
             if (this.shader.samples > 30 && this.shader.costMs > 2 && !ObstacleSkyShader.allowSoftware) this.shader.ok = false;
         }
-        // Reduced motion removes decorative motes, not the gentle ambient
-        // waterfall flow or cloud light. Never freeze the scenery clock.
+        // The scenery is gentle ambient movement (waterfalls, cloud light,
+        // falling glints), so reduced motion never freezes it.
         this.waterfalls?.render(ctx, w, h, time);
-        if (this.reducedMotion?.matches) return;
         ctx.save();
         // Small cyan falling glints suggest energy spilling into the abyss.
         // All accents stay in the gutters, away from the playable course.
