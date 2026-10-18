@@ -445,7 +445,7 @@ class ProgressionSystem {
         if (levelsGained > 0) {
             this.queueNotification(
                 `Level Up! ×${levelsGained}`,
-                `Reached level ${this.level}! 🎉`
+                `Reached level ${this.level}.`
             );
             this.checkLevelUnlocks();
         }
