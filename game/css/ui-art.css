@@ -1,0 +1,65 @@
+/* Painted header art for panels (js/menu/mode-art.js: ModeArt.decorate / .thumbs).
+   Banners are SVG backgrounds rasterised once; nothing here animates. */
+.has-ui-art { position: relative; overflow: hidden; isolation: isolate; }
+.has-ui-art > :not(.ui-art) { position: relative; z-index: 1; }
+.ui-art {
+    position: absolute;
+    top: 0; bottom: 0; right: 0;
+    z-index: 0;
+    aspect-ratio: 400 / 120;
+    max-width: 100%;
+    background-size: cover;
+    background-position: right center;
+    background-repeat: no-repeat;
+    opacity: .85;
+    -webkit-mask-image: linear-gradient(90deg, transparent 4%, rgba(0, 0, 0, .6) 30%, #000 52%, #000 86%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 4%, rgba(0, 0, 0, .6) 30%, #000 52%, #000 86%, transparent 100%);
+    pointer-events: none;
+}
+
+/* Headers get a little more height so the banner reads. */
+.ppset-head.has-ui-art { min-height: 92px; padding-top: 22px; padding-bottom: 18px; border-bottom: 1px solid rgba(120, 220, 255, 0.12); }
+.ppon-head.has-ui-art { min-height: 88px; }
+.ppset-head.has-ui-art .ppset-close,
+.ppon-head.has-ui-art .ppon-close { background: rgba(4, 10, 22, 0.72); }
+.ppset-head.has-ui-art h2,
+.ppon-head.has-ui-art h2 { text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8), 0 0 14px rgba(0, 255, 214, 0.35); }
+/* The close button sits over the banner, so move the art's focal point left of it. */
+.ppset-head .ui-art, .ppon-head .ui-art { right: 56px; }
+body .achievement-sidebar .sidebar-header.has-ui-art { min-height: 96px; }
+.sidebar-header .ui-art { right: 52px; opacity: .7; }
+
+/* Pause card: the current mode's scene fades down behind the title. */
+.pause-card.has-ui-art .ui-art.is-scene {
+    inset: 0 0 auto 0;
+    aspect-ratio: auto;
+    max-width: none;
+    height: 58%;
+    background-size: cover;
+    opacity: .42;
+    -webkit-mask-image: linear-gradient(180deg, #000 10%, transparent 96%);
+    mask-image: linear-gradient(180deg, #000 10%, transparent 96%);
+}
+.pause-card.has-ui-art h2 { text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85), 0 0 14px rgba(0, 255, 214, 0.45); }
+.pause-card.has-ui-art .pause-kicker { color: rgba(200, 245, 255, 0.85); text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9); }
+.pause-btn.small { flex-direction: column; gap: 5px; }
+.pause-ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: .85; }
+
+/* Mode thumbnails in the profile table and the guide's Modes list. */
+.pp-mode-thumb {
+    display: inline-block;
+    width: 34px; height: 22px;
+    margin-right: 10px;
+    vertical-align: middle;
+    border-radius: 5px;
+    border: 1px solid rgba(120, 220, 255, 0.28);
+    background-size: cover;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.pphelp-modes dt { display: flex; align-items: flex-start; }
+.pphelp-modes dt .pp-mode-thumb { flex: 0 0 auto; margin-top: -2px; }
+
+@media (max-width: 640px), (max-height: 500px) {
+    .ppset-head.has-ui-art, .ppon-head.has-ui-art { min-height: 70px; }
+    .pp-mode-thumb { width: 28px; height: 18px; margin-right: 8px; }
+}

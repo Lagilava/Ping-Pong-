@@ -6031,6 +6031,14 @@ class Game {
             const z = this.zombieState || {};
             const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
             set('pauseMode', (this.getModeDisplayName(this.gameMode) || '').toUpperCase());
+            const card = menu.querySelector('.pause-card');
+            if (card && window.ModeArt && card.dataset.artMode !== this.gameMode) {
+                card.dataset.artMode = this.gameMode;
+                card.querySelector(':scope > .ui-art')?.remove();
+                window.ModeArt.decorate(card, this.gameMode);
+                const art = card.querySelector(':scope > .ui-art');
+                if (art) art.style.backgroundPosition = `center ${window.ModeArt.focus(this.gameMode)}`;
+            }
             set('pauseLabelL', zombie ? 'SCORE' : (this.net ? this.net.labelFor('left') : (this.isMultiplayer ? 'P1' : 'PLAYER')));
             set('pauseLabelR', zombie ? 'LIVES' : (this.net ? this.net.labelFor('right') : (this.isMultiplayer ? 'P2' : 'AI')));
             menu.classList.toggle('pp-online-guest', this.net?.role === 'guest');

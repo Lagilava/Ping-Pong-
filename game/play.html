@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="css/achievement-redesign.css">
     <link rel="stylesheet" href="css/main-menu.css">
     <link rel="stylesheet" href="css/touch.css">
+    <link rel="stylesheet" href="css/ui-art.css">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js"></script>
 </head>
@@ -504,9 +505,9 @@
                 <button type="button" class="pause-btn primary" data-act="resume">Resume <kbd>Esc</kbd></button>
                 <button type="button" class="pause-btn" data-act="restart" data-confirm="Tap again to restart">Restart match <kbd>R</kbd></button>
                 <div class="pause-row">
-                    <button type="button" class="pause-btn small" data-act="settings">Settings</button>
-                    <button type="button" class="pause-btn small" data-act="audio">Audio</button>
-                    <button type="button" class="pause-btn small" data-act="help">Help</button>
+                    <button type="button" class="pause-btn small" data-act="settings"><svg class="pause-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/><circle cx="12" cy="12" r="6.6"/></svg>Settings</button>
+                    <button type="button" class="pause-btn small" data-act="audio"><svg class="pause-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>Audio</button>
+                    <button type="button" class="pause-btn small" data-act="help"><svg class="pause-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.5"/><circle cx="12" cy="17" r=".6"/></svg>Help</button>
                 </div>
                 <button type="button" class="pause-btn danger" data-act="quit" data-confirm="Tap again to quit">Quit to menu <kbd>Q</kbd></button>
             </div>
@@ -573,6 +574,7 @@
     <script src="js/physics/physics-binary.js"></script>
     <script src="js/physics/physics-core.js"></script>
     <script src="js/core/globals.js"></script>
+    <script src="js/menu/mode-art.js"></script>
     <script src="js/systems/settings.js"></script>
     <script src="js/core/vec2.js"></script>
     <script src="js/render/surface-textures.js"></script>
@@ -620,7 +622,6 @@
     <script src="js/physics/background-wasm.js"></script>
     <script src="js/app/bootstrap.js"></script>
     <script src="js/menu/menu-bloom.js"></script>
-    <script src="js/menu/mode-art.js"></script>
     <script src="js/menu/menu.js"></script>
     <script src="js/menu/custom-screen.js"></script>
 </body>

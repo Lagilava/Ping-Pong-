@@ -473,13 +473,13 @@
                         <li><b>Power-ups</b> float on the court. Hit one with the ball to grab it.</li>
                     </ul>`],
                 ['modes', 'Modes', `
-                    <dl class="pphelp-defs">
-                        <dt>Classic</dt><dd>The straight duel: fast, clean, no gimmicks.</dd>
-                        <dt>Zombie</dt><dd>Hold the line for ten waves. Smash every zombie or knock out the boss to clear a wave. Five lives; the ball getting past you or a zombie reaching your barricade costs one. Hold Space (right mouse button, or the Pull button on touch) to pull nearby zombies to the barricade: they die there for points and cost no life, but it uses energy and only reaches part of the court.</dd>
-                        <dt>Gravity</dt><dd>Black holes bend the ball. Press Space (right mouse button, or the Wormhole button on touch) as the ball passes one: it warps out of another black hole and shoots at their goal. Each warp makes the point worth +1 (up to 3).</dd>
-                        <dt>Speed</dt><dd>The ball keeps accelerating. Concede a point and a quick target challenge gives you a chance to win it back.</dd>
-                        <dt>Obstacle</dt><dd>Moving gates and nodes carve up the court. Boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, coins arm a one-goal shield, and Space rolls the Lucky Dice.</dd>
-                        <dt>Custom</dt><dd>Your paddles, background, music and power-ups, on an arena you build in the Forge.</dd>
+                    <dl class="pphelp-defs pphelp-modes">
+                        <dt><span class="pp-mode-thumb" data-mode-thumb="classic" aria-hidden="true"></span>Classic</dt><dd>The straight duel: fast, clean, no gimmicks.</dd>
+                        <dt><span class="pp-mode-thumb" data-mode-thumb="zombie" aria-hidden="true"></span>Zombie</dt><dd>Hold the line for ten waves. Smash every zombie or knock out the boss to clear a wave. Five lives; the ball getting past you or a zombie reaching your barricade costs one. Hold Space (right mouse button, or the Pull button on touch) to pull nearby zombies to the barricade: they die there for points and cost no life, but it uses energy and only reaches part of the court.</dd>
+                        <dt><span class="pp-mode-thumb" data-mode-thumb="gravity" aria-hidden="true"></span>Gravity</dt><dd>Black holes bend the ball. Press Space (right mouse button, or the Wormhole button on touch) as the ball passes one: it warps out of another black hole and shoots at their goal. Each warp makes the point worth +1 (up to 3).</dd>
+                        <dt><span class="pp-mode-thumb" data-mode-thumb="speed" aria-hidden="true"></span>Speed</dt><dd>The ball keeps accelerating. Concede a point and a quick target challenge gives you a chance to win it back.</dd>
+                        <dt><span class="pp-mode-thumb" data-mode-thumb="obstacle" aria-hidden="true"></span>Obstacle</dt><dd>Moving gates and nodes carve up the court. Boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, coins arm a one-goal shield, and Space rolls the Lucky Dice.</dd>
+                        <dt><span class="pp-mode-thumb" data-mode-thumb="custom" aria-hidden="true"></span>Custom</dt><dd>Your paddles, background, music and power-ups, on an arena you build in the Forge.</dd>
                     </dl>`],
                 ['controls', 'Controls', `
                     <table class="pphelp-keys">
@@ -548,6 +548,8 @@
             `);
 
             state.ui.helpPanel = $('#pp-help');
+            window.ModeArt?.decorate(state.ui.helpPanel.querySelector('.ppset-head'), 'guide');
+            window.ModeArt?.thumbs(state.ui.helpPanel);
             state.ui.helpPanel.addEventListener('click', e => { if (e.target === state.ui.helpPanel) toggleHelp(); });
             $('#close-help-x').addEventListener('click', toggleHelp);
             $('#close-help-btn').addEventListener('click', toggleHelp);

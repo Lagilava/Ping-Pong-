@@ -1149,6 +1149,7 @@ class ProgressionSystem {
 </div>
     `;
 
+        window.ModeArt?.decorate(sidebar.querySelector('.sidebar-header'), 'trophies');
         document.body.appendChild(sidebar);
         this.updateAchievementSidebar();
 

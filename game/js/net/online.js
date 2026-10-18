@@ -1311,6 +1311,7 @@
                         </section>
                     </div>
                 </div>`;
+            window.ModeArt?.decorate(root.querySelector('.ppon-head'), 'online');
             document.body.appendChild(root);
             this.root = root;
 

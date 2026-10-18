@@ -215,9 +215,10 @@
             <div class="ppset-label ppset-pf-title">By mode</div>
             <table class="ppset-modes-table">
                 <thead><tr><th scope="col">Mode</th><th scope="col">Played</th><th scope="col">Won</th><th scope="col">Win rate</th><th scope="col">Time</th></tr></thead>
-                <tbody>${st.modes.map((m) => `<tr><th scope="row">${esc(m.label)}</th><td>${m.played}</td><td>${m.won}</td><td>${m.played ? Math.round((m.won / m.played) * 100) + '%' : '-'}</td><td>${m.seconds ? fmtTime(m.seconds) : '-'}</td></tr>`).join('')}</tbody>
+                <tbody>${st.modes.map((m) => `<tr><th scope="row"><span class="pp-mode-thumb" data-mode-thumb="${esc(m.id)}" aria-hidden="true"></span>${esc(m.label)}</th><td>${m.played}</td><td>${m.won}</td><td>${m.played ? Math.round((m.won / m.played) * 100) + '%' : '-'}</td><td>${m.seconds ? fmtTime(m.seconds) : '-'}</td></tr>`).join('')}</tbody>
             </table>
             <p class="ppset-help ppset-pf-note">Profile since ${esc(since)}. Matches from before profiles existed count in the totals above but not by mode. Local two-player matches are not counted. Stats are stored in this browser.</p>`;
+        window.ModeArt?.thumbs(host);
     }
 
     let root = null;
@@ -292,6 +293,7 @@
                     <button type="button" class="ppset-btn primary" data-action="close">Done</button>
                 </footer>
             </div>`;
+        window.ModeArt?.decorate(root.querySelector('.ppset-head'), 'settings');
         document.body.appendChild(root);
         bind();
         selectTab(activeTab);
