@@ -5529,10 +5529,10 @@ class Game {
         this.obstacleArcade?.setHudVisible(false);
         this.forgeZombies?.clear();
         this.gravityWells = [];
-        if (!this.gravitySlingshot && typeof GravitySlingshot === 'function') {
-            this.gravitySlingshot = new GravitySlingshot(this);
+        if (!this.gravityWarp && typeof GravityWormhole === 'function') {
+            this.gravityWarp = new GravityWormhole(this);
         }
-        this.gravitySlingshot?.reset();
+        this.gravityWarp?.reset();
         this.modeAbilities?.reset();
 
         // ensure the AI paddle has the correct skin when modes change
@@ -7030,7 +7030,6 @@ class Game {
         }
 
         b.lastHit = isPlayer ? 'player' : 'ai';
-        if (b === this.ball) this.gravitySlingshot?.onPaddleHit();
         this.modeAbilities?.onPaddleHit(isPlayer ? 'player' : 'ai', b);
         if (b === this.ball) this.obstacleChain = 0;
         // The AI opponent studies how each shot was struck (contact point and
@@ -7107,6 +7106,25 @@ class Game {
         this.audio.bounce?.(0.5, this.panFor(b.pos.x));
         this.postFx?.ripple(b.pos.x, b.pos.y, 0.4);
         return false;
+    }
+
+    // Gravity's wormhole shrinks the ball into a black hole and pops it back
+    // out; everywhere else this is a plain ball render.
+    renderMainBall(ctx, interp) {
+        const warp = this.gameMode === 'gravity' ? this.gravityWarp : null;
+        const scale = warp ? warp.ballScale() : 1;
+        if (scale >= 0.999) {
+            this.ball.render(ctx, interp);
+        } else if (scale > 0.01) {
+            const b = this.ball;
+            const x = b.prev.x + (b.pos.x - b.prev.x) * interp;
+            const y = b.prev.y + (b.pos.y - b.prev.y) * interp;
+            ctx.save();
+            ctx.translate(x, y); ctx.scale(scale, scale); ctx.translate(-x, -y);
+            b.render(ctx, interp);
+            ctx.restore();
+        }
+        warp?.renderBall(ctx, interp);
     }
 
     renderServeTelegraph(ctx) {
@@ -7427,6 +7445,7 @@ class Game {
             hitStopScale = 0.12;
         }
         this.modeAbilities?.update(dt);
+        if (this.gameMode === 'gravity') this.gravityWarp?.update(dt);
         const paddleDt = this.timeWarpFactor * dt * hitStopScale;
         const effectiveDt = paddleDt * (this.modeAbilities?.speedScale() || 1);
         if (this.player) this.player._prevY = this.player.pos.y;
@@ -7435,7 +7454,9 @@ class Game {
         this.updateGameState(effectiveDt);
         this.updateGameObjects(effectiveDt, updateGravityWells);
         const holding = this.serveHold > 0 && this.updateServeHold(dt);
-        if (!holding) {
+        // A ball inside a wormhole is moved by the warp, not by physics.
+        const warping = this.gameMode === 'gravity' && this.gravityWarp?.holdsBall();
+        if (!holding && !warping) {
             this.updateBallPhysics(this.ball, effectiveDt);
             this.handleCollisions(effectiveDt);
         }
@@ -7530,7 +7551,7 @@ class Game {
 
                 // A ball waiting to be served stays put: a well pulling on it
                 // used to cancel the serve, so it drifted off at minimum speed.
-                if (!serving && w.isBallInRange(ball)) {
+                if (!serving && w.isBallInRange(ball) && !this.gravityWarp?.ignores(w, ball)) {
                     w.applyGravity(ball, dt, true);
                     ballInWell = true;
                 }
@@ -7549,7 +7570,6 @@ class Game {
                 this.holdWellPassSpeed(ab, ab._inWell, ab._speedBeforeWells);
             }
 
-            if (this.gameMode === 'gravity') this.gravitySlingshot?.update(dt);
             this.updateGravityInteractionState(dt);
         } else if (this.gameMode !== 'gravity') {
             this.gravityInteraction = {
@@ -7879,7 +7899,7 @@ class Game {
                     }
                     return true;
                 }
-                const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeSlingshotBonus(ball);
+                const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeWarpBonus(ball);
                 this.scores.player += points;
                 this.progression.recordPoint('player', points);
                 this.audio.score();
@@ -7911,7 +7931,7 @@ class Game {
                     }
                     return true;
                 } else {
-                    const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeSlingshotBonus(ball);
+                    const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeWarpBonus(ball);
                     this.scores.ai += points;
                     this.progression.recordPoint('ai', points);
                     this.audio.score();
@@ -7955,14 +7975,14 @@ class Game {
         this.additionalBalls.length = writeIndex;
     }
 
-    // Gravity mode: extra points a slingshot-charged ball carries into the goal.
-    takeSlingshotBonus(ball) {
-        const bonus = this.gravitySlingshot?.consumeGoalBonus(ball) || 0;
+    // Gravity mode: extra points a warped ball carries into the goal.
+    takeWarpBonus(ball) {
+        const bonus = this.gravityWarp?.consumeGoalBonus(ball) || 0;
         if (bonus > 0) {
             const base = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
             const y = Math.max(60, Math.min(this.height - 60, ball.pos.y));
             const x = ball.pos.x > this.width * 0.5 ? this.width * 0.75 : this.width * 0.25;
-            this.gravitySlingshot.announceGoal(base + bonus, x, y);
+            this.gravityWarp.announceGoal(base + bonus, x, y);
         }
         return bonus;
     }
@@ -8380,7 +8400,6 @@ class Game {
             for (let i = 0; i < this.gravityWells.length; i++) {
                 this.gravityWells[i].render(ctx, gravityRenderTime);
             }
-            this.gravitySlingshot?.renderWellArcs(ctx);
         }
         if (this.isForgeArenaActive()) {
             const wellTime = performance.now() * 0.001;
@@ -8496,8 +8515,7 @@ class Game {
             }
         }
         if (this.gameMode === 'obstacle') this.obstacleArcade?.renderPaddleShields(ctx);
-        this.ball.render(ctx, interp);
-        if (this.gameMode === 'gravity') this.gravitySlingshot?.renderBall(ctx, interp);
+        this.renderMainBall(ctx, interp);
         this.modeAbilities?.render(ctx);
         if (window.PPSettings?.get('ballOutline')) this.renderBallOutlines(ctx);
         this.renderServeTelegraph(ctx);

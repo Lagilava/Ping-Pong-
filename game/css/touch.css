@@ -35,7 +35,7 @@ html:not(.pp-touch) .pp-touch-only { display: none !important; }
 .pp-ability-btn[hidden] { display: none; }
 .pp-ability-btn.left { left: var(--ab-x, 18px); }
 .pp-ability-btn.right { right: var(--ab-x, 18px); }
-.pp-ability-btn[data-mode="gravity"] { --ab-c: #8deeff; }
+.pp-ability-btn[data-mode="gravity"] { --ab-c: #c3b0ff; }
 .pp-ability-btn[data-mode="obstacle"] { --ab-c: #ffd477; }
 .pp-ability-btn[data-mode="zombie"] { --ab-c: #9dff6a; }
 /* Cooldown / energy ring. */

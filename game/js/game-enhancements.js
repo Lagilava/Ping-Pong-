@@ -476,7 +476,7 @@
                     <dl class="pphelp-defs">
                         <dt>Classic</dt><dd>The straight duel: fast, clean, no gimmicks.</dd>
                         <dt>Zombie</dt><dd>Hold the line for ten waves. Smash every zombie or knock out the boss to clear a wave. Five lives; the ball getting past you or a zombie reaching your barricade costs one. Hold Space (right mouse button, or the Pull button on touch) to pull nearby zombies to the barricade: they die there for points and cost no life, but it uses energy and only reaches part of the court.</dd>
-                        <dt>Gravity</dt><dd>Black holes bend the ball. Curve it around one to slingshot it out faster; each slingshot makes the point worth +1 (up to 3).</dd>
+                        <dt>Gravity</dt><dd>Black holes bend the ball. Press Space (right mouse button, or the Wormhole button on touch) as the ball passes one: it warps out of another black hole and shoots at their goal. Each warp makes the point worth +1 (up to 3).</dd>
                         <dt>Speed</dt><dd>The ball keeps accelerating. Concede a point and a quick target challenge gives you a chance to win it back.</dd>
                         <dt>Obstacle</dt><dd>Moving gates and nodes carve up the court. Boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, coins arm a one-goal shield, and Space rolls the Lucky Dice.</dd>
                         <dt>Custom</dt><dd>Your paddles, background, music and power-ups, on an arena you build in the Forge.</dd>

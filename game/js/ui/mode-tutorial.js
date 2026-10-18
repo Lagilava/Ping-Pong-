@@ -23,15 +23,15 @@
             touchTip: 'Use pull when a zombie is close to your side, then let go so its energy recovers.'
         },
         gravity: {
-            name: 'Gravity', number: '03', color: '#72b4ff', tagline: 'Bend the rally', fact: 'UP TO 3-POINT GOALS', action: 'Space: Polarity near a black hole',
+            name: 'Gravity', number: '03', color: '#72b4ff', tagline: 'Warp the rally', fact: 'UP TO 3-POINT GOALS', action: 'Space: Wormhole near a black hole',
             goal: 'Score past your opponent while black holes curve the ball across the court.',
             steps: [
                 ['Read the curve', 'Gravity wells tug the ball off its straight path. Follow its current direction rather than where it first appeared to be going.'],
-                ['Set up a slingshot', 'Send the ball around a well. A successful slingshot launches it out faster and charges the next goal.'],
-                ['Cash in', 'Each slingshot adds one bonus point to the next goal, up to two bonus points (a three-point goal).']
+                ['Open a wormhole', 'Press Space as the ball passes a black hole. The hole swallows it and fires it, faster, out of another black hole toward your opponent, aimed away from their paddle.'],
+                ['Cash in', 'Each warp adds one bonus point to the next goal, up to two bonus points (a three-point goal). The bonus rides the ball, so a warp your opponent returns raises their stakes too.']
             ],
-            tip: 'Aim a little wide of a well to sling around it; a direct line is harder to predict.',
-            touchTip: 'Aim a little wide of a well to sling around it. Tap Polarity as the ball passes a well to bend it further.'
+            tip: 'A dashed ring shows the hole that will take the ball; arrows mark where it will come out. Wormhole recharges in six seconds.',
+            touchTip: 'Tap Wormhole as the ball passes a black hole. A dashed ring shows the hole that will take it; arrows mark where it will come out.'
         },
         speed: {
             name: 'Speed', number: '04', color: '#ffd16b', tagline: 'Keep up with the pace', fact: 'TIMED SAVE CHALLENGES', action: 'Space: Overcharge · click save-challenge targets',

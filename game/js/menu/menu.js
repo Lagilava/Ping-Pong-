@@ -411,7 +411,7 @@
         modes: [
             { id: 'classic', name: 'CLASSIC', desc: 'Clean, fast one-on-one', col: 0xff3a5c, hex: '#ff3a5c', icon: 'classic', tags: ['VS AI', '1v1'], online: true },
             { id: 'zombie', name: 'ZOMBIE', desc: 'Ten waves of undead, five lives', col: 0x6ddc4f, hex: '#6ddc4f', icon: 'zombie', tags: ['Solo', '10 waves'] },
-            { id: 'gravity', name: 'GRAVITY', desc: 'Slingshot black holes for big points', col: 0x3d9eff, hex: '#3d9eff', icon: 'gravity', tags: ['VS AI', '1v1'], online: true },
+            { id: 'gravity', name: 'GRAVITY', desc: 'Warp the ball through black holes', col: 0x3d9eff, hex: '#3d9eff', icon: 'gravity', tags: ['VS AI', '1v1'], online: true },
             { id: 'speed', name: 'SPEED', desc: 'The ball never stops speeding up', col: 0xffbe00, hex: '#ffbe00', icon: 'speed', tags: ['VS AI', '1v1'] },
             { id: 'obstacle', name: 'OBSTACLE', desc: 'Gates, boost pads and coins', col: 0xff7620, hex: '#ff7620', icon: 'obstacle', tags: ['VS AI', '1v1'], online: true },
             { id: 'customise', name: 'CUSTOM', desc: 'Build your own rules', col: 0x00ffc8, hex: '#00ffc8', icon: 'custom', tags: ['Forge', '1v1'], online: true },

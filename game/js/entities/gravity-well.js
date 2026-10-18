@@ -135,7 +135,7 @@ class GravityWell {
     set active(value) { this.#active = Boolean(value); }
     set strength(value) { this.#strength = Math.max(0, Number(value)); }
 
-    // Full excitement burst (the slingshot fired off this well).
+    // Full excitement burst (a wormhole swallowed or released the ball here).
     flare() { this.#excitement = 1; }
 
     isBallInRange(ball) {
@@ -246,19 +246,7 @@ class GravityWell {
         const inForceRange = inPullRange && distSq > GravityWell.MIN_DISTANCE_SQ;
         let currentlyAffecting = false;
 
-        if (inPullRange && this.pulseRemaining > 0) {
-            // Repel even at the core. Attraction excludes the innermost area
-            // to avoid a singularity, but the pulse should still rescue a ball
-            // that passes through its center.
-            const distance = Math.sqrt(distSq);
-            const velocitySize = Math.hypot(ball.vel.x, ball.vel.y);
-            const nx = distance > 1 ? -dx / distance : velocitySize > 1 ? ball.vel.x / velocitySize : 1;
-            const ny = distance > 1 ? -dy / distance : velocitySize > 1 ? ball.vel.y / velocitySize : 0;
-            const falloff = 1 - distance / this.#pullRadius;
-            const push = Math.min(2200, this.#strength * 0.9) * falloff * dt;
-            ball.vel.x += nx * push;
-            ball.vel.y += ny * push;
-        } else if (inForceRange) {
+        if (inForceRange) {
             PhysicsCore.gravityWell(ball, this.#pos.x, this.#pos.y,
                 this.#pullRadiusSq, this.#strength, dt, GravityWell.MIN_DISTANCE_SQ);
         }

@@ -1012,7 +1012,7 @@ class EnhancedAudioEngine {
             'zombieWave', 'zombieHit', 'zombieSpit', 'zombieBreach', 'zombieChoice', 'zombiePull',
             'speedChallenge', 'speedChallengeSuccess', 'speedChallengeFail',
             'rallyMilestone', 'createSound', 'createScoreSound', 'createLevelUpSound',
-            'startGravityWellSound', 'stopGravityWellSound', 'laser', 'slingshot',
+            'startGravityWellSound', 'stopGravityWellSound', 'laser', 'warpIn', 'warpOut',
             'stopAllGravityWellSounds', 'syncGravityWellAudioState',
             'toggleMusicMute', 'setMusicMuteState', 'applyMusicMuteState',
             'setSfxVolume', 'setMusicVolume', 'setVoiceVolume', 'setVoiceMute'  // Channel controls
@@ -1402,9 +1402,46 @@ class EnhancedAudioEngine {
         this.analytics.soundsPlayed++;
     }
 
-    // Gravity slingshot: a rising whoosh past the black hole, then a chime
+    // Wormhole entry: a falling, closing whoosh as the black hole swallows
+    // the ball.
+    warpIn(pan = 0) {
+        this.ensureContext().then(() => {
+            if (!this.initialized || !this.enabled || !this.ctx) return;
+            const ctx = this.ctx;
+            const now = ctx.currentTime + 0.002;
+            const vol = Math.max(0, Math.min(1, this.sfxVolume));
+            let out = this.masterGain;
+            if (typeof ctx.createStereoPanner === 'function') {
+                const panner = ctx.createStereoPanner();
+                panner.pan.value = Math.max(-1, Math.min(1, pan));
+                panner.connect(this.masterGain);
+                out = panner;
+            }
+            const sweep = ctx.createOscillator();
+            const filter = ctx.createBiquadFilter();
+            const sg = ctx.createGain();
+            sweep.type = 'sawtooth';
+            sweep.frequency.setValueAtTime(520, now);
+            sweep.frequency.exponentialRampToValueAtTime(70, now + 0.3);
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(2600, now);
+            filter.frequency.exponentialRampToValueAtTime(220, now + 0.3);
+            filter.Q.value = 8;
+            sg.gain.setValueAtTime(0.0005, now);
+            sg.gain.linearRampToValueAtTime(vol * 0.3, now + 0.03);
+            sg.gain.exponentialRampToValueAtTime(0.0005, now + 0.32);
+            sweep.connect(filter); filter.connect(sg); sg.connect(out);
+            sweep.start(now);
+            sweep.stop(now + 0.34);
+            this.activeOscillators.add(sweep);
+            sweep.onended = () => this.activeOscillators.delete(sweep);
+            this.analytics.soundsPlayed++;
+        });
+    }
+
+    // Wormhole exit: a rising whoosh out of the black hole, then a chime
     // that climbs with the charge (1 or 2) so the stakes are audible.
-    slingshot(charge = 1, pan = 0) {
+    warpOut(charge = 1, pan = 0) {
         this.ensureContext().then(() => {
             if (!this.initialized || !this.enabled || !this.ctx) return;
             const ctx = this.ctx;

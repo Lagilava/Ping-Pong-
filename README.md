@@ -43,8 +43,9 @@ Keep the small console window open while you play; close it to stop.
 In local Speed, Gravity and Obstacle matches, **Space** activates the arena
 ability (P2: **Enter**; gamepad: **A**; mouse: right-click; touch: second finger).
 Speed's Overcharge opens a short slow-motion parry window near the paddle and
-fires a Sonic Return on contact. Gravity's Polarity Pulse briefly repels the
-ball from its nearest well. In Obstacle, roll the Lucky Dice: 6 Star power,
+fires a Sonic Return on contact. Gravity's Wormhole swallows the ball as it passes a
+black hole and fires it out of another black hole, aimed at the
+opponent's goal; each warp makes the point worth +1 (up to 3). In Obstacle, roll the Lucky Dice: 6 Star power,
 5 shooting balls, 4 pulls the ball to your paddle, 3 big paddle, 2 no luck,
 1 fast ball. The on-court label shows when each ability is ready and when the
 ball is in range. Online
@@ -155,7 +156,7 @@ prompt to unlock frame rates above 60 (expect some screen tearing).
 |---|---|
 | **Classic** | The straight duel: fast, clean, no gimmicks. |
 | **Zombie** | Hold the line for ten waves: smash every zombie or knock out the boss to clear a wave. Five lives for the run; the ball getting past you or a zombie reaching your barricade costs one. Wave 10 is the boss fight. |
-| **Gravity** | Black holes bend the ball. Curve it around one and it slingshots out faster, and each slingshot makes the point worth +1 (up to 3). |
+| **Gravity** | Black holes bend the ball. Use the Wormhole as it passes one and it warps out of another black hole, faster, aimed at their goal. Each warp makes the point worth +1 (up to 3). |
 | **Speed** | The ball keeps accelerating; reaction challenges interrupt the rally. |
 | **Obstacle** | Moving gates and nodes carve up the court, with a Rocket League and Mario twist: boost pads launch the ball, ? blocks pay out coins, Turbo or Star power, coins arm a one-goal shield, the Lucky Dice rolls a random power, and goals explode in confetti. |
 

@@ -796,7 +796,6 @@
             ball.spin = spin;
             ball.lastHit = 'ai';
             ball.lastImpact = clamp(Math.hypot(vx, vy) / 1400, 0, 1);
-            g.gravitySlingshot?.onPaddleHit?.();
             g.particles?.spawnGodTierHit?.(g.aiPaddle.pos.x, ball.pos.y, g.aiPaddle.color, Math.hypot(vx, vy));
             g.audio?.hit?.(ball.lastImpact || 0.4, g.panFor(ball.pos.x), 'right');
             g.rallyCount++;
@@ -1517,7 +1516,7 @@
             const notes = {
                 classic: `${first} Power-ups follow the host's settings.`,
                 zombie: `${first} A straight duel in the graveyard: no waves, no power-ups.`,
-                gravity: `${first} Black holes bend the ball; slingshots score extra.`,
+                gravity: `${first} Black holes bend the ball across the court.`,
                 speed: `${first} The ball starts fast and speeds up with every hit.`,
                 obstacle: `${first} The course changes every 4 points.`,
                 customise: `Uses the host's Custom setup and Forge arena.`,

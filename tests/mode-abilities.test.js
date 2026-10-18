@@ -4,13 +4,15 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const diceSource = fs.readFileSync(path.join(__dirname, '../game/js/modes/obstacle-dice.js'), 'utf8');
+const warpSource = fs.readFileSync(path.join(__dirname, '../game/js/modes/gravity-wormhole.js'), 'utf8');
 const source = fs.readFileSync(path.join(__dirname, '../game/js/modes/mode-abilities.js'), 'utf8');
 class Ball {
     constructor(x, y, r) { this.pos = { x, y }; this.vel = { x: 0, y: 0 }; this.r = r; }
 }
-const context = { window: {}, Math, Ball, setTimeout };
+const context = { window: {}, Math, Ball, setTimeout, performance };
 vm.createContext(context);
 vm.runInContext(diceSource, context);
+vm.runInContext(warpSource, context);
 vm.runInContext(source, context);
 const ModeAbilities = context.window.ModeAbilities;
 
@@ -55,42 +57,90 @@ function game(mode) {
     assert.equal(ability.trigger('player'), false, 'parry cannot be spent too far from contact');
 }
 
+function gravityGame() {
+    const g = game('gravity');
+    const vec = (x, y) => ({ x, y, set(nx, ny) { this.x = nx; this.y = ny; } });
+    g.ball.pos = vec(260, 300);
+    g.ball.prev = vec(260, 300);
+    g.ball.vel = vec(-900, 0);
+    const well = (x, y) => ({ pos: { x, y }, radius: 90, active: true, flares: 0, flare() { this.flares++; } });
+    g.near = well(190, 310);
+    g.mid = well(560, 120);
+    g.far = well(820, 420);
+    g.gravityWells = [g.mid, g.near, g.far];
+    g.gravityWarp = new context.window.GravityWormhole(g);
+    return g;
+}
+const WARP = context.window.GravityWormhole;
+const runWarp = (g, ability) => {
+    for (let i = 0; i < 30; i++) { ability.update(1 / 60); g.gravityWarp.update(1 / 60); }
+};
+
 {
-    const wellSource = fs.readFileSync(path.join(__dirname, '../game/js/entities/gravity-well.js'), 'utf8');
-    const wellContext = {
-        window: { game: { width: 1000, height: 600 } },
-        Vec2: class { constructor(x, y) { this.x = x; this.y = y; } },
-        PhysicsCore: { gravityWell() { throw new Error('attraction used during polarity pulse'); } },
-        Math
-    };
-    vm.createContext(wellContext);
-    vm.runInContext(wellSource + '\nwindow.TestWell = GravityWell;', wellContext);
-    const well = new wellContext.window.TestWell(200, 300);
-    const ball = { pos: { x: 260, y: 300 }, vel: { x: 0, y: 0 } };
-    well.pulseRemaining = 0.62;
-    well.applyGravity(ball, 1 / 60, false);
-    assert.ok(ball.vel.x > 0, 'polarity pulse pushes the ball away from the well');
-    ball.pos.x = 200; ball.pos.y = 300; ball.vel.x = 100; ball.vel.y = 0;
-    well.applyGravity(ball, 1 / 60, false);
-    assert.ok(ball.vel.x > 100, 'pulse also works at the center of the well');
+    const g = gravityGame(), ability = new ModeAbilities(g);
+    assert.equal(ability.nearestWell(), g.near, 'the hole the ball is passing is the entry');
+    assert.equal(g.gravityWarp.exitFor('player', g.near), g.mid, 'the exit is the most forward hole that leaves the computer room');
+    assert.equal(g.gravityWarp.exitFor('ai', g.far), g.mid, 'player two exits toward player one the same way');
+    g.mid.pos.x = 400;
+    assert.equal(g.gravityWarp.exitFor('player', g.near), g.mid);
+    g.mid.pos.x = 560;
+    assert.equal(ability.trigger('player'), true);
+    assert.ok(g.gravityWarp.holdsBall(), 'the wormhole owns the ball while it warps');
+    assert.equal(g.ball.vel.x, 0, 'the ball stops moving on its own inside the hole');
+    for (let i = 0; i < 6; i++) g.gravityWarp.update(1 / 60);
+    assert.ok(Math.hypot(g.ball.pos.x - 190, g.ball.pos.y - 310) < 70, 'the ball spirals into the entry hole');
+    assert.ok(g.gravityWarp.ballScale() < 1, 'the ball shrinks as it is swallowed');
+    runWarp(g, ability);
+    assert.equal(g.gravityWarp.holdsBall(), false, 'the ball comes back out');
+    assert.ok(Math.hypot(g.ball.pos.x - 560, g.ball.pos.y - 120) < 90, 'it comes out of the exit hole');
+    assert.ok(g.ball.vel.x > 0, 'and flies at the computer goal');
+    assert.ok(Math.hypot(g.ball.vel.x, g.ball.vel.y) > 900 * 1.05, 'faster than it went in');
+    assert.ok(Math.abs(Math.atan2(g.ball.vel.y, g.ball.vel.x)) <= WARP.MAX_AIM + 1e-9, 'aim stays within the cone');
+    assert.equal(g.ball.warpCharge, 1, 'a warp makes the point worth one more');
+    assert.ok(g.gravityWarp.ignores(g.mid, g.ball), 'the exit hole lets go of the ball');
+    assert.equal(g.near.flares + g.mid.flares, 2, 'both holes flare');
+    assert.equal(ability.trigger('player'), false, 'cooldown blocks an immediate second warp');
+    assert.equal(g.gravityWarp.consumeGoalBonus(g.ball), 1, 'the bonus is cashed on a goal');
+    assert.equal(g.ball.warpCharge, 0);
 }
 
 {
-    const g = game('gravity');
-    const near = { pos: { x: 190, y: 310 }, radius: 90, active: true };
-    const far = { pos: { x: 800, y: 310 }, radius: 90, active: true };
-    g.gravityWells = [far, near];
-    const ability = new ModeAbilities(g);
-    assert.equal(ability.trigger('player'), true);
-    assert.equal(near.pulseRemaining, 0.62);
-    assert.equal(far.pulseRemaining, undefined);
-    ability.update(0.63);
-    assert.equal(near.pulseRemaining, 0);
-    g.ball.pos.x = 190; g.ball.pos.y = 310;
-    near.pulseRemaining = 0.2;
-    ability.update(3.5);
-    near.pulseRemaining = 0.2;
-    assert.equal(ability.trigger('player'), false, 'another well cannot steal the pulse while the nearest is active');
+    // With every other hole close to the computer, the ball leaves from the
+    // one that gives it the most room.
+    const g = gravityGame();
+    g.mid.pos.x = 900;
+    assert.equal(g.gravityWarp.exitFor('player', g.near), g.far);
+    g.gravityWells = [g.near];
+    assert.equal(g.gravityWarp.exitFor('player', g.near), g.near, 'a lone hole is its own exit');
+    // A new serve cancels a warp in progress.
+    g.gravityWells = [g.near, g.mid];
+    assert.equal(g.gravityWarp.start('player'), true);
+    g.serveHold = 0.5;
+    g.gravityWarp.update(1 / 60);
+    assert.equal(g.gravityWarp.holdsBall(), false);
+}
+
+{
+    const g = gravityGame(), ability = new ModeAbilities(g);
+    g.aiPaddle.pos.y = 40;
+    ability.trigger('player'); runWarp(g, ability);
+    assert.ok(g.ball.vel.y > 0, 'with their paddle high, the warp aims low');
+    g.ball.warpCharge = 2;
+    g.gravityWarp.emerge({ side: 'player', from: g.near, to: g.far, speed: 900 });
+    assert.equal(g.ball.warpCharge, 2, 'warp bonus stops at +2');
+}
+
+{
+    const g = gravityGame(), ability = new ModeAbilities(g);
+    g.ball.pos.x = 400; g.ball.pos.y = 450;
+    assert.equal(ability.nearestWell(), null);
+    assert.equal(ability.trigger('player'), false, 'no black hole in reach: the press is ignored, not spent');
+    assert.equal(ability.side('player').cooldown, 0);
+    g.ball.pos.x = 260; g.ball.pos.y = 300;
+    assert.equal(ability.trigger('ai'), false, 'the computer opponent never warps');
+    g.isMultiplayer = true;
+    assert.equal(ability.trigger('ai'), true, 'player two warps in a local match');
+    assert.equal(ability.trigger('player'), false, 'one warp at a time');
 }
 
 function obstacleGame() {

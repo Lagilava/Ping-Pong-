@@ -50,7 +50,10 @@ class AudioEngine {
     hit(strength = 0.5, pan = 0, side = 'left') {
         this.createOscillatorSound((side === 'right' ? 660 : 880) * (1 + strength * 0.3), 'square', 0.07, 0.25 + strength * 0.4);
     }
-    slingshot(charge = 1) {
+    warpIn() {
+        this.createOscillatorSound(180, 'sawtooth', 0.2, 0.18);
+    }
+    warpOut(charge = 1) {
         this.createOscillatorSound(charge >= 2 ? 1046.5 : 783.99, 'triangle', 0.18, 0.3);
     }
     bounce(strength = 0.4) { this.createOscillatorSound(440, 'sine', 0.05, 0.15 + strength * 0.25); }

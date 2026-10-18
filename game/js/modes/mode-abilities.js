@@ -1,11 +1,11 @@
 // Active abilities for the three arcade arenas. Timers use real game time so
 // Speed's brief time warp cannot extend its own parry window. Obstacle's
-// Lucky Dice lives in obstacle-dice.js; this class routes input and the HUD.
+// Lucky Dice lives in obstacle-dice.js and Gravity's Wormhole in
+// gravity-wormhole.js; this class routes input and the HUD.
 class ModeAbilities {
     static SPEED_WINDOW = 0.32;
     static SPEED_SLOW = 0.42;
-    static GRAVITY_WINDOW = 0.62;
-    static COOLDOWN = { speed: 2.3, gravity: 3.5, obstacle: 9 };
+    static COOLDOWN = { speed: 2.3, gravity: 6, obstacle: 9 };
 
     constructor(game) {
         this.game = game;
@@ -46,17 +46,8 @@ class ModeAbilities {
         return distance >= 0 && distance <= this.speedReach(side);
     }
     nearestWell() {
-        const ball = this.game.ball;
-        if (!ball) return null;
-        let nearest = null, distance = Infinity;
-        for (const well of this.game.gravityWells) {
-            if (!well.active) continue;
-            const d = Math.hypot(well.pos.x - ball.pos.x, well.pos.y - ball.pos.y);
-            if (d < distance) { distance = d; nearest = well; }
-        }
-        return nearest && distance <= nearest.radius * 2.25 ? nearest : null;
+        return this.game.gravityWarp?.nearestWell() || null;
     }
-
     trigger(side = 'player') {
         const g = this.game, b = g.ball, s = this.side(side);
         if (!this.enabled || !b?.pos || !s || s.cooldown > 0 || (side === 'ai' && !g.isMultiplayer)) return false;
@@ -68,12 +59,8 @@ class ModeAbilities {
             g.postFx?.ripple(paddle.pos.x, paddle.pos.y + paddle.h / 2, 0.35);
             g.audio?.createOscillatorSound?.(220, 'sine', 0.16, 0.12);
         } else if (g.gameMode === 'gravity') {
-            const nearest = this.nearestWell();
-            if (!nearest || nearest.pulseRemaining > 0) return false;
-            nearest.pulseRemaining = ModeAbilities.GRAVITY_WINDOW;
+            if (!g.gravityWarp?.start(side)) return false;
             s.cooldown = ModeAbilities.COOLDOWN.gravity;
-            g.postFx?.ripple(nearest.pos.x, nearest.pos.y, 0.65);
-            g.audio?.createOscillatorSound?.(330, 'triangle', 0.24, 0.18);
         } else if (g.gameMode === 'obstacle') {
             if (!this.dice?.roll(side)) return false;
             s.cooldown = ModeAbilities.COOLDOWN.obstacle;
@@ -104,9 +91,6 @@ class ModeAbilities {
             if (wasActive && s.active === 0 && this.game.gameMode === 'speed') s.miss = 0.45;
         }
         this.dice?.update(dt);
-        for (const well of this.game.gravityWells) {
-            if (well.pulseRemaining > 0) well.pulseRemaining = Math.max(0, well.pulseRemaining - dt);
-        }
         if (this.sonicMax && !this.sides.player.sonic && !this.sides.ai.sonic) {
             if (this.game.ball) this.game.ball.maxSpeed = this.sonicMax;
             this.sonicMax = 0;
@@ -221,49 +205,6 @@ class ModeAbilities {
         ctx.restore();
     }
 
-    renderGravityPulse(ctx, well, motion) {
-        const k = Math.max(0, well.pulseRemaining / ModeAbilities.GRAVITY_WINDOW);
-        const x = well.pos.x, y = well.pos.y, r = well.radius;
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        const halo = ctx.createRadialGradient(x, y, r * 0.45, x, y, r * 1.8);
-        halo.addColorStop(0, 'rgba(47, 160, 203, 0)');
-        halo.addColorStop(0.48, `rgba(44, 218, 255, ${0.18 * k})`);
-        halo.addColorStop(0.76, `rgba(70, 185, 255, ${0.09 * k})`);
-        halo.addColorStop(1, 'rgba(70, 185, 255, 0)');
-        ctx.fillStyle = halo;
-        ctx.beginPath(); ctx.arc(x, y, r * 1.8, 0, Math.PI * 2); ctx.fill();
-        const sweep = motion ? this.clock * 0.85 : 0;
-        for (let ring = 0; ring < 2; ring++) {
-            const rr = r * (1.08 + ring * 0.30 + (1 - k) * 0.12);
-            ctx.strokeStyle = ring === 0 ? `rgba(207, 255, 255, ${0.84 * k})` : `rgba(78, 222, 255, ${0.52 * k})`;
-            ctx.lineWidth = ring === 0 ? 3.5 : 1.8;
-            ctx.shadowColor = '#68efff'; ctx.shadowBlur = ring === 0 ? 18 : 5;
-            for (let segment = 0; segment < 4; segment++) {
-                const a = segment * Math.PI / 2 + sweep * (ring ? -1 : 1);
-                ctx.beginPath(); ctx.arc(x, y, rr, a, a + Math.PI * 0.30); ctx.stroke();
-            }
-        }
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = `rgba(175, 250, 255, ${0.72 * k})`;
-        ctx.lineWidth = 2;
-        for (let i = 0; i < 10; i++) {
-            const a = i * Math.PI / 5 + (motion ? this.clock * 0.18 : 0);
-            const inner = r * (1.03 + (1 - k) * 0.10);
-            const outer = inner + 12 + 24 * (1 - k);
-            const nx = Math.cos(a), ny = Math.sin(a);
-            ctx.beginPath(); ctx.moveTo(x + nx * inner, y + ny * inner);
-            ctx.lineTo(x + nx * outer, y + ny * outer); ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(x + nx * outer, y + ny * outer);
-            ctx.lineTo(x + nx * (outer - 7) - ny * 4, y + ny * (outer - 7) + nx * 4);
-            ctx.moveTo(x + nx * outer, y + ny * outer);
-            ctx.lineTo(x + nx * (outer - 7) + ny * 4, y + ny * (outer - 7) - nx * 4);
-            ctx.stroke();
-        }
-        ctx.restore();
-    }
-
     renderBurst(ctx, s, color, duration, motion) {
         if (s.burst <= 0) return;
         const k = s.burst / duration, x = s.burstX, y = s.burstY;
@@ -304,18 +245,9 @@ class ModeAbilities {
             }
         }
         if (mode === 'gravity') {
-            const target = this.nearestWell();
-            if (target && this.sides.player.cooldown <= 0 && !target.pulseRemaining) {
-                ctx.save(); ctx.globalAlpha = 0.48;
-                ctx.strokeStyle = '#80e9ff'; ctx.lineWidth = 1.4; ctx.setLineDash([5, 9]);
-                ctx.lineDashOffset = motion ? -this.clock * 24 : 0;
-                ctx.beginPath(); ctx.arc(target.pos.x, target.pos.y, target.radius * 1.35, 0, Math.PI * 2); ctx.stroke();
-                ctx.restore();
-            }
-            for (const well of g.gravityWells) {
-                if (!(well.pulseRemaining > 0)) continue;
-                this.renderGravityPulse(ctx, well, motion);
-            }
+            const ready = ['player', 'ai'].filter(side => (side === 'player' || g.isMultiplayer)
+                && this.sides[side].cooldown <= 0 && this.enabled);
+            g.gravityWarp?.render(ctx, motion, ready);
         }
         ctx.restore();
     }
@@ -325,7 +257,7 @@ class ModeAbilities {
     renderHud(ctx) {
         const g = this.game, mode = g.gameMode;
         if (!['speed', 'gravity', 'obstacle'].includes(mode) || g.net) return;
-        const color = mode === 'speed' ? '#7cf4ff' : mode === 'gravity' ? '#8deeff' : '#ffd477';
+        const color = mode === 'speed' ? '#7cf4ff' : mode === 'gravity' ? '#c3b0ff' : '#ffd477';
         ctx.save();
         for (const side of ['player', 'ai']) {
             if (side === 'ai' && !g.isMultiplayer) continue;
@@ -337,8 +269,9 @@ class ModeAbilities {
                 : window.PPSettings?.keyLabel(bound || (side === 'player' ? ' ' : 'enter')) || (side === 'player' ? 'Space' : 'Enter');
             const dice = mode === 'obstacle' ? this.dice?.status(side) : null;
             const inRange = mode === 'speed' ? this.speedInRange(side) : mode === 'gravity' ? !!this.nearestWell() : false;
-            const label = mode === 'speed' ? 'OVERCHARGE' : mode === 'gravity' ? 'POLARITY' : 'LUCKY DICE';
-            const status = dice ? dice.text : s.active > 0 ? 'ACTIVE' : s.miss > 0 ? 'MISSED' : ready ? (inRange ? 'PRESS NOW' : (mode === 'obstacle' ? 'READY TO ROLL' : 'READY')) : `${s.cooldown.toFixed(1)}s`;
+            const label = mode === 'speed' ? 'OVERCHARGE' : mode === 'gravity' ? 'WORMHOLE' : 'LUCKY DICE';
+            const warping = mode === 'gravity' && g.gravityWarp?.warp?.side === side;
+            const status = dice ? dice.text : warping ? 'WARPING' : s.active > 0 ? 'ACTIVE' : s.miss > 0 ? 'MISSED' : ready ? (inRange ? 'PRESS NOW' : (mode === 'obstacle' ? 'READY TO ROLL' : 'READY')) : `${s.cooldown.toFixed(1)}s`;
             const pillW = Math.min(236, g.width * (g.isMultiplayer ? 0.38 : 0.48));
             const pillH = Math.max(38, Math.min(48, g.height * 0.071));
             const pillX = side === 'player' ? 20 : g.width - pillW - 20;

@@ -19,7 +19,7 @@
 
     const ICONS = {
         speed: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>',
-        gravity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5a8.5 8.5 0 1 1-8.2 6.3M12 7a5 5 0 1 1-4.7 3.3" fill="none" stroke-width="2" stroke-linecap="round"/></svg>',
+        gravity: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.5" cy="15.5" r="2.6"/><circle cx="17.5" cy="8.5" r="2.6"/><path d="M6.5 10.4a5.1 5.1 0 1 0 5 6M17.5 13.6a5.1 5.1 0 1 0-5-6M9 13c2-1 4-2 6-2" fill="none" stroke-width="1.9" stroke-linecap="round"/></svg>',
         obstacle: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke-width="2.2"/><circle cx="8.5" cy="8.5" r="1.7"/><circle cx="15.5" cy="15.5" r="1.7"/><circle cx="12" cy="12" r="1.7"/></svg>',
         zombie: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v8a6 6 0 0 0 12 0V4h-4v8a2 2 0 0 1-4 0V4z"/><path d="M6 4h4M14 4h4" fill="none" stroke-width="2"/></svg>'
     };
@@ -32,9 +32,9 @@
             pc: 'Press it just before the ball reaches your paddle. Time slows, and your return leaves as a faster Sonic Return.'
         },
         gravity: {
-            name: 'Polarity', hold: false,
-            touch: 'Tap it while the ball passes near a black hole to pulse that hole and bend the shot.',
-            pc: 'Press it while the ball passes near a black hole to pulse that hole and bend the shot.'
+            name: 'Wormhole', hold: false,
+            touch: 'Tap it as the ball passes a black hole. The hole swallows the ball and fires it from another black hole at your opponent\'s goal. Each warp makes the point worth one more.',
+            pc: 'Press it as the ball passes a black hole. The hole swallows the ball and fires it from another black hole at your opponent\'s goal. Each warp makes the point worth one more.'
         },
         obstacle: {
             name: 'Lucky Dice', hold: false,
