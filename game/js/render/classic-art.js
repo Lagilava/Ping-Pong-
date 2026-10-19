@@ -498,7 +498,7 @@
                 bowlTop: '#2a0a18', bowlBottom: '#3a0e20', lit: 0.55, haze: 0.2, arms: 0.05, phones: 0.03,
                 aisles: [0.08, 0.24, 0.41, 0.59, 0.76, 0.92],
             });
-            // Bake the banners into the base on low quality / reduced motion.
+            // Bake the banners into the base on low quality.
             // Otherwise reuse a single tightly bounded sprite, including wires.
             this.banner = null;
             if (ambient) {
@@ -550,8 +550,9 @@
 
         /** @param st {dt, rally, score} */
         draw(ctx, w, h, st) {
-            const ambient = !window.PPSettings?.get('reduceMotion')
-                && (typeof PerfGovernor === 'undefined' || PerfGovernor.tier < 2);
+            // This quiet ambient layer stays alive with Reduce Motion enabled.
+            // Quality tiers still govern its rendering cost independently.
+            const ambient = typeof PerfGovernor === 'undefined' || PerfGovernor.tier < 2;
             this._bake(ctx, w, h, ambient);
             const L = this.L;
             const dt = Math.max(0, Math.min(0.1, st.dt || 0));
