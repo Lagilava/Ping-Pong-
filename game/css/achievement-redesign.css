@@ -106,3 +106,19 @@ body .xbox-gamerscore { color:#f8d58c; }
 @media (max-width:540px) { .achievement-summary-content { padding:18px; } .summary-heading { flex-wrap:wrap; } .summary-heading h3 { font-size:19px; } .summary-item { gap:9px; padding:10px; } .summary-icon { width:39px; height:39px; flex-basis:39px; } .summary-icon .pp-achievement-svg { width:23px; height:23px; } .summary-footer { flex-direction:column; align-items:stretch; } .summary-continue { width:100%; } }
 /* achievement-toasts.css hides old .summary-item rows (opacity 0) and turns animation off under reduced motion, so keep rows visible here. */
 @media (prefers-reduced-motion:reduce) { .summary-item { animation:none; opacity:1; transform:none; } .achievement-summary-modal,.achievement-summary-content { transition:none; } }
+
+/* Detail popup: compact round close button, header clears it */
+.achievement-detail-card .achievement-detail-close {
+    width: 30px; height: 30px; min-width: 0; padding: 0;
+    right: 14px; top: 14px; border-radius: 50%;
+    font-size: 0; display: grid; place-items: center;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16);
+    color: rgba(255,255,255,.8); transition: background .15s, color .15s, transform .15s;
+}
+.achievement-detail-card .achievement-detail-close:hover { background: rgba(255,255,255,.16); color: #fff; transform: none; }
+.achievement-detail-card .achievement-detail-close:focus-visible { outline: 2px solid #00ffd6; outline-offset: 2px; }
+.achievement-detail-card .achievement-detail-header { padding-right: 40px; }
+.achievement-detail-card .achievement-detail-header h4 { margin: 0 0 4px; line-height: 1.2; }
+.achievement-detail-card .achievement-detail-section + .achievement-detail-section { margin-top: 12px; }
+.achievement-detail-card .achievement-detail-section h5 { margin: 0 0 6px; letter-spacing: .12em; text-transform: uppercase; font-size: .7rem; opacity: .7; }
+.achievement-detail-card .achievement-detail-section p { margin: 0; line-height: 1.45; }

@@ -14,70 +14,70 @@ class ProgressionSystem {
             firstBlood: {
                 name: 'First Blood',
                 description: 'Score your first point in any match.',
-                joke: 'Congrats, you discovered that the ball can, in fact, cross the line.',
+                joke: "One point. Statistically, you were due.",
                 unlocked: false
             },
 
             comeback: {
                 name: 'The Comeback',
                 description: 'Win a match after trailing by 3 or more points.',
-                joke: 'You were losing for dramatic effect. Totally planned.',
+                joke: "Down three and you still showed up. Your therapist calls that 'denial'. We call it a win.",
                 unlocked: false
             },
 
             perfectGame: {
                 name: 'Perfect Game',
                 description: 'Win a match while conceding 0 points.',
-                joke: 'The opponent filed a missing persons report for their offense.',
+                joke: "Shutout. Your opponent's offense has been reported missing and nobody is looking.",
                 unlocked: false
             },
 
             speedDemon: {
                 name: 'Speed Demon',
                 description: 'Reach ball speed of 1000 in a match.',
-                joke: 'Blink and you miss it. Blink twice and it already scored.',
+                joke: "The ball hit 1000. Your reaction time hit 'unsubscribe'.",
                 unlocked: false
             },
 
             rallyMaster: {
                 name: 'Rally Master',
                 description: 'Reach a rally of 20 hits in a match.',
-                joke: 'At this point it is less a rally and more a custody battle.',
+                joke: "Twenty hits. You two should be married by now. Or at least sign a lease.",
                 unlocked: false
             },
 
             powerPlayer: {
                 name: 'Power Player',
                 description: 'Use 8 power-ups in total.',
-                joke: 'Raw skill is cool, but random glowing buffs are cooler.',
+                joke: "Eight power-ups. Skill is overrated. Glow sticks are not.",
                 unlocked: false
             },
 
             obstacleCourse: {
                 name: 'Obstacle Course',
                 description: 'Win 1 match in obstacle mode.',
-                joke: 'You beat both the opponent and the furniture.',
+                joke: "You beat the opponent and the furniture. Marie Kondo is concerned.",
                 unlocked: false
             },
 
             gravityMaster: {
                 name: 'Gravity Master',
                 description: 'Win 1 match in gravity mode.',
-                joke: 'Newton would like to unsubscribe from this timeline.',
+                joke: "Won on gravity. Newton wants a word, and a refund.",
                 unlocked: false
             },
 
             zombieSurvivor: {
                 name: 'Zombie Survivor',
                 description: 'Survive a full zombie match.',
-                joke: 'You survived. Brain cells uncertain.',
+                joke: "You survived the zombies. Brain cells: unconfirmed.",
                 unlocked: false
             },
 
             zombieWaveRunner: {
                 name: 'Wave Runner',
                 description: 'Clear 5 zombie waves.',
-                joke: 'You turned wave clearance into a habit.',
+                joke: "Five waves. The undead have a Slack channel about you.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 5
@@ -86,7 +86,7 @@ class ProgressionSystem {
             zombieShieldBearer: {
                 name: 'Shield Bearer',
                 description: 'Block 3 zombie attacks with Shield.',
-                joke: 'Your shield has seen things and survived them.',
+                joke: "Three bites blocked. Your shield has more boundaries than you do.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 3
@@ -95,7 +95,7 @@ class ProgressionSystem {
             zombieTactician: {
                 name: 'Zombie Tactician',
                 description: 'Choose 5 wave rewards.',
-                joke: 'Strategic greed is still strategy.',
+                joke: "Five reward picks. Strategic greed, aka every 401k decision ever.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 5
@@ -104,70 +104,70 @@ class ProgressionSystem {
             speedRunner: {
                 name: 'Speed Runner',
                 description: 'Win 1 match in speed mode.',
-                joke: 'Your strategy: panic, but in high definition.',
+                joke: "Won in Speed. Your strategy was panic with better frame rates.",
                 unlocked: false
             },
 
             speedChallenger: {
                 name: 'Speed Challenger',
                 description: 'Reach 8 hits in 3 Speed Mode rallies.',
-                joke: 'You kept up when the ball stopped asking politely.',
+                joke: "Three fast rallies. The ball stopped asking nicely and you adapted. Proud of you, sort of.",
                 unlocked: false
             },
 
             speedMaster: {
                 name: 'Speed Master',
                 description: 'Reach 8 hits in 7 Speed Mode rallies.',
-                joke: 'Your reaction time now qualifies as suspicious.',
+                joke: "Seven rallies at speed. Your reaction time is now statistically suspicious.",
                 unlocked: false
             },
 
             pongOverlord: {
                 name: 'Pong Overlord',
                 description: 'Reach level 2.',
-                joke: 'One level gained and the ego patch is already installed.',
+                joke: "Level 2. Humble beginnings. The ego patch was auto-installed.",
                 unlocked: false
             },
 
             chaoticSpeed: {
                 name: 'Chaotic Speed',
                 description: 'Reach level 3.',
-                joke: 'Control is temporary, chaos is forever.',
+                joke: "Level 3. Control is a social construct anyway.",
                 unlocked: false
             },
 
             spaghettiHands: {
                 name: 'Spaghetti Hands',
                 description: 'Reach level 4.',
-                joke: 'Motor skills are optional when confidence is maxed.',
+                joke: "Level 4. Zero fine motor skills, maximum confidence. Very LinkedIn.",
                 unlocked: false
             },
 
             laserFocus: {
                 name: 'Laser Focus',
                 description: 'Reach level 7.',
-                joke: 'You ignored the world and married the ball trajectory.',
+                joke: "Level 7. You ignored the world for a ball. Relatable, and a little sad.",
                 unlocked: false
             },
 
             brainMelter: {
                 name: 'Brain Melter',
                 description: 'Reach level 10.',
-                joke: 'Therapist: show me where the velocity touched you.',
+                joke: "Level 10. Therapist: 'And where did the velocity touch you?'",
                 unlocked: false
             },
 
             level10: {
                 name: 'Veteran',
                 description: 'Reach level 5.',
-                joke: 'Five levels in and already giving unsolicited tips.',
+                joke: "Level 5. Already giving unsolicited tips. You'll go far in middle management.",
                 unlocked: false
             },
 
             unstoppable: {
                 name: 'Unstoppable',
                 description: 'Win 4 matches in a row.',
-                joke: 'Momentum acquired. Humility misplaced.',
+                joke: "Four wins straight. Humility has been moved to 'Spam'.",
                 unlocked: false
             },
 
@@ -175,7 +175,7 @@ class ProgressionSystem {
             multiBallMaster: {
                 name: 'Multi-Ball Master',
                 description: 'Handle 3 extra balls in total.',
-                joke: 'One ball was too mainstream for your brand.',
+                joke: "Three extra balls. One was too mainstream for your brand.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 3
@@ -184,7 +184,7 @@ class ProgressionSystem {
             ghostBallSurvivor: {
                 name: 'Ghost Ball Survivor',
                 description: 'Survive 60 seconds with ghost ball active.',
-                joke: 'You fought what you could not really see. Very normal behavior.',
+                joke: "Sixty seconds of fighting something invisible. Very normal behavior. Tell no one.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 60 // seconds
@@ -193,7 +193,7 @@ class ProgressionSystem {
             timeWarpWizard: {
                 name: 'Time Warp Wizard',
                 description: 'Use time warp 6 times.',
-                joke: 'You bent time and still almost fumbled.',
+                joke: "Bent time six times. Still showed up late to your own match.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 6
@@ -202,7 +202,7 @@ class ProgressionSystem {
             magnetMaster: {
                 name: 'Magnet Master',
                 description: 'Attract the ball 15 times with magnet paddle.',
-                joke: 'Physics called. It wants its integrity back.',
+                joke: "Fifteen magnet pulls. It's not cheating, it's emotional manipulation.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 15
@@ -211,7 +211,7 @@ class ProgressionSystem {
             powerUpCollector: {
                 name: 'Power-Up Collector',
                 description: 'Use 25 power-ups.',
-                joke: 'You collect buffs like a dragon hoards treasure.',
+                joke: "Twenty-five power-ups. You collect buffs like other people collect unread newsletters.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 25
@@ -220,7 +220,7 @@ class ProgressionSystem {
             rallyLegend: {
                 name: 'Rally Legend',
                 description: 'Reach a rally of 15 hits.',
-                joke: 'At this length it counts as cardio and emotional damage.',
+                joke: "Fifteen hits. Cardio and emotional damage, in one convenient package.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 15
@@ -229,7 +229,7 @@ class ProgressionSystem {
             speedLegend: {
                 name: 'Speed Legend',
                 description: 'Reach ball speed of 1400 units.',
-                joke: 'You were no longer playing Pong. You were forecasting weather.',
+                joke: "1400 units. You weren't playing Pong anymore, you were doing meteorology.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 1400
@@ -238,7 +238,7 @@ class ProgressionSystem {
             obstacleNavigator: {
                 name: 'Obstacle Navigator',
                 description: 'Win 3 obstacle mode matches.',
-                joke: 'Congratulations on your diploma in traffic cone studies.',
+                joke: "Three obstacle wins. A degree in traffic-cone studies. Parents must be thrilled.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 3
@@ -247,7 +247,7 @@ class ProgressionSystem {
             gravityDefier: {
                 name: 'Gravity Defier',
                 description: 'Win 2 gravity mode matches.',
-                joke: 'Gravity had one job and still lost.',
+                joke: "Two gravity wins. Gravity had one job.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 2
@@ -256,7 +256,7 @@ class ProgressionSystem {
             gameStarter: {
                 name: 'Getting Started',
                 description: 'Play 3 matches.',
-                joke: 'Three matches in and already writing your memoir.',
+                joke: "Three matches in. Not an addiction. A 'healthy interest'. Sure.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 3
@@ -265,7 +265,7 @@ class ProgressionSystem {
             regularPlayer: {
                 name: 'Regular Player',
                 description: 'Play 10 matches.',
-                joke: 'You do this often enough to worry your calendar.',
+                joke: "Ten matches. Your calendar has started leaving you voicemails.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 10
@@ -274,7 +274,7 @@ class ProgressionSystem {
             marathonSession: {
                 name: 'Marathon Session',
                 description: 'Play 25 matches.',
-                joke: 'Hydration optional, rematch mandatory.',
+                joke: "Twenty-five matches. Hydration optional, rematch mandatory, boundaries nonexistent.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 25
@@ -283,7 +283,7 @@ class ProgressionSystem {
             tenWins: {
                 name: 'Ten Wins',
                 description: 'Win 10 matches.',
-                joke: 'A double-digit number, finally proof for the doubters.',
+                joke: "Ten wins. Double digits. Your mom has already told the family group chat.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 10
@@ -292,7 +292,7 @@ class ProgressionSystem {
             twentyWins: {
                 name: 'Twenty Wins',
                 description: 'Win 20 matches.',
-                joke: 'At this point, the AI knows your footsteps.',
+                joke: "Twenty wins. The AI now recognizes your footsteps and dreads Mondays.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 20
@@ -301,7 +301,7 @@ class ProgressionSystem {
             pointCollector: {
                 name: 'Point Collector',
                 description: 'Score 50 points total.',
-                joke: 'Every point carefully harvested from the fields of chaos.',
+                joke: "Fifty points. Slowly, quietly, you became a problem.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 50
@@ -310,7 +310,7 @@ class ProgressionSystem {
             pointBank: {
                 name: 'Point Bank',
                 description: 'Score 150 points total.',
-                joke: 'Interest rate: one panic rally per minute.',
+                joke: "150 points banked. Interest rate: one panic rally per minute.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 150
@@ -319,7 +319,7 @@ class ProgressionSystem {
             closeCallWinner: {
                 name: 'Close Call',
                 description: 'Win 2 matches by one point.',
-                joke: 'Victory by exactly one heartbeat.',
+                joke: "Two one-point wins. Your heart is filing for worker's comp.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 2
@@ -328,7 +328,7 @@ class ProgressionSystem {
             dominantDisplay: {
                 name: 'Dominant Display',
                 description: 'Win 3 matches by 5+ points.',
-                joke: 'You call it balance. The scoreboard disagrees.',
+                joke: "Three blowouts. The scoreboard called it 'a bit much'.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 3
@@ -337,7 +337,7 @@ class ProgressionSystem {
             tidyDefense: {
                 name: 'Tidy Defense',
                 description: 'Win 3 matches while allowing 2 or fewer points.',
-                joke: 'You allowed exactly enough hope to keep it interesting.',
+                joke: "Three near-shutouts. You let in just enough hope to keep it legal.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 3
@@ -346,7 +346,7 @@ class ProgressionSystem {
             modeExplorer: {
                 name: 'Mode Explorer',
                 description: 'Win in 2 different special modes.',
-                joke: 'Tourist behavior, but with competitive intent.',
+                joke: "Two modes won. Tourist behavior, but with competitive intent and no souvenirs.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 2
@@ -355,19 +355,19 @@ class ProgressionSystem {
             modeConqueror: {
                 name: 'Mode Conqueror',
                 description: 'Win in all 4 special modes.',
-                joke: 'You touched every mode and left fingerprints everywhere.',
+                joke: "All four special modes. You've left fingerprints on everything. Wipe that down.",
                 unlocked: false,
                 progress: 0,
                 maxProgress: 4
             },
-            fiveWins: { name: 'On a Roll', description: 'Win 5 matches.', joke: 'The rematch button is getting nervous.', unlocked: false, progress: 0, maxProgress: 5 },
-            fiftyWins: { name: 'Arena Legend', description: 'Win 50 matches.', joke: 'The arena knows your name now.', unlocked: false, progress: 0, maxProgress: 50 },
-            hundredMatches: { name: 'Centurion', description: 'Play 100 matches.', joke: 'You have officially made this a lifestyle.', unlocked: false, progress: 0, maxProgress: 100 },
-            fiveHundredPoints: { name: 'Point Machine', description: 'Score 500 points total.', joke: 'The scoreboard has run out of excuses.', unlocked: false, progress: 0, maxProgress: 500 },
-            clutchKing: { name: 'Clutch King', description: 'Win 10 matches by one point.', joke: 'Every win comes with a side of palpitations.', unlocked: false, progress: 0, maxProgress: 10 },
-            powerSurge: { name: 'Power Surge', description: 'Use 50 power-ups.', joke: 'At this point you might be made of electricity.', unlocked: false, progress: 0, maxProgress: 50 },
-            modeVeteran: { name: 'Mode Veteran', description: 'Win in 3 different special modes.', joke: 'You have a favorite mode, but will not admit it.', unlocked: false, progress: 0, maxProgress: 3 },
-            speedAddict: { name: 'Speed Addict', description: 'Reach 8 hits in 15 Speed Mode rallies.', joke: 'You now measure time in near misses.', unlocked: false, progress: 0, maxProgress: 15 }
+            fiveWins: { name: 'On a Roll', description: 'Win 5 matches.', joke: "Five wins. The rematch button is getting nervous.", unlocked: false, progress: 0, maxProgress: 5 },
+            fiftyWins: { name: 'Arena Legend', description: 'Win 50 matches.', joke: "Fifty wins. The arena knows your name. It doesn't like it.", unlocked: false, progress: 0, maxProgress: 50 },
+            hundredMatches: { name: 'Centurion', description: 'Play 100 matches.', joke: "One hundred matches. This isn't a hobby anymore, it's a personality. Seek help, or keep going.", unlocked: false, progress: 0, maxProgress: 100 },
+            fiveHundredPoints: { name: 'Point Machine', description: 'Score 500 points total.', joke: "Five hundred points. The scoreboard has officially run out of excuses.", unlocked: false, progress: 0, maxProgress: 500 },
+            clutchKing: { name: 'Clutch King', description: 'Win 10 matches by one point.', joke: "Ten one-point wins. Every victory comes with a free side of palpitations.", unlocked: false, progress: 0, maxProgress: 10 },
+            powerSurge: { name: 'Power Surge', description: 'Use 50 power-ups.', joke: "Fifty power-ups. You may be legally classified as a battery.", unlocked: false, progress: 0, maxProgress: 50 },
+            modeVeteran: { name: 'Mode Veteran', description: 'Win in 3 different special modes.', joke: "Three modes won. You have a favorite, you just won't say it out loud.", unlocked: false, progress: 0, maxProgress: 3 },
+            speedAddict: { name: 'Speed Addict', description: 'Reach 8 hits in 15 Speed Mode rallies.', joke: "Fifteen fast rallies. You now measure time in near misses. Please blink.", unlocked: false, progress: 0, maxProgress: 15 }
         };
 
 
@@ -1281,7 +1281,7 @@ class ProgressionSystem {
 
         modal.innerHTML = `
             <div class="achievement-detail-card" role="dialog" aria-modal="true" aria-label="Achievement details">
-                <button class="achievement-detail-close" aria-label="Close">×</button>
+                <button class="achievement-detail-close" aria-label="Close"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg></button>
                 <div class="achievement-detail-header">
                     <div class="achievement-detail-icon">${ppAchievementIcon(achievementId)}</div>
                     <div>
