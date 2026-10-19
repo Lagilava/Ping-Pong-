@@ -1723,6 +1723,23 @@ class BackgroundRenderer {
         chapel.closePath();
         zctx.fill(chapel);
         zctx.stroke(chapel);
+        // Chiselled stone courses stay inside the ruined silhouette.
+        zctx.save(); zctx.clip(chapel);
+        const masonry = zctx.createLinearGradient(-115, -100, 92, -100);
+        masonry.addColorStop(0, 'rgba(73,102,108,0.15)');
+        masonry.addColorStop(0.65, 'rgba(7,18,23,0)');
+        masonry.addColorStop(1, 'rgba(119,153,143,0.2)');
+        zctx.fillStyle = masonry; zctx.fillRect(-125, -240, 230, 245);
+        zctx.strokeStyle = 'rgba(112,140,136,0.16)'; zctx.lineWidth = 0.8;
+        zctx.beginPath();
+        for (let row = 0; row < 19; row++) {
+            const y = -8 - row * 12;
+            zctx.moveTo(-120, y); zctx.lineTo(100, y);
+            for (let x = -120 + row % 2 * 15; x < 100; x += 30) {
+                zctx.moveTo(x, y); zctx.lineTo(x, y - 12);
+            }
+        }
+        zctx.stroke(); zctx.restore();
         // Buttresses and a roofless side wall add readable depth in silhouette.
         zctx.fillStyle = this._modeColor('#060e15', '#041712');
         for (const x of [-104, -25, 13, 78]) {
@@ -1785,55 +1802,108 @@ class BackgroundRenderer {
         zctx.lineTo(-76, -82);
         zctx.stroke();
         zctx.restore();
-        // Two silhouette depths: far graves are lifted by the backlight;
-        // nearer headstones and bare branches cut sharply across it.
+        // Hand-drawn cemetery silhouettes, baked once with the scenery.
+        // Detail is concentrated below the ball lane and at the outer edges.
         for (let layer = 0; layer < 2; layer++) {
             const baseY = h * (0.73 + layer * 0.12);
-            zctx.fillStyle = layer ? '#050c10' : this._modeColor('#172b33', '#174039');
-            zctx.strokeStyle = layer ? '#09151b' : '#253d46';
-            zctx.lineWidth = Math.max(1, unit * 0.002);
             for (let i = 0; i < 14; i++) {
                 const x = w * ((i + 0.35 + layer * 0.25) / 14);
-                const height = unit * (0.032 + (i % 4) * 0.012) * (1 + layer * 0.35);
-                const width = height * 0.43;
+                const size = unit * (0.042 + (i % 4) * 0.012) * (1 + layer * 0.35);
                 zctx.save();
                 zctx.translate(x, baseY + Math.sin(i * 2.7) * h * 0.014);
-                zctx.rotate(Math.sin(i * 9) * 0.15);
+                zctx.rotate(Math.sin(i * 9) * 0.13);
+                zctx.scale(size / 80, size / 80);
+                const stone = new Path2D();
+                const type = i % 4;
+                if (type === 0) {
+                    // A chipped Celtic cross with a heavy stone plinth.
+                    stone.moveTo(-7, 0); stone.lineTo(-7, -43);
+                    stone.lineTo(-23, -43); stone.lineTo(-23, -57);
+                    stone.lineTo(-7, -57); stone.lineTo(-7, -78);
+                    stone.lineTo(7, -78); stone.lineTo(7, -57);
+                    stone.lineTo(21, -57); stone.lineTo(23, -52);
+                    stone.lineTo(23, -43); stone.lineTo(7, -43); stone.lineTo(7, 0);
+                } else if (type === 1) {
+                    stone.moveTo(-23, 0); stone.lineTo(-23, -55);
+                    stone.bezierCurveTo(-23, -86, 23, -86, 23, -55);
+                    stone.lineTo(23, 0);
+                } else if (type === 2) {
+                    // Broken shoulder and missing corner, not another oval.
+                    stone.moveTo(-24, 0); stone.lineTo(-24, -65);
+                    stone.lineTo(-14, -78); stone.lineTo(4, -78);
+                    stone.lineTo(8, -69); stone.lineTo(17, -73);
+                    stone.lineTo(24, -61); stone.lineTo(24, 0);
+                } else {
+                    stone.moveTo(-21, 0); stone.lineTo(-21, -59);
+                    stone.lineTo(-28, -59); stone.lineTo(-28, -65);
+                    stone.quadraticCurveTo(0, -91, 28, -65);
+                    stone.lineTo(28, -59); stone.lineTo(21, -59); stone.lineTo(21, 0);
+                }
+                stone.closePath();
+                const face = zctx.createLinearGradient(-28, -70, 28, 0);
+                face.addColorStop(0, layer ? '#1c3034' : this._modeColor('#31474b', '#2b5149'));
+                face.addColorStop(1, layer ? '#071216' : '#14292c');
+                zctx.fillStyle = face; zctx.fill(stone);
+                zctx.strokeStyle = layer ? '#405456' : '#52706e';
+                zctx.lineWidth = 1.1; zctx.stroke(stone);
+                // Inset carving, eroded epitaph and fractured face.
+                zctx.save(); zctx.clip(stone);
+                zctx.strokeStyle = 'rgba(3,12,15,0.75)'; zctx.lineWidth = 2;
+                zctx.strokeRect(-16, -61, 32, 53);
                 zctx.beginPath();
-                zctx.moveTo(-width / 2, 0);
-                zctx.lineTo(-width / 2, -height + width / 2);
-                zctx.arc(0, -height + width / 2, width / 2, Math.PI, Math.PI * 2);
-                zctx.lineTo(width / 2, 0);
-                zctx.closePath();
-                zctx.fill();
-                // Thin cold edge, no shadowBlur or extra compositing layer.
-                zctx.stroke();
+                zctx.moveTo(0, -57); zctx.lineTo(0, -41);
+                zctx.moveTo(-6, -51); zctx.lineTo(6, -51);
+                zctx.moveTo(-10, -30); zctx.lineTo(10, -30);
+                zctx.moveTo(-7, -25); zctx.lineTo(7, -25);
+                zctx.moveTo(-5, -20); zctx.lineTo(5, -20);
+                zctx.moveTo(14, -76); zctx.lineTo(7, -62);
+                zctx.lineTo(12, -53); zctx.lineTo(6, -43); zctx.stroke();
+                zctx.fillStyle = 'rgba(73,91,60,0.38)';
+                for (let m = 0; m < 5; m++) {
+                    zctx.beginPath(); zctx.ellipse(-17 + m * 8, -5 - (m % 3) * 3, 6, 4, m, 0, Math.PI * 2); zctx.fill();
+                }
                 zctx.restore();
-            }
-            zctx.fillRect(0, baseY, w, h - baseY);
-        }
-        // Crooked trees frame the edges rather than crossing the ball lane.
-        for (const [xf, lean] of [[0.055, 1], [0.94, -1]]) {
-            const x = w * xf, y = h * 0.8;
-            zctx.strokeStyle = '#060e14';
-            zctx.lineCap = 'round';
-            zctx.lineWidth = unit * 0.015;
-            zctx.beginPath();
-            zctx.moveTo(x, y);
-            zctx.bezierCurveTo(x - lean * w * 0.025, h * 0.61, x + lean * w * 0.025, h * 0.38, x + lean * w * 0.012, h * 0.12);
-            zctx.stroke();
-            zctx.lineWidth = unit * 0.005;
-            for (let i = 0; i < 5; i++) {
-                const by = h * (0.24 + i * 0.075);
-                const side = i % 2 ? -1 : 1;
+                zctx.fillStyle = layer ? '#0a171a' : '#203638';
+                zctx.fillRect(-29, -3, 58, 8);
+                zctx.fillStyle = 'rgba(107,134,123,0.25)'; zctx.fillRect(-29, -3, 58, 1.5);
+                // Sparse grass tufts anchor each marker into the earth.
+                zctx.strokeStyle = '#0a191b'; zctx.lineWidth = 1.8;
                 zctx.beginPath();
-                zctx.moveTo(x, by + h * 0.08);
-                zctx.lineTo(x + side * w * 0.045, by);
-                zctx.lineTo(x + side * w * 0.068, by - h * 0.06);
-                zctx.moveTo(x + side * w * 0.045, by);
-                zctx.lineTo(x + side * w * 0.08, by - h * 0.015);
-                zctx.stroke();
+                for (let g = 0; g < 7; g++) {
+                    const gx = -34 + g * 11;
+                    zctx.moveTo(gx, 7); zctx.quadraticCurveTo(gx + 3, -5, gx - 4 + g % 3 * 4, -9 - g % 3 * 4);
+                }
+                zctx.stroke(); zctx.restore();
             }
+            zctx.fillStyle = layer ? '#050c10' : '#14282b';
+            zctx.beginPath(); zctx.moveTo(0, h);
+            zctx.lineTo(0, baseY + h * 0.012);
+            for (let j = 0; j <= 40; j++) zctx.lineTo(w * j / 40, baseY + Math.sin(j * 1.7 + layer) * h * 0.006);
+            zctx.lineTo(w, h); zctx.closePath(); zctx.fill();
+        }
+        // Tapered trunks, joined branch forks and roots replace stick trees.
+        for (const [xf, mirror] of [[0.035, 1], [0.965, -1]]) {
+            zctx.save(); zctx.translate(w * xf, h * 0.84);
+            zctx.scale(unit / 720 * mirror, unit / 720);
+            const trunk = new Path2D('M-38 24 Q-10-13-12-80 L-19-181 Q-29-259-10-333 L-4-425 L10-499 L7-393 Q-3-329 5-277 L18-190 L10-89 Q9-14 40 26 L15 15 L2 1 L-14 18 Z');
+            const bark = zctx.createLinearGradient(-25, 0, 25, 0);
+            bark.addColorStop(0, '#030a0e'); bark.addColorStop(0.65, '#102024'); bark.addColorStop(1, '#263a3c');
+            zctx.fillStyle = bark; zctx.fill(trunk);
+            zctx.lineCap = 'round'; zctx.lineJoin = 'round';
+            for (const [bx, by, ex, ey, direction] of [[-5,-310,77,-410,1],[1,-250,-76,-345,-1],[8,-181,91,-293,1],[-9,-110,-57,-221,-1],[0,-383,-46,-460,-1]]) {
+                zctx.strokeStyle = '#09151a'; zctx.lineWidth = 10;
+                zctx.beginPath(); zctx.moveTo(bx, by);
+                zctx.bezierCurveTo(bx + direction * 38, by - 25, ex - direction * 24, ey + 31, ex, ey); zctx.stroke();
+                zctx.lineWidth = 3;
+                zctx.beginPath(); zctx.moveTo(ex, ey); zctx.lineTo(ex + direction * 19, ey - 45);
+                zctx.moveTo(ex - direction * 16, ey + 24); zctx.lineTo(ex - direction * 28, ey - 8); zctx.lineTo(ex - direction * 25, ey - 33); zctx.stroke();
+                zctx.strokeStyle = 'rgba(103,134,126,0.25)'; zctx.lineWidth = 1;
+                zctx.beginPath(); zctx.moveTo(bx + 3, by - 3); zctx.quadraticCurveTo(ex - direction * 24, ey + 21, ex, ey); zctx.stroke();
+            }
+            zctx.strokeStyle = 'rgba(85,111,103,0.28)'; zctx.lineWidth = 1.3;
+            zctx.beginPath(); zctx.moveTo(0, -20); zctx.bezierCurveTo(-5,-111,9,-191,-3,-282);
+            zctx.moveTo(-7,-68); zctx.lineTo(-4,-139); zctx.lineTo(-12,-188); zctx.stroke();
+            zctx.restore();
         }
         // Cache a low-resolution surface mask before translucent mist/vignette.
         // The same moving light field is intersected with this mask each frame.
@@ -3928,3 +3998,4 @@ class BackgroundRenderer {
 // ===================================================================
 // PARTICLE CLASS - cartoony & short-lived edition
 // ===================================================================
+
