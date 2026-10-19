@@ -125,6 +125,9 @@
                 <footer class="mode-tutorial-foot"><span class="mode-tutorial-scroll-hint">Ready to play?</span><button type="button" data-close-tutorial>Back to setup <span aria-hidden="true">→</span></button></footer>
             </article>`;
         dialog.hidden = false;
+        if (document.getElementById('pauseMenu')?.classList.contains('open')) {
+            dialog.querySelector('[data-close-tutorial]:not(.mode-tutorial-close)').textContent = 'Back to pause';
+        }
         const content = dialog.querySelector('.mode-tutorial-content');
         const hint = dialog.querySelector('.mode-tutorial-scroll-hint');
         const updateHint = () => {
@@ -136,6 +139,8 @@
         updateHint();
         dialog.querySelector('.mode-tutorial-close').focus();
     }
+
+    window.ModeTutorial = { open, close };
 
     document.addEventListener('click', (event) => {
         const trigger = event.target.closest?.('[data-mode-tutorial]');
@@ -153,3 +158,4 @@
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }, true);
 })();
+
