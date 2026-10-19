@@ -1789,6 +1789,29 @@ class BackgroundRenderer {
         zctx.fillStyle = '#0a141b';
         zctx.fillRect(49.5, -108, 3, 36);
         zctx.fillRect(42, -86, 18, 3);
+        // Recessed rose window and roof coping give the nave a second scale
+        // of detail. The dark interior stays quieter than the hands and ball.
+        zctx.strokeStyle = '#385052'; zctx.lineWidth = 2.8;
+        zctx.beginPath(); zctx.arc(-57, -88, 13, 0, Math.PI * 2); zctx.stroke();
+        zctx.fillStyle = '#030b10'; zctx.fill();
+        zctx.strokeStyle = '#263d41'; zctx.lineWidth = 1.2;
+        zctx.beginPath(); zctx.arc(-57, -88, 9.5, 0, Math.PI * 2);
+        for (let i = 0; i < 8; i++) {
+            const a = i * Math.PI / 4;
+            zctx.moveTo(-57 + Math.cos(a) * 3, -88 + Math.sin(a) * 3);
+            zctx.lineTo(-57 + Math.cos(a) * 10, -88 + Math.sin(a) * 10);
+        }
+        zctx.stroke();
+        zctx.strokeStyle = 'rgba(122,153,145,0.45)'; zctx.lineWidth = 2.2;
+        zctx.beginPath(); zctx.moveTo(-118, -78); zctx.lineTo(-57, -139);
+        zctx.lineTo(-35, -118); zctx.moveTo(16, -198); zctx.lineTo(86, -198); zctx.stroke();
+        // Shattered threshold and fallen roof stones anchor the ruin.
+        zctx.fillStyle = '#1c3034';
+        for (let i = 0; i < 8; i++) {
+            const x = -117 + i * 29, y = -3 + Math.sin(i * 4) * 3;
+            zctx.beginPath(); zctx.moveTo(x, y); zctx.lineTo(x + 4, y - 7 - i % 3 * 3);
+            zctx.lineTo(x + 14, y - 8); zctx.lineTo(x + 20, y + 1); zctx.closePath(); zctx.fill();
+        }
         // Sparse cracks, no per-frame texture generation.
         zctx.strokeStyle = 'rgba(78,106,120,0.28)';
         zctx.lineWidth = 1;
@@ -1802,19 +1825,42 @@ class BackgroundRenderer {
         zctx.lineTo(-76, -82);
         zctx.stroke();
         zctx.restore();
+        // Broken iron enclosure balances the chapel. All metalwork is cached.
+        zctx.save();
+        zctx.translate(w * 0.16, h * 0.735);
+        zctx.scale(unit / 720, unit / 720);
+        zctx.strokeStyle = '#14292e'; zctx.lineWidth = 2;
+        zctx.beginPath();
+        zctx.moveTo(0, -12); zctx.lineTo(185, -9);
+        zctx.moveTo(0, -39); zctx.lineTo(125, -37); zctx.lineTo(147, -24);
+        for (let i = 0; i < 16; i++) {
+            const x = i * 12, top = -56 + Math.sin(i * 0.55) * 6;
+            zctx.moveTo(x, 8); zctx.lineTo(x + (i > 11 ? (i - 11) * 3 : 0), top);
+            zctx.moveTo(x - 3, top + 5); zctx.lineTo(x, top); zctx.lineTo(x + 3, top + 5);
+        }
+        zctx.stroke();
+        // Stone gateposts have bevelled caps and a cool moonlit edge.
+        for (const x of [-8, 190]) {
+            zctx.fillStyle = '#11232a'; zctx.fillRect(x - 7, -64, 14, 72);
+            zctx.fillStyle = '#263c40'; zctx.fillRect(x + 4, -64, 3, 72);
+            zctx.beginPath(); zctx.moveTo(x - 11, -64); zctx.lineTo(x, -74);
+            zctx.lineTo(x + 11, -64); zctx.closePath(); zctx.fill();
+            zctx.fillStyle = '#0b1a20'; zctx.fillRect(x - 11, -64, 22, 4);
+        }
+        zctx.restore();
         // Hand-drawn cemetery silhouettes, baked once with the scenery.
         // Detail is concentrated below the ball lane and at the outer edges.
         for (let layer = 0; layer < 2; layer++) {
             const baseY = h * (0.73 + layer * 0.12);
-            for (let i = 0; i < 14; i++) {
-                const x = w * ((i + 0.35 + layer * 0.25) / 14);
-                const size = unit * (0.042 + (i % 4) * 0.012) * (1 + layer * 0.35);
+            for (let i = 0; i < 11; i++) {
+                const x = w * ((i + 0.5 + Math.sin(i * 4.3 + layer) * 0.26 + layer * 0.16) / 11);
+                const size = unit * (0.038 + (i % 4) * 0.014) * (1 + layer * 0.48);
                 zctx.save();
                 zctx.translate(x, baseY + Math.sin(i * 2.7) * h * 0.014);
                 zctx.rotate(Math.sin(i * 9) * 0.13);
                 zctx.scale(size / 80, size / 80);
                 const stone = new Path2D();
-                const type = i % 4;
+                const type = (i * 7 + layer * 2) % 4;
                 if (type === 0) {
                     // A chipped Celtic cross with a heavy stone plinth.
                     stone.moveTo(-7, 0); stone.lineTo(-7, -43);
@@ -1878,7 +1924,7 @@ class BackgroundRenderer {
             zctx.fillStyle = layer ? '#050c10' : '#14282b';
             zctx.beginPath(); zctx.moveTo(0, h);
             zctx.lineTo(0, baseY + h * 0.012);
-            for (let j = 0; j <= 40; j++) zctx.lineTo(w * j / 40, baseY + Math.sin(j * 1.7 + layer) * h * 0.006);
+            for (let j = 0; j <= 40; j++) zctx.lineTo(w * j / 40, baseY + (Math.sin(j * 0.43 + layer) * 0.009 + Math.sin(j * 1.7) * 0.003) * h);
             zctx.lineTo(w, h); zctx.closePath(); zctx.fill();
         }
         // Tapered trunks, joined branch forks and roots replace stick trees.
@@ -1891,7 +1937,7 @@ class BackgroundRenderer {
             zctx.fillStyle = bark; zctx.fill(trunk);
             zctx.lineCap = 'round'; zctx.lineJoin = 'round';
             for (const [bx, by, ex, ey, direction] of [[-5,-310,77,-410,1],[1,-250,-76,-345,-1],[8,-181,91,-293,1],[-9,-110,-57,-221,-1],[0,-383,-46,-460,-1]]) {
-                zctx.strokeStyle = '#09151a'; zctx.lineWidth = 10;
+                zctx.strokeStyle = '#0e1f24'; zctx.lineWidth = Math.max(5, 13 + by * 0.012);
                 zctx.beginPath(); zctx.moveTo(bx, by);
                 zctx.bezierCurveTo(bx + direction * 38, by - 25, ex - direction * 24, ey + 31, ex, ey); zctx.stroke();
                 zctx.lineWidth = 3;
