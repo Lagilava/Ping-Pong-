@@ -558,8 +558,8 @@
                 <div class="card-top"><span class="card-index">0${i + 1}</span>${m.online ? '<span class="card-live">ONLINE</span>' : ''}</div>
                 ${art ? `<div class="card-icon card-scene"><span class="card-scene-icon">${svgIcon(m.icon)}</span></div>` : `<div class="card-icon">${svgIcon(m.icon)}</div>`}
                 <div class="card-name">${m.name}</div>
+                <p class="card-summary">${m.desc}</p>
                 <div class="card-details" id="mode-details-${m.id}" aria-hidden="true"><div class="card-details-inner">
-                    <div class="card-desc">${m.desc}</div>
                     <div class="card-meta">${(m.tags || []).map(t => `<span>${t}</span>`).join('')}</div>
                     <div class="card-badge">${m.id === 'customise' ? 'Build &#9656;' : 'Play &#9656;'}</div>
                 </div></div>`;
@@ -718,11 +718,32 @@
         updateMenuCards();
     }
 
+    function syncSetupRules() {
+        const m = document.getElementById('modal');
+        if (!m) return;
+        const zombie = menuSelected === 'zombie';
+        const solo = m.querySelector('.opt.sel')?.dataset.mp === 'false';
+        document.getElementById('setupSkillRow').hidden = zombie || !solo;
+        document.getElementById('setupPointsRow').hidden = zombie;
+        document.getElementById('setupSkill').value = String(window.PPSettings?.get('aiLevel') ?? 2);
+        document.getElementById('setupPoints').value = String(window.PPSettings?.get('pointsToWin') ?? 11);
+    }
+
     function openMenuModal(name, color = '#00c8ff') {
         const m = document.getElementById('modal');
         if (!m) return;
         m.querySelector('[data-mode-tutorial]')?.setAttribute('data-mode-tutorial', menuSelected || 'classic');
-        document.getElementById('mTitle').textContent = 'START ' + name.toUpperCase();
+        document.getElementById('mTitle').textContent = name + ' match';
+        const briefs = {
+            classic: 'The clean duel. Shape your returns and score past your opponent.',
+            zombie: 'Survive 10 waves with 5 lives. Clear the undead and defeat each guardian.',
+            gravity: 'Black holes bend your shots. Time a wormhole warp to build the point value.',
+            speed: 'Every rally gets faster. Keep control as the pace builds.',
+            obstacle: 'Navigate moving gates, boost pads and coins on a larger court.'
+        };
+        document.getElementById('modeBrief').textContent = briefs[menuSelected] || '';
+        m.dataset.mode = menuSelected;
+        syncSetupRules();
         // The mode's scene sits behind the title, fading into the panel.
         const box = m.querySelector('.modal-box');
         const art = window.ModeArt?.url(menuSelected || 'classic');
@@ -1798,6 +1819,13 @@
             document.getElementById('btnR')?.addEventListener('click', () => scrollMenuCards(1), false);
 
             // Modal option selector
+            document.getElementById('modal')?.addEventListener('keydown', (e) => {
+                if (e.key !== 'Tab') return;
+                const controls = [...e.currentTarget.querySelectorAll('button:not(:disabled), select:not(:disabled)')].filter(el => el.getClientRects().length);
+                const first = controls[0], last = controls[controls.length - 1];
+                if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+                else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+            });
             const optEls = document.querySelectorAll('.opt');
             optEls.forEach(o => {
                 o.addEventListener('click', function () {
@@ -1805,9 +1833,13 @@
                     this.classList.add('sel');
                     this.setAttribute('aria-checked', 'true');
                     menuIsMP = this.dataset.mp === 'true';
+                    syncSetupRules();
                 }, false);
             });
 
+            document.getElementById('setupSkill')?.addEventListener('change', e => window.PPSettings?.set('aiLevel', Number(e.target.value)));
+            document.getElementById('setupPoints')?.addEventListener('change', e => window.PPSettings?.set('pointsToWin', Number(e.target.value)));
+            window.PPSettings?.on(key => { if (['aiLevel', 'pointsToWin', '*'].includes(key)) syncSetupRules(); });
             document.getElementById('btnBack')?.addEventListener('click', closeMenuModal, false);
             document.getElementById('btnGo')?.addEventListener('click', () => {
                 if (window.game && menuSelected) {
@@ -2475,3 +2507,4 @@
     });
 
 })();
+
