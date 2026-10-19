@@ -474,10 +474,10 @@
             this._rnd = rng(4242);
         }
 
-        _bake(ctx, w, h, ambient) {
+        _bake(ctx, w, h) {
             const m = ctx.getTransform();
             const sx = Math.hypot(m.a, m.b) || 1, sy = Math.hypot(m.c, m.d) || 1;
-            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}|${ambient}`;
+            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}`;
             if (key === this.key) return;
             this.key = key;
             const L = this.L = layout(w, h);
@@ -498,18 +498,13 @@
                 bowlTop: '#2a0a18', bowlBottom: '#3a0e20', lit: 0.55, haze: 0.2, arms: 0.05, phones: 0.03,
                 aisles: [0.08, 0.24, 0.41, 0.59, 0.76, 0.92],
             });
-            // Bake the banners into the base on low quality.
-            // Otherwise reuse a single tightly bounded sprite, including wires.
-            this.banner = null;
-            if (ambient) {
-                const pad = 3, bh = h * 0.27;
-                const tw = Math.ceil(bwNear + pad * 2), th = Math.ceil(bh * 1.3 + pad * 2);
-                const [bc, bx] = canvas(tw, th, Math.min(sx, 1), Math.min(sy, 1));
-                paintBanner(bx, tw / 2, bh * 0.3 + pad, bwNear, bh, false);
-                this.banner = { c: bc, w: tw, h: th, pivot: pad, y: h * 0.05 - bh * 0.3 };
-            } else {
-                for (const f of [0.17, 0.83]) paintBanner(bx, w * f, h * 0.05, bwNear, h * 0.27, false);
-            }
+            // Both near banners reuse one tightly bounded sprite on every
+            // quality tier. The outer background cache controls frame rate.
+            const pad = 3, bannerH = h * 0.27;
+            const tw = Math.ceil(bwNear + pad * 2), th = Math.ceil(bannerH * 1.3 + pad * 2);
+            const [bannerCanvas, bannerCtx] = canvas(tw, th, Math.min(sx, 1), Math.min(sy, 1));
+            paintBanner(bannerCtx, tw / 2, bannerH * 0.3 + pad, bwNear, bannerH, false);
+            this.banner = { c: bannerCanvas, w: tw, h: th, pivot: pad, y: h * 0.05 - bannerH * 0.3 };
             paintFascia(bx, w, L.ribbon[0], L.ribbon[1] - L.ribbon[0]);
             paintTier(bx, w, L.ribbon[1], L.lower[1], 6, 57, {
                 bowlTop: '#320c1b', bowlBottom: '#3e1021', lit: 0.74, haze: 0.06, arms: 0.1, phones: 0.04,
@@ -550,10 +545,7 @@
 
         /** @param st {dt, rally, score} */
         draw(ctx, w, h, st) {
-            // This quiet ambient layer stays alive with Reduce Motion enabled.
-            // Quality tiers still govern its rendering cost independently.
-            const ambient = typeof PerfGovernor === 'undefined' || PerfGovernor.tier < 2;
-            this._bake(ctx, w, h, ambient);
+            this._bake(ctx, w, h);
             const L = this.L;
             const dt = Math.max(0, Math.min(0.1, st.dt || 0));
             this.t += dt;
@@ -568,14 +560,14 @@
 
             ctx.drawImage(this.base, 0, 0, w, h);
 
-            // Less than a degree of sway, offset so both banners do not move
+            // About one degree of sway, offset so both banners do not move
             // in unison. No cloth simulation, paths, gradients or new timers.
             if (this.banner) {
                 const b = this.banner;
                 for (let i = 0; i < 2; i++) {
                     ctx.save();
                     ctx.translate(w * (i === 0 ? 0.17 : 0.83), b.y);
-                    ctx.rotate(Math.sin(this.t * 0.55 + i * 2.1) * 0.009);
+                    ctx.rotate(Math.sin(this.t * 0.7 + i * 2.1) * 0.022);
                     ctx.drawImage(b.c, -b.w / 2, -b.pivot, b.w, b.h);
                     ctx.restore();
                 }
@@ -601,7 +593,7 @@
             const sweep = 0.16 + this.cheer * 0.14;
             // A very gentle lighting cycle also breathes through the existing
             // floor pools: no extra reflection surface or full-screen pass.
-            const breath = ambient ? Math.sin(this.t * 0.42) * 0.012 : 0;
+            const breath = Math.sin(this.t * 0.42) * 0.012;
             const beamA = 0.3 + breath + this.pulse * 0.12 + this.cheer * 0.14;
             for (let i = 0; i < SPOTS.length; i++) {
                 const px = w * SPOTS[i];
