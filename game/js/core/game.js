@@ -5862,9 +5862,12 @@ class Game {
             if (e.key !== 'Escape' && e.target?.closest?.('input[type=text], textarea, select, [contenteditable]')) return;
             if (this.userPaused) {
                 const k = e.key.toLowerCase();
-                if (e.key === 'Escape') this.setUserPaused(false);
-                else if (k === 'r') this.handlePauseAction('restart');
-                else if (k === 'q') this.returnToMenu();
+                if (e.key === 'Escape') {
+                    if (this._pendingPauseAction) this.handlePauseAction('cancel-confirm');
+                    else this.setUserPaused(false);
+                }
+                else if (k === 'r') this.handlePauseAction('restart', document.querySelector('#pauseMenu [data-act="restart"]'));
+                else if (k === 'q') this.handlePauseAction('quit', document.querySelector('#pauseMenu [data-act="quit"]'));
                 if (e.key === 'Escape' || k === 'r' || k === 'q') e.preventDefault();
                 return;
             }
@@ -6032,6 +6035,14 @@ class Game {
 
     bindPauseMenu(menu) {
         menu.__ppBound = true;
+        menu.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab') return;
+            const scope = this._pendingPauseAction ? menu.querySelector('#pauseConfirm') : menu;
+            const buttons = [...scope.querySelectorAll('button:not(:disabled)')].filter(b => b.getClientRects().length);
+            const first = buttons[0], last = buttons[buttons.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+        });
         menu.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-act]');
             if (btn) this.handlePauseAction(btn.dataset.act, btn);
@@ -6040,26 +6051,44 @@ class Game {
 
     resetPauseConfirms(menu = document.getElementById('pauseMenu')) {
         clearTimeout(this._pauseConfirmTimer);
+        this._pendingPauseAction = null;
+        const confirmation = menu?.querySelector('#pauseConfirm');
+        if (confirmation) confirmation.hidden = true;
         menu?.querySelectorAll('.confirming').forEach((b) => {
             b.classList.remove('confirming');
             if (b.__ppLabel) b.innerHTML = b.__ppLabel;
         });
     }
 
-    // Restart/Quit need a second press (button turns amber for 3 s) so a
-    // stray click can't throw away a match.
+    // A persistent, explicit confirmation avoids timed double presses.
     confirmPauseAction(btn) {
-        if (!btn || btn.classList.contains('confirming')) return true;
+        if (!btn) return true;
         this.resetPauseConfirms();
-        btn.__ppLabel = btn.innerHTML;
-        btn.classList.add('confirming');
-        btn.textContent = btn.dataset.confirm || 'Tap again to confirm';
-        this._pauseConfirmTimer = setTimeout(() => this.resetPauseConfirms(), 3000);
+        this._pendingPauseAction = btn.dataset.act;
+        const confirmation = document.getElementById('pauseConfirm');
+        if (!confirmation) return false;
+        const restart = btn.dataset.act === 'restart';
+        document.getElementById('pauseConfirmText').textContent = restart
+            ? 'Restart this match? Your current match progress will be lost.'
+            : 'Quit this match and return to the menu?';
+        document.getElementById('pauseConfirmGo').textContent = restart ? 'Restart match' : 'Quit match';
+        confirmation.hidden = false;
+        confirmation.querySelector('[data-act="cancel-confirm"]')?.focus();
         return false;
     }
 
     handlePauseAction(action, btn = null) {
         switch (action) {
+            case 'cancel-confirm':
+                this.resetPauseConfirms();
+                document.querySelector('#pauseMenu [data-act="resume"]')?.focus();
+                break;
+            case 'confirm-pending': {
+                const pending = this._pendingPauseAction;
+                this.resetPauseConfirms();
+                if (pending === 'quit' || pending === 'restart') this.handlePauseAction(pending);
+                break;
+            }
             case 'resume':
                 this.setUserPaused(false);
                 break;
@@ -6078,8 +6107,11 @@ class Game {
                 break;
             case 'settings':
             case 'audio':
-            case 'help':
                 window.ppOpenPanel?.(action);
+                break;
+            case 'help':
+                if (window.ModeTutorial?.open) window.ModeTutorial.open(this.gameMode, document.activeElement);
+                else window.ppOpenPanel?.('help');
                 break;
         }
     }
@@ -8669,3 +8701,4 @@ class Game {
 if (typeof window !== 'undefined' && typeof Game !== 'undefined') {
     window.Game = Game;
 }
+
