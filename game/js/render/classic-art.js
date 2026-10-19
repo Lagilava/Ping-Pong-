@@ -8,7 +8,8 @@
  * once into offscreen canvases at the canvas pixel scale. A frame is a few
  * drawImage calls: the base, the scrolling LED strips, five spotlight beams
  * and their floor pools (additive), camera flashes, and the vignette. No
- * draw-time blur.
+ * draw-time blur. Two near banners share one small cached cloth sprite;
+ * their slow sway adds only two blits at the existing background cadence.
  */
 (function () {
     const TAU = Math.PI * 2;
@@ -473,10 +474,10 @@
             this._rnd = rng(4242);
         }
 
-        _bake(ctx, w, h) {
+        _bake(ctx, w, h, ambient) {
             const m = ctx.getTransform();
             const sx = Math.hypot(m.a, m.b) || 1, sy = Math.hypot(m.c, m.d) || 1;
-            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}`;
+            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}|${ambient}`;
             if (key === this.key) return;
             this.key = key;
             const L = this.L = layout(w, h);
@@ -497,7 +498,18 @@
                 bowlTop: '#2a0a18', bowlBottom: '#3a0e20', lit: 0.55, haze: 0.2, arms: 0.05, phones: 0.03,
                 aisles: [0.08, 0.24, 0.41, 0.59, 0.76, 0.92],
             });
-            for (const f of [0.17, 0.83]) paintBanner(bx, w * f, h * 0.05, bwNear, h * 0.27, false);
+            // Bake the banners into the base on low quality / reduced motion.
+            // Otherwise reuse a single tightly bounded sprite, including wires.
+            this.banner = null;
+            if (ambient) {
+                const pad = 3, bh = h * 0.27;
+                const tw = Math.ceil(bwNear + pad * 2), th = Math.ceil(bh * 1.3 + pad * 2);
+                const [bc, bx] = canvas(tw, th, Math.min(sx, 1), Math.min(sy, 1));
+                paintBanner(bx, tw / 2, bh * 0.3 + pad, bwNear, bh, false);
+                this.banner = { c: bc, w: tw, h: th, pivot: pad, y: h * 0.05 - bh * 0.3 };
+            } else {
+                for (const f of [0.17, 0.83]) paintBanner(bx, w * f, h * 0.05, bwNear, h * 0.27, false);
+            }
             paintFascia(bx, w, L.ribbon[0], L.ribbon[1] - L.ribbon[0]);
             paintTier(bx, w, L.ribbon[1], L.lower[1], 6, 57, {
                 bowlTop: '#320c1b', bowlBottom: '#3e1021', lit: 0.74, haze: 0.06, arms: 0.1, phones: 0.04,
@@ -538,7 +550,9 @@
 
         /** @param st {dt, rally, score} */
         draw(ctx, w, h, st) {
-            this._bake(ctx, w, h);
+            const ambient = !window.PPSettings?.get('reduceMotion')
+                && (typeof PerfGovernor === 'undefined' || PerfGovernor.tier < 2);
+            this._bake(ctx, w, h, ambient);
             const L = this.L;
             const dt = Math.max(0, Math.min(0.1, st.dt || 0));
             this.t += dt;
@@ -552,6 +566,19 @@
             this.cheer = Math.max(0, this.cheer - dt * 0.45);
 
             ctx.drawImage(this.base, 0, 0, w, h);
+
+            // Less than a degree of sway, offset so both banners do not move
+            // in unison. No cloth simulation, paths, gradients or new timers.
+            if (this.banner) {
+                const b = this.banner;
+                for (let i = 0; i < 2; i++) {
+                    ctx.save();
+                    ctx.translate(w * (i === 0 ? 0.17 : 0.83), b.y);
+                    ctx.rotate(Math.sin(this.t * 0.55 + i * 2.1) * 0.009);
+                    ctx.drawImage(b.c, -b.w / 2, -b.pivot, b.w, b.h);
+                    ctx.restore();
+                }
+            }
 
             // LED boards scroll in opposite directions.
             this._strip(ctx, this.ribbon, L.ribbon[0] + 2, w, -w * 0.035);
@@ -571,7 +598,10 @@
             // Spotlights sweep the court; a point makes them swing wider.
             const beam = this.beam;
             const sweep = 0.16 + this.cheer * 0.14;
-            const beamA = 0.3 + this.pulse * 0.12 + this.cheer * 0.14;
+            // A very gentle lighting cycle also breathes through the existing
+            // floor pools: no extra reflection surface or full-screen pass.
+            const breath = ambient ? Math.sin(this.t * 0.42) * 0.012 : 0;
+            const beamA = 0.3 + breath + this.pulse * 0.12 + this.cheer * 0.14;
             for (let i = 0; i < SPOTS.length; i++) {
                 const px = w * SPOTS[i];
                 const py = trussY(L, px) + h * 0.024 + 9;
@@ -587,7 +617,7 @@
                 const dist = (L.fy + (h - L.fy) * 0.35 - py) / Math.cos(a);
                 const fx = px - Math.sin(a) * dist;
                 const pw = w * 0.16, ph = (h - L.fy) * 0.28;
-                ctx.globalAlpha = 0.16 + this.pulse * 0.08 + this.cheer * 0.08;
+                ctx.globalAlpha = 0.16 + breath * 0.5 + this.pulse * 0.08 + this.cheer * 0.08;
                 ctx.drawImage(this.pool, fx - pw / 2, L.fy + (h - L.fy) * 0.35 - ph / 2, pw, ph);
             }
 
@@ -617,3 +647,4 @@
 
     window.ClassicArt = ClassicArt;
 })();
+
