@@ -1,0 +1,177 @@
+/* Shared UI foundations. Loaded after mode skins; gameplay canvases stay untouched. */
+:root { --ui-font: 'Segoe UI', system-ui, sans-serif; --ui-ink: #edf5fa; --ui-muted: #b0c2d0; --ui-line: #344957; --ui-panel: #101c28; }
+body :is(.ppset-box, .ppon-box, .pause-card, .ppres-box, .achievement-sidebar, .customise-overlay, .forge-editor, .studio-ball) { font-family: var(--ui-font); color: var(--ui-ink); }
+body :is(.ppset-box, .ppon-box, .pause-card, .ppres-box) { background: linear-gradient(150deg, #132333, #0b1420); border: 1px solid var(--ui-line); border-radius: 16px; box-shadow: 0 24px 80px #0008; }
+body :is(.ppset-box, .ppon-box, .pause-card, .ppres-box)::before,
+body :is(.ppset-box, .ppon-box, .pause-card, .ppres-box)::after { background-image: none; }
+body :is(.ppset-box, .ppon-box, .pause-card, .ppres-box, .customise-overlay, .forge-editor, .studio-ball) :is(button, input, select, textarea, p, label, small, kbd) { font-family: var(--ui-font); letter-spacing: normal; text-shadow: none; }
+body :is(.ppset-box, .ppon-box, .pause-card, .ppres-box, .customise-overlay, .forge-editor, .studio-ball) :is(button, input, select) { min-height: 44px; }
+body :is(.ppset-head, .ppon-head).has-ui-art { min-height: 72px; padding-top: 16px; padding-bottom: 16px; }
+body .ui-art { opacity: .32; }
+body :is(.ppset-head, .ppon-head) h2 { font: 700 25px/1.2 var(--ui-font); letter-spacing: .02em; text-shadow: none; }
+body :is(.ppset-kicker, .ppon-kicker) { font: 600 11px/1.5 var(--ui-font); letter-spacing: .15em; color: var(--ui-muted); }
+body .ppset-label { font: 600 15px/1.4 var(--ui-font); }
+body .ppset-help { font: 400 13px/1.55 var(--ui-font); color: var(--ui-muted); margin-top: 5px; }
+body .ppset-row { padding: 18px 0; gap: 24px; }
+body .ppset-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding: 10px 20px; }
+body .ppset-tabs button { padding: 10px 8px; border-radius: 8px; font: 600 13px/1.3 var(--ui-font); text-transform: none; white-space: normal; }
+body .ppset-tabs button[aria-selected='true'] { background: #173f43; color: #a4fff0; border-color: #459c93; box-shadow: none; }
+body .ppset-control { max-width: 100%; }
+body .ppset-seg button { font: 600 13px var(--ui-font); padding-inline: 10px; }
+body .ppset-foot { background: #0d1925; gap: 12px; }
+body .ppset-saved { font: 12px var(--ui-font); color: var(--ui-muted); }
+body .ppset-note { font: 14px/1.65 var(--ui-font); color: var(--ui-muted); }
+body .ppset-note b { color: var(--ui-ink); }
+body .ppset-box :is(.ppset-stat-v, .ppset-stat-l, .ppset-stat-s, .ppset-pf-level, .ppset-modes-table, .ppset-paddle-name, .ppset-paddle-desc) { font-family: var(--ui-font); }
+body .ppset-paddle-desc { font-size: 12px; line-height: 1.5; color: var(--ui-muted); }
+body .mode-tutorial-card { background: #101c2b; font-family: var(--ui-font); }
+body .mode-tutorial-card :is(p, button, h3, .mode-tutorial-controls) { font-family: var(--ui-font); letter-spacing: 0; }
+body .mode-tutorial-step p { font-size: 14px; line-height: 1.6; color: #b9cbd8; }
+body .mode-tutorial-objective p { font-size: 15px; line-height: 1.6; }
+body :is(.ppset-box, .ppon-box, .pause-card, .customise-overlay, .forge-editor) :is(button, input, select):focus-visible { outline: 2px solid #9af7e5; outline-offset: 3px; }
+
+/* A stable menu header and a readable mode dock at every width. */
+html #overlay .hdr { left: var(--mm-gutter); right: auto; transform: none; text-align: left; }
+html #overlay .hdr h1 { font-size: clamp(24px, 3.6vw, 48px); letter-spacing: .07em; filter: none; text-shadow: 0 0 24px #55caff55; }
+html #overlay .hdr p { font: 600 13px/1.6 var(--ui-font); letter-spacing: .12em; color: #c2d9e7; }
+#overlay .menu-keys { font: 12px/1.5 var(--ui-font); letter-spacing: 0; color: #b0c5d5; }
+#overlay .menu-right-panel { pointer-events: auto; }
+#overlay .menu-progress-panel { background: #0d1a29e8; border-radius: 12px; box-shadow: none; }
+#overlay .menu-progress-label, #overlay .menu-progress-kicker, #overlay .menu-progress-meta { font-family: var(--ui-font); letter-spacing: .02em; }
+#overlay .menu-icon-btn { min-width: 44px; min-height: 44px; }
+#overlay .menu-achievements-title { font: 600 13px var(--ui-font); letter-spacing: .02em; }
+#overlay .menu-achievement-name { font: 600 13px/1.4 var(--ui-font); }
+#overlay .menu-achievement-desc { font: 12px/1.4 var(--ui-font); }
+#overlay .menu-recent-achievements { max-height: 210px; background: #0d1a29db; box-shadow: none; }
+#overlay .card { border-radius: 12px; background: #0c1826ed; box-shadow: 0 10px 25px #0004; }
+#overlay .card .card-name { font: 700 14px/1.3 var(--ui-font); letter-spacing: .04em; }
+#overlay .card-summary { min-height: 2.8em; margin: 0; color: #bed0de; font: 12px/1.4 var(--ui-font); text-align: left; }
+#overlay .card-details-inner { gap: 7px; }
+#overlay .card-meta span, #overlay .card-badge { font-family: var(--ui-font); letter-spacing: .02em; }
+#overlay .mode-card-hint { color: #c4d6e4; font: 12px var(--ui-font); }
+#overlay .card.active { transform: translateY(-6px); }
+
+/* Mode setup keeps essential match rules next to Start. */
+#modal { padding: 16px; box-sizing: border-box; overflow-y: auto; }
+#modal .modal-box { width: min(760px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; box-sizing: border-box; padding: 28px; border-radius: 16px; background: #101a2a; box-shadow: 0 24px 80px #0009; }
+#modal .modal-box::before { display: none; }
+#modal .modal-title { font: 700 25px/1.2 var(--ui-font); text-align: left; letter-spacing: .02em; margin-bottom: 8px; text-shadow: none; }
+#modal .mode-brief { margin: 0 0 24px; max-width: 60ch; color: #c1d2e0; font: 14px/1.6 var(--ui-font); }
+#modal .opts { gap: 12px; }
+#modal .opt { padding: 18px 12px; border-radius: 12px; background: #0b1422b8; transform: none; }
+#modal .opt.sel { background: var(--modal-primary-soft); box-shadow: inset 0 0 0 1px var(--modal-primary); }
+#modal .opt-icon-large { width: 44px; height: 44px; margin: 0 auto 14px; border-radius: 10px; box-shadow: none; transform: none; }
+#modal .opt-icon-large svg { width: 30px; height: 30px; }
+#modal .opt-icon-large::after { display: none; }
+#modal .opt-title { font: 700 14px/1.4 var(--ui-font); letter-spacing: .02em; text-shadow: none; }
+#modal .opt-sub { font: 13px/1.5 var(--ui-font); letter-spacing: 0; color: #bfd0df; }
+#modal .modal-art { opacity: .2; }
+#modal .modal-actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+#modal .modal-actions button { min-height: 44px; font: 600 14px var(--ui-font); letter-spacing: 0; text-transform: none; border-radius: 8px; }
+#modal #btnGo { margin-left: auto; background: var(--modal-primary); color: #07131d; box-shadow: none; }
+.setup-rules { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #ffffff20; }
+.setup-rules label { display: grid; gap: 8px; font: 600 13px var(--ui-font); color: #c8d8e3; }
+.setup-rules select { width: 100%; min-height: 44px; background: #0a1421; color: #edf5fa; border: 1px solid #405464; border-radius: 8px; padding: 8px 12px; font: 14px var(--ui-font); }
+.setup-rules label[hidden] { display: none; }
+
+/* Match overlays share the same hierarchy and do not fight the court. */
+body .pause-card { width: min(420px, calc(100vw - 32px)); padding: 28px; box-sizing: border-box; }
+body .pause-card h2 { font: 700 30px var(--ui-font); letter-spacing: .02em; }
+body .pause-kicker, body .pause-hint { font: 12px/1.5 var(--ui-font); letter-spacing: .06em; }
+body .pause-btn { font: 600 14px/1.3 var(--ui-font); min-height: 46px; border-radius: 8px; letter-spacing: .01em; }
+body .pause-btn.primary { background: #8bf2df; color: #07221f; box-shadow: none; }
+.pause-confirm { border: 1px solid #b98b4d; border-radius: 10px; background: #261f16; padding: 16px; margin-top: 16px; }
+.pause-confirm[hidden] { display: none; }
+.pause-confirm p { margin: 0 0 12px; font: 14px/1.5 var(--ui-font); }
+.pause-confirm-actions { display: flex; gap: 10px; }
+.pause-confirm-actions button { flex: 1; }
+body .pphelp-lead, body .pphelp-list, body .pphelp-defs { font: 14px/1.65 var(--ui-font); color: #d0dee8; }
+body .pphelp-list li { margin-block: 12px; }
+body .pphelp-defs dd { color: var(--ui-muted); line-height: 1.65; }
+body .ppres-box { font-family: var(--ui-font); }
+body .ppres-box :is(p, button, small) { font-family: var(--ui-font); }
+body #pp-enhanced-hud :is(.pp-score-label, .pp-score-display) { font-family: var(--ui-font); letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+body #pp-enhanced-hud .pp-score-label { font-size: 12px; opacity: 1; }
+body #pp-enhanced-hud .pp-score-display { font-size: 32px; text-shadow: none; }
+body.zombie-mode #pp-enhanced-hud { justify-content: flex-start; gap: 28px; }
+body.zombie-mode .pp-score-divider { display: none; }
+body.zombie-mode .zombie-progress-overlay { top: 8px; bottom: auto; min-height: 48px; padding: 9px 12px; border-radius: 10px; background: #0a1918ec; }
+body.zombie-mode .zombie-progress-overlay::before, body.zombie-mode .zombie-progress-overlay::after { display: none; }
+body.zombie-mode .zombie-progress-overlay :is(.zombie-progress-pill, strong, kbd) { font-family: var(--ui-font); text-shadow: none; letter-spacing: .01em; }
+@media (max-width: 850px) {
+    body.zombie-mode #pp-enhanced-hud { gap: 18px; padding-left: 16px; }
+    body.zombie-mode .zombie-progress-overlay { top: auto; bottom: 14px; }
+}
+body .zombie-wave-choice-btn { border-radius: 12px; background: #14251b; font-family: var(--ui-font); }
+body .zombie-wave-choice-panel { background: #101e17; }
+
+/* Achievements: useful filtering and readable progress rather than a wall of badges. */
+body .achievement-sidebar { background: #0d1926; }
+body .achievement-sidebar :is(.ach-name, .ach-desc, .sidebar-search, .ach-progress-stats, .overall-label) { font-family: var(--ui-font); letter-spacing: normal; }
+body .achievement-sidebar .ach-name { font-size: 15px; line-height: 1.4; }
+body .achievement-sidebar .ach-desc { font-size: 13px; line-height: 1.5; color: var(--ui-muted); }
+.achievement-filters { display: flex; gap: 6px; padding: 0 24px 14px; }
+.achievement-filters button { flex: 1; min-height: 40px; padding: 8px; border: 1px solid #344957; border-radius: 8px; font: 600 12px var(--ui-font); letter-spacing: 0; text-transform: none; color: #bacee0; background: #142333; }
+.achievement-filters button[aria-pressed='true'] { border-color: #65bbaa; color: #acffed; background: #183d38; }
+.achievement-empty { padding: 24px; color: var(--ui-muted); font: 14px/1.6 var(--ui-font); }
+
+/* Workshop typography and explanations use the same readable body face. */
+body :is(.customise-overlay, .forge-editor, .studio-ball) :is(h1, h2, h3, b, span, div) { font-family: inherit; }
+body .customise-overlay :is(.customise-overlay-subtitle, .forge-rules-note, .customise-summary-line) { font-size: 14px; color: #b1c5cd; line-height: 1.6; }
+body .customise-overlay :is(.customise-field label, .forge-rule > span) { font: 600 14px var(--ui-font); }
+body .customise-overlay .customise-tab b { font-size: 14px; }
+body .customise-overlay .customise-tab small { font-size: 12px; color: #b1c5cd; }
+body .customise-overlay .customise-powerups-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+body .customise-overlay .customise-powerup-option { align-items: flex-start; min-height: 88px; padding: 14px; gap: 10px; }
+.powerup-copy { display: grid; gap: 5px; }
+.powerup-copy strong { color: #e8f3f6; font-size: 14px; }
+.powerup-copy small { color: #adc2cb; font-size: 12px; line-height: 1.5; }
+body .studio-ball { --font-ui: var(--ui-font); --font-display: var(--ui-font); }
+body .studio-ball :is(input:disabled, select:disabled) { opacity: .4; }
+body .studio-ball :is(.hero p, .hint, .control span) { font-size: 14px; line-height: 1.5; }
+body .studio-ball :is(.control small, .group-title, .stat-value) { font-size: 12px; }
+body .studio-ball .panel-head .hint { position: static; font-size: 12px; color: #aec5cf; }
+body .forge-editor .forge-help { font-size: 12px; line-height: 1.6; color: #b6cbd5; }
+
+@media (max-width: 900px) {
+    html:not(.pp-mobile) #overlay .hdr { top: 20px; left: 20px; max-width: calc(100vw - 40px); }
+    html:not(.pp-mobile) #overlay .menu-right-panel { display: flex; top: 112px; right: 20px; width: 260px; }
+    html:not(.pp-mobile) #overlay .menu-right-panel .menu-recent-achievements { display: none; }
+    #overlay .menu-keys { display: none; }
+    #overlay .mode-card-hint { margin-bottom: 12px; }
+}
+@media (max-width: 640px) {
+    body .ppset-row { flex-wrap: wrap; gap: 12px; }
+    body .ppset-control { margin-left: auto; }
+    body .ppset-text { flex-basis: 100%; }
+    body .ppset-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); padding-inline: 12px; }
+    body .ppset-tabs button { font-size: 12px; padding-inline: 4px; }
+    body .ppset-body { padding-inline: 16px; }
+    body .ppset-foot { flex-wrap: wrap; padding: 12px 16px; }
+    body .ppset-saved { order: 3; flex-basis: 100%; text-align: center; }
+    #modal .modal-box { padding: 20px; }
+    #modal .modal-title { font-size: 22px; }
+    #modal .opts { grid-template-columns: 1fr; gap: 8px; }
+    #modal .opt { display: grid; grid-template-columns: 44px 1fr; column-gap: 14px; padding: 12px; text-align: left; }
+    #modal .opt-icon-large { grid-row: span 2; margin: 0; }
+    #modal .opt-title, #modal .opt-sub { margin: 0; }
+    #modal .modal-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    #modal #btnGo { margin: 0; }
+    .setup-rules { gap: 12px; }
+    .achievement-filters { padding-inline: 16px; }
+    html.pp-mobile #overlay .hdr { left: max(16px, env(safe-area-inset-left)); right: 16px; max-width: none; transform: none; }
+    #overlay .card-summary { font-size: 12px; }
+}
+@media (max-height: 540px) and (min-width: 641px) {
+    #modal .modal-box { padding: 18px 24px; }
+    #modal .mode-brief { margin-bottom: 12px; }
+    #modal .opt { padding: 12px; }
+    #modal .opt-icon-large { display: none; }
+    .setup-rules { margin-top: 12px; padding-top: 12px; }
+    #modal .modal-actions { margin-top: 12px; }
+    html:not(.pp-mobile) #overlay .menu-right-panel { top: 16px; right: 16px; }
+    html:not(.pp-mobile) #overlay .hdr { max-width: calc(100vw - 310px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    #overlay .card, #modal, #modal .opt { transition: none; }
+}
