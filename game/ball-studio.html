@@ -683,6 +683,7 @@
     @media (prefers-reduced-motion: reduce) { body::after { animation: none; } }
   </style>
   <link rel="stylesheet" href="css/studio.css">
+  <link rel="stylesheet" href="css/ui-refresh.css">
 </head>
 <body class="studio-ball">
   <div class="app-shell">
@@ -1280,6 +1281,9 @@
         const imageOn = !!state.config.imageSrc;
         els.imageStateValue.textContent = imageOn ? (state.closeBall.customImageError ? 'Unreadable' : 'Loaded') : 'None';
         els.clearImageBtn.disabled = !imageOn;
+        [els.imageOpacity, els.imageScale, els.imageBlendMode, els.imageFit].forEach(control => {
+          if (control) control.disabled = !imageOn;
+        });
         els.effectStateValue.textContent = state.compileError
           ? 'Syntax error'
           : state.runtimeError
@@ -1887,3 +1891,4 @@
   </script>
 </body>
 </html>
+
