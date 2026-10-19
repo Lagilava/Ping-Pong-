@@ -1,0 +1,60 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+let allocations = 0, gradients = 0, reducedMotion = false;
+const draws = [], rotations = [];
+const makeContext = () => new Proxy({}, {get(target, key) {
+    if (key in target) return target[key];
+    if (key === 'getTransform') return () => ({a:1.5,b:0,c:0,d:1.5});
+    if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => {
+        gradients++; return {addColorStop(){}};
+    };
+    if (key === 'drawImage') return (...args) => draws.push(args);
+    if (key === 'rotate') return angle => rotations.push(angle);
+    return () => {};
+}});
+const context = vm.createContext({Math, window:{game:{gameMode:'classic'}, PPSettings:{get:()=>reducedMotion}},
+    PerfGovernor:{tier:0}, document:{createElement(){
+        allocations++;
+        return {width:0,height:0,getContext:()=>makeContext()};
+    }}
+});
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../game/js/render/classic-art.js'),'utf8'),context);
+const art = new context.window.ClassicArt();
+const ctx = makeContext(), state = {dt:1/30,rally:0,score:0};
+art.draw(ctx,1280,720,state);
+const banner=art.banner, base=art.base, allocated=allocations, bakedGradients=gradients;
+assert(banner, 'normal quality uses the shared banner sprite');
+assert(banner.c.width <= 110 && banner.c.height <= 260, 'sprite stays tightly bounded at 1x despite DPR');
+draws.length=0;rotations.length=0;
+art.draw(ctx,1280,720,state);
+const firstAngles=rotations.slice(0,2);
+assert.equal(draws.filter(d=>d[0]===banner.c).length,2,'exactly two banner blits per background frame');
+for(let i=0;i<120;i++) art.draw(ctx,1280,720,state);
+assert.equal(allocations,allocated,'animation cannot allocate canvases each frame');
+assert.equal(gradients,bakedGradients,'animation cannot repaint gradients each frame');
+assert.equal(art.base,base,'crowd and arena retain the baked base');
+assert.equal(art.banner,banner,'both banners reuse the same sprite');
+rotations.length=0;
+art.draw(ctx,1280,720,state);
+assert.notDeepEqual(rotations.slice(0,2),firstAngles,'banner angles change over time');
+assert(rotations.slice(0,2).every(a=>Math.abs(a)<=0.009),'sway remains below one degree');
+state.dt=0;rotations.length=0;
+art.draw(ctx,1280,720,state);
+const pausedAngles=rotations.slice(0,2);
+rotations.length=0;art.draw(ctx,1280,720,state);
+assert.deepEqual(rotations.slice(0,2),pausedAngles,'zero dt cannot advance the new animation');
+reducedMotion=true;
+art.draw(ctx,1280,720,state);
+assert.equal(art.banner,null,'reduced motion bakes stationary banners');
+const reducedAllocated=allocations;
+art.draw(ctx,1280,720,state);
+assert.equal(allocations,reducedAllocated,'reduced-motion base remains cached');
+reducedMotion=false;context.PerfGovernor.tier=2;
+art.draw(ctx,1280,720,state);
+assert.equal(art.banner,null,'low tier uses the static fallback');
+context.PerfGovernor.tier=0;
+art.draw(ctx,1280,720,state);
+assert(art.banner,'restoring quality restores ambient animation');
+console.log('Classic ambient motion, shared sprite budget, steady-state cache and static fallbacks passed.');
