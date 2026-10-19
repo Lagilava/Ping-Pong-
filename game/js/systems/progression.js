@@ -1134,6 +1134,11 @@ class ProgressionSystem {
 <div class="sidebar-search-container">
     <input type="search" class="sidebar-search" aria-label="Search achievements" placeholder="Search the collection…">
 </div>
+<div class="achievement-filters" role="group" aria-label="Filter achievements">
+    <button type="button" data-ach-filter="all" aria-pressed="true">All</button>
+    <button type="button" data-ach-filter="unlocked" aria-pressed="false">Unlocked</button>
+    <button type="button" data-ach-filter="progress" aria-pressed="false">In progress</button>
+</div>
 <div class="achievement-list" id="sidebarAchievements"></div>
 <div class="sidebar-footer">
     <div class="progress-stats-container">
@@ -1154,6 +1159,11 @@ class ProgressionSystem {
         this.updateAchievementSidebar();
 
         // wire up search box
+        sidebar.querySelectorAll('[data-ach-filter]').forEach(button => button.addEventListener('click', () => {
+            this.achievementStatusFilter = button.dataset.achFilter;
+            sidebar.querySelectorAll('[data-ach-filter]').forEach(b => b.setAttribute('aria-pressed', String(b === button)));
+            this.updateAchievementSidebar();
+        }));
         const searchInput = sidebar.querySelector('.sidebar-search');
         if (searchInput) {
             searchInput.addEventListener('input', e => {
@@ -1185,6 +1195,8 @@ class ProgressionSystem {
         // Group achievements: Unlocked first, then Locked
         const sortedAchievements = Object.entries(this.achievements)
             .filter(([_, ach]) => {
+                if (this.achievementStatusFilter === 'unlocked' && !ach.unlocked) return false;
+                if (this.achievementStatusFilter === 'progress' && (ach.unlocked || !(ach.progress > 0))) return false;
                 if (!filter) return true;
                 return ach.name.toLowerCase().includes(filter) || ach.description.toLowerCase().includes(filter);
             })
@@ -1198,6 +1210,7 @@ class ProgressionSystem {
         let unlockedCount = 0;
         Object.values(this.achievements).forEach(a => { if (a.unlocked) unlockedCount++; });
 
+        if (!sortedAchievements.length) container.innerHTML = '<p class="achievement-empty" role="status">No achievements match this view. Try another filter or search.</p>';
         sortedAchievements.forEach(([key, ach]) => {
             const item = document.createElement('div');
             item.className = `sidebar-achievement ${ach.unlocked ? 'unlocked' : 'locked'}`;
@@ -1213,7 +1226,7 @@ class ProgressionSystem {
                     </div>
                     <div class="ach-progress-stats">
                         <span>Progress</span>
-                        <span>${ach.progress} / ${ach.maxProgress}</span>
+                        <span>${Math.round(ach.progress * 10) / 10} / ${ach.maxProgress}</span>
                     </div>
                 </div>
             ` : '';
@@ -2308,3 +2321,4 @@ class ProgressionSystem {
         }
     }
 }
+
