@@ -1,0 +1,24 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const path=require('node:path');
+let allocations=0,compositions=0,copies=0;
+const ctx={drawImage(){copies++;},save(){},restore(){},beginPath(){},rect(){},clip(){}};
+const sandbox=vm.createContext({window:{},document:{createElement(){allocations++;return {getContext:()=>ctx};}}});
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../game/js/render/background-renderer.js'),'utf8')+'\nglobalThis.Renderer=BackgroundRenderer;',sandbox);
+const r=Object.create(sandbox.Renderer.prototype),plate={};
+r._zombieHandsByScale=[];r.zombieHands=[];r.fogParticles=[];
+r._zombieSkyCanvas={};r._cemeteryAtmosphereCanvas={};
+r._ensureZombieStaticLayer=()=>plate;r._ensureCemeteryAtlas=()=>{};
+r._drawCemeteryAccents=()=>{compositions++;};
+for(let i=0;i<120;i++){r.time=i/60;r.renderZombie(ctx,1024,576);}
+assert.equal(allocations,1,'one bounded scene cache, no per-frame textures');
+assert.equal(compositions,24,'two accent layers refresh only 12 times in two seconds');
+assert.equal(copies,156,'reuse flattened scenery between accent updates');
+const old=r._cemeteryScene;
+r.renderZombie(ctx,768,432);
+assert.notEqual(r._cemeteryScene,old,'rebuild resized scene immediately');
+assert.equal(r._cemeteryScene.width,768);
+r._cleanupZombieCache();
+assert.equal(r._cemeteryScene,null,'release scene on mode cleanup');
+console.log('Zombie scenery compositing is bounded at 6 fps; texture reuse, resize and cleanup passed.');

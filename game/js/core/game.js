@@ -38,7 +38,7 @@ class Game {
         const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 600));
         idle(() => this.ensurePostFx(), { timeout: 2500 });
         PerfGovernor.onChange((tier) => {
-            this.postFx?.setQuality(tier.fx);
+            this.postFx?.setQuality(this.gameMode === 'zombie' ? 3 : tier.fx);
             PerfGovernor.fxActive = !!this.postFx?.active;
             const dpr = PerfGovernor.renderScale;
             if (Math.abs(this.canvas.width - Math.round(this.width * dpr)) > 1) this.setupCanvas();
@@ -1387,7 +1387,9 @@ class Game {
         }
         if ('imageSmoothingEnabled' in this.ctx) {
             this.ctx.imageSmoothingEnabled = true;
-            this.ctx.imageSmoothingQuality = 'high';
+            // Bilinear sprite scaling avoids the costly high-quality
+            // downsampling filter on every enemy in a zombie horde.
+            this.ctx.imageSmoothingQuality = this.gameMode === 'zombie' ? 'low' : 'high';
         }
         this.canvas.style.width = `${screenW}px`;
         this.canvas.style.height = `${screenH}px`;
@@ -2547,6 +2549,12 @@ class Game {
 
         // Set the new mode first
         this.gameMode = mode;
+        this.ctx.imageSmoothingQuality = mode === 'zombie' ? 'low' : 'high';
+        // Cemetery lighting and grading are already baked. Avoid uploading
+        // the whole Canvas into WebGL and running bloom/compositing every
+        // frame; Undead Pull supplies its existing Canvas visual fallback.
+        this.postFx?.setQuality(mode === 'zombie' ? 3 : PerfGovernor.current.fx);
+        PerfGovernor.fxActive = !!this.postFx?.active;
         this.arenaReveal = null;
         this.arenaRevealZoom = 1;
         this.postFx?.setGrade(Game.MODE_GRADES[mode] || Game.MODE_GRADES.classic);
@@ -6934,7 +6942,7 @@ class Game {
         this.postFx = window.PostFX ? PostFX.create(this.canvas) : null;
         PerfGovernor.fxActive = !!this.postFx;
         if (this.postFx) {
-            this.postFx.setQuality(PerfGovernor.current.fx);
+            this.postFx.setQuality(this.gameMode === 'zombie' ? 3 : PerfGovernor.current.fx);
             this.postFx.setGrade(Game.MODE_GRADES[this.gameMode] || Game.MODE_GRADES.classic);
         }
         return this.postFx;

@@ -326,18 +326,6 @@ class BackgroundRenderer {
 
             // ── ZOMBIE ───────────────────────────────────────────────
             case 'zombie':
-                for (let i = 0; i < 12; i++) {
-                    this.fogParticles.push({
-                        x: Math.random() * W,
-                        y: H * (0.72 + Math.random() * 0.20),
-                        size: Math.random() * 70 + 36,
-                        speed: Math.random() * 3.2 + 0.4,
-                        alpha: Math.random() * 0.10 + 0.03,
-                        drift: (Math.random() - 0.5) * 0.35,
-                        fogHue: 185 + Math.random() * 15,
-                        sprite: null,
-                    });
-                }
                 this.lightLayers.push(this._makeLight('radial', {
                     x: W * 0.76, y: H * 0.22,
                     radius: Math.min(W, H) * 0.34,
@@ -2010,6 +1998,7 @@ class BackgroundRenderer {
             this._cemeteryLoading = false;
             this._cemeteryAtlas = image;
             this._zombieStaticInitialized = false;
+            this._cemeteryScenePlate = null;
             this._invalidateBackgroundRenderCache();
         };
         image.onerror = () => { this._cemeteryLoading = false; this._cemeteryFailed = true; };
@@ -2060,25 +2049,31 @@ class BackgroundRenderer {
     renderZombie(ctx, w, h) {
         const groundY = h * 0.90;
         const staticLayer = this._ensureZombieStaticLayer(w, h, groundY);
-        if (this._zombieSkyCanvas) ctx.drawImage(this._zombieSkyCanvas,0,0);
         this._ensureCemeteryAtlas();
-        this._drawCemeteryAccents(ctx,w,h,true);
-        if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
-        this._drawCemeteryAccents(ctx, w, h);
-        // One cached atmospheric plate grades both scenery and sprite artwork.
-        if (this._cemeteryAtmosphereCanvas) ctx.drawImage(this._cemeteryAtmosphereCanvas,0,0);
-
-        if (areParticleEffectsEnabled()) {
-            for (let i = 0; i < this.fogParticles.length; i++) {
-                const p = this.fogParticles[i];
-                if (!p.sprite) p.sprite = this._buildZombieFogSprite(p);
-                if (!p.sprite) continue;
-                const sx = w / this.width, sy = h / this.height;
-                ctx.drawImage(p.sprite, (p.x - p.sprite.width * 0.5) * sx,
-                    (p.y - p.sprite.height * 0.5) * sy,
-                    p.sprite.width * sx, p.sprite.height * sy);
-            }
+        // Decorations advance at six frames/second. Compose their depth,
+        // scenery occlusion and shared grading only when that frame changes.
+        // The hands below retain the background's faster motion cadence.
+        const frame = Math.floor(this.time * 6);
+        let scene = this._cemeteryScene;
+        if (!scene || scene.width !== w || scene.height !== h) {
+            scene = this._cemeteryScene = document.createElement('canvas');
+            scene.width = w; scene.height = h;
+            this._cemeterySceneCtx = scene.getContext('2d', { alpha: false });
+            this._cemeterySceneFrame = -1;
         }
+        if (this._cemeteryScenePlate !== staticLayer || this._cemeterySceneFrame !== frame) {
+            const sceneCtx = this._cemeterySceneCtx;
+            sceneCtx.drawImage(this._zombieSkyCanvas,0,0);
+            this._drawCemeteryAccents(sceneCtx,w,h,true);
+            if (staticLayer) sceneCtx.drawImage(staticLayer,0,0);
+            this._drawCemeteryAccents(sceneCtx,w,h);
+            if (this._cemeteryAtmosphereCanvas) sceneCtx.drawImage(this._cemeteryAtmosphereCanvas,0,0);
+            this._cemeteryScenePlate = staticLayer;
+            this._cemeterySceneFrame = frame;
+        }
+        ctx.drawImage(scene,0,0);
+        // Static ground haze is already baked into the scene. The former
+        // twelve translucent circles added fill cost and visible round blobs.
 
         const handsToDraw = this._zombieHandsByScale.length ? this._zombieHandsByScale : this.zombieHands;
 
@@ -3977,6 +3972,10 @@ class BackgroundRenderer {
 
     _cleanupZombieCache() {
         this._cemeteryAtmosphereCanvas = null;
+        this._cemeteryScene = null;
+        this._cemeterySceneCtx = null;
+        this._cemeteryScenePlate = null;
+        this._cemeterySceneFrame = -1;
         this._zombieHandSprites = null;
         this._zombieSkyCanvas = null;
         this._zombieStaticCanvas = null;

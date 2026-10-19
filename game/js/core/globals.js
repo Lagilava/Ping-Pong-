@@ -71,7 +71,12 @@ const PerfGovernor = {
     _listeners: [],
 
     get current() { return this.TIERS[this.tier]; },
-    get glowScale() { return this.fxActive ? this.current.glowFx : this.current.glow; },
+    get glowScale() {
+        // Zombie lighting is baked into sprites/scenery. Do not replace its
+        // disabled post-processing with expensive live Canvas shadow layers.
+        if (window.game?.gameMode === 'zombie') return 0;
+        return this.fxActive ? this.current.glowFx : this.current.glow;
+    },
     get particleScale() { return this.current.particles; },
     get tierName() { return this.current.name; },
     /** Canvas backing-store scale: never above the screen's own pixel ratio. */
