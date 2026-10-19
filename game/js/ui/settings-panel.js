@@ -26,9 +26,9 @@
             { type: 'profile' },
         ],
         gameplay: [
-            { type: 'seg', key: 'aiLevel', label: 'Computer skill', help: 'How well the computer reads, aims and fakes its returns. Changes apply straight away. The Zombie boss gets tougher each wave instead.',
+            { type: 'seg', key: 'aiLevel', label: 'Computer skill', help: 'Applies immediately in versus modes. Zombie difficulty increases with each wave.',
                 options: [[0, 'Rookie'], [1, 'Easy'], [2, 'Normal'], [3, 'Hard'], [4, 'Insane']] },
-            { type: 'seg', key: 'pointsToWin', label: 'Points to win', help: 'Classic, Gravity, Speed and Obstacle. Custom uses its Forge rules; Zombie plays in waves. Starts with the next match.',
+            { type: 'seg', key: 'pointsToWin', label: 'Points to win', help: 'Next match: Classic, Gravity, Speed and Obstacle. Custom uses arena rules; Zombie uses waves.',
                 options: [[5, '5'], [7, '7'], [11, '11'], [15, '15'], [21, '21']] },
             { type: 'toggle', key: 'powerUps', label: 'Power-ups on the court', help: 'Classic, Gravity, Speed and Obstacle. Pick Custom power-ups on the Custom screen.' },
             { type: 'seg', key: 'replays', label: 'Instant replays', help: 'Auto plays great points back. Offer shows a Replay button for a few seconds instead.',
@@ -44,9 +44,10 @@
             { type: 'keys', label: 'Keys', help: 'Click a key, then press the new one. Esc cancels.' },
             { type: 'toggle', key: 'padRumble', label: 'Controller vibration', help: 'Gamepads rumble on hits and goals.' },
             { type: 'toggle', key: 'phoneVibrate', label: 'Phone vibration', help: 'Phones buzz when a point is scored.' },
-            { type: 'note', html: '<b>Mouse:</b> hold the button and drag on your half of the court. <b>Touch:</b> slide a thumb up and down to move (solo: anywhere, e.g. your right thumb on the right side; local 1v1: on your half). Tap or hold the round ability button in the bottom-left corner; tap with a second finger to fire the laser. <b>Gamepad:</b> left stick moves, A fires, Start pauses.' },
+            { type: 'note', html: '<p><b>Mouse</b><br>Hold and drag on your half of the court.</p><p><b>Touch</b><br>Slide to move. In local 1v1, stay on your half. Use the round ability button; tap with a second finger to fire a laser.</p><p><b>Gamepad</b><br>Left stick moves · A fires · Start pauses.</p>' },
         ],
         display: [
+            { type: 'toggle', key: 'noir', label: 'Noir theme', help: 'Black-and-white film styling with grain and flicker. Reduce motion disables the flicker.' },
             { type: 'slider', key: 'shake', label: 'Screen shake', help: 'How hard the camera kicks on big hits and goals.', min: 0, max: 150, step: 10, unit: '%' },
             { type: 'toggle', key: 'flash', label: 'Impact flash', help: 'A white flash on goals and heavy hits.' },
             { type: 'toggle', key: 'particles', label: 'Particle effects', help: 'Sparks, trails and debris.' },
@@ -73,7 +74,6 @@
             { type: 'toggle', key: 'ballOutline', label: 'High-visibility ball', help: 'A bold yellow ring around every ball.' },
             { type: 'seg', key: 'uiScale', label: 'Menu text size', help: 'Pause menu, settings and other panels.',
                 options: [[90, 'S'], [100, 'M'], [115, 'L'], [130, 'XL']] },
-            { type: 'toggle', key: 'noir', label: 'Noir mode', help: 'Plays the whole game as a black-and-white film: filmic contrast, halation, grain, flicker and a pool of key light.' },
         ],
     };
 
@@ -542,3 +542,4 @@ document.addEventListener('click', (e) => {
     e.stopPropagation();
     window.ppOpenPanel?.(btn.dataset.openPanel);
 });
+
