@@ -335,7 +335,6 @@ class GravityWell {
 
         // VISUAL UPGRADE: Add a subtle rotating space ripple (No SVG filter required)
         ctx.save();
-        ctx.rotate(time * 0.2);
         const rippleScale = 1.0 + Math.sin(time * 1.5) * 0.05;
         ctx.scale(rippleScale, rippleScale);
         this.#renderLightBloom(ctx, pulse, excit, sharedIntensity);

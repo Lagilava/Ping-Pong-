@@ -1050,6 +1050,11 @@ class BackgroundRenderer {
                 cctx.setTransform(scale, 0, 0, scale, 0, 0);
                 cctx.clearRect(0, 0, w, h);
                 this._renderModeBackground(cctx, w, h);
+                // The overlay light passes read the pixels under them, which is
+                // costly every frame on a GPU. Painting them into the cache lets
+                // them refresh with the scenery (their pulse is far slower than
+                // that) and leaves one plain copy per frame.
+                this.renderEnhancedLighting(cctx, w, h);
             }
             cctx.restore();
 
@@ -1079,7 +1084,8 @@ class BackgroundRenderer {
         if (applyCustomTone && window.CustomBackgrounds?.drawMatchBackground(ctx, w, h, game)) return;
 
         if (this._renderCachedBackground(ctx, w, h, applyCustomTone)) {
-            // Cached path handled the mode background; dynamic lighting below stays live.
+            // Cached path handled the mode background and its lighting.
+            return;
         } else if (applyCustomTone) {
             this._ensureCustomToneBuffers(w, h);
             const baseCtx = this._customToneBaseCtx;
