@@ -8164,3 +8164,7 @@ body:has(#skipIntro:not(.hidden)) .zombie-progress-overlay.visible {
 @media (prefers-reduced-motion: reduce) {
     .customise-overlay [data-custom-panel] { animation: none; }
 }
+
+/* Custom Match: keep the music player above the footer buttons. */
+body:has(#customiseOverlay.active) .pp-music-dock { bottom: 96px; }
+@media (max-width: 760px) { body:has(#customiseOverlay.active) .pp-music-dock { bottom: 190px; } }
