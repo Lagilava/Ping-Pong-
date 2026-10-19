@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="css/ui-art.css">
     <link rel="stylesheet" href="css/zombie-hud.css">
     <link rel="stylesheet" href="css/studio.css">
+    <link rel="stylesheet" href="css/ui-refresh.css">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js"></script>
 </head>
@@ -213,9 +214,10 @@
                 <button class="arr-btn right" id="btnR" type="button" aria-label="More modes">&#8594;</button>
             </div>
         </div>
-        <div class="modal" id="modal">
+        <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle" aria-describedby="modeBrief">
             <div class="modal-box">
                 <div class="modal-title" id="mTitle">CHOOSE OPPONENT</div>
+                <p class="mode-brief" id="modeBrief"></p>
                 <div class="opts" role="radiogroup" aria-labelledby="mTitle">
                     <button type="button" class="opt sel" role="radio" aria-checked="true" data-mp="false">
                         <span class="opt-icon-large"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="14" width="30" height="24" rx="6"/><path d="M24 14V8"/><circle cx="24" cy="6.5" r="2"/><path d="M5 23v8M43 23v8M18 31h12"/></g><circle cx="18" cy="24" r="3" fill="currentColor"/><circle cx="30" cy="24" r="3" fill="currentColor"/></svg></span>
@@ -233,11 +235,15 @@
                         <span class="opt-sub">Play a friend with a room code</span>
                     </button>
                 </div>
-                <div class="btns">
+                <div class="setup-rules">
+                    <label id="setupSkillRow">Computer skill<select id="setupSkill"><option value="0">Rookie</option><option value="1">Easy</option><option value="2">Normal</option><option value="3">Hard</option><option value="4">Insane</option></select></label>
+                    <label id="setupPointsRow">Points to win<select id="setupPoints"><option>5</option><option>7</option><option>11</option><option>15</option><option>21</option></select></label>
+                </div>
+                <div class="btns modal-actions">
                     <button class="btn-back btn-settings" type="button" data-open-panel="settings" aria-label="Settings">&#9881; SETTINGS</button>
                     <button class="btn-back btn-tutorial" type="button" data-mode-tutorial="">? TUTORIAL</button>
                     <button class="btn-back" id="btnBack" type="button">BACK</button>
-                    <button class="btn-go" id="btnGo" type="button">PLAY</button>
+                    <button class="btn-go" id="btnGo" type="button">Start match</button>
                 </div>
             </div>
         </div>
@@ -439,35 +445,21 @@
                             <button id="customPowerupsNone" type="button" class="customise-mini-btn">None</button>
                         </div>
                         <div id="customPowerupsGrid" class="customise-powerups-grid">
-                            <label class="customise-powerup-option"><input type="checkbox" value="slowBall">Slow
-                                Ball</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="fastPaddle">Fast
-                                Paddle</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="doublePoints">Double
-                                Points</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="bigPaddle">Big
-                                Paddle</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="smallBall">Small
-                                Ball</label>
-                            <label class="customise-powerup-option"><input type="checkbox"
-                                    value="invincible">Invincible</label>
-                            <label class="customise-powerup-option"><input type="checkbox"
-                                    value="multiBall">Multi-Ball</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="powerShot">Power
-                                Shot</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="timeWarp">Time
-                                Warp</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="magnetPaddle">Magnet
-                                Paddle</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="ghostBall">Ghost
-                                Ball</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="laserPaddle">Laser
-                                Paddle</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="shrinkOpponent">Shrink
-                                Opponent</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="chaosMode">Chaos
-                                Mode</label>
-                            <label class="customise-powerup-option"><input type="checkbox" value="shield">Shield</label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="slowBall"><span class="powerup-copy"><strong>Slow Ball</strong><small>Slows the ball for easier returns.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="fastPaddle"><span class="powerup-copy"><strong>Fast Paddle</strong><small>Increases paddle movement speed.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="doublePoints"><span class="powerup-copy"><strong>Double Points</strong><small>Makes scoring worth double points.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="bigPaddle"><span class="powerup-copy"><strong>Big Paddle</strong><small>Enlarges your paddle.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="smallBall"><span class="powerup-copy"><strong>Small Ball</strong><small>Shrinks the ball.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="invincible"><span class="powerup-copy"><strong>Invincible</strong><small>Temporarily protects your side.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="multiBall"><span class="powerup-copy"><strong>Multi-Ball</strong><small>Adds extra balls to the court.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="powerShot"><span class="powerup-copy"><strong>Power Shot</strong><small>Charges a powerful return.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="timeWarp"><span class="powerup-copy"><strong>Time Warp</strong><small>Slows time during play.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="magnetPaddle"><span class="powerup-copy"><strong>Magnet Paddle</strong><small>Attracts the ball towards your paddle.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="ghostBall"><span class="powerup-copy"><strong>Ghost Ball</strong><small>Lets the ball phase through obstacles.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="laserPaddle"><span class="powerup-copy"><strong>Laser Paddle</strong><small>Enables projectile shots.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="shrinkOpponent"><span class="powerup-copy"><strong>Shrink Opponent</strong><small>Reduces the opponent's paddle size.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="chaosMode"><span class="powerup-copy"><strong>Chaos Mode</strong><small>Applies unpredictable effects.</small></span></label>
+                            <label class="customise-powerup-option"><input type="checkbox" value="shield"><span class="powerup-copy"><strong>Shield</strong><small>Blocks the next goal against you.</small></span></label>
                         </div>
                     </div>
 
@@ -514,6 +506,13 @@
                     <button type="button" class="pause-btn small" data-act="help"><svg class="pause-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.5"/><circle cx="12" cy="17" r=".6"/></svg>Help</button>
                 </div>
                 <button type="button" class="pause-btn danger" data-act="quit" data-confirm="Tap again to quit">Quit to menu <kbd>Q</kbd></button>
+            </div>
+            <div class="pause-confirm" id="pauseConfirm" hidden role="group" aria-labelledby="pauseConfirmText">
+                <p id="pauseConfirmText"></p>
+                <div class="pause-confirm-actions">
+                    <button type="button" class="pause-btn" data-act="cancel-confirm">Keep playing</button>
+                    <button type="button" class="pause-btn danger" data-act="confirm-pending" id="pauseConfirmGo">Quit match</button>
+                </div>
             </div>
             <p class="pause-hint">Gamepad: Start resumes</p>
         </div>
@@ -640,3 +639,4 @@
     <script src="js/menu/custom-screen.js"></script>
 </body>
 </html>
+
