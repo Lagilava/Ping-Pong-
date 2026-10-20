@@ -1117,14 +1117,29 @@ class Game {
     }
 
     followPointerTarget(paddle, dt) {
-        if (!Number.isFinite(paddle.pointerTargetY)) { paddle.vel.y *= paddle.friction; return; }
+        if (!(dt > 0)) return;
+        if (!Number.isFinite(paddle.pointerTargetY)) {
+            this.driveHumanPaddle(paddle, 0, dt);
+            return;
+        }
         const centre = paddle.pos.y + paddle.h / 2;
         const error = paddle.pointerTargetY - centre;
         const speedMul = (paddle === this.player && this.powerUpTimers.fastPaddle > 0) ? 1.5 : 1;
         const maxSpeed = 2600 * speedMul;
-        // Critically damped approach (~45 ms), capped to a believable top speed.
-        const desired = Math.max(-maxSpeed, Math.min(maxSpeed, error * 22));
-        paddle.vel.y += (desired - paddle.vel.y) * Math.min(1, dt * 45);
+        // Exact exponential approach: frame-rate independent, no spring
+        // overshoot. Integrating this velocity lands short of the target.
+        const travel = error * (1 - Math.exp(-32 * dt));
+        paddle.vel.y = Math.max(-maxSpeed, Math.min(maxSpeed, travel / dt));
+    }
+
+    driveHumanPaddle(paddle, axis, dt, speedMul = 1) {
+        if (!(dt > 0)) return;
+        axis = Math.max(-1, Math.min(1, axis));
+        const target = axis * paddle.maxSpeed * speedMul;
+        const reversing = paddle.vel.y * target < 0;
+        const response = axis === 0 ? 60 : (reversing ? 64 : 40);
+        paddle.vel.y += (target - paddle.vel.y) * (1 - Math.exp(-response * dt));
+        if (axis === 0 && Math.abs(paddle.vel.y) < 1) paddle.vel.y = 0;
     }
 
     initSpeedParticles() {
@@ -7240,6 +7255,14 @@ class Game {
         const human = isPlayer || this.isMultiplayer;
         if (human) this.rumble(side, 0.25 + impact * 0.6, 60 + impact * 80);
 
+        if (human && ball === this.ball && !edgeHit &&
+            Math.abs(paddle.vel.y) > paddle.maxSpeed * 0.45 && Math.abs(ball.spin || 0) > 2 &&
+            this._lastHitAt - (this._lastSpinReadoutAt || -1000) > 900) {
+            this._lastSpinReadoutAt = this._lastHitAt;
+            const x = isPlayer ? paddle.pos.x + paddle.w + 65 : paddle.pos.x - 65;
+            this.popText('SPIN', x, Math.max(28, Math.min(this.height - 28, ball.pos.y - 24)), '#a7ead3', 18);
+        }
+
         // Rally counter pop + milestone callouts every 5 hits.
         this.rallyPop = 1;
         const r = this.rallyCount;
@@ -7496,12 +7519,13 @@ class Game {
         if (this.paused || this.matchEnding) return;
         // Online: hold still until both players are in, and trade state.
         if (this.net && !this.net.preStep(dt)) return;
-        // Hit-stop: on a hard paddle hit the world briefly runs at a crawl, which
-        // sells the impact without feeling like input lag.
+        // Offline impact slowdown affects the world, not human input. Online
+        // matches keep one simulation clock for local/remote paddles and ball;
+        // a cosmetic hit must not stall authoritative motion on one peer.
         let hitStopScale = 1;
         if (this.hitStop > 0) {
             this.hitStop -= dt;
-            hitStopScale = 0.12;
+            hitStopScale = this.net ? 1 : 0.12;
         }
         this.modeAbilities?.update(dt);
         if (this.gameMode === 'gravity') this.gravityWarp?.update(dt);
@@ -7519,7 +7543,9 @@ class Game {
             this.updateBallPhysics(this.ball, effectiveDt);
             this.handleCollisions(effectiveDt);
         }
-        this.updatePaddles(paddleDt);
+        // Sell the impact in the world without taking control away from
+        // the player. Intentional time-warp powers keep their existing scale.
+        this.updatePaddles(paddleDt, this.timeWarpFactor * dt);
         this.checkScoringConditions();
         this.updateGameUI();
     }
@@ -7795,32 +7821,27 @@ class Game {
         return Number.isFinite(pct) ? Math.max(0.6, Math.min(1.5, pct / 100)) : 1;
     }
 
-    updatePaddles(dt) {
+    updatePaddles(dt, controlDt = dt) {
         if (this.gameMode === 'customise') {
             this.enforceFairCustomisePaddles();
         }
         if (this.net) {
-            this.updateOnlinePaddles(dt);
+            this.updateOnlinePaddles(dt, controlDt);
             return;
         }
         // Player 1 (Left)
         if (this.player.laserStunned) {
             this.player.vel.y = 0;
         } else if (this.pointerControls.player !== null) {
-            this.followPointerTarget(this.player, dt);
+            this.followPointerTarget(this.player, controlDt);
         } else {
-            let p1MoveDir = this.keys['w'] ? -1 : (this.keys['s'] ? 1 : 0);
+            let p1MoveDir = Number(!!this.keys['s']) - Number(!!this.keys['w']);
             const pad1 = this.padState?.[0];
             if (pad1 && pad1.axis !== 0) p1MoveDir = pad1.axis;
-            if (p1MoveDir !== 0) {
-                const speedMul = (this.powerUpTimers.fastPaddle > 0 ? 1.5 : 1) * this.getKeyboardPaddleSpeed();
-                const targetVelY = p1MoveDir * this.player.maxSpeed * speedMul;
-                this.player.vel.y += (targetVelY - this.player.vel.y) * 0.1;
-            } else {
-                this.player.vel.y *= this.player.friction;
-            }
+            const speedMul = (this.powerUpTimers.fastPaddle > 0 ? 1.5 : 1) * this.getKeyboardPaddleSpeed();
+            this.driveHumanPaddle(this.player, p1MoveDir, controlDt, speedMul);
         }
-        this.player.pos.y += this.player.vel.y * dt;
+        this.player.pos.y += this.player.vel.y * controlDt;
         this.player.clampTo(this.height);
 
         // Player 2 or AI (Right)
@@ -7829,18 +7850,12 @@ class Game {
             if (this.aiPaddle.laserStunned) {
                 this.aiPaddle.vel.y = 0;
             } else if (this.pointerControls.ai !== null) {
-                this.followPointerTarget(this.aiPaddle, dt);
+                this.followPointerTarget(this.aiPaddle, controlDt);
             } else {
-                let p2MoveDir = this.keys['arrowup'] ? -1 : (this.keys['arrowdown'] ? 1 : 0);
+                let p2MoveDir = Number(!!this.keys['arrowdown']) - Number(!!this.keys['arrowup']);
                 const pad2 = this.padState?.[1];
                 if (pad2 && pad2.axis !== 0) p2MoveDir = pad2.axis;
-                if (p2MoveDir !== 0) {
-                    const speedMul = this.getKeyboardPaddleSpeed();
-                    const targetVelY = p2MoveDir * this.aiPaddle.maxSpeed * speedMul;
-                    this.aiPaddle.vel.y += (targetVelY - this.aiPaddle.vel.y) * 0.1;
-                } else {
-                    this.aiPaddle.vel.y *= this.aiPaddle.friction;
-                }
+                this.driveHumanPaddle(this.aiPaddle, p2MoveDir, controlDt, this.getKeyboardPaddleSpeed());
             }
         }
 
@@ -7863,7 +7878,7 @@ class Game {
         }
 
         // Apply Right Paddle Movement (AI or P2)
-        this.aiPaddle.pos.y += this.aiPaddle.vel.y * dt;
+        this.aiPaddle.pos.y += this.aiPaddle.vel.y * (this.isMultiplayer ? controlDt : dt);
         this.aiPaddle.clampTo(this.height);
 
         // Player 1 Laser
@@ -7889,7 +7904,7 @@ class Game {
 
     // Online: this player's paddle takes every control scheme (W/S, arrows,
     // mouse/touch, either gamepad); the other paddle follows the network.
-    updateOnlinePaddles(dt) {
+    updateOnlinePaddles(dt, controlDt = dt) {
         const net = this.net;
         const isHost = net.role === 'host';
         const local = isHost ? this.player : this.aiPaddle;
@@ -7898,20 +7913,15 @@ class Game {
         if (local.laserStunned) {
             local.vel.y = 0;
         } else if (this.pointerControls[localKey] !== null) {
-            this.followPointerTarget(local, dt);
+            this.followPointerTarget(local, controlDt);
         } else {
-            let dir = (this.keys['w'] || this.keys['arrowup']) ? -1 : ((this.keys['s'] || this.keys['arrowdown']) ? 1 : 0);
+            let dir = Number(!!(this.keys['s'] || this.keys['arrowdown'])) - Number(!!(this.keys['w'] || this.keys['arrowup']));
             const padAxis = this.padState?.[0]?.axis || this.padState?.[1]?.axis || 0;
             if (padAxis !== 0) dir = padAxis;
-            if (dir !== 0) {
-                const speedMul = (this.powerUpTimers.fastPaddle > 0 ? 1.5 : 1) * this.getKeyboardPaddleSpeed();
-                const targetVelY = dir * local.maxSpeed * speedMul;
-                local.vel.y += (targetVelY - local.vel.y) * 0.1;
-            } else {
-                local.vel.y *= local.friction;
-            }
+            const speedMul = (this.powerUpTimers.fastPaddle > 0 ? 1.5 : 1) * this.getKeyboardPaddleSpeed();
+            this.driveHumanPaddle(local, dir, controlDt, speedMul);
         }
-        local.pos.y += local.vel.y * dt;
+        local.pos.y += local.vel.y * controlDt;
         local.clampTo(this.height);
 
         net.driveRemotePaddle(remote, dt);
