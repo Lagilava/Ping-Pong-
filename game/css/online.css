@@ -240,3 +240,30 @@ html.pp-mobile #modal .opts:has(.opt-online:not([hidden])) { grid-template-colum
 .pause-menu.pp-online-guest [data-act="restart"] { display: none; }
 
 body.pp-reduce-motion .ppon-spin { animation-duration: 2.4s; }
+
+/* Ping readout while an online match runs: small, out of the way. */
+.ppon-hudping {
+    position: fixed;
+    left: max(10px, env(safe-area-inset-left));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 12px 3px 9px;
+    border: 1px solid var(--ad-line, rgba(77, 227, 255, 0.35));
+    border-radius: var(--ad-plate, 4px 12px 4px 12px);
+    background: rgba(7, 12, 26, 0.6);
+    color: var(--ad-muted, #a9bfd2);
+    font: 600 12px/1.4 var(--ad-body, 'Rajdhani', sans-serif);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    pointer-events: none;
+    opacity: 0.75;
+}
+.ppon-hudping[hidden] { display: none; }
+.ppon-hudping b { color: var(--ad-ink, #eaf6ff); font-family: var(--ad-display, 'Orbitron', sans-serif); font-size: 11px; font-weight: 700; }
+.ppon-hudping em { font-style: normal; color: #ff8fa8; }
+.ppon-hudping i { width: 7px; height: 7px; border-radius: 50%; background: #00ffd6; box-shadow: 0 0 6px currentColor; color: #00ffd6; }
+.ppon-hudping[data-q="good"] i { background: #ffd23f; color: #ffd23f; }
+.ppon-hudping[data-q="laggy"] i { background: #ff4fa3; color: #ff4fa3; }

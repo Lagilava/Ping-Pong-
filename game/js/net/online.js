@@ -12,7 +12,7 @@
 (function () {
     'use strict';
 
-    const PROTOCOL = 2;
+    const PROTOCOL = 3;
     const ID_PREFIX = 'neon-pingpong-v1-';
     const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     const CODE_LENGTH = 5;
@@ -31,6 +31,8 @@
     const CONNECT_TIMEOUT_MS = 15000;
     const RECONNECT_MS = 45000;     // how long a dropped link may take to come back (a reload included)
     const REDIAL_MS = 2500;
+    const FAST_LABEL = 'pp-fast';   // the second, unreliable data channel
+    const FAST_MAX_BYTES = 12000;   // bigger messages go on the reliable channel
     const DIAL_PATIENCE_MS = 9000;  // let a slow attempt finish before starting another
     const MAX_CANDIDATES = 3;       // host: unvetted links at once (shared-link strangers beyond this are dropped)
     const CANDIDATE_MS = 20000;     // host: a link that has not been let in by then is closed
@@ -136,6 +138,9 @@
             this.remoteHidden = false;
             this.mode = 'classic';
             this.rtt = 80;
+            this.fastSeq = 0;               // numbers outgoing snapshots/inputs
+            this.fastIn = { last: 0, got: 0, lost: 0 };
+            this.loss = 0;                  // share of fast messages lost lately, 0..1
             this.lastHeard = 0;
             this.timers = [];
             this.series = { left: 0, right: 0 };   // wins this session, by side
@@ -272,7 +277,9 @@
                 if (this.closed) { try { conn.close(); } catch (_) { /* ignore */ } return; }
                 // The guest says hello first; the host answers only once it lets them in.
                 if (this.role === 'guest') { try { conn.send(this.helloMessage()); } catch (_) { /* closing */ } }
+                if (this.role === 'guest') this.openFast(conn);
             });
+            if (this.role === 'host') this.listenFast(conn);
             conn.on('data', (msg) => {
                 if (this.closed || !msg || typeof msg !== 'object') return;
                 if (conn !== this.conn) {
@@ -295,6 +302,72 @@
                     else if (!this.hadPartner && this.role === 'guest') this.fail('Could not connect directly to your friend. One of your networks blocks peer-to-peer games; try another network (a phone hotspot often works).');
                 });
             }
+        }
+
+        // Snapshots and inputs go on a second channel that may drop and reorder
+        // packets, so one lost packet never stalls the ones behind it. Everything
+        // that must arrive (hits, scores, events, control) stays on the reliable
+        // channel, which is also the fallback when the fast one is not up.
+        openFast(conn) {
+            const pc = conn.peerConnection;
+            if (!pc || conn._ppFast) return;
+            try { this.setupFast(conn, pc.createDataChannel(FAST_LABEL, { ordered: false, maxRetransmits: 0 })); } catch (_) { /* reliable only */ }
+        }
+
+        listenFast(conn) {
+            const pc = conn.peerConnection;
+            if (!pc) return;
+            const peerJsHandler = pc.ondatachannel;
+            // PeerJS treats every incoming channel as the main one; keep ours away from it.
+            pc.ondatachannel = (e) => {
+                if (e.channel?.label === FAST_LABEL) this.setupFast(conn, e.channel);
+                else if (peerJsHandler) peerJsHandler.call(pc, e);
+            };
+        }
+
+        setupFast(conn, ch) {
+            conn._ppFast = ch;
+            ch.onmessage = (e) => {
+                if (this.closed || conn !== this.conn || typeof e.data !== 'string') return;
+                let msg;
+                try { msg = JSON.parse(e.data); } catch (_) { return; }
+                if (!msg || typeof msg !== 'object') return;
+                if (msg.q) {
+                    const f = this.fastIn;
+                    if (msg.q <= f.last) return;                 // late or repeated: newer data already applied
+                    if (f.last) f.lost += msg.q - f.last - 1;
+                    f.got++;
+                    f.last = msg.q;
+                }
+                this.lastHeard = performance.now();
+                try { this.onMessage(msg); } catch (err) { console.error('[Online]', err); }
+            };
+            ch.onclose = ch.onerror = () => { if (conn._ppFast === ch) conn._ppFast = null; };
+        }
+
+        // Snapshots and inputs: newest wins, so losing one is fine.
+        sendFast(msg) {
+            const conn = this.conn;
+            if (!conn || !conn.open) return;
+            const ch = conn._ppFast;
+            if (ch && ch.readyState === 'open') {
+                msg.q = ++this.fastSeq;
+                let text;
+                try { text = JSON.stringify(msg); } catch (_) { return; }
+                if (text.length <= FAST_MAX_BYTES && ch.bufferedAmount < 64000) {
+                    try { ch.send(text); return; } catch (_) { /* fall through to reliable */ }
+                }
+                delete msg.q;
+            }
+            this.send(msg);
+        }
+
+        // Loss over the last few seconds, from gaps in the numbering.
+        sampleLoss() {
+            const f = this.fastIn;
+            const total = f.got + f.lost;
+            if (total >= 20) { this.loss = this.loss * 0.5 + (f.lost / total) * 0.5; f.got = f.lost = 0; }
+            else if (this.fastIn.last === 0) this.loss = 0;
         }
 
         helloMessage() {
@@ -332,6 +405,8 @@
             if (this.role === 'host') this.send(this.helloMessage());
             this.connected = true;
             this.lastHeard = performance.now();
+            this.fastIn = { last: 0, got: 0, lost: 0 };    // a new link numbers from 1 again
+            this.loss = 0;
             this.remoteHidden = false;
             this.remoteName = cleanName(hello.name, this.role === 'host' ? 'Guest' : 'Host');
             this.remotePaddles = hello.paddles && typeof hello.paddles === 'object' ? hello.paddles : null;
@@ -500,7 +575,8 @@
             const limit = this.remoteHidden ? HIDDEN_LINK_TIMEOUT_MS : LINK_TIMEOUT_MS;
             if (this.connected && this.conn && performance.now() - this.lastHeard > limit) { this.linkDown(); return; }
             if (this.connected) saveRejoin(this.role === 'host' ? { role: 'host', code: this.code } : { role: 'guest', code: this.code, token: this.token });
-            this.ui.updatePing(this.rtt);
+            this.sampleLoss();
+            this.ui.updatePing(this.rtt, this.loss);
         }
 
         fail(message) {
@@ -773,7 +849,7 @@
         sendInput() {
             const p = this.localPaddle();
             if (!p) return;
-            this.send({ t: 'in', y: round1(p.pos.y), vy: round1(p.vel.y) });
+            this.sendFast({ t: 'in', y: round1(p.pos.y), vy: round1(p.vel.y) });
         }
 
         onRemoteInput(msg) {
@@ -873,7 +949,7 @@
                     ar.coins.map((c) => (c.alive ? 1 : 0)).join(''), ar.blocks.map((k) => (k.used ? 1 : 0)).join(''),
                     ar.shield.player, ar.shield.ai, ar.starOwner];
             }
-            this.send(s);
+            this.sendFast(s);
         }
 
         applySnapshot(s) {
@@ -1598,15 +1674,31 @@
             }, 2600);
         },
 
-        updatePing(rtt) {
-            const el = this.root?.querySelector('#pponPing');
-            if (!el || !session || this.view !== 'ready' || session.reconnecting) return;
+        updatePing(rtt, loss = 0) {
+            if (!session) return;
             const ms = Math.round(rtt);
-            const q = ms < 70 ? 'great' : ms < 140 ? 'good' : 'laggy';
+            const lossPct = Math.round(loss * 100);
+            const q = ms < 70 && lossPct < 3 ? 'great' : ms < 140 && lossPct < 8 ? 'good' : 'laggy';
+            this.pingHud(session.inGame() && session.inMatch && !session.reconnecting ? { ms, lossPct, q } : null);
+            const el = this.root?.querySelector('#pponPing');
+            if (!el || this.view !== 'ready' || session.reconnecting) return;
             const who = session.role === 'host' ? 'Connected' : `Connected · waiting for ${session.remoteName} to start`;
             el.innerHTML = `${esc(who)} · <span class="ppon-q ${q}">${ms} ms ${q}</span>`;
-            const hud = document.getElementById('pponHudPing');
-            if (hud) hud.textContent = `${ms} ms`;
+        },
+
+        // A small readout in the corner while a match is running.
+        pingHud(info) {
+            let el = this.hudPing;
+            if (!info) { if (el) el.hidden = true; return; }
+            if (!el) {
+                el = this.hudPing = document.createElement('div');
+                el.className = 'ppon-hudping';
+                el.setAttribute('aria-hidden', 'true');
+                document.body.appendChild(el);
+            }
+            el.hidden = false;
+            el.dataset.q = info.q;
+            el.innerHTML = `<i></i><b>${info.ms}</b> ms${info.lossPct >= 2 ? ` · <em>${info.lossPct}% loss</em>` : ''}`;
         },
 
         showError(message) {
@@ -1622,7 +1714,7 @@
             this.showError(message);
         },
 
-        onSessionClosed() { /* views are switched by the caller */ },
+        onSessionClosed() { this.pingHud(null); },
 
         banner(text, kind = 'wait') {
             if (!this.bannerEl) {
