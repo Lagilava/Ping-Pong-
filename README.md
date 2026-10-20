@@ -1,10 +1,11 @@
 # Ping Pong — Neon Edition
 
-A browser ping pong game with five arenas that each play differently, a ball
-physics engine written in C++ and compiled to WebAssembly, GPU shader
-post-processing, and a level/XP/achievement system.
+A browser ping pong game with five arenas that each play differently plus a
+build-your-own Custom mode, peer-to-peer online play, a ball physics engine
+written in C++ and compiled to WebAssembly, GPU shader post-processing, and a
+level/XP/achievement system. It runs on PC and phones.
 
-![Main menu](docs/screenshots/menu.jpg)
+![Main menu](docs/images/menu.jpg)
 
 ## Play it (testers start here)
 
@@ -33,7 +34,7 @@ Keep the small console window open while you play; close it to stop.
   after a great point a **▶ REPLAY** chip shows for a few seconds, so tap it
   only if you want to watch.
 - **F2** shows a performance readout: FPS, detected display refresh rate,
-  quality tier, render scale, shaders and physics backend.
+  quality tier (Visual quality in Settings > Display), render scale, shaders and physics backend.
 
 - Intros always play, and **Esc** closes them: on the boot screen, during the
   boot cinematic (any key works there too) and during a match intro (or use
@@ -105,14 +106,26 @@ and starts the match. On a phone, **Copy invite link** opens the share sheet.
 ### Settings
 
 **Settings** opens from the pause menu, the match setup dialog and the Custom
-screen, and saves as you change it. Tabs: Gameplay (computer skill, points to
-win, power-ups, replays, AI trash talk, auto-pause), Paddles (a paddle
-design for each mode, for your paddle and your opponent's), Controls (paddle
-speed, key rebinding for both players, vibration), Display (screen
-shake, impact flash, particles, scoreboard size, FPS counter), Audio, and
-Accessibility (reduce motion, high-visibility ball, menu text size, Noir
-mode: the whole game as a black-and-white film with grain, flicker and
-scanlines).
+screen, and saves as you change it. Tabs: Profile, Gameplay (computer skill,
+points to win, power-ups, replays, AI trash talk, auto-pause), Paddles (a
+paddle design for each mode, for your paddle and your opponent's), Controls
+(paddle speed, key rebinding for both players, vibration), Display, Audio, and
+Accessibility (reduce motion, high-visibility ball, menu text size).
+
+**Display** holds the visual quality controls. **Visual quality** is Auto, Low,
+Medium, High or Ultra: Auto picks the best level the device can hold at 60 fps
+and keeps adjusting during play, and the other presets are fixed. Under it are
+switches for **Bloom and lighting**, **Neon glow** and **Animated backgrounds**,
+plus **Noir theme** (the whole game as a black-and-white film with grain,
+flicker and scanlines), screen shake, impact flash, particles, scoreboard size,
+an FPS counter and the F2 performance readout.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/settings-display.jpg" alt="Settings, Display tab" /><br/><sub><b>Display</b>: visual quality and effect switches</sub></td>
+<td width="50%"><img src="docs/images/settings-paddles.jpg" alt="Settings, Paddles tab" /><br/><sub><b>Paddles</b>: a design per mode, live previews</sub></td>
+</tr>
+</table>
 
 Paddle designs: Classic, Satelliten, World Shield, AI Rebel and Prizma. In
 online matches each side shows the design its own player picked; the Zombie
@@ -164,7 +177,8 @@ Plus **Custom** (local 1v1 with your own paddles, background, music and
 power-ups, played on an arena you build in the **Forge**: place walls, bumpers,
 spinners, moving gates, black holes, boost pads, ? blocks and coins, set the
 rules (score to win, ball speed, rally speed-up, paddle size, arena gravity),
-save maps and share them as codes), **Ball Studio** (a ball skin editor), local
+save maps and share them as codes), **Ball Studio** (a ball skin editor whose
+preview uses the real in-match ball renderer), local
 1v1 for any mode, and a persistent level / XP / achievement system.
 
 In Custom Match, paste a YouTube, Spotify, SoundCloud, or Apple Music URL in
@@ -175,16 +189,20 @@ object inspector, duplicate/delete controls, and undo/redo.
 
 <table>
 <tr>
-<td width="50%"><img src="docs/screenshots/classic.jpg" alt="Classic mode" /><br/><sub><b>Classic</b></sub></td>
-<td width="50%"><img src="docs/screenshots/gravity.jpg" alt="Gravity mode" /><br/><sub><b>Gravity</b></sub></td>
+<td width="50%"><img src="docs/images/classic.jpg" alt="Classic mode" /><br/><sub><b>Classic</b></sub></td>
+<td width="50%"><img src="docs/images/gravity.jpg" alt="Gravity mode" /><br/><sub><b>Gravity</b></sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/screenshots/zombie.jpg" alt="Zombie mode" /><br/><sub><b>Zombie</b></sub></td>
-<td width="50%"><img src="docs/screenshots/obstacle.jpg" alt="Obstacle mode" /><br/><sub><b>Obstacle</b></sub></td>
+<td width="50%"><img src="docs/images/speed.jpg" alt="Speed mode" /><br/><sub><b>Speed</b></sub></td>
+<td width="50%"><img src="docs/images/obstacle.jpg" alt="Obstacle mode" /><br/><sub><b>Obstacle</b></sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/screenshots/pause.jpg" alt="Pause menu" /><br/><sub><b>Pause menu</b>: resume, restart, settings, audio, help, quit</sub></td>
-<td width="50%"></td>
+<td width="50%"><img src="docs/images/zombie.jpg" alt="Zombie mode" /><br/><sub><b>Zombie</b></sub></td>
+<td width="50%"><img src="docs/images/custom.jpg" alt="Custom match screen" /><br/><sub><b>Custom</b>: arena, rules, paddles, music, background and power-ups</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/images/ball-studio.jpg" alt="Ball Studio" /><br/><sub><b>Ball Studio</b></sub></td>
+<td width="50%"><img src="docs/images/pause.jpg" alt="Pause menu" /><br/><sub><b>Pause menu</b>: resume, restart, settings, audio, help, quit</sub></td>
 </tr>
 </table>
 
@@ -273,7 +291,7 @@ game/                     Everything the browser loads
 physics/                  C++ source for the physics engine + build scripts
 tools/serve.ps1           Zero-dependency local web server used by the .bat files
 tools/share.ps1           Cloudflare quick tunnel for "Share Online"
-docs/screenshots/         Images for this README
+docs/images/              Screenshots used in this README (captured from the running game)
 ```
 
 ## Rebuilding the physics engine
