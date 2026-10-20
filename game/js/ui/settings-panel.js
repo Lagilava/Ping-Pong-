@@ -47,6 +47,11 @@
             { type: 'note', html: '<p><b>Mouse</b><br>Hold and drag on your half of the court.</p><p><b>Touch</b><br>Slide to move. In local 1v1, stay on your half. Use the round ability button; tap with a second finger to fire a laser.</p><p><b>Gamepad</b><br>Left stick moves · A fires · Start pauses.</p>' },
         ],
         display: [
+            { type: 'seg', key: 'graphics', label: 'Visual quality', help: 'Trade effects for frame rate.',
+                options: [['auto', 'Auto'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['ultra', 'Ultra']] },
+            { type: 'toggle', key: 'fxBloom', label: 'Bloom and lighting', help: 'Shader bloom, colour grading and impact ripples. Neon still glows without it; the frame skips one GPU pass.' },
+            { type: 'toggle', key: 'fxGlow', label: 'Neon glow', help: 'Soft light around paddles, the ball, court lines and the scoreboard.' },
+            { type: 'toggle', key: 'fxBgAnim', label: 'Animated backgrounds', help: 'Moving scenery behind the court. Off keeps it still, which saves the most on slower machines.' },
             { type: 'toggle', key: 'noir', label: 'Noir theme', help: 'Black-and-white film styling with grain and flicker. Reduce motion disables the flicker.' },
             { type: 'slider', key: 'shake', label: 'Screen shake', help: 'How hard the camera kicks on big hits and goals.', min: 0, max: 150, step: 10, unit: '%' },
             { type: 'toggle', key: 'flash', label: 'Impact flash', help: 'A white flash on goals and heavy hits.' },
@@ -338,6 +343,30 @@
         });
         root.querySelectorAll('.ppset-key').forEach((b) => { b.textContent = S().keyLabel(S().get('bindings')[b.dataset.bind]); });
         syncPaddles();
+        syncGraphicsHelp();
+    }
+
+    // Visual quality: the help line describes the chosen preset, and for
+    // Auto, which tier the game is running at right now.
+    const GFX_HELP = {
+        auto: 'Picks the best quality this device can hold at 60 fps and keeps adjusting during play.',
+        low: 'Lowest resolution and lightest effects, for the smoothest play on older machines.',
+        medium: 'Screen resolution with softer glow and fewer particles.',
+        high: 'The full look: two-level bloom, neon glow and every particle.',
+        ultra: 'High at your screen\'s full sharpness (up to 2x), with scenery animating every frame and bigger bursts. Needs a strong graphics card.',
+    };
+    const TIER_LABEL = {
+        ultra: 'Ultra', high: 'High', medium: 'Medium', low: 'Low', potato: 'Lowest',
+        'mobile-ultra': 'Ultra', 'mobile-high': 'High', mobile: 'Medium', 'mobile-low': 'Low',
+    };
+    function syncGraphicsHelp() {
+        const el = root?.querySelector('[data-row="graphics"] .ppset-help');
+        if (!el) return;
+        const preset = S().get('graphics') || 'auto';
+        let text = GFX_HELP[preset] || GFX_HELP.auto;
+        const gov = window.PerfGovernor;
+        if (preset === 'auto' && gov) text += ` Now: ${TIER_LABEL[gov.tierName] || gov.tierName}.`;
+        el.textContent = text;
     }
 
     function paintRange(inp) {
@@ -474,6 +503,7 @@
         });
         window.addEventListener('keydown', onKeyCapture, true);
         S().on(() => syncFromStore());
+        window.PerfGovernor?.onChange(() => syncGraphicsHelp());
     }
 
     function close() {
@@ -512,6 +542,8 @@
         body.classList.toggle('pp-hud-large', S.get('hudSize') === 'large');
         body.classList.toggle('pp-reduce-motion', !!S.get('reduceMotion'));
         body.classList.toggle('pp-noir', !!S.get('noir'));
+        // Visual quality and effect switches; the governor tells the game.
+        window.PerfGovernor?.applyPrefs?.(S);
         window.game?.refreshPausedFrame?.();
         document.documentElement.style.setProperty('--pp-ui-zoom', String((Number(S.get('uiScale')) || 100) / 100));
     }

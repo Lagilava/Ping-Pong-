@@ -56,6 +56,22 @@ const PerfGovernor = {
         { name: 'mobile',      glow: 0, glowFx: 0, particles: 0.35, scale: 1.25, fx: 3, bgFps: 30 },
         { name: 'mobile-low',  glow: 0, glowFx: 0, particles: 0.2,  scale: 1.0,  fx: 3, bgFps: 20 },
     ],
+    // Settings > Display > Visual quality > Ultra: above the adaptive ladder,
+    // so Auto never climbs into it. Same look as the top tier, drawn sharper
+    // (full screen resolution up to 2x), with scenery redrawn every frame
+    // (bgFps 0) and fuller particle bursts.
+    ULTRA:        { name: 'ultra',        glow: 1.0, glowFx: 0.35, particles: 1.35, scale: 2, fx: 0, bgFps: 0 },
+    MOBILE_ULTRA: { name: 'mobile-ultra', glow: 0,   glowFx: 0,    particles: 0.75, scale: 2, fx: 0, bgFps: 60 },
+    // Visual quality presets: auto (adaptive, the default) or a fixed tier.
+    // Low is the bottom of the ladder; Medium and High are tiers 1 and 0.
+    PRESETS: ['auto', 'low', 'medium', 'high', 'ultra'],
+    preset: 'auto',
+    // Per-effect switches layered on any preset. Off removes the effect:
+    // bloom = the WebGL post-process (bloom, grading, ripples), glow =
+    // Canvas shadowBlur and HUD glow, bgAnim = animated scenery.
+    effects: { bloom: true, glow: true, bgAnim: true },
+    _ultra: false,
+    _effective: null,
     isMobile: false,
     tier: 0,
     // Never go below this frame rate. Above it we still try to match the
@@ -70,12 +86,15 @@ const PerfGovernor = {
     _locked: false,           // set when the player picks a tier by hand
     _listeners: [],
 
-    get current() { return this.TIERS[this.tier]; },
+    /** The tier in use, with the player's effect switches applied. */
+    get current() { return this._effective || this.TIERS[this.tier]; },
     get glowScale() {
         // Zombie lighting is baked into sprites/scenery. Do not replace its
         // disabled post-processing with expensive live Canvas shadow layers.
         if (window.game?.gameMode === 'zombie') return 0;
-        return this.fxActive ? this.current.glowFx : this.current.glow;
+        const t = this.current;
+        // Bloom supplies the glow only while the shader pass blooms (fx < 2).
+        return this.fxActive && t.fx < 2 ? t.glowFx : t.glow;
     },
     get particleScale() { return this.current.particles; },
     get tierName() { return this.current.name; },
@@ -111,20 +130,64 @@ const PerfGovernor = {
             this.tier = start;
             this.deviceClass = start === 0 ? 'desktop' : 'low-end';
         }
+        this._autoStart = this.tier;
+        this._applyTier();
+    },
+
+    /**
+     * Settings > Display > Visual quality and its effect switches. A fixed
+     * preset locks the tier; Auto hands control back to the governor from
+     * the device's starting tier. Applies live: listeners re-read the tier.
+     */
+    applyPrefs(S) {
+        if (!S) return;
+        const raw = S.get('graphics');
+        const preset = this.PRESETS.includes(raw) ? raw : 'auto';
+        const effects = {
+            bloom: S.get('fxBloom') !== false,
+            glow: S.get('fxGlow') !== false,
+            bgAnim: S.get('fxBgAnim') !== false,
+        };
+        const e = this.effects;
+        if (preset === this.preset && effects.bloom === e.bloom && effects.glow === e.glow && effects.bgAnim === e.bgAnim) return;
+        const presetChanged = preset !== this.preset;
+        this.preset = preset;
+        this.effects = effects;
+        if (presetChanged) {
+            this._ultra = preset === 'ultra';
+            if (preset === 'auto') {
+                this._locked = false;
+                this.tier = this._autoStart || 0;
+                this._samples.length = 0;
+                this._clean = 0;
+                this._bestAllowed = 0;
+            } else {
+                this._locked = true;
+                const last = this.TIERS.length - 1;
+                this.tier = preset === 'low' ? last : preset === 'medium' ? Math.min(1, last) : 0;
+            }
+        }
         this._applyTier();
     },
 
     setTier(i, lock = true) {
         const next = Math.max(0, Math.min(this.TIERS.length - 1, i));
         this._locked = lock;
-        if (next === this.tier) return;
+        if (next === this.tier && !this._ultra) return;
+        this._ultra = false;
         this.tier = next;
         this._applyTier();
     },
 
     _applyTier() {
+        const base = this._ultra ? (this.isMobile ? this.MOBILE_ULTRA : this.ULTRA) : this.TIERS[this.tier];
+        const t = { ...base };
+        if (!this.effects.bloom) t.fx = 3;
+        if (!this.effects.glow) { t.glow = 0; t.glowFx = 0; }
+        if (!this.effects.bgAnim) t.bgFps = -1;       // draw scenery once, then hold it
+        this._effective = t;
         // DOM glow (box/text-shadow on HUD) is shed below the top tier.
-        document.body?.classList.toggle('pp-lowfx', this.tier > 0);
+        document.body?.classList.toggle('pp-lowfx', (!this._ultra && this.tier > 0) || !this.effects.glow);
         for (const fn of this._listeners) {
             try { fn(this.current, this.tier); } catch (e) { console.warn(e); }
         }

@@ -26,6 +26,10 @@
         padRumble: true,          // controller vibration
         phoneVibrate: true,       // phone vibration on points
         // Display
+        graphics: 'auto',         // visual quality: auto | low | medium | high | ultra
+        fxBloom: true,            // WebGL bloom, colour grade and ripples
+        fxGlow: true,             // neon glow on paddles, ball, court and HUD
+        fxBgAnim: true,           // animated mode scenery
         shake: 100,               // screen shake strength, percent
         flash: true,              // white flash on big hits and goals
         particles: true,

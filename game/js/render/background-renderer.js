@@ -928,6 +928,7 @@ class BackgroundRenderer {
     // RENDER DISPATCH
     // ------------------------------------------------------------------
     _invalidateBackgroundRenderCache() {
+        this._customToneStale = true;
         if (this._backgroundRenderCache) {
             this._backgroundRenderCache.dirty = true;
             this._backgroundRenderCache.lastRenderMs = -Infinity;
@@ -966,6 +967,9 @@ class BackgroundRenderer {
         // Expensive scenery has its own cadence. Paddles, ball, particles and
         // post effects still render at the display's refresh rate.
         const tier = typeof PerfGovernor !== 'undefined' ? PerfGovernor.current : null;
+        // Settings > Animated backgrounds off: redraw only when the cache is
+        // invalidated (mode, size or quality change).
+        if (tier && tier.bgFps < 0) return Infinity;
         if (this.mode === 'zombie') {
             const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
             const target = mobile ? 24 : 30;
@@ -1080,11 +1084,18 @@ class BackgroundRenderer {
             const baseCanvas = this._customToneBaseCanvas;
 
             if (baseCtx && baseCanvas) {
-                baseCtx.save();
-                baseCtx.setTransform(1, 0, 0, 1, 0, 0);
-                baseCtx.clearRect(0, 0, w, h);
-                this._renderModeBackground(baseCtx, w, h);
-                baseCtx.restore();
+                // Animated backgrounds off: keep the drawn scenery until the
+                // mode, size or quality changes.
+                const held = typeof PerfGovernor !== 'undefined' && PerfGovernor.current.bgFps < 0;
+                if (!held || this._customToneStale || baseCanvas._ppMode !== this.mode) {
+                    baseCtx.save();
+                    baseCtx.setTransform(1, 0, 0, 1, 0, 0);
+                    baseCtx.clearRect(0, 0, w, h);
+                    this._renderModeBackground(baseCtx, w, h);
+                    baseCtx.restore();
+                    baseCanvas._ppMode = this.mode;
+                    this._customToneStale = false;
+                }
 
                 // Tone the background as it is drawn instead of through a second
                 // full-screen buffer, and skip the filter pass entirely when the

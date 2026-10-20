@@ -1043,6 +1043,37 @@
                 console.warn('[Menu] Bloom unavailable, rendering directly.', err);
                 menuBloom = null;
             }
+            // Settings > Display > Visual quality applies to the menu scene
+            // live. Auto keeps the device-based start above (and the menu's
+            // own 60 fps fallback); a fixed preset sets resolution and bloom.
+            let menuFrameSum = 0, menuFrameCount = 0, menuQualityStep = 0;   // adaptMenuQuality()
+            const menuAutoRatio = MENU_CONFIG.renderer.pixelRatio;
+            const menuAutoBloom = !!menuBloom;
+            let menuBloomPass = menuBloom;
+            let menuQualityKey = 'auto|true';
+            const applyMenuQuality = () => {
+                const gov = window.PerfGovernor;
+                if (!gov || !menuRenderer) return;
+                // In-match tier changes don't touch the menu, only the settings.
+                const key = `${gov.preset}|${gov.effects.bloom}`;
+                if (key === menuQualityKey) return;
+                menuQualityKey = key;
+                const dpr = devicePixelRatio || 1;
+                const p = gov.preset;
+                const ratio = p === 'auto' ? menuAutoRatio
+                    : Math.min(dpr, p === 'ultra' ? 2 : p === 'high' ? 1.5 : 1);
+                let wantBloom = gov.effects.bloom && (p === 'auto' ? menuAutoBloom : p !== 'low');
+                if (wantBloom && !menuBloomPass) {
+                    try { menuBloomPass = new MenuBloom(menuRenderer, menuScene, menuCam); } catch (err) { wantBloom = false; }
+                }
+                MENU_CONFIG.renderer.pixelRatio = ratio;
+                if (menuRenderer.getPixelRatio() !== ratio) menuRenderer.setPixelRatio(ratio);
+                menuBloom = wantBloom ? menuBloomPass : null;
+                menuBloom?.setSize(innerWidth, innerHeight);
+                menuQualityStep = 0;
+            };
+            window.PerfGovernor?.onChange(applyMenuQuality);
+            applyMenuQuality();
 
             scene = menuScene;
             camera = menuCam;
@@ -1485,9 +1516,9 @@
             // Hold the menu at 60 fps on any device: if it averages below ~55
             // fps, step down resolution, then bloom, then shadows (one step
             // per ~1.5 s of measurement, never back up during the session).
-            let menuFrameSum = 0, menuFrameCount = 0, menuQualityStep = 0;
             function adaptMenuQuality(delta) {
                 if (!(delta > 0) || delta > 0.25) return;
+                if (window.PerfGovernor && window.PerfGovernor.preset !== 'auto') return;
                 menuFrameSum += delta;
                 menuFrameCount++;
                 if (menuFrameCount < 90) return;

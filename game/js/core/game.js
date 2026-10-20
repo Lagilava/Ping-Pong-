@@ -40,8 +40,16 @@ class Game {
         PerfGovernor.onChange((tier) => {
             this.postFx?.setQuality(this.gameMode === 'zombie' ? 3 : tier.fx);
             PerfGovernor.fxActive = !!this.postFx?.active;
+            // Scenery redraws at the new settings (also when it is held still).
+            this.bgRenderer?._invalidateBackgroundRenderCache?.();
             const dpr = PerfGovernor.renderScale;
-            if (Math.abs(this.canvas.width - Math.round(this.width * dpr)) > 1) this.setupCanvas();
+            if (Math.abs(this.canvas.width - Math.round(this.width * dpr)) > 1) {
+                // Resizing clears the canvas, so a paused match keeps its frame
+                // on screen and picks up the new resolution when it resumes.
+                if (this.running && this.paused) this._rescalePending = true;
+                else this.setupCanvas();
+            }
+            this.refreshPausedFrame();
         });
         const viewport = this.getViewportSize();
         this.width = viewport.width;
@@ -8670,6 +8678,10 @@ class Game {
             this.lastTime = now;
             this.hideTauntBubble();
             return;
+        }
+        if (this._rescalePending) {
+            this._rescalePending = false;
+            this.setupCanvas();
         }
 
         let frameTime = now - this.lastTime;
