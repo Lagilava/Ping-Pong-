@@ -785,7 +785,19 @@
             const ball = g.ball;
             // Already coming back (the host saw the hit too) or already scored.
             if (ball.vel.x <= 0 || ball.pos.x > g.width + 40) return;
-            const [x, y, vx, vy, spin] = msg.b.map((v) => num(v));
+            let [x, y, vx, vy, spin] = msg.b.map((v) => num(v));
+            // The guest owns hits on its own paddle, but not blindly: the hit
+            // must be where the host sees that paddle (with room for lag),
+            // head back at the host, and no faster than a hit can make it.
+            const pad = g.aiPaddle;
+            const slack = Math.max(60, Math.abs(num(this.remotePaddle?.vy)) * (this.rtt / 1000 + 0.1));
+            if (Math.abs(y - (pad.pos.y + pad.h / 2)) > pad.h / 2 + ball.r + slack) return;
+            if (Math.abs(x - pad.pos.x) > pad.w + ball.r + 120 + Math.abs(ball.vel.x) * 0.25) return;
+            if (vx >= 0) return;
+            const cap = Math.max(900, Math.hypot(ball.vel.x, ball.vel.y) * 1.8 + 300);
+            const sp = Math.hypot(vx, vy);
+            if (sp > cap) { vx *= cap / sp; vy *= cap / sp; }
+            spin = clamp(spin, -60, 60);
             const lat = this.oneWay;
             let ny = y + vy * lat, nvy = vy;
             if (ny < ball.r) { ny = ball.r + (ball.r - ny); nvy = Math.abs(nvy); }
