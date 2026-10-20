@@ -459,7 +459,8 @@ class ObstacleArcade {
             if (Math.abs(ball.pos.x - pad.x) < s.padW / 2 + ball.r && Math.abs(ball.pos.y - pad.y) < s.padH / 2 + ball.r) {
                 pad.cooldown = 1.1;
                 pad.flash = 1;
-                this.boost(ball);
+                // Forge pads launch the way their chevrons point.
+                this.boost(ball, 1.22, this.fixedLayout ? pad.dir : 0);
             }
         }
 
@@ -624,7 +625,7 @@ class ObstacleArcade {
         return side === 'player' || !!this.game.isMultiplayer || !!this.game.net;
     }
 
-    boost(ball, mult = 1.22) {
+    boost(ball, mult = 1.22, dir = 0) {
         const game = this.game;
         const speed = ball.getSpeed ? ball.getSpeed() : Math.hypot(ball.vel.x, ball.vel.y);
         const cap = (ball.maxSpeed || speed * 1.3) * 1.08;
@@ -633,6 +634,16 @@ class ObstacleArcade {
             ball.vel.x *= next / speed;
             ball.vel.y *= next / speed;
             if (ball._speed !== undefined) ball._speed = next;
+            if (dir) {
+                // Aim the launch: face the pad's arrow, and keep at least
+                // half the speed along the court so it can't pop straight up.
+                let vx = Math.abs(ball.vel.x), vy = ball.vel.y;
+                const minX = next * 0.55;
+                if (vx < minX) { vx = minX; vy = Math.sign(vy || 1) * Math.sqrt(Math.max(0, next * next - vx * vx)); }
+                ball.vel.x = vx * dir;
+                ball.vel.y = vy;
+                ball.prev?.set?.(ball.pos.x, ball.pos.y);
+            }
         }
         this.boostTime = 0.8;
         game.screenShake = Math.max(game.screenShake || 0, 4);

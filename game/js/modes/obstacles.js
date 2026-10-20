@@ -1323,7 +1323,7 @@ class Obstacle {
         if (overlapX < overlapY) { nx = lx > 0 ? 1 : -1; } else { ny = ly > 0 ? 1 : -1; }
 
         // Back to world space
-        const wnx = cos * nx + sin * ny * -1;   // rotate normal back
+        const wnx = cos * nx + sin * ny;   // rotate normal back
         const wny = -sin * nx + cos * ny;
         const dot = ball.vel.x * wnx + ball.vel.y * wny;
         ball.vel.x -= 2 * dot * wnx;

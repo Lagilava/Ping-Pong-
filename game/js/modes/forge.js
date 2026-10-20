@@ -407,7 +407,7 @@
                 const travel = 0.12 * H;
                 const motion = vertical
                     ? { axis: 'y', min: clamp(y - h / 2 - travel, 0, H - h), max: clamp(y - h / 2 + travel, 0, H - h), speed: 0.55, phase: obstacles.length * 0.17 }
-                    : { axis: 'x', min: x - w / 2 - travel, max: x - w / 2 + travel, speed: 0.55, phase: obstacles.length * 0.17 };
+                    : { axis: 'x', min: clamp(x - w / 2 - travel, W * 0.07, W * 0.93 - w), max: clamp(x - w / 2 + travel, W * 0.07, W * 0.93 - w), speed: 0.55, phase: obstacles.length * 0.17 };
                 obstacles.push(new Obstacle(x - w / 2, y - h / 2, w, h, 'gate', { name: 'Forge gate', motion, railColor: '#00ffd6' }));
             } else if (it.t === 'bumper') {
                 const r = it.s * H;
