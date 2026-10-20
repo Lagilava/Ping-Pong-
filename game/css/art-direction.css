@@ -159,3 +159,55 @@ body.zombie-mode .pause-card h2, body.zombie-mode .ppres-title {
 :is(#zombieBriefing, #zombieWaveChoice, .obstacle-briefing) :is(.kicker, .eyebrow, [class*="kicker"], [class*="eyebrow"]) { font: 700 11px/1.4 var(--ad-display); letter-spacing: .24em; color: var(--ad-accent); }
 #zombieBriefing, #zombieWaveChoice, .obstacle-briefing { border-radius: var(--ad-plate); }
 .zombie-wave-choice-kicker { color: var(--ad-accent) !important; font: 700 11px/1.4 var(--ad-display) !important; letter-spacing: .24em !important; }
+
+/* ---- Forge editor, Custom screen and Ball Studio: Custom teal, same skeleton ---- */
+.forge-editor, .customise-overlay, .studio-ball { --ad-accent: #00ffc8; --ad-accent-2: #7aa8ff; }
+.forge-editor { font-family: var(--ad-body); background: linear-gradient(170deg, #0b1a2a, var(--ad-bg) 70%); }
+.forge-editor :is(.forge-editor-top, .forge-editor-hint) { border-color: var(--ad-line); }
+.forge-editor .forge-editor-top { box-shadow: inset 0 -1px 0 var(--ad-line), inset 0 2px 0 var(--ad-accent); }
+.forge-editor :is(.studio-eyebrow, .forge-kicker, .forge-palette-title, .forge-stage-label) { font: 700 11px/1.4 var(--ad-display); letter-spacing: .22em; text-transform: uppercase; color: var(--ad-accent); }
+.forge-editor-title h2 { font: 900 28px/1.1 var(--ad-display); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 0 24px #00ffc855; }
+.forge-editor :is(.forge-palette, .forge-inspector, .forge-stage) { border: 1px solid var(--ad-line); border-radius: var(--ad-plate); box-shadow: inset 0 2px 0 color-mix(in srgb, var(--ad-accent) 70%, transparent); }
+.forge-editor :is(.forge-tool, .forge-bg-btn, .forge-toggle, .forge-action-group button, .forge-inspector-actions button, .forge-commit-actions button) {
+    font-family: var(--ad-display); font-weight: 700; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; border-radius: 3px 10px 3px 10px;
+    transition: transform .18s var(--ad-ease), box-shadow .18s var(--ad-ease), border-color .18s var(--ad-ease);
+}
+.forge-editor .forge-tool { font-size: 10px; letter-spacing: .06em; }
+.forge-editor .forge-tool[aria-pressed='true'], .forge-editor .forge-tool.active, .forge-editor .forge-tool.selected { border-color: var(--ad-accent); box-shadow: 0 0 18px color-mix(in srgb, var(--ad-accent) 35%, transparent); }
+.forge-editor .forge-primary { background: var(--ad-accent); color: #04120f; border-color: var(--ad-accent); box-shadow: 0 0 22px #00ffc866; }
+.forge-editor .forge-object-name { font: 800 18px/1.2 var(--ad-display); letter-spacing: .06em; text-transform: uppercase; }
+.forge-editor :is(.forge-object-hint, .forge-object-position, .forge-object-size, .forge-count, .forge-editor-hint) { font-family: var(--ad-body); font-weight: 600; font-size: 14px; }
+.forge-editor button:hover:not(:disabled) { transform: translateY(-1px); }
+
+/* ---- Achievements sidebar: gold accent (it is the trophy room) ---- */
+body .achievement-sidebar { --ad-accent: #ffcf74; --ad-accent-2: #7cf4ff; font-family: var(--ad-body); border-left: 1px solid var(--ad-line); box-shadow: inset 2px 0 0 var(--ad-accent), -24px 0 70px #000a; }
+body .achievement-sidebar .sidebar-eyebrow { font: 700 11px/1.4 var(--ad-display); letter-spacing: .24em; color: var(--ad-accent); }
+body .achievement-sidebar .sidebar-header h3 { font: 900 22px/1.15 var(--ad-display); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 0 22px #ffcf7444; }
+body .achievement-sidebar .sidebar-achievement { border-radius: 3px 14px 3px 14px; }
+body .achievement-sidebar .sidebar-achievement.unlocked { box-shadow: inset 2px 0 0 var(--ad-accent); }
+body .achievement-sidebar .ach-name { font: 700 17px/1.25 var(--ad-body); letter-spacing: .02em; }
+body .achievement-sidebar .ach-desc { font: 500 15px/1.4 var(--ad-body); }
+body .achievement-sidebar .ach-status-badge { font-family: var(--ad-display); letter-spacing: .14em; }
+body .achievement-sidebar :is(.sidebar-filter, .filter-btn, [class*="filter"] button, button[data-filter]) { font: 700 12px var(--ad-display); letter-spacing: .1em; text-transform: uppercase; border-radius: 3px 10px 3px 10px; }
+body .achievement-sidebar .sidebar-search, body .achievement-sidebar .sidebar-search::placeholder { font-family: var(--ad-body); font-size: 15px; }
+
+/* Custom screen and Ball Studio had their own gold, Space Grotesk and Plex Mono; fold them in. */
+.customise-overlay, .studio-ball { --studio-gold: var(--ad-accent); font-family: var(--ad-body); }
+.customise-overlay .customise-overlay-title { font: 900 clamp(22px, 2.6vw, 30px)/1.1 var(--ad-display); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 0 24px #00ffc855; }
+.customise-overlay .customise-overlay-subtitle, .customise-overlay h3, .customise-overlay legend { font-family: var(--ad-display); letter-spacing: .1em; text-transform: uppercase; }
+.customise-overlay .customise-overlay-subtitle { font-size: 13px; }
+.customise-overlay .studio-eyebrow, .studio-ball .eyebrow { font-family: var(--ad-display); font-weight: 700; letter-spacing: .24em; }
+.customise-overlay .customise-tab { border-radius: 3px 12px 3px 12px; }
+.customise-overlay .customise-tab b { font: 700 13px var(--ad-display); letter-spacing: .1em; text-transform: uppercase; }
+.customise-overlay .customise-tab small { font: 600 13px var(--ad-body); }
+.customise-overlay .customise-tab[aria-selected="true"] { background: color-mix(in srgb, var(--ad-accent) 16%, #0a1a22); border-color: var(--ad-accent); color: var(--ad-ink); box-shadow: 0 0 20px color-mix(in srgb, var(--ad-accent) 25%, transparent); }
+.customise-overlay .customise-tab[aria-selected="true"]::before { color: var(--ad-accent); }
+.customise-overlay :is(button, .customise-overlay-back-btn) { font-family: var(--ad-display); font-weight: 700; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; border-radius: 3px 10px 3px 10px; }
+.customise-overlay :is(.forge-primary, .customise-start-btn) { background: var(--ad-accent); border-color: var(--ad-accent); color: #04120f; box-shadow: 0 0 22px #00ffc866; }
+.customise-overlay :is(.forge-primary, .customise-start-btn):hover { background: #5dffdc; color: #04120f; }
+.customise-overlay :is(.customise-field label, .customise-field-copy, p) { font-family: var(--ad-body); font-size: 15px; font-weight: 600; }
+.studio-ball :is(h2, h3) { font-family: var(--ad-display); letter-spacing: .08em; text-transform: uppercase; }
+.customise-overlay .customise-tab b { font-size: 11px; letter-spacing: .06em; white-space: normal; }
+.customise-overlay :is(h2, h3, h4, [class*="panel-title"], [class*="section-title"]) { font-family: var(--ad-display); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 15px; }
+.customise-overlay .customise-actions-buttons button:not(.customise-start-btn) { border-color: color-mix(in srgb, var(--ad-accent) 45%, #2b3b52); color: var(--ad-ink); }
+.customise-overlay .customise-actions-buttons button { font-size: 11px; }
