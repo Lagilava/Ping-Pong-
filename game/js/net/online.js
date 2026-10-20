@@ -13,9 +13,9 @@
     'use strict';
 
     const PROTOCOL = 3;
-    const ID_PREFIX = 'neon-pingpong-v1-';
+    const ID_PREFIX = 'neon-pingpong-v2-';   // v2: 8-character codes (v1 rooms used 5 and could be guessed)
     const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    const CODE_LENGTH = 5;
+    const CODE_LENGTH = 8;       // 31^8 is about 8.5e11 codes; shown as ABCD-EFGH
     const ONLINE_MODES = [
         { id: 'classic', name: 'Classic' },
         { id: 'zombie', name: 'Zombie' },
@@ -36,6 +36,12 @@
     const DIAL_PATIENCE_MS = 9000;  // let a slow attempt finish before starting another
     const MAX_CANDIDATES = 3;       // host: unvetted links at once (shared-link strangers beyond this are dropped)
     const CANDIDATE_MS = 20000;     // host: a link that has not been let in by then is closed
+    const MAX_STRAY_DIALS = 8;      // host: links that never got in, per STRAY_WINDOW_MS, before new ones are refused for a while
+    const STRAY_WINDOW_MS = 60000;
+    const STRAY_PAUSE_MS = 30000;
+    const JOIN_FAIL_KEY = 'pp-join-fails';   // localStorage: recent wrong-code attempts (guess limiter)
+    const JOIN_FAIL_MAX = 5;        // wrong codes allowed per JOIN_FAIL_WINDOW_MS
+    const JOIN_FAIL_WINDOW_MS = 60000;
     const REJOIN_KEY = 'pp-online-room';   // sessionStorage: get back into the room after a reload
     const REJOIN_MAX_AGE_MS = 5 * 60 * 1000;
 
@@ -52,6 +58,8 @@
         for (let i = 0; i < CODE_LENGTH; i++) out += CODE_CHARS[bytes[i] % CODE_CHARS.length];
         return out;
     }
+
+    const formatCode = (code) => String(code).replace(/(.{4})(?=.)/g, '$1-');
 
     function cleanCode(text) {
         const up = String(text || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -76,6 +84,23 @@
             if (code.length !== CODE_LENGTH || (d.role !== 'host' && d.role !== 'guest')) return null;
             return { role: d.role, code, token: String(d.token || '').slice(0, 32) };
         } catch (_) { return null; }
+    }
+
+    // Guessing a room means dialing codes one by one, so slow that down on the
+    // guest side: after JOIN_FAIL_MAX misses in a minute, wait the rest of it out.
+    function recentJoinFails() {
+        try {
+            const now = Date.now();
+            const list = JSON.parse(localStorage.getItem(JOIN_FAIL_KEY) || '[]');
+            return (Array.isArray(list) ? list : []).map(Number).filter((t) => now - t >= 0 && now - t < JOIN_FAIL_WINDOW_MS);
+        } catch (_) { return []; }
+    }
+    function noteJoinFail() {
+        try { localStorage.setItem(JOIN_FAIL_KEY, JSON.stringify([...recentJoinFails(), Date.now()])); } catch (_) { /* ignore */ }
+    }
+    function joinWaitMs() {
+        const fails = recentJoinFails();
+        return fails.length >= JOIN_FAIL_MAX ? Math.max(0, JOIN_FAIL_WINDOW_MS - (Date.now() - fails[0])) : 0;
     }
 
     function clearRejoin() {
@@ -129,6 +154,7 @@
             this.connected = false;         // we have a partner (the link itself may be reconnecting)
             this.hadPartner = false;
             this.reconnecting = false;
+            this.resumed = !!opts.token;
             this.token = role === 'guest' ? (opts.token || randomToken()) : '';
             this.partnerToken = '';         // host: the guest that may reconnect
             this.keepCode = !!opts.keepCode;    // host reopening its room after a reload
@@ -206,6 +232,8 @@
                     // Everyone who opens the shared link dials the host, and every dial costs a
                     // full WebRTC link. Keep strangers cheap: a few at a time, and only briefly.
                     this.candidates = (this.candidates || new Set());
+                    const now = performance.now();
+                    if (now < (this.strayPausedUntil || 0)) { try { conn.close(); } catch (_) { /* ignore */ } return; }
                     if (this.candidates.size >= MAX_CANDIDATES) { try { conn.close(); } catch (_) { /* ignore */ } return; }
                     this.candidates.add(conn);
                     const drop = () => this.candidates.delete(conn);
@@ -213,6 +241,7 @@
                     conn.on('error', drop);
                     const timer = setTimeout(() => {
                         drop();
+                        if (conn !== this.conn) this.noteStray();
                         if (conn !== this.conn) { try { conn.close(); } catch (_) { /* ignore */ } }
                     }, CANDIDATE_MS);
                     this.timers.push(timer);
@@ -221,6 +250,15 @@
             } else {
                 peer.on('open', () => this.dial());
             }
+        }
+
+        // Host: a link that never got in. Too many in a minute looks like someone
+        // trying codes or hammering a shared link, so refuse new ones for a bit.
+        noteStray() {
+            const now = performance.now();
+            this.strays = (this.strays || []).filter((t) => now - t < STRAY_WINDOW_MS);
+            this.strays.push(now);
+            if (this.strays.length >= MAX_STRAY_DIALS) { this.strayPausedUntil = now + STRAY_PAUSE_MS; this.strays = []; }
         }
 
         // Guest: open a link to the host (first time, or again after a drop).
@@ -263,7 +301,7 @@
             }
             // Mid-session the link (or the redial loop) decides what happens.
             if (this.hadPartner) return;
-            if (type === 'peer-unavailable') return this.fail('No room with that code. Check the code with your friend.');
+            if (type === 'peer-unavailable') { if (!this.resumed) noteJoinFail(); return this.fail('No room with that code. Check the code with your friend.'); }
             if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
                 if (this.role === 'host' && this.peer?.open) return;
                 return this.fail('Could not reach the online service. Check your internet connection and try again.');
@@ -391,7 +429,7 @@
                 return reject('version');
             }
             // Host: once someone is in, only that same player may come back.
-            if (this.role === 'host' && this.hadPartner && !(msg.token && msg.token === this.partnerToken)) return reject('full');
+            if (this.role === 'host' && this.hadPartner && !(msg.token && msg.token === this.partnerToken)) { this.noteStray(); return reject('full'); }
             this.adopt(conn, msg);
         }
 
@@ -1371,7 +1409,7 @@
 
                         <section class="ppon-view" data-view="host" hidden>
                             <p class="ppon-lead">Send this code to your friend:</p>
-                            <div class="ppon-code" id="pponCode" aria-live="polite">· · · · ·</div>
+                            <div class="ppon-code" id="pponCode" aria-live="polite">· · · ·  · · · ·</div>
                             <div class="ppon-row ppon-center">
                                 <button type="button" class="ppon-btn" data-ppon="copy-code">Copy code</button>
                                 <button type="button" class="ppon-btn" data-ppon="copy-link">Copy invite link</button>
@@ -1383,7 +1421,7 @@
                         <section class="ppon-view" data-view="join" hidden>
                             <label class="ppon-field">
                                 <span>Room code</span>
-                                <input id="pponJoinCode" class="ppon-code-input" type="text" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCDE" inputmode="text">
+                                <input id="pponJoinCode" class="ppon-code-input" type="text" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABCD-EFGH" inputmode="text">
                             </label>
                             <p class="ppon-status" id="pponJoinStatus"></p>
                             <div class="ppon-row">
@@ -1433,7 +1471,7 @@
             nameInput.addEventListener('change', () => window.PPSettings?.set('playerName', cleanName(nameInput.value, '')));
             const codeInput = root.querySelector('#pponJoinCode');
             codeInput.addEventListener('input', () => {
-                const c = cleanCode(codeInput.value);
+                const c = formatCode(cleanCode(codeInput.value));
                 if (codeInput.value !== c) codeInput.value = c;
                 this.setStatus('pponJoinStatus', '');
             });
@@ -1461,7 +1499,7 @@
             else if (session && !session.closed && session.connected) this.show('ready');
             else if (opts.joinCode) {
                 this.show('join');
-                this.root.querySelector('#pponJoinCode').value = cleanCode(opts.joinCode);
+                this.root.querySelector('#pponJoinCode').value = formatCode(cleanCode(opts.joinCode));
             } else this.show('choose');
         },
 
@@ -1516,7 +1554,7 @@
                     const s = new Session('host', this, { keepCode: !!opts.code });
                     session = s;
                     s.mode = this.startMode;
-                    this.root.querySelector('#pponCode').textContent = '· · · · ·';
+                    this.root.querySelector('#pponCode').textContent = '· · · ·  · · · ·';
                     this.setStatus('pponHostStatus', opts.code ? 'Reopening your room…' : 'Opening a room…', 'busy');
                     this.show('host');
                     try { await s.open(code); } catch (e) { s.fail('Online play could not start: ' + e.message); }
@@ -1533,6 +1571,11 @@
                         input.focus();
                         return;
                     }
+                    const wait = opts.token ? 0 : joinWaitMs();
+                    if (wait) {
+                        this.setStatus('pponJoinStatus', `Too many wrong codes. Try again in ${Math.ceil(wait / 1000)} seconds.`, 'err');
+                        return;
+                    }
                     window.game?.audio?.enable?.().catch?.(() => {});
                     if (session) session.leave();
                     const s = new Session('guest', this, { token: opts.token });
@@ -1541,7 +1584,7 @@
                     try { await s.open(code); } catch (e) { s.fail('Online play could not start: ' + e.message); }
                     return;
                 }
-                case 'copy-code': return this.copy(session?.code || '', btn, 'Copied');
+                case 'copy-code': return this.copy(session?.code ? formatCode(session.code) : '', btn, 'Copied');
                 case 'copy-link': {
                     if (!session?.code) return;
                     const base = location.href.replace(/[?#].*$/, '');
@@ -1587,7 +1630,7 @@
         hostWaiting(code, note = '') {
             if (!this.root) return;
             const el = this.root.querySelector('#pponCode');
-            el.textContent = code.split('').join(' ');
+            el.textContent = formatCode(code);
             el.setAttribute('aria-label', 'Room code ' + code.split('').join(' '));
             this.setStatus('pponHostStatus', note ? `${note} Your room is still open: same code.` : 'Waiting for your friend to join…', 'busy');
         },
@@ -1596,7 +1639,7 @@
         resume(rj) {
             this.open({ view: rj.role === 'host' ? 'host' : 'join' });
             if (rj.role === 'host') return this.act('create', null, { code: rj.code });
-            this.root.querySelector('#pponJoinCode').value = rj.code;
+            this.root.querySelector('#pponJoinCode').value = formatCode(rj.code);
             return this.act('join', null, { token: rj.token });
         },
 

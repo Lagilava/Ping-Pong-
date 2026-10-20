@@ -79,7 +79,7 @@ play, with nothing to install. You can play on your own PC at the same time.
 ### Play online with a friend
 
 Pick **Online** in the opponent dialog (or **🌐 Play Online** on the Custom
-screen). One player chooses **Host** and gets a five-letter room code plus an
+screen). One player chooses **Host** and gets a eight-character room code (like `K7QM-2XPD`) plus an
 invite link; the other chooses **Join** and types the code or opens the link.
 The host picks any mode (Classic, Zombie, Gravity, Speed, Obstacle or Custom)
 and starts the match. On a phone, **Copy invite link** opens the share sheet.
