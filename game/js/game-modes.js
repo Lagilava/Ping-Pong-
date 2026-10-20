@@ -762,9 +762,12 @@
     };
 
     const drawReplayTacticalOverlay = (fracIndex) => {
-        if (!replayTelemetryVisible || !replayCtx || !replayCanvas) return;
+        if (!replayCtx || !replayCanvas) return;
         const meta = getReplayMeta(fracIndex);
         if (!meta?.ball) return;
+        const speedLabel = document.getElementById('pp-shot-speed');
+        if (speedLabel) speedLabel.textContent = pxPerSecToMPH(meta.ball.speed || 0);
+        if (!replayTelemetryVisible) return;
 
         const idx = clamp(Math.floor(fracIndex), 0, snapshotFrameMeta.length - 1);
         const trailStart = Math.max(0, idx - CFG.playback.trailFrames);
@@ -794,36 +797,6 @@
         replayCtx.beginPath();
         replayCtx.arc(ball.x, ball.y, Math.max(8, ball.r + 6), 0, Math.PI * 2);
         replayCtx.stroke();
-
-        // Panel is laid out in CSS pixels: the replay canvas is upscaled to
-        // the screen, so on phones canvas-pixel sizes would balloon.
-        const cssW = replayCanvas.clientWidth || replayCanvas.width;
-        const k = replayCanvas.width / Math.max(1, cssW);
-        const compact = (replayCanvas.clientHeight || 999) < 520;
-        if (compact) { replayCtx.restore(); return; }   // stats strip shows the same numbers
-        replayCtx.setTransform(k, 0, 0, k, 0, 0);
-        const panelX = 18;
-        const panelY = 76;
-        const panelW = 190;
-        const panelH = 78;
-        replayCtx.shadowBlur = 0;
-        replayCtx.fillStyle = 'rgba(5, 10, 16, 0.68)';
-        replayCtx.strokeStyle = 'rgba(0, 238, 255, 0.35)';
-        replayCtx.lineWidth = 1;
-        replayCtx.beginPath();
-        drawPanelPath(replayCtx, panelX, panelY, panelW, panelH, 8);
-        replayCtx.fill();
-        replayCtx.stroke();
-
-        replayCtx.fillStyle = 'rgba(255,255,255,0.62)';
-        replayCtx.font = '600 11px "Barlow Condensed", sans-serif';
-        replayCtx.fillText('SHOT TELEMETRY', panelX + 14, panelY + 20);
-        replayCtx.fillStyle = '#ffffff';
-        replayCtx.font = '900 24px "Barlow Condensed", sans-serif';
-        replayCtx.fillText(`${pxPerSecToMPH(meta.ball.speed || 0)} MPH`, panelX + 14, panelY + 47);
-        replayCtx.fillStyle = 'rgba(255,255,255,0.7)';
-        replayCtx.font = '700 13px "Barlow Condensed", sans-serif';
-        replayCtx.fillText(`${meta.hits || 0} hits  |  ${meta.score?.player ?? 0}-${meta.score?.ai ?? 0}`, panelX + 14, panelY + 66);
 
         replayCtx.restore();
     };
@@ -859,26 +832,8 @@
 
             if (drew) drawReplayTacticalOverlay(fracIndex);
 
-            if (isPaused && drew) {
-                // Removed dark overlay per request - only keeping text-based pause indicator
-                // Use a more modern glow effect for the text
-                replayCtx.save();
-                replayCtx.font = 'bold 72px "Barlow Condensed", sans-serif';
-                replayCtx.textAlign = 'center';
-                replayCtx.textBaseline = 'middle';
-                
-                // Outer glow
-                replayCtx.shadowColor = '#00eeff';
-                replayCtx.shadowBlur = 30;
-                replayCtx.fillStyle = '#fff';
-                replayCtx.fillText('P A U S E D', replayCanvas.width / 2, replayCanvas.height / 2);
-                
-                // Inner text
-                replayCtx.shadowBlur = 0;
-                replayCtx.fillStyle = '#fff';
-                replayCtx.fillText('P A U S E D', replayCanvas.width / 2, replayCanvas.height / 2);
-                replayCtx.restore();
-            }
+            // Pause is shown in the header and play button. Keep the court
+            // unobstructed for inspecting a single frame.
 
             updateProgressUI(idx);
         } catch (e) {
@@ -893,6 +848,8 @@
         const progressFill = document.getElementById('pp-progress-fill');
         if (progressFill) progressFill.style.width = `${pct}%`;
 
+        const seek = document.getElementById('pp-progress-wrap');
+        if (seek) seek.setAttribute('aria-valuenow', String(Math.round(pct)));
         const fps = replayPlaybackFPS;
         const currentSec = total > 1 ? idx / fps : 0;
         const totalSec   = total > 1 ? (total - 1) / fps : 0;
@@ -903,8 +860,7 @@
 
         const elSpeed = document.getElementById('pp-speed');
         if (elSpeed) {
-            elSpeed.textContent = isPaused ? 'PAUSED'
-                : replaySpeed < CFG.playback.normalSpeed ? `${replaySpeed}×  SLO-MO`
+            elSpeed.textContent = replaySpeed < CFG.playback.normalSpeed ? `${replaySpeed}×  SLO-MO`
                 : `${replaySpeed.toFixed(replaySpeed % 1 ? 2 : 1)}×`;
         }
 
@@ -1476,15 +1432,15 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
 }
 </style>
 
-<div class="pp-overlay" id="pp-overlay" data-state="idle">
+<div class="pp-overlay" id="pp-overlay" data-state="idle" role="dialog" aria-modal="true" aria-label="Match replay">
     <div class="pp-canvas-wrap" id="pp-canvas-wrap"></div>
 
     <div class="pp-header">
         <div class="pp-brand">
             <div class="pp-brand-badge">R</div>
             <div>
-                <div class="pp-brand-label">INSTANT REPLAY</div>
-                <div class="pp-brand-sub">Reviewing the last rally</div>
+                <div class="pp-brand-label">MATCH REPLAY</div>
+                <div class="pp-brand-sub">PING PONG / RALLY REVIEW</div>
             </div>
         </div>
         <div class="pp-meta">
@@ -1495,7 +1451,8 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
 
     <div class="pp-reason">${replayReason}</div>
 
-    <div class="pp-stats">
+    <div class="pp-stats" aria-label="Replay statistics">
+        <div class="pp-stat"><div class="pp-stat-label">SHOT MPH</div><div class="pp-stat-value" id="pp-shot-speed">—</div></div>
         <div class="pp-stat">
             <div class="pp-stat-label">HITS</div>
             <div class="pp-stat-value">${clipHits}</div>
@@ -1519,7 +1476,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
     </div>
 
     <div class="pp-bottom-ui">
-    <div class="pp-progress-wrap" id="pp-progress-wrap">
+    <div class="pp-progress-wrap" id="pp-progress-wrap" role="slider" tabindex="0" aria-label="Replay position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div class="pp-hover-time" id="pp-hover-time">0:00</div>
         <div class="pp-progress-track">
             <div class="pp-progress-fill" id="pp-progress-fill">
@@ -1533,7 +1490,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
         </div>
     </div>
 
-    <div class="pp-hint">Space play/pause | S slow-mo | &uarr;&darr; speed | T telemetry | L loop | &larr;&rarr; frame | R restart | Esc live</div>
+    <div class="pp-hint">Space · Play / pause &nbsp; S · Slow motion &nbsp; ← → · Frame &nbsp; T · Trail &nbsp; L · Loop &nbsp; Esc · Return to match</div>
 
     <div class="pp-controls" id="pp-controls">
         <!-- Prev frame -->
@@ -1563,9 +1520,9 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             <div class="pp-tooltip">Speed (↑ ↓)</div>
         </button>
         <!-- Telemetry -->
-        <button class="pp-btn" id="pp-btn-telemetry" aria-label="Toggle replay telemetry" aria-pressed="true">
+        <button class="pp-btn" id="pp-btn-telemetry" aria-label="Toggle ball trail" aria-pressed="true">
             <svg viewBox="0 0 24 24"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 11a4 4 0 110-8 4 4 0 010 8zm0-2.2a1.8 1.8 0 100-3.6 1.8 1.8 0 000 3.6z"/></svg>
-            <div class="pp-tooltip">Telemetry (T)</div>
+            <div class="pp-tooltip">Ball trail (T)</div>
         </button>
         <!-- Loop -->
         <button class="pp-btn" id="pp-btn-loop" aria-label="Loop replay" aria-pressed="false">
@@ -1580,7 +1537,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
         <!-- Skip / Return live -->
         <button class="pp-btn pp-btn-skip" id="pp-btn-skip" aria-label="Return to live match">
             <svg viewBox="0 0 24 24"><polygon points="6,18 6,6 12,12"/><polygon points="13,18 13,6 19,12"/></svg>
-            <span>Return Live</span>
+            <span>Back to match</span>
             <div class="pp-tooltip">Skip (Esc)</div>
         </button>
     </div>
@@ -1592,7 +1549,7 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
         // Activate overlay
         setTimeout(() => {
             const ov = document.getElementById('pp-overlay');
-            if (ov) ov.classList.add('active');
+            if (ov) { ov.classList.add('active'); ov.querySelector('#pp-btn-playpause')?.focus({preventScroll:true}); }
         }, 16);
 
         // Button events
@@ -2140,6 +2097,16 @@ canvas.${CANVAS_HIDDEN_CLASS} { visibility:hidden !important; }
             'R': () => ppAPI.restartReplay(),
             'Escape': () => ppAPI.endReplay(),
         };
+        if (e.key === 'Tab') {
+            const focusable = [...document.querySelectorAll('.pp-overlay button, .pp-overlay [tabindex="0"]')]
+                .filter(el => el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
+            const index = focusable.indexOf(document.activeElement);
+            if (focusable.length) {
+                e.preventDefault();
+                focusable[(index + (e.shiftKey ? -1 : 1) + focusable.length) % focusable.length].focus();
+            }
+            return;
+        }
         const fn = map[e.key];
         if (fn) { e.preventDefault(); fn(); }
     });
