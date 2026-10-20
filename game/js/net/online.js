@@ -32,6 +32,8 @@
     const RECONNECT_MS = 45000;     // how long a dropped link may take to come back (a reload included)
     const REDIAL_MS = 2500;
     const DIAL_PATIENCE_MS = 9000;  // let a slow attempt finish before starting another
+    const MAX_CANDIDATES = 3;       // host: unvetted links at once (shared-link strangers beyond this are dropped)
+    const CANDIDATE_MS = 20000;     // host: a link that has not been let in by then is closed
     const REJOIN_KEY = 'pp-online-room';   // sessionStorage: get back into the room after a reload
     const REJOIN_MAX_AGE_MS = 5 * 60 * 1000;
 
@@ -195,7 +197,22 @@
                     saveRejoin({ role: 'host', code: this.code });
                     if (!this.connected) this.ui.hostWaiting(this.code);
                 });
-                peer.on('connection', (conn) => this.attach(conn));
+                peer.on('connection', (conn) => {
+                    // Everyone who opens the shared link dials the host, and every dial costs a
+                    // full WebRTC link. Keep strangers cheap: a few at a time, and only briefly.
+                    this.candidates = (this.candidates || new Set());
+                    if (this.candidates.size >= MAX_CANDIDATES) { try { conn.close(); } catch (_) { /* ignore */ } return; }
+                    this.candidates.add(conn);
+                    const drop = () => this.candidates.delete(conn);
+                    conn.on('close', drop);
+                    conn.on('error', drop);
+                    const timer = setTimeout(() => {
+                        drop();
+                        if (conn !== this.conn) { try { conn.close(); } catch (_) { /* ignore */ } }
+                    }, CANDIDATE_MS);
+                    this.timers.push(timer);
+                    this.attach(conn);
+                });
             } else {
                 peer.on('open', () => this.dial());
             }
