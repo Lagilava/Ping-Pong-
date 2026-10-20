@@ -2543,6 +2543,7 @@ class Game {
         // Starting any other match ends an online session.
         if (this.net && !this.net.launching) this.net.leave();
         window.PPResults?.hide();
+        this.notifications.length = 0; // a tip from the last match must not carry into this one
         // Remove any previous mode classes from body
         document.body.classList.remove('classic-mode', 'zombie-mode', 'gravity-mode', 'speed-mode', 'obstacle-mode', 'customise-mode');
         document.body.classList.add(`${mode}-mode`);
@@ -6168,6 +6169,7 @@ class Game {
         this.resetPauseConfirms();
         this.userPaused = false;
         this.challengePaused = false;
+        this.notifications.length = 0;
         this.syncPauseState();
         this.stop();
         if (this.introRafId != null) {
@@ -6798,8 +6800,8 @@ class Game {
             // and the left/right edges are where the paddles live.
             const ctx = this.ctx;
             const k = Math.max(0.75, Math.min(1, this.height / 600));
-            const titleFont = `bold ${Math.round(14 * k)}px Arial`;
-            const msgFont = `${Math.round(12 * k)}px Arial`;
+            const titleFont = `800 ${Math.round(13 * k)}px ${window.PPArt?.DISPLAY || 'Orbitron, sans-serif'}`;
+            const msgFont = `600 ${Math.round(15 * k)}px ${window.PPArt?.BODY || 'Rajdhani, sans-serif'}`;
             ctx.save();
             ctx.font = titleFont;
             const tw = ctx.measureText(n.title).width;
@@ -6811,18 +6813,21 @@ class Game {
             const x = (this.width - w) / 2;
             const y = this.height - h - 12 * k - displayIndex * (h + 8 * k);
             ctx.globalAlpha = n.opacity * 0.85;
-            ctx.fillStyle = 'rgba(10, 12, 20, 0.6)';
-            this.roundRect(x, y, w, h, 8 * k);
-            ctx.fill();
-            ctx.strokeStyle = n.color;
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            if (window.PPArt) window.PPArt.plate(ctx, x, y, w, h, n.color, 'rgba(6, 11, 24, 0.88)');
+            else {
+                ctx.fillStyle = 'rgba(10, 12, 20, 0.6)';
+                this.roundRect(x, y, w, h, 8 * k);
+                ctx.fill();
+                ctx.strokeStyle = n.color;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
             ctx.textAlign = 'center';
             ctx.fillStyle = '#ffffff';
             ctx.font = titleFont;
             ctx.fillText(n.title, this.width / 2, y + 19 * k, w - pad * 2);
             ctx.font = msgFont;
-            ctx.fillStyle = '#cccccc';
+            ctx.fillStyle = '#c4d6e6';
             ctx.fillText(n.message, this.width / 2, y + 37 * k, w - pad * 2);
             ctx.restore();
         }

@@ -1,0 +1,161 @@
+/* Art direction: "Neon Broadcast". Loaded last. One skeleton for every surface:
+   - Type: Orbitron for titles, labels and numerals; Rajdhani for copy.
+   - Colour: each mode owns an accent (--ad-accent) and a partner (--ad-accent-2).
+     Player is always cyan and the AI always magenta; accents never replace that.
+   - Shape: the "plate", sharp top-left and bottom-right, rounded elsewhere,
+     with a hairline accent border and a short accent rule on the top edge.
+   - Motion: one ease, 180 ms for feedback, 320 ms for panels, none when
+     reduced motion is on. Static art only, so no per-frame cost. */
+:root {
+    --ad-display: 'Orbitron', 'Audiowide', sans-serif;
+    --ad-body: 'Rajdhani', 'Segoe UI', sans-serif;
+    --ad-ink: #eaf6ff;
+    --ad-muted: #a9bfd2;
+    --ad-bg: #070c1a;
+    --ad-bg-2: #0d1630;
+    --ad-ease: cubic-bezier(.2, .8, .2, 1);
+    --ad-plate: 4px 18px 4px 18px;
+    --ad-accent: #4de3ff;
+    --ad-accent-2: #ff4fa3;
+    --ad-line: color-mix(in srgb, var(--ad-accent) 38%, #1b2a40);
+    --ui-font: var(--ad-body);
+}
+body.classic-mode, [data-mode="classic"]   { --ad-accent: #ff3a5c; --ad-accent-2: #4de3ff; }
+body.zombie-mode, [data-mode="zombie"]     { --ad-accent: #6ddc4f; --ad-accent-2: #d6f28a; }
+body.gravity-mode, [data-mode="gravity"]   { --ad-accent: #8f9bff; --ad-accent-2: #3d9eff; }
+body.speed-mode, [data-mode="speed"]       { --ad-accent: #ffbe00; --ad-accent-2: #ff3fa4; }
+body.obstacle-mode, [data-mode="obstacle"] { --ad-accent: #ff9a3c; --ad-accent-2: #ffd477; }
+body.customise-mode, [data-mode="customise"] { --ad-accent: #00ffc8; --ad-accent-2: #7aa8ff; }
+
+/* ---- Plates: pause, settings, online, results, setup, tutorial ---- */
+body :is(.ppset-box, .ppon-box, .pause-card, .ppres-box, #modal .modal-box, .mode-tutorial-card) {
+    font-family: var(--ad-body);
+    color: var(--ad-ink);
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-plate);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--ad-accent) 9%, var(--ad-bg-2)), var(--ad-bg) 62%);
+    box-shadow: inset 0 2px 0 var(--ad-accent), 0 24px 80px #000a, 0 0 42px color-mix(in srgb, var(--ad-accent) 14%, transparent);
+}
+body .ppres-box.win { border-color: #00ffd6; }
+body .ppres-box.loss { border-color: #ff5a78; }
+body :is(.ppset-box, .ppon-box, .pause-card, .ppres-box, #modal .modal-box, .mode-tutorial-card, .customise-overlay, .forge-editor, .studio-ball) :is(button, input, select, textarea, p, label, small, kbd, li, dd, dt, span:not(.ui-art)) {
+    font-family: var(--ad-body);
+}
+body :is(.ppset-box, .ppon-box, .pause-card, .ppres-box, #modal .modal-box, .mode-tutorial-card) :is(p, li, dd, label, .ppset-help, .ppset-note, .mode-brief, .opt-sub) {
+    font-size: max(15px, 1em);
+    font-weight: 500;
+    line-height: 1.45;
+}
+body :is(.ppset-head h2, .ppon-head h2, .pause-card h2, #modal .modal-title, .mode-tutorial-card h3, .ppres-title) {
+    font-family: var(--ad-display);
+    font-weight: 800;
+    font-size: clamp(20px, 2.4vw, 26px);
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--ad-ink);
+    text-shadow: 0 0 22px color-mix(in srgb, var(--ad-accent) 45%, transparent);
+}
+body .ppres-box.win .ppres-title { color: #00ffd6; }
+body .ppres-box.loss .ppres-title { color: #ff8aa0; }
+body :is(.ppset-kicker, .ppon-kicker, .pause-kicker, .ppres-kicker, .mode-tutorial-kicker) {
+    font: 700 11px/1.4 var(--ad-display);
+    letter-spacing: .24em;
+    text-transform: uppercase;
+    color: var(--ad-accent);
+}
+body .ppset-label { font: 700 16px/1.3 var(--ad-body); letter-spacing: .03em; }
+body .ppset-tabs button[aria-selected='true'] { background: color-mix(in srgb, var(--ad-accent) 22%, #0b1424); color: var(--ad-ink); border-color: var(--ad-accent); }
+
+/* ---- Buttons: Orbitron caps, accent fill for the one primary action ---- */
+body :is(.pause-btn, #modal .modal-actions button, .ppset-foot button, .ppres-box button, .mode-tutorial-card button, .zombie-briefing-start) {
+    font-family: var(--ad-display);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    border-radius: 3px 12px 3px 12px;
+    transition: transform .18s var(--ad-ease), box-shadow .18s var(--ad-ease), background-color .18s var(--ad-ease), border-color .18s var(--ad-ease);
+}
+body :is(.pause-btn.primary, #modal #btnGo, .ppres-box .primary, .zombie-briefing-start) {
+    background: var(--ad-accent);
+    color: #060a14;
+    border-color: var(--ad-accent);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--ad-accent) 55%, transparent);
+}
+body :is(.pause-btn, #modal .modal-actions button):not(.primary):not(#btnGo) { border-color: color-mix(in srgb, var(--ad-accent) 40%, #2b3b52); }
+body :is(.pause-btn, #modal .modal-actions button, .ppres-box button):hover { transform: translateY(-2px); box-shadow: 0 6px 22px color-mix(in srgb, var(--ad-accent) 35%, transparent); }
+body :is(.pause-btn, #modal .modal-actions button, .ppres-box button):active { transform: translateY(0) scale(.98); }
+body :is(.pause-card, .ppset-box, .ppon-box, #modal, .customise-overlay, .forge-editor) :is(button, input, select):focus-visible { outline: 2px solid var(--ad-accent-2); outline-offset: 3px; }
+body #modal .opt { border-radius: 4px 14px 4px 14px; }
+body #modal .opt.sel { background: color-mix(in srgb, var(--ad-accent) 18%, #0b1422); box-shadow: inset 0 0 0 1px var(--ad-accent), 0 0 24px color-mix(in srgb, var(--ad-accent) 25%, transparent); }
+body #modal .opt-title { font-family: var(--ad-display); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+body #modal .opt-sub { font-size: 15px; }
+#modal .modal-title { color: var(--ad-ink); }
+.setup-rules label, .setup-rules select { font-family: var(--ad-body); font-size: 15px; font-weight: 600; }
+
+/* ---- Main menu ---- */
+html #overlay .hdr h1 { font-family: var(--ad-display); font-weight: 900; text-shadow: 0 0 30px #55caff66, 0 0 2px #fff; }
+html #overlay .hdr p { font: 700 12px/1.6 var(--ad-display); letter-spacing: .3em; color: var(--ad-accent-2); }
+#overlay .menu-keys, #overlay .mode-card-hint { font: 600 14px/1.5 var(--ad-body); letter-spacing: .04em; }
+#overlay .card {
+    --c-accent: var(--ad-accent);
+    border: 1px solid color-mix(in srgb, var(--ad-accent) 28%, transparent);
+    border-radius: var(--ad-plate);
+    background: linear-gradient(170deg, color-mix(in srgb, var(--ad-accent) 10%, #0b1424ee), #070c18ee);
+    transition: transform .32s var(--ad-ease), box-shadow .32s var(--ad-ease), border-color .18s var(--ad-ease);
+}
+#overlay .card.active, #overlay .card:hover, #overlay .card:focus-visible {
+    border-color: var(--ad-accent);
+    box-shadow: inset 0 2px 0 var(--ad-accent), 0 10px 34px color-mix(in srgb, var(--ad-accent) 38%, transparent);
+}
+#overlay .card .card-name { font: 800 14px/1.3 var(--ad-display); letter-spacing: .16em; color: color-mix(in srgb, var(--ad-accent) 55%, #fff); }
+#overlay .card-summary { font: 600 15px/1.3 var(--ad-body); color: #c9dbea; }
+#overlay :is(.menu-progress-panel, .menu-recent-achievements) { border-radius: var(--ad-plate); border: 1px solid #2a4560; box-shadow: inset 0 2px 0 #4de3ff; }
+#overlay :is(.menu-progress-kicker, .menu-progress-label, .menu-achievements-title) { font-family: var(--ad-display); letter-spacing: .16em; text-transform: uppercase; }
+#overlay :is(.menu-achievement-name, .menu-achievement-desc, .menu-progress-meta) { font-family: var(--ad-body); font-size: 14px; font-weight: 600; }
+
+/* ---- AI taunt: a broadcast caption, not a chat bubble ---- */
+.ai-taunt {
+    background: linear-gradient(135deg, #1a0a22f2, #0a0816f2);
+    border-radius: calc(3px * var(--k)) calc(14px * var(--k)) calc(3px * var(--k)) calc(14px * var(--k));
+    box-shadow: inset 0 calc(2px * var(--k)) 0 var(--ad-accent-2, #ff4fa3), 0 0 0 1px #ff4fa388, 0 6px 20px #000a, 0 0 22px #ff4fa333;
+    font: 700 calc(17px * var(--k)) / 1.2 var(--ad-body);
+    letter-spacing: .02em;
+    color: #fff0f8;
+    text-shadow: none;
+}
+.ai-taunt::after { border-left-color: #1a0a22; filter: drop-shadow(1px 0 0 #ff4fa3aa); }
+
+/* ---- Achievement toast ---- */
+.achievement-notification, .achievement-notification > * { font-family: var(--ad-body); }
+.achievement-notification {
+    border-radius: var(--ad-plate);
+    border: 1px solid color-mix(in srgb, var(--ad-accent) 55%, #2a3a50);
+    box-shadow: inset 0 2px 0 var(--ad-accent), 0 10px 30px #000a;
+}
+.achievement-notification :is(.ach-notif-label, .notif-label, [class*="unlocked-label"], [class*="eyebrow"]) { font-family: var(--ad-display); letter-spacing: .18em; }
+
+/* ---- Motion: panels rise in once; reduced motion switches it all off ---- */
+@keyframes ad-rise { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+body #modal.open .modal-box, body #modal[style*="flex"] .modal-box, body .ppres-box { animation: ad-rise .32s var(--ad-ease) both; }
+body.pp-reduce-motion :is(#modal .modal-box, .ppres-box, #overlay .card, .pause-btn) { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { body :is(#modal .modal-box, .ppres-box, #overlay .card, .pause-btn) { animation: none !important; transition: none !important; } }
+
+/* ---- Match HUD: numerals in the display face, player cyan and AI magenta stay fixed ---- */
+body #pp-enhanced-hud :is(.pp-score-label, .pp-score-display) { font-family: var(--ad-display); font-weight: 800; }
+body #pp-enhanced-hud .pp-score-label { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; }
+body #pp-enhanced-hud .pp-score-display { font-size: 30px; }
+body.zombie-mode .zombie-progress-overlay { border: 1px solid var(--ad-line); border-radius: var(--ad-plate); box-shadow: inset 0 2px 0 var(--ad-accent); }
+body.zombie-mode .zombie-progress-overlay :is(.zombie-progress-pill, strong, kbd) { font-family: var(--ad-body); font-weight: 700; }
+.zombie-briefing-rules, .zombie-briefing-rules li, .obstacle-briefing p, .obstacle-briefing li { font-family: var(--ad-body); }
+
+/* Zombie keeps its palette but joins the shared type pair (no serif or mono one-offs). */
+:is(#zombieBriefing, #zombieWaveChoice) h3,
+body.zombie-mode .pause-card h2, body.zombie-mode .ppres-title {
+    font-family: var(--ad-display); font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--ad-ink);
+}
+:is(#zombieBriefing, #zombieWaveChoice) h3 { font-size: clamp(24px, 3.4vw, 34px); }
+#zombieWaveChoice .choice-label { font: 800 16px/1.2 var(--ad-display); letter-spacing: .08em; text-transform: uppercase; }
+:is(#zombieBriefing, #zombieWaveChoice, .obstacle-briefing) :is(.kicker, .eyebrow, [class*="kicker"], [class*="eyebrow"]) { font: 700 11px/1.4 var(--ad-display); letter-spacing: .24em; color: var(--ad-accent); }
+#zombieBriefing, #zombieWaveChoice, .obstacle-briefing { border-radius: var(--ad-plate); }
+.zombie-wave-choice-kicker { color: var(--ad-accent) !important; font: 700 11px/1.4 var(--ad-display) !important; letter-spacing: .24em !important; }

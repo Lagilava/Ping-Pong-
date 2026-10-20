@@ -276,10 +276,13 @@ class ModeAbilities {
             const pillH = Math.max(38, Math.min(48, g.height * 0.071));
             const pillX = side === 'player' ? 20 : g.width - pillW - 20;
             const pillY = g.height - pillH - 16;
-            ctx.fillStyle = 'rgba(3, 13, 29, 0.84)';
-            ctx.strokeStyle = ready ? color : '#526779';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath(); ctx.roundRect(pillX, pillY, pillW, pillH, 9); ctx.fill(); ctx.stroke();
+            if (window.PPArt) window.PPArt.plate(ctx, pillX, pillY, pillW, pillH, ready ? color : '#526779', 'rgba(3, 13, 29, 0.86)');
+            else {
+                ctx.fillStyle = 'rgba(3, 13, 29, 0.84)';
+                ctx.strokeStyle = ready ? color : '#526779';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.roundRect(pillX, pillY, pillW, pillH, 9); ctx.fill(); ctx.stroke();
+            }
             const progress = ready ? 1 : 1 - s.cooldown / ModeAbilities.COOLDOWN[mode];
             ctx.fillStyle = ready ? color : '#698394';
             ctx.fillRect(pillX + 7, pillY + pillH - 6, (pillW - 14) * Math.max(0, Math.min(1, progress)), 2);
