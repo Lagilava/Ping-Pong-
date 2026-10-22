@@ -93,8 +93,13 @@ and starts the match. On a phone, **Copy invite link** opens the share sheet.
   series score.
 - Online Zombie is a straight duel in the graveyard arena (the waves are a
   single-player thing); Speed plays as it does locally.
+- Players in different countries work too. The lobby shows the connection
+  quality (signal bars, ping, jitter, loss, and whether the link is direct or
+  goes through a relay), and the game adapts its prediction to the measured
+  delay. If one of you is on a strict or mobile network, a TURN relay carries
+  the game; see [docs/online-play.md](docs/online-play.md) to add your own.
 - If the connection drops, the match freezes and both sides try to reconnect
-  for 45 seconds. Reloading the page puts you straight back in: a guest rejoins
+  for 60 seconds (switching between Wi-Fi and mobile data included). Reloading the page puts you straight back in: a guest rejoins
   the running match with the score intact, a host reopens the room on the same
   code. If the guest leaves, the host's room stays open on the same code.
 - A third player who tries the code is told the room is full.

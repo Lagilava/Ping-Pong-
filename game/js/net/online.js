@@ -26,16 +26,20 @@
     ];
     const SNAPSHOT_HZ = 40;
     const INPUT_HZ = 60;
-    const LINK_TIMEOUT_MS = 7000;   // no message for this long: connection lost
+    const PING_MS = 500;
+    const LINK_TIMEOUT_MS = 7000;   // no message for this long: connection lost (plus a margin for slow links)
     const HIDDEN_LINK_TIMEOUT_MS = 90000;   // the other tab is in the background (its timers crawl)
-    const CONNECT_TIMEOUT_MS = 15000;
-    const RECONNECT_MS = 45000;     // how long a dropped link may take to come back (a reload included)
+    const ICE_DISCONNECTED_MS = 4000;   // the route stalled (often a phone switching networks): rebuild it
+    // Far-apart players go through the broker, then STUN, and often a TURN
+    // relay; that can take a while on mobile networks, so be patient.
+    const CONNECT_TIMEOUT_MS = 30000;
+    const RECONNECT_MS = 60000;     // how long a dropped link may take to come back (a reload included)
     const REDIAL_MS = 2500;
     const FAST_LABEL = 'pp-fast';   // the second, unreliable data channel
     const FAST_MAX_BYTES = 12000;   // bigger messages go on the reliable channel
-    const DIAL_PATIENCE_MS = 9000;  // let a slow attempt finish before starting another
+    const DIAL_PATIENCE_MS = 12000; // let a slow attempt finish before starting another
     const MAX_CANDIDATES = 3;       // host: unvetted links at once (shared-link strangers beyond this are dropped)
-    const CANDIDATE_MS = 20000;     // host: a link that has not been let in by then is closed
+    const CANDIDATE_MS = 30000;     // host: a link that has not been let in by then is closed
     const MAX_STRAY_DIALS = 8;      // host: links that never got in, per STRAY_WINDOW_MS, before new ones are refused for a while
     const STRAY_WINDOW_MS = 60000;
     const STRAY_PAUSE_MS = 30000;
@@ -133,10 +137,77 @@
         return peerLibPromise;
     }
 
-    function peerOptions() {
-        // Tests point this at a local PeerServer; players use the public one.
-        const o = window.PP_PEER_OPTIONS;
-        return o && typeof o === 'object' ? { ...o } : {};
+    // ── Servers: broker and ICE (STUN/TURN) ────────────────────────────
+    // Players in different countries are usually both behind home or mobile
+    // NAT. STUN finds a direct route most of the time; when it can't (mobile
+    // carriers, strict routers, UDP blocked) a TURN relay carries the game.
+    // js/net/online-config.js lets the owner add their own TURN servers or
+    // PeerServer without touching this file.
+    const DEFAULT_ICE = [
+        { urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
+        // PeerJS's free relays, over UDP and, for networks that block UDP, TCP.
+        { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+        { urls: ['turn:eu-0.turn.peerjs.com:3478?transport=tcp', 'turn:us-0.turn.peerjs.com:3478?transport=tcp'], username: 'peerjs', credential: 'peerjsp' },
+    ];
+    const ICE_CACHE_KEY = 'pp-ice-servers';
+    const ICE_CACHE_MS = 30 * 60 * 1000;
+
+    let configPromise = null;
+    function loadOnlineConfig() {
+        if (window.PP_ONLINE_CONFIG) return Promise.resolve(window.PP_ONLINE_CONFIG);
+        if (configPromise) return configPromise;
+        configPromise = new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = 'js/net/online-config.js';
+            s.async = true;
+            s.onload = s.onerror = () => resolve(window.PP_ONLINE_CONFIG || {});
+            document.head.appendChild(s);
+        });
+        return configPromise;
+    }
+
+    const validIce = (list) => (Array.isArray(list) ? list : []).filter((e) => e && (typeof e.urls === 'string' || Array.isArray(e.urls)));
+
+    // A TURN provider's credentials endpoint (Metered, Xirsys, a small
+    // function of your own…) hands out short-lived logins; ask it once a while.
+    async function fetchIceServers(url) {
+        try {
+            const cached = JSON.parse(sessionStorage.getItem(ICE_CACHE_KEY) || 'null');
+            if (cached && cached.url === url && Date.now() - cached.at < ICE_CACHE_MS) return validIce(cached.list);
+        } catch (_) { /* ignore */ }
+        try {
+            const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+            const timer = setTimeout(() => ctl?.abort(), 4000);
+            const res = await fetch(url, { signal: ctl?.signal, credentials: 'omit' });
+            clearTimeout(timer);
+            if (!res.ok) return [];
+            const body = await res.json();
+            const list = validIce(Array.isArray(body) ? body : body?.iceServers);
+            try { sessionStorage.setItem(ICE_CACHE_KEY, JSON.stringify({ url, at: Date.now(), list })); } catch (_) { /* ignore */ }
+            return list;
+        } catch (_) { return []; }
+    }
+
+    async function peerOptions() {
+        const cfg = await loadOnlineConfig();
+        // Tests point this at a local PeerServer; players use the public one
+        // unless the config names another.
+        const test = window.PP_PEER_OPTIONS;
+        const opts = test && typeof test === 'object' ? { ...test } : {};
+        const ps = cfg.peerServer;
+        if (!test && ps && typeof ps === 'object' && ps.host) {
+            for (const k of ['host', 'port', 'path', 'secure', 'key']) if (ps[k] !== undefined && ps[k] !== '') opts[k] = ps[k];
+        }
+        if (!opts.config) {
+            const own = validIce(cfg.iceServers);
+            const fetched = cfg.iceServersUrl ? await fetchIceServers(String(cfg.iceServersUrl)) : [];
+            opts.config = {
+                iceServers: [...fetched, ...own, ...DEFAULT_ICE],
+                sdpSemantics: 'unified-plan',
+            };
+            if (cfg.relayOnly) opts.config.iceTransportPolicy = 'relay';
+        }
+        return opts;
     }
 
     // ── Session ────────────────────────────────────────────────────────
@@ -164,6 +235,11 @@
             this.remoteHidden = false;
             this.mode = 'classic';
             this.rtt = 80;
+            this.jitter = 0;                // how much the round trip wobbles, ms
+            this.clockOffset = null;        // other side's performance.now() minus ours, ms
+            this.clockSamples = [];
+            this.route = '';
+            this.routeChecks = 0;                // 'direct' | 'relay' once known
             this.fastSeq = 0;               // numbers outgoing snapshots/inputs
             this.fastIn = { last: 0, got: 0, lost: 0 };
             this.loss = 0;                  // share of fast messages lost lately, 0..1
@@ -190,6 +266,14 @@
 
         get game() { return window.game; }
         get oneWay() { return clamp(this.rtt / 2000, 0, 0.25); }   // seconds
+
+        // How long a message stamped with the other side's clock took to get
+        // here, in seconds. Measured per message (so a late one is projected
+        // further), falling back to half the round trip before the clocks agree.
+        transit(ts) {
+            if (this.clockOffset == null || !Number.isFinite(ts)) return this.oneWay;
+            return clamp((performance.now() - (ts - this.clockOffset)) / 1000, 0, 0.4);
+        }
         localSide() { return this.role === 'host' ? 'left' : 'right'; }
         inGame() { const g = this.game; return !!g && g.net === this; }
 
@@ -199,32 +283,32 @@
         // RECONNECT_MS; the host keeps the room open and lets the same guest
         // (matched by token) back in, even after a page reload.
         async open(code) {
-            const Peer = await loadPeerLib();
+            const [Peer, opts] = await Promise.all([loadPeerLib(), peerOptions()]);
             if (this.closed) return;
             this.code = code;
             this.Peer = Peer;
+            this.peerOpts = opts;
             this.openPeer();
         }
 
         openPeer() {
             if (this.closed) return;
             const id = this.role === 'host' ? ID_PREFIX + this.code : undefined;
-            const peer = new this.Peer(id, { debug: 0, ...peerOptions() });
+            const peer = new this.Peer(id, { debug: 0, ...this.peerOpts });
             this.peer = peer;
             peer.on('error', (err) => { if (peer === this.peer) this.onPeerError(err); });
             peer.on('disconnected', () => {
                 // Lost the broker. Live links carry on directly; stay findable
                 // so a dropped or reloaded partner can get back in.
                 if (this.closed || peer !== this.peer) return;
+                this.brokerTries = (this.brokerTries || 0) + 1;
                 clearTimeout(this.brokerTimer);
-                this.brokerTimer = setTimeout(() => {
-                    if (this.closed || peer !== this.peer || peer.destroyed || !peer.disconnected) return;
-                    try { peer.reconnect(); } catch (_) { /* ignore */ }
-                }, 1000);
+                this.brokerTimer = setTimeout(() => this.reconnectBroker(), Math.min(8000, 1000 * this.brokerTries));
             });
             if (this.role === 'host') {
                 peer.on('open', () => {
                     this.codeTries = 0;
+                    this.brokerTries = 0;
                     saveRejoin({ role: 'host', code: this.code });
                     if (!this.connected) this.ui.hostWaiting(this.code);
                 });
@@ -248,8 +332,26 @@
                     this.attach(conn);
                 });
             } else {
-                peer.on('open', () => this.dial());
+                peer.on('open', () => { this.brokerTries = 0; this.dial(); });
             }
+        }
+
+        reconnectBroker() {
+            const peer = this.peer;
+            if (this.closed || !peer || peer.destroyed || !peer.disconnected) return;
+            try { peer.reconnect(); } catch (_) { /* ignore */ }
+        }
+
+        // The device changed networks (Wi-Fi to mobile data, a new hotspot…).
+        // Get back on the broker straight away, and if the other player has
+        // gone quiet, rebuild the link now instead of waiting for it to time out.
+        onNetworkChange() {
+            if (this.closed) return;
+            clearTimeout(this.brokerTimer);
+            this.brokerTries = 0;
+            this.reconnectBroker();
+            if (this.conn && this.connected && !this.reconnecting && performance.now() - this.lastHeard > 1500) this.linkDown();
+            else if (this.reconnecting && this.role === 'guest') this.dial();
         }
 
         // Host: a link that never got in. Too many in a minute looks like someone
@@ -277,8 +379,11 @@
             this.attach(conn);
             if (!this.hadPartner && !this.connectTimer) {
                 this.connectTimer = setTimeout(() => {
-                    if (!this.connected && !this.closed) this.fail('Could not reach that room. Check the code, and that your friend still has the room open.');
+                    if (!this.connected && !this.closed) this.fail('Could not reach that room. Check the code and that your friend still has the room open. If you are far apart, one of your networks may be blocking the connection: try again, or switch one of you to another network (a phone hotspot often works).');
                 }, CONNECT_TIMEOUT_MS);
+                const say = (ms, text) => this.timers.push(setTimeout(() => { if (!this.connected && !this.closed) this.ui.joinProgress(this, text); }, ms));
+                say(7000, 'Still connecting… players far apart can take a few more seconds.');
+                say(15000, 'Trying a relay route… this can take up to half a minute.');
             }
         }
 
@@ -334,12 +439,45 @@
             conn.on('error', () => this.onLinkClosed(conn));
             const pc = conn.peerConnection;
             if (pc) {
+                let stalled = null;
                 pc.addEventListener?.('iceconnectionstatechange', () => {
-                    if (pc.iceConnectionState !== 'failed') return;
+                    const st = pc.iceConnectionState;
+                    if (st === 'disconnected') {
+                        // Often recovers by itself in a second or two; if not,
+                        // a fresh link is quicker than waiting for 'failed'.
+                        clearTimeout(stalled);
+                        stalled = setTimeout(() => {
+                            if (conn === this.conn && pc.iceConnectionState !== 'connected' && pc.iceConnectionState !== 'completed') this.linkDown();
+                        }, ICE_DISCONNECTED_MS);
+                        return;
+                    }
+                    clearTimeout(stalled);
+                    if (st === 'connected' || st === 'completed') { if (conn === this.conn) this.checkRoute(); return; }
+                    if (st !== 'failed') return;
                     if (conn === this.conn) this.linkDown();
-                    else if (!this.hadPartner && this.role === 'guest') this.fail('Could not connect directly to your friend. One of your networks blocks peer-to-peer games; try another network (a phone hotspot often works).');
+                    else if (!this.hadPartner && this.role === 'guest') this.fail('Could not connect to your friend. One of your networks blocks peer-to-peer games and no relay could get through. Try again, or switch one of you to another network (a phone hotspot often works).');
                 });
             }
+        }
+
+        // Is the link going straight between the two players or through a
+        // TURN relay? Shown in the lobby; a relay adds a little delay.
+        async checkRoute() {
+            const pc = this.conn?.peerConnection;
+            if (!pc?.getStats) return;
+            try {
+                const stats = await pc.getStats();
+                let pair = null;
+                stats.forEach((r) => {
+                    if (r.type === 'transport' && r.selectedCandidatePairId) pair = stats.get(r.selectedCandidatePairId) || pair;
+                });
+                if (!pair) stats.forEach((r) => { if (r.type === 'candidate-pair' && r.state === 'succeeded' && (r.nominated || r.selected)) pair = pair || r; });
+                if (!pair) return;
+                const local = stats.get(pair.localCandidateId), remote = stats.get(pair.remoteCandidateId);
+                const relayed = local?.candidateType === 'relay' || remote?.candidateType === 'relay';
+                this.route = relayed ? 'relay' : 'direct';
+                this.ui.updatePing(this);
+            } catch (_) { /* ignore */ }
         }
 
         // Snapshots and inputs go on a second channel that may drop and reorder
@@ -372,10 +510,17 @@
                 if (!msg || typeof msg !== 'object') return;
                 if (msg.q) {
                     const f = this.fastIn;
-                    if (msg.q <= f.last) return;                 // late or repeated: newer data already applied
-                    if (f.last) f.lost += msg.q - f.last - 1;
-                    f.got++;
-                    f.last = msg.q;
+                    if (msg.q <= f.last) {
+                        // Overtaken on the way (jitter reorders packets): it was
+                        // counted lost, but it arrived. Old state is dropped;
+                        // pings and pongs are still good.
+                        if (f.lost > 0) { f.lost--; f.got++; }
+                        if (msg.t === 's' || msg.t === 'in') return;
+                    } else {
+                        if (f.last) f.lost += msg.q - f.last - 1;
+                        f.got++;
+                        f.last = msg.q;
+                    }
                 }
                 this.lastHeard = performance.now();
                 try { this.onMessage(msg); } catch (err) { console.error('[Online]', err); }
@@ -443,6 +588,11 @@
             if (this.role === 'host') this.send(this.helloMessage());
             this.connected = true;
             this.lastHeard = performance.now();
+            this.route = '';
+            this.checkRoute();
+            // The other side may be a fresh page with a new clock.
+            this.clockOffset = null;
+            this.clockSamples = [];
             this.fastIn = { last: 0, got: 0, lost: 0 };    // a new link numbers from 1 again
             this.loss = 0;
             this.remoteHidden = false;
@@ -458,6 +608,8 @@
             if (!this.linkTimersOn) {
                 this.linkTimersOn = true;
                 this.timers.push(setInterval(() => this.heartbeat(), 1000));
+                this.timers.push(setInterval(() => this.ping(), PING_MS));
+                this.ping();
                 // Keep the other side up to date if paddle designs change in the lobby.
                 this.offPaddles = window.PPSettings?.on?.((key) => {
                     if ((key === 'paddles' || key === '*') && this.connected) this.send({ t: 'paddles', paddles: window.PPSettings.get('paddles') });
@@ -606,15 +758,41 @@
             try { this.conn.send(msg); } catch (_) { /* channel closing */ }
         }
 
+        // Pings ride the unreliable channel: a lost packet on the reliable one
+        // would hold the pong back and make the link look slower than it is.
+        ping() {
+            if (this.closed || this.reconnecting || !this.connected) return;
+            this.sendFast({ t: 'ping', ts: Math.round(performance.now() * 10) / 10 });
+        }
+
+        onPong(msg) {
+            const now = performance.now();
+            const sample = now - num(msg.ts, now);
+            if (!(sample >= 0 && sample < 5000)) return;
+            this.jitter = this.jitter * 0.8 + Math.abs(sample - this.rtt) * 0.2;
+            this.rtt = this.rtt * 0.75 + sample * 0.25;
+            if (!Number.isFinite(msg.now)) return;   // older build: no clock sync
+            // The other clock read msg.now about halfway through the round
+            // trip. The fastest recent trips have the least queueing in them,
+            // so they give the truest offset.
+            const list = this.clockSamples;
+            list.push({ rtt: sample, off: msg.now + sample / 2 - now, at: now });
+            while (list.length > 16) list.shift();
+            let best = list[0];
+            for (const c of list) if (c.rtt < best.rtt) best = c;
+            this.clockOffset = this.clockOffset == null ? best.off : this.clockOffset * 0.7 + best.off * 0.3;
+        }
+
         heartbeat() {
             if (this.closed) return;
             if (this.reconnecting) { this.ui.linkState(this); return; }
-            this.send({ t: 'ping', ts: performance.now() });
-            const limit = this.remoteHidden ? HIDDEN_LINK_TIMEOUT_MS : LINK_TIMEOUT_MS;
+            // Slow links get a little more slack before they count as dropped.
+            const limit = this.remoteHidden ? HIDDEN_LINK_TIMEOUT_MS : LINK_TIMEOUT_MS + clamp(this.rtt * 6, 0, 5000);
             if (this.connected && this.conn && performance.now() - this.lastHeard > limit) { this.linkDown(); return; }
             if (this.connected) saveRejoin(this.role === 'host' ? { role: 'host', code: this.code } : { role: 'guest', code: this.code, token: this.token });
             this.sampleLoss();
-            this.ui.updatePing(this.rtt, this.loss);
+            if (this.connected && !this.route && ++this.routeChecks % 3 === 0) this.checkRoute();
+            this.ui.updatePing(this);
         }
 
         fail(message) {
@@ -663,12 +841,8 @@
                 case 'paddles':
                     this.remotePaddles = msg.paddles && typeof msg.paddles === 'object' ? msg.paddles : null;
                     return;
-                case 'ping': return this.send({ t: 'pong', ts: msg.ts });
-                case 'pong': {
-                    const sample = performance.now() - num(msg.ts, performance.now());
-                    if (sample >= 0 && sample < 5000) this.rtt = this.rtt * 0.7 + sample * 0.3;
-                    return;
-                }
+                case 'ping': return this.sendFast({ t: 'pong', ts: msg.ts, now: Math.round(performance.now() * 10) / 10 });
+                case 'pong': return this.onPong(msg);
                 case 'hidden': this.remoteHidden = !!msg.on; return;
                 case 'bye': {
                     const name = this.remoteName;
@@ -872,8 +1046,10 @@
         driveRemotePaddle(paddle, dt) {
             const r = this.remotePaddle;
             if (!r) { paddle.vel.y *= paddle.friction || 0.85; paddle.pos.y += paddle.vel.y * dt; return; }
-            const age = (performance.now() - r.at) / 1000;
-            const lead = clamp(age + this.oneWay * 0.5, 0, 0.12);
+            // r.at is when it left the other side (on our clock), so the lead
+            // grows with how late this report is.
+            const now = performance.now();
+            const lead = clamp((now - r.recv) / 1000 + (r.recv - r.at) / 2000, 0, 0.12);
             const target = r.y + r.vy * lead;
             const k = Math.min(1, dt * 32);
             const before = paddle.pos.y;
@@ -887,12 +1063,13 @@
         sendInput() {
             const p = this.localPaddle();
             if (!p) return;
-            this.sendFast({ t: 'in', y: round1(p.pos.y), vy: round1(p.vel.y) });
+            this.sendFast({ t: 'in', y: round1(p.pos.y), vy: round1(p.vel.y), ts: Math.round(performance.now()) });
         }
 
         onRemoteInput(msg) {
             if (!Number.isFinite(msg.y)) return;
-            this.remotePaddle = { y: msg.y, vy: num(msg.vy), at: performance.now() };
+            const now = performance.now();
+            this.remotePaddle = { y: msg.y, vy: num(msg.vy), recv: now, at: now - this.transit(msg.ts) * 1000 };
         }
 
         onLocalFire() { this.send({ t: 'fire' }); }
@@ -907,7 +1084,7 @@
         // The guest hit the main ball with its own paddle.
         onLocalHit(ball) {
             this.localHitAt = performance.now();
-            this.send({ t: 'hit', b: [round1(ball.pos.x), round1(ball.pos.y), round1(ball.vel.x), round1(ball.vel.y), Math.round((ball.spin || 0) * 100) / 100] });
+            this.send({ t: 'hit', b: [round1(ball.pos.x), round1(ball.pos.y), round1(ball.vel.x), round1(ball.vel.y), Math.round((ball.spin || 0) * 100) / 100], ts: Math.round(performance.now()) });
         }
 
         onRemoteHit(msg) {
@@ -915,13 +1092,15 @@
             if (!g || g.net !== this || !Array.isArray(msg.b) || g.matchEnding) return;
             const ball = g.ball;
             // Already coming back (the host saw the hit too) or already scored.
-            if (ball.vel.x <= 0 || ball.pos.x > g.width + 40) return;
+            // The ball may be well past the edge: goalGrace holds the goal back
+            // just so a far-away guest's hit can still arrive.
+            if (ball.vel.x <= 0 || ball.pos.x > g.width + 50 + this.goalGrace(ball)) return;
             let [x, y, vx, vy, spin] = msg.b.map((v) => num(v));
             // The guest owns hits on its own paddle, but not blindly: the hit
             // must be where the host sees that paddle (with room for lag),
             // head back at the host, and no faster than a hit can make it.
             const pad = g.aiPaddle;
-            const slack = Math.max(60, Math.abs(num(this.remotePaddle?.vy)) * (this.rtt / 1000 + 0.1));
+            const slack = Math.max(60, Math.abs(num(this.remotePaddle?.vy)) * ((this.rtt + this.jitter * 2) / 1000 + 0.1));
             if (Math.abs(y - (pad.pos.y + pad.h / 2)) > pad.h / 2 + ball.r + slack) return;
             if (Math.abs(x - pad.pos.x) > pad.w + ball.r + 120 + Math.abs(ball.vel.x) * 0.25) return;
             if (vx >= 0) return;
@@ -929,7 +1108,7 @@
             const sp = Math.hypot(vx, vy);
             if (sp > cap) { vx *= cap / sp; vy *= cap / sp; }
             spin = clamp(spin, -60, 60);
-            const lat = this.oneWay;
+            const lat = this.transit(msg.ts);
             let ny = y + vy * lat, nvy = vy;
             if (ny < ball.r) { ny = ball.r + (ball.r - ny); nvy = Math.abs(nvy); }
             if (ny > g.height - ball.r) { ny = g.height - ball.r - (ny - (g.height - ball.r)); nvy = -Math.abs(nvy); }
@@ -952,7 +1131,8 @@
         // host counts a goal: room for the guest's hit to arrive.
         goalGrace(ball) {
             if (this.role !== 'host') return 0;
-            return Math.min(600, Math.abs(ball.vel.x) * (this.oneWay * 2 + 0.03));
+            const wait = clamp((this.rtt + this.jitter * 2) / 1000, 0, 0.5) + 0.04;
+            return Math.min(800, Math.abs(ball.vel.x) * wait);
         }
 
         // ── Host → guest state ─────────────────────────────────────────
@@ -963,6 +1143,7 @@
             const ballArr = (x) => [round1(x.pos.x), round1(x.pos.y), round1(x.vel.x), round1(x.vel.y), round1(x.r), Math.round((x.spin || 0) * 100) / 100];
             const s = {
                 t: 's',
+                ts: Math.round(performance.now()),
                 b: ballArr(b),
                 ab: g.additionalBalls.map((x) => [...ballArr(x), x.color || '', round1(num(x.life, 10))]),
                 L: [round1(g.player.pos.y), round1(g.player.vel.y), round1(g.player.h), g.player.laserStunned ? 1 : 0],
@@ -997,7 +1178,7 @@
             const first = !this.gotSnapshot;
             this.gotSnapshot = true;
             if (first) this.ui.hideBanner();
-            const lat = this.oneWay;
+            const lat = this.transit(s.ts);
 
             // Scores and rally.
             if (Array.isArray(s.sc)) {
@@ -1035,7 +1216,7 @@
                 const sinceHit = performance.now() - this.localHitAt;
                 // Right after our own hit the host has not caught up yet: keep
                 // our version until it reports the ball coming back.
-                const trustLocal = sinceHit < Math.min(450, this.rtt + 150) && bvx > 0 && ball.vel.x < 0;
+                const trustLocal = sinceHit < Math.min(900, this.rtt * 1.3 + this.jitter * 2 + 150) && bvx > 0 && ball.vel.x < 0;
                 if (!trustLocal) this.reconcileBall(ball, bx, by, bvx, bvy, bspin, lat);
             }
 
@@ -1059,7 +1240,8 @@
 
             // Paddles: the host's paddle follows the host; ours only takes its size.
             if (Array.isArray(s.L)) {
-                this.remotePaddle = { y: num(s.L[0]), vy: num(s.L[1]), at: performance.now() };
+                const now = performance.now();
+                this.remotePaddle = { y: num(s.L[0]), vy: num(s.L[1]), recv: now, at: now - lat * 1000 };
                 this.setPaddleHeight(g.player, num(s.L[2], g.player.h));
                 if (s.L[3] && !g.player.laserStunned) { g.player.laserStunned = true; g.player.laserStunTime = Math.max(g.player.laserStunTime || 0, 0.3); }
                 if (first) g.player.pos.y = num(s.L[0], g.player.pos.y);
@@ -1555,6 +1737,7 @@
                     const code = opts.code || randomCode();
                     const s = new Session('host', this, { keepCode: !!opts.code });
                     session = s;
+                    this.lastAttempt = { action: 'create' };
                     s.mode = this.startMode;
                     this.root.querySelector('#pponCode').textContent = '· · · ·  · · · ·';
                     this.setStatus('pponHostStatus', opts.code ? 'Reopening your room…' : 'Opening a room…', 'busy');
@@ -1582,6 +1765,7 @@
                     if (session) session.leave();
                     const s = new Session('guest', this, { token: opts.token });
                     session = s;
+                    this.lastAttempt = { action: 'join', code };
                     this.setStatus('pponJoinStatus', opts.token ? 'Rejoining your friend…' : 'Connecting…', 'busy');
                     try { await s.open(code); } catch (e) { s.fail('Online play could not start: ' + e.message); }
                     return;
@@ -1606,7 +1790,18 @@
                 case 'leave':
                     if (session) session.leave();
                     return this.show('choose');
-                case 'retry': return this.show('choose');
+                case 'retry': {
+                    // Try the same thing again: the same room code, or a new room.
+                    const last = this.lastAttempt;
+                    this.lastAttempt = null;
+                    if (last?.action === 'join') {
+                        this.show('join');
+                        this.root.querySelector('#pponJoinCode').value = formatCode(last.code);
+                        return this.act('join');
+                    }
+                    if (last?.action === 'create') return this.act('create');
+                    return this.show('choose');
+                }
                 case 'again': return session?.requestAgain();
             }
         },
@@ -1686,7 +1881,7 @@
             const start = this.root.querySelector('#pponStart');
             start.hidden = !isHost;
             start.disabled = !!s.reconnecting;
-            this.updatePing(s.rtt);
+            this.updatePing(s);
         },
 
         // The link dropped or came back.
@@ -1719,16 +1914,39 @@
             }, 2600);
         },
 
-        updatePing(rtt, loss = 0) {
-            if (!session) return;
-            const ms = Math.round(rtt);
-            const lossPct = Math.round(loss * 100);
-            const q = ms < 70 && lossPct < 3 ? 'great' : ms < 140 && lossPct < 8 ? 'good' : 'laggy';
-            this.pingHud(session.inGame() && session.inMatch && !session.reconnecting ? { ms, lossPct, q } : null);
+        // Connection quality from the round trip, how much it wobbles and
+        // how much is lost. "Playable" is the normal case between countries.
+        quality(s) {
+            const ms = Math.round(s.rtt), jit = Math.round(s.jitter || 0), lossPct = Math.round((s.loss || 0) * 100);
+            let q = 'laggy';
+            if (ms < 90 && jit < 15 && lossPct < 2) q = 'great';
+            else if (ms < 170 && jit < 35 && lossPct < 5) q = 'good';
+            else if (ms < 300 && jit < 70 && lossPct < 10) q = 'fair';
+            const bars = { great: 4, good: 3, fair: 2, laggy: 1 }[q];
+            const label = { great: 'Great', good: 'Good', fair: 'Playable', laggy: 'Laggy' }[q];
+            return { ms, jit, lossPct, q, bars, label };
+        },
+
+        updatePing(s) {
+            if (!session || s !== session) return;
+            const info = this.quality(s);
+            this.pingHud(s.inGame() && s.inMatch && !s.reconnecting ? info : null);
             const el = this.root?.querySelector('#pponPing');
-            if (!el || this.view !== 'ready' || session.reconnecting) return;
-            const who = session.role === 'host' ? 'Connected' : `Connected · waiting for ${session.remoteName} to start`;
-            el.innerHTML = `${esc(who)} · <span class="ppon-q ${q}">${ms} ms ${q}</span>`;
+            if (!el || this.view !== 'ready' || s.reconnecting) return;
+            const who = s.role === 'host' ? 'Connected' : `Connected · waiting for ${s.remoteName} to start`;
+            const bars = [1, 2, 3, 4].map((i) => `<i class="${i <= info.bars ? 'on' : ''}"></i>`).join('');
+            const bits = [`${info.ms} ms`];
+            if (info.jit >= 10) bits.push(`±${info.jit}`);
+            if (info.lossPct >= 2) bits.push(`${info.lossPct}% loss`);
+            if (s.route) bits.push(s.route === 'relay' ? 'via relay' : 'direct');
+            const tip = info.q === 'laggy' ? ' Expect some lag: a wired or closer Wi-Fi connection helps.' : '';
+            el.innerHTML = `${esc(who)}<span class="ppon-quality ${info.q}" title="Round trip ${info.ms} ms${tip}"><span class="ppon-bars" aria-hidden="true">${bars}</span><b>${info.label}</b> · ${esc(bits.join(' · '))}</span>`;
+        },
+
+        // Guest: how the first connection is going.
+        joinProgress(s, text) {
+            if (s !== session || this.view !== 'join') return;
+            this.setStatus('pponJoinStatus', text, 'busy');
         },
 
         // A small readout in the corner while a match is running.
@@ -1743,7 +1961,8 @@
             }
             el.hidden = false;
             el.dataset.q = info.q;
-            el.innerHTML = `<i></i><b>${info.ms}</b> ms${info.lossPct >= 2 ? ` · <em>${info.lossPct}% loss</em>` : ''}`;
+            const html = `<i></i><b>${info.ms}</b> ms${info.lossPct >= 2 ? ` · <em>${info.lossPct}% loss</em>` : ''}`;
+            if (el.__html !== html) { el.innerHTML = html; el.__html = html; }
         },
 
         showError(message) {
@@ -1855,6 +2074,11 @@
         let unloading = false;
         window.addEventListener('pagehide', () => { unloading = true; });
         window.addEventListener('pageshow', () => { unloading = false; });
+        // Phones hop between Wi-Fi and mobile data; pick the link back up fast.
+        const netChanged = () => session?.onNetworkChange();
+        window.addEventListener('online', netChanged);
+        navigator.connection?.addEventListener?.('change', netChanged);
+
         document.addEventListener('visibilitychange', () => {
             if (unloading) return;   // reloading: the other side keeps the match for us
             const g = window.game;

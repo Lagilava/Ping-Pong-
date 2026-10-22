@@ -43,6 +43,10 @@ class PowerUp {
 
         // Enhanced neon visual properties - reduced by 20%
         this.auraRadius = this.baseSize * 2.0; // Reduced from 2.5
+        // Set here too: an online guest draws power-ups from the host's snapshot
+        // before update() has run on them.
+        this.lightingPhase = 0;
+        this.lightIntensity = 1;
         this.innerGlowSize = this.baseSize * 0.56; // Reduced from 0.7
         this.outerRingSize = this.baseSize * 1.04; // Reduced from 1.3
         this.sparkleCount = Math.min(3 + this.rarity, 5); // Limited max sparkles
