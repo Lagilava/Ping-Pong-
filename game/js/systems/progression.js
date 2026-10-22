@@ -882,7 +882,7 @@ class ProgressionSystem {
                     </div>
                 `).join('')}</div>
                 <div class="summary-footer">
-                    <span>View the full collection with Ctrl + Shift + A</span>
+                    <span><span class="pp-pc-only">View the full collection with Ctrl + Shift + A</span><span class="pp-touch-only">See the full collection from the trophy on the main menu</span></span>
                     <button type="button" class="summary-continue">Continue</button>
                 </div>
             </div>`;

@@ -3097,8 +3097,10 @@ class Game {
             if (zombieMode) {
                 set(this.scoreElements.player, this.scores.player);
                 set(this.scoreElements.ai, `${hearts}/${state.maxHearts}`);
-                this.scoreElements.player.setAttribute('data-score-label', 'score');
-                this.scoreElements.ai.setAttribute('data-score-label', 'lives');
+                // Only touch the attributes when they change: this runs every
+                // physics step and each write restyles the scoreboard.
+                if (this.scoreElements.player.getAttribute('data-score-label') !== 'score') this.scoreElements.player.setAttribute('data-score-label', 'score');
+                if (this.scoreElements.ai.getAttribute('data-score-label') !== 'lives') this.scoreElements.ai.setAttribute('data-score-label', 'lives');
             } else {
                 this.scoreElements.player.removeAttribute('data-score-label');
                 this.scoreElements.ai.removeAttribute('data-score-label');
@@ -6822,7 +6824,9 @@ class Game {
             const w = Math.min(this.width * 0.6, Math.max(tw, mw) + pad * 2);
             const h = 48 * k;
             const x = (this.width - w) / 2;
-            const y = this.height - h - 12 * k - displayIndex * (h + 8 * k);
+            // Phones show Zombie's wave plaque along the bottom centre too.
+            const lift = this.gameMode === 'zombie' && window.PerfGovernor?.isMobile ? 58 : 0;
+            const y = this.height - h - 12 * k - lift - displayIndex * (h + 8 * k);
             ctx.globalAlpha = n.opacity * 0.85;
             if (window.PPArt) window.PPArt.plate(ctx, x, y, w, h, n.color, 'rgba(6, 11, 24, 0.88)');
             else {

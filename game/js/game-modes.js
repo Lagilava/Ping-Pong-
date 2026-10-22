@@ -259,7 +259,10 @@
             }));
     };
 
+    // Timestamp of a frame still to be copied from the 2D canvas, or null.
+    let pendingCapture = null;
     const bufferClear = () => {
+        pendingCapture = null;
         for (let i = 0; i < BUFFER_SIZE; i++) {
             releaseFrame(frameBuffer[i]);
             frameBuffer[i] = null;
@@ -412,8 +415,41 @@
             const fx = game.postFx;
             // The WebGL output is only readable inside the present() task.
             const src = (fromPresent && fx?.active && fx.canvas?.width) ? fx.canvas : game.canvas;
+            // The plain 2D canvas is copied at the start of the next frame
+            // instead: copying it right after drawing made the main thread wait
+            // for the whole frame to raster (about 5x the cost, 18-24 times a
+            // second). The WebGL output has to be read now, before it is gone.
+            if (src === game.canvas && SUPPORTS_TRANSFER_TO_BITMAP && hookFrameStart()) { pendingCapture = timestamp; return; }
             offscreenCtx.drawImage(src, 0, 0, offscreen.width, offscreen.height);
             if (!SUPPORTS_TRANSFER_TO_BITMAP) { captureFallbackFrame(timestamp); return; }
+            const frame = offscreen.transferToImageBitmap();
+            if (frame) bufferPush(frame, timestamp, createFrameMeta(timestamp));
+        } catch (e) {
+            console.warn('[Replay] Capture error:', e);
+        }
+    };
+
+    // A frame waiting to be copied from the 2D canvas (see pendingCapture):
+    // taken just before the next frame draws over it, by which time it has
+    // long been rastered.
+    let frameStartHooked = null;   // the game instance whose render() is wrapped
+    const hookFrameStart = () => {
+        if (frameStartHooked === game) return true;
+        if (!game || typeof game.render !== 'function') return false;
+        const render = game.render;
+        game.render = function (...args) {
+            if (pendingCapture !== null) copyPendingFrame();
+            return render.apply(this, args);
+        };
+        frameStartHooked = game;
+        return true;
+    };
+    const copyPendingFrame = () => {
+        const timestamp = pendingCapture;
+        pendingCapture = null;
+        if (!recordingActive || isReplaying || !offscreenCtx || !isGameLive()) return;
+        try {
+            offscreenCtx.drawImage(game.canvas, 0, 0, offscreen.width, offscreen.height);
             const frame = offscreen.transferToImageBitmap();
             if (frame) bufferPush(frame, timestamp, createFrameMeta(timestamp));
         } catch (e) {

@@ -41,7 +41,7 @@
         ],
         controls: [
             { type: 'slider', key: 'paddleSpeed', label: 'Paddle speed', help: 'Keyboard and gamepad. Mouse and touch follow your pointer.', min: 60, max: 150, step: 5, unit: '%' },
-            { type: 'keys', label: 'Keys', help: 'Click a key, then press the new one. Esc cancels.' },
+            { type: 'keys', label: 'Keys', help: 'Click a key, then press the new one. Esc cancels.', pcOnly: true },
             { type: 'toggle', key: 'padRumble', label: 'Controller vibration', help: 'Gamepads rumble on hits and goals.' },
             { type: 'toggle', key: 'phoneVibrate', label: 'Phone vibration', help: 'Phones buzz when a point is scored.' },
             { type: 'note', html: '<p><b>Mouse</b><br>Hold and drag on your half of the court.</p><p><b>Touch</b><br>Slide to move. In local 1v1, stay on your half. Use the round ability button; tap with a second finger to fire a laser.</p><p><b>Gamepad</b><br>Left stick moves · A fires · Start pauses.</p>' },
@@ -262,7 +262,7 @@
             case 'profile':
                 return '<div class="ppset-profile"></div>';
             case 'keys':
-                return `<div class="ppset-row ppset-keys-row"><div class="ppset-text"><div class="ppset-label">${esc(row.label)}</div><div class="ppset-help">${esc(row.help)}</div></div>
+                return `<div class="ppset-row ppset-keys-row${row.pcOnly ? ' pp-pc-only' : ''}"><div class="ppset-text"><div class="ppset-label">${esc(row.label)}</div><div class="ppset-help">${esc(row.help)}</div></div>
                     <div class="ppset-keys">${BIND_ROWS.map((g) => `<div class="ppset-keygroup"><div class="ppset-keyside">${esc(g.side)}</div>${g.actions.map(([a, t]) =>
                         `<label class="ppset-keyitem"><span>${t}</span><button type="button" class="ppset-key" data-bind="${a}">${esc(S().keyLabel(S().get('bindings')[a]))}</button></label>`).join('')}</div>`).join('')}
                     <button type="button" class="ppset-btn ppset-keyreset" data-action="resetKeys">Default keys</button></div></div>`;
@@ -322,6 +322,14 @@
         if (id === 'profile') renderProfile();
         if (id === 'paddles') { syncPaddles(); startPaddlePreviews(); }
         root.querySelector('.ppset-body').scrollTop = 0;
+        // On phones the tabs are one scrolling row: bring the chosen one into view.
+        const tabs = root.querySelector('.ppset-tabs');
+        const btn = tabs?.querySelector(`[data-tab="${id}"]`);
+        if (tabs && btn && tabs.scrollWidth > tabs.clientWidth) {
+            const offset = btn.getBoundingClientRect().left - tabs.getBoundingClientRect().left + tabs.scrollLeft;
+            const left = offset - (tabs.clientWidth - btn.offsetWidth) / 2;
+            tabs.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
+        }
     }
 
     function parseVal(key, raw) {

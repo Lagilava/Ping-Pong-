@@ -161,7 +161,7 @@
                         <span class="menu-achievement-copy"><span class="menu-achievement-name">${escapeHtml(a.title)}</span><span class="menu-achievement-desc">${escapeHtml(a.desc)}</span></span>
                         ${a.isNew ? '<span class="menu-achievement-new">NEW</span>' : ''}
                     </li>`).join('')
-                : '<li class="menu-achievements-empty">No achievements yet: win a match to earn your first. <span>Ctrl + Shift + A shows them all.</span></li>';
+                : '<li class="menu-achievements-empty">No achievements yet: win a match to earn your first. <span class="pp-pc-only">Ctrl + Shift + A shows them all.</span></li>';
             if (html !== lastMenuHtml) {
                 list.innerHTML = html;
                 lastMenuHtml = html;
@@ -169,9 +169,9 @@
         }
         window.ppUpdateMenuAchievements = updateMenuAchievements;
 
-        // Clicking a recent achievement opens the full list.
+        // Clicking a recent achievement, or the trophy button, opens the full list.
         document.addEventListener('click', (e) => {
-            if (e.target.closest?.('#menuAchievementsList .menu-achievement-item')) {
+            if (e.target.closest?.('#menuAchievementsList .menu-achievement-item, [data-open-achievements]')) {
                 window.game?.progression?.toggleAchievementSidebar?.();
             }
         });
