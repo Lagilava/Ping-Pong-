@@ -634,9 +634,12 @@
             const oldPlayerRender = state.game.player.render;
             state.game.player.render = function (c) {
                 if (!this.pos || !Number.isFinite(this.pos.x) || !Number.isFinite(this.pos.y) || !Number.isFinite(this.w) || !Number.isFinite(this.h) || this.w <= 0 || this.h <= 0) { oldPlayerRender.call(this, c); return; }
+                // The shaped designs bake a glow that follows their outline;
+                // this rectangular underlay is Classic's.
+                if ((this.paddleStyle || 'classic') !== 'classic') { oldPlayerRender.call(this, c); return; }
                 c.save();
-                // Follow the hit recoil so the underlay stays attached to the paddle.
-                c.translate(this.recoil || 0, 0);
+                // Follow the paddle's lean, wobble and recoil so the underlay stays attached.
+                if (this.applyMotionTransform) this.applyMotionTransform(c); else c.translate(this.recoil || 0, 0);
                 // vel is px/s; full intensity at paddle top speed.
                 const movementIntensity = Math.min(Math.abs(this.vel.y) / 850, 1);
                 const dynamicGlow = CONFIG.baseGlowBlur + (movementIntensity * 15);
@@ -673,12 +676,13 @@
             state.game.aiPaddle.render = function (c) {
                 if (this.isZombieBoss) { oldAiRender.call(this, c); return; }
                 if (!this.pos || !Number.isFinite(this.pos.x) || !Number.isFinite(this.pos.y) || !Number.isFinite(this.w) || !Number.isFinite(this.h) || this.w <= 0 || this.h <= 0) { oldAiRender.call(this, c); return; }
+                if ((this.paddleStyle || 'classic') !== 'classic') { oldAiRender.call(this, c); return; }
                 const isP2 = state.game?.isMultiplayer;
                 const paddleColor = isP2 ? CONFIG.colorPlayer : CONFIG.colorAI;
                 const glowColor = isP2 ? CONFIG.colorPlayerGlow : CONFIG.colorAIGlow;
                 c.save();
-                // Follow the hit recoil so the underlay stays attached to the paddle.
-                c.translate(this.recoil || 0, 0);
+                // Follow the paddle's lean, wobble and recoil so the underlay stays attached.
+                if (this.applyMotionTransform) this.applyMotionTransform(c); else c.translate(this.recoil || 0, 0);
                 // vel is px/s; full intensity at paddle top speed.
                 const movementIntensity = Math.min(Math.abs(this.vel.y) / 850, 1);
                 const dynamicGlow = CONFIG.baseGlowBlur + (movementIntensity * 15);

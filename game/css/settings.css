@@ -290,7 +290,7 @@
 .ppset-pmodes button[aria-checked="true"] { color: #fff; background: rgba(0, 255, 214, 0.2); border-color: rgba(0, 255, 214, 0.8); }
 .ppset-pside { display: grid; gap: 8px; }
 .ppset-pside[hidden] { display: none; }
-.ppset-pgrid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.ppset-pgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .ppset-pcard {
     display: flex;
     flex-direction: column;

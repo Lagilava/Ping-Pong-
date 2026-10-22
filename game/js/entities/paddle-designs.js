@@ -1,4 +1,5 @@
-// Paddle designs: Satelliten, World Shield, AI Rebel and Prizma.
+// Paddle designs: Satelliten, World Shield, AI Rebel, Prizma, Riptide,
+// Magma and Bassline.
 //
 // Classic keeps its own renderer in paddle.js. Each design here is split in
 // two: a static body baked once into an offscreen sprite, glow included, and
@@ -7,6 +8,11 @@
 // frame. Sprites are baked at the canvas's real pixel scale, so they stay
 // sharp at any resolution, and are rebaked only when the paddle's size,
 // colour or the screen scale changes.
+//
+// Each draw gets the paddle's motion state (paddle.motion, stepped in
+// paddle.js): t is its animation clock, which runs faster while the paddle
+// moves, as the ball comes in and just after a hit, and the designs read
+// impactY, sinceHit and react ('win' / 'lose') for their own reactions.
 (function () {
     'use strict';
 
@@ -16,6 +22,9 @@
         { id: 'shieldWall', name: 'World Shield', blurb: 'Honeycomb energy shield around a turning globe' },
         { id: 'arcadeBlock', name: 'AI Rebel', blurb: 'Armour plates and an eye that tracks the ball' },
         { id: 'prismGlass', name: 'Prizma', blurb: 'Faceted crystal with a sweeping spectrum' },
+        { id: 'riptide', name: 'Riptide', blurb: 'A glass tube of liquid that sloshes as you move' },
+        { id: 'magmaCore', name: 'Magma', blurb: 'Cracked basalt with lava veins that flare on every hit' },
+        { id: 'bassline', name: 'Bassline', blurb: 'Speaker stack with level meters that dance to the music' },
     ];
     const IDS = LIST.map((d) => d.id);
     const PAD = 22;                 // logical px of room around the paddle for glow
@@ -75,6 +84,33 @@
         const sy = (y0 + h / 2 + PAD) * s;
         const sh = (y1 - y0) * s;
         ctx.drawImage(spr, 0, sy, spr.width, sh, -w / 2 - PAD, y0, w + PAD * 2, y1 - y0);
+    }
+
+    // Draw the logical rect x0..x1, y0..y1 of a sprite.
+    function drawSpriteRect(ctx, spr, w, h, s, x0, y0, x1, y1) {
+        if (x1 <= x0 || y1 <= y0) return;
+        const sx = (x0 + w / 2 + PAD) * s, sy = (y0 + h / 2 + PAD) * s;
+        ctx.drawImage(spr, sx, sy, (x1 - x0) * s, (y1 - y0) * s, x0, y0, x1 - x0, y1 - y0);
+    }
+
+    // 0..1 envelopes for the point reactions: rise fast, hold, fade.
+    function reactEnv(m, type) {
+        if (!m || m.react !== type) return 0;
+        const t = m.reactT;
+        return Math.min(1, t / 0.12) * Math.max(0, 1 - Math.max(0, t - 0.5) / 0.6);
+    }
+
+    // Seeded random numbers, so a design's rough edges and cracks come out
+    // the same every time it is baked.
+    function rng(seed) {
+        let a = seed >>> 0;
+        return () => {
+            a = (a + 0x6D2B79F5) >>> 0;
+            let t = a;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
     }
 
     function roundRect(ctx, x, y, w, h, r) {
@@ -319,14 +355,17 @@
             const { w, h, s, c, light } = k;
             const L = k.sprites.L;
             const { hw, hh, endH, hubR } = L;
+            const m = p.motion;
+            // The satellites scatter outwards on a hit and on a won point.
+            const spread = 1 + hitGlow * 0.45 + reactEnv(m, 'win') * 0.35 - reactEnv(m, 'lose') * 0.15;
             const orbit = (back) => {
                 for (let i = 0; i < 3; i++) {
                     for (let trail = 2; trail >= 0; trail--) {
                         const a = t * 1.25 + i * (TAU / 3) + p._seed - trail * 0.09;
                         const z = Math.cos(a);
                         if ((z < 0) !== back) continue;
-                        const x = z * (hw + 7);
-                        const y = Math.sin(a) * (hh * 0.86);
+                        const x = z * (hw + 7) * spread;
+                        const y = Math.sin(a) * (hh * 0.86) * (1 + hitGlow * 0.06);
                         const size = (back ? 1.4 : 2.0) * (trail ? 0.75 : 1);
                         glowDot(ctx, x, y, size, back ? rgba(light, 1) : '#ffffff', rgba(c, 1), (back ? 0.35 : 1) * (1 - trail * 0.32));
                     }
@@ -532,6 +571,14 @@
                 ctx.globalAlpha = hitGlow * 0.85;
                 drawSprite(ctx, k.sprites.mesh, w, h);
             }
+            // A ripple spreads through the honeycomb from where the ball hit.
+            const m = p.motion;
+            if (m && m.sinceHit < 0.5) {
+                const q = m.sinceHit / 0.5, iy = m.impactY * S.hh, d = q * S.hh * 1.3;
+                ctx.globalAlpha = (1 - q) * 0.95;
+                drawSpriteBand(ctx, k.sprites.mesh, w, h, s, iy - d - 3, iy - d + 3);
+                drawSpriteBand(ctx, k.sprites.mesh, w, h, s, iy + d - 3, iy + d + 3);
+            }
             // A spark running round the rim.
             for (let i = 0; i < 2; i++) {
                 const [x, y] = pointOnPolygon(S.pts, t * 0.18 + p._seed + i * 0.5);
@@ -678,9 +725,11 @@
             const { L, seams } = k.sprites;
             const { hw, visorH, visorW } = L;
 
-            // Glitch: every few seconds the body tears sideways for a moment.
+            // Glitch: every few seconds the body tears sideways for a moment,
+            // and hard when it loses a point.
+            const m = p.motion;
             const gl = (t + p._seed * 2.3) % 3.4;
-            if (gl < 0.14) {
+            if (gl < 0.14 || (m?.react === 'lose' && m.reactT < 0.35)) {
                 const slices = 5, bandH = h / slices, step = Math.floor(t * 40);
                 for (let i = 0; i < slices; i++) {
                     const off = (((step * 7 + i * 13) % 5) - 2) * 1.6;
@@ -732,16 +781,31 @@
                 ctx.fillStyle = rgba(light, 1);
                 ctx.fillRect(-hw + 1, y - 1, w - 2, 2);
             }
-            // Eye.
+            // Eye: opens wide on a hit, narrows to a slit when it loses a
+            // point and turns into a grin when it wins one.
             const ew = visorW * 0.72;
+            const win = reactEnv(m, 'win'), lose = reactEnv(m, 'lose');
+            const open = Math.max(0.35, 1 + hitGlow * 0.9 + (m?.ant || 0) * 0.3 - lose * 0.65);
             ctx.globalAlpha = 0.35 + hitGlow * 0.4;
             ctx.fillStyle = rgba(c, 1);
-            ctx.beginPath(); ctx.ellipse(0, ey, ew * 0.9, 7, 0, 0, TAU); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(0, ey, ew * 0.9, 7 * Math.min(1.4, open), 0, 0, TAU); ctx.fill();
             ctx.globalAlpha = 1;
-            ctx.fillStyle = rgba(light, 1);
-            roundRect(ctx, -ew / 2, ey - 2, ew, 4, 2); ctx.fill();
-            ctx.fillStyle = '#ffffff';
-            roundRect(ctx, -ew / 4, ey - 1, ew / 2, 2, 1); ctx.fill();
+            if (win > 0.05) {
+                ctx.strokeStyle = rgba(light, 1);
+                ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(-ew / 2, ey + 1.5 * win); ctx.quadraticCurveTo(0, ey - 4 * win, ew / 2, ey + 1.5 * win);
+                ctx.stroke();
+                ctx.globalAlpha = 1 - win;
+            }
+            if (win < 0.95) {
+                const eh = 4 * open;
+                ctx.fillStyle = rgba(light, 1);
+                roundRect(ctx, -ew / 2, ey - eh / 2, ew, eh, eh / 2); ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                roundRect(ctx, -ew / 4, ey - eh / 4, ew / 2, eh / 2, eh / 4); ctx.fill();
+            }
+            ctx.globalAlpha = 1;
             // Visor scan flicker.
             ctx.globalAlpha = 0.25;
             ctx.fillStyle = rgba(c, 1);
@@ -937,9 +1001,22 @@
                 ctx.globalAlpha = hitGlow * 0.9;
                 drawSprite(ctx, k.sprites.flash, w, h);
             }
+            // The corners nearest the ball flash together on a hit.
+            const m = p.motion;
+            const verts = S.verts;
+            if (m && m.sinceHit < 0.35) {
+                const q = m.sinceHit / 0.35, iy = m.impactY * S.hh;
+                for (let i = 0; i < verts.length; i++) {
+                    const near = 1 - Math.abs(verts[i][1] - iy) / (h * 0.45);
+                    if (near <= 0) continue;
+                    const a = Math.sin(Math.min(1, q * 1.4) * Math.PI) * near;
+                    ctx.globalAlpha = a;
+                    ctx.fillStyle = '#ffffff';
+                    star(ctx, verts[i][0], verts[i][1], 3 + a * 6);
+                }
+            }
             // Glints pop on the crystal's corners in turn.
             ctx.fillStyle = '#ffffff';
-            const verts = S.verts;
             for (let i = 0; i < verts.length; i++) {
                 const v = ((t * 0.55 + i * 0.29 + p._seed) % 1.6);
                 if (v > 0.22) continue;
@@ -955,7 +1032,502 @@
         },
     };
 
-    const DESIGNS = { neonBlade: satelliten, shieldWall: worldShield, arcadeBlock: aiRebel, prismGlass: prizma };
+    // ── Riptide ───────────────────────────────────────────────────────
+    // A glass tube of glowing liquid between two metal caps. Light ripples
+    // flow through it, bubbles rise, and the surface sloshes when the paddle
+    // moves or stops. A hit sends a pressure ring through the liquid.
+    const riptide = {
+        layout(w, h) {
+            const hw = w / 2, hh = h / 2;
+            const cap = clamp(w * 0.85, 7, 13);
+            const x0 = -hw + 1.8, x1 = hw - 1.8;
+            const y0 = -hh + cap, y1 = hh - cap;
+            return { hw, hh, cap, x0, x1, y0, y1, r: Math.max(1, (x1 - x0) / 2) };
+        },
+        innerPath(ctx, L) {
+            roundRect(ctx, L.x0, L.y0 - 1, L.x1 - L.x0, L.y1 - L.y0 + 2, Math.min(3, L.r));
+        },
+        bake(c, w, h, s) {
+            const L = this.layout(w, h);
+            const { hw, hh, cap, x0, x1, y0, y1 } = L;
+            const light = mix(c, WHITE, 0.6);
+            const body = sprite(w, h, s);
+            const g = body.ctx;
+            const bloom = bloomFor(c);
+            const R = Math.min(hw, 7);
+
+            g.save();
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 16 * s * bloom;
+            g.fillStyle = rgba(c, 0.35 * bloom);
+            roundRect(g, -hw, y0 - 2, w, y1 - y0 + 4, R); g.fill();
+            g.restore();
+
+            // Glass wall, then the liquid shaded like a cylinder.
+            g.fillStyle = 'rgba(8,14,24,0.92)';
+            roundRect(g, -hw, -hh + 2, w, h - 4, R); g.fill();
+            const lg = g.createLinearGradient(x0, 0, x1, 0);
+            lg.addColorStop(0, rgba(mix(c, BLACK, 0.7), 1));
+            lg.addColorStop(0.3, rgba(mix(c, BLACK, 0.12), 1));
+            lg.addColorStop(0.55, rgba(mix(c, BLACK, 0.32), 1));
+            lg.addColorStop(1, rgba(mix(c, BLACK, 0.78), 1));
+            g.fillStyle = lg;
+            this.innerPath(g, L); g.fill();
+            // Deeper colour towards the bottom of the column.
+            g.save();
+            this.innerPath(g, L); g.clip();
+            const dg = g.createLinearGradient(0, y0, 0, y1);
+            dg.addColorStop(0, 'rgba(255,255,255,0.10)');
+            dg.addColorStop(0.5, 'rgba(0,0,0,0)');
+            dg.addColorStop(1, 'rgba(0,0,0,0.35)');
+            g.fillStyle = dg;
+            g.fillRect(x0, y0 - 1, x1 - x0, y1 - y0 + 2);
+            g.restore();
+            // Etched level marks on the glass.
+            g.fillStyle = 'rgba(255,255,255,0.22)';
+            for (let y = y0 + 8; y < y1 - 4; y += 8) g.fillRect(x1 - 2.6, y, (y / 8) % 2 ? 1.6 : 2.6, 0.6);
+
+            // Glass highlights: a long streak on the lit side, a thin rim.
+            const hl = g.createLinearGradient(0, y0, 0, y1);
+            hl.addColorStop(0, 'rgba(255,255,255,0)');
+            hl.addColorStop(0.15, 'rgba(255,255,255,0.5)');
+            hl.addColorStop(0.6, 'rgba(255,255,255,0.18)');
+            hl.addColorStop(0.9, 'rgba(255,255,255,0.4)');
+            hl.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = hl;
+            g.fillRect(-hw * 0.55, y0, Math.max(0.8, hw * 0.22), y1 - y0);
+            g.strokeStyle = rgba(light, 0.55); g.lineWidth = 0.7;
+            roundRect(g, -hw + 0.4, -hh + 2.4, w - 0.8, h - 4.8, R); g.stroke();
+
+            // Metal end caps with a neon seal where they meet the glass.
+            for (const dir of [-1, 1]) {
+                const ya = dir < 0 ? -hh : hh - cap - 1, hgt = cap + 1;
+                g.fillStyle = metalGradient(g, -hw - 1, hw + 1);
+                roundRect(g, -hw - 1, ya, w + 2, hgt, Math.min(3, hgt / 2)); g.fill();
+                g.fillStyle = 'rgba(0,0,0,0.45)';
+                for (let x = -hw + 1.5; x < hw - 1; x += 2.4) g.fillRect(x, ya + hgt * 0.3, 1, hgt * 0.4);
+                g.fillStyle = dir < 0 ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.4)';
+                g.fillRect(-hw - 1, dir < 0 ? ya : ya + hgt - 0.6, w + 2, 0.6);
+                const sealY = dir < 0 ? y0 - 0.5 : y1 + 0.5;
+                g.save();
+                g.shadowColor = rgba(c, bloom); g.shadowBlur = 5 * s * bloom;
+                g.fillStyle = rgba(light, 1);
+                g.fillRect(-hw - 1, sealY - 0.7, w + 2, 1.4);
+                g.restore();
+            }
+
+            // Caustic light, a tile that repeats every P px, scrolled live.
+            const P = 48;
+            const span = (y1 - y0) + P + 4;
+            const caustic = makeCanvas((x1 - x0) * s, span * s);
+            const cg = caustic.getContext('2d');
+            cg.setTransform(s, 0, 0, s, 0, 0);
+            cg.strokeStyle = rgba(light, 1);
+            cg.lineCap = 'round';
+            const cw = x1 - x0;
+            for (let y = -6; y < span + 6; y += 6) {
+                const row = Math.round(y / 6);
+                const ph = (((row % 8) + 8) % 8) * 0.9;
+                cg.globalAlpha = 0.35 + 0.25 * Math.sin(ph * 1.7);
+                cg.lineWidth = 0.6 + 0.3 * Math.cos(ph);
+                cg.beginPath();
+                for (let x = 0; x <= cw; x += 1) {
+                    const yy = y + Math.sin(x * 0.9 + ph) * 1.4 + Math.sin(x * 0.37 + ph * 2) * 0.8;
+                    if (x === 0) cg.moveTo(x, yy); else cg.lineTo(x, yy);
+                }
+                cg.stroke();
+            }
+            return { body: body.canvas, caustic, P, L };
+        },
+        draw(ctx, p, k, t, hitGlow) {
+            const { w, h, c, light } = k;
+            const { L, caustic, P } = k.sprites;
+            const { x0, x1, y0, y1 } = L;
+            const m = p.motion;
+            drawSprite(ctx, k.sprites.body, w, h);
+
+            // Slosh: the liquid lags behind the paddle's motion on a loose
+            // spring, so a sudden stop sends the surface swinging.
+            const st = p._rip || (p._rip = { y: 0, v: 0, at: 0 });
+            const now = performance.now();
+            const dt = st.at ? Math.min(0.05, (now - st.at) / 1000) : 0;
+            st.at = now;
+            const target = clamp((m?.vy || 0) * 0.012, -9, 9);
+            for (let i = 0, n = Math.ceil(dt / 0.01); i < n; i++) {
+                const hs = dt / n;
+                st.v += (-60 * (st.y - target) - 2 * 0.18 * Math.sqrt(60) * st.v) * hs;
+                st.y += st.v * hs;
+            }
+            const gap = Math.max(4, (y1 - y0) * 0.07);
+            const surf = y0 + gap + clamp(st.y, -gap + 1, 12) + (reactEnv(m, 'lose') * 6);
+            const amp = Math.min(2.4, 0.5 + Math.abs(st.v) * 0.05 + hitGlow);
+
+            ctx.save();
+            this.innerPath(ctx, L);
+            ctx.clip();
+            // Air above the surface.
+            ctx.fillStyle = 'rgba(6,10,20,0.94)';
+            ctx.beginPath();
+            ctx.moveTo(x0 - 1, y0 - 2);
+            ctx.lineTo(x1 + 1, y0 - 2);
+            const wave = (x) => surf + Math.sin(x * 0.8 + t * 5) * amp + Math.sin(x * 0.3 - t * 3) * amp * 0.5;
+            for (let x = x1 + 1; x >= x0 - 1; x -= 1.5) ctx.lineTo(x, wave(x));
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.globalCompositeOperation = 'lighter';
+            // Caustic light flowing up the column.
+            const off = (t * 16) % P;
+            ctx.globalAlpha = 0.3 + hitGlow * 0.45 + (m?.ant || 0) * 0.15;
+            ctx.drawImage(caustic, x0, y0 - 2 - off + P, x1 - x0, caustic.height / k.s);
+            // Surface line.
+            ctx.globalAlpha = 0.9;
+            ctx.strokeStyle = rgba(light, 1);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = x0 - 1; x <= x1 + 1; x += 1.5) { const y = wave(x); if (x === x0 - 1) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+            ctx.stroke();
+            // Bubbles rise and pop at the surface; a won point makes it fizz.
+            const fizz = reactEnv(m, 'win');
+            const nb = 7 + Math.round(fizz * 5);
+            const depth = Math.max(1, y1 - surf);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 0.6;
+            for (let i = 0; i < nb; i++) {
+                const speed = 0.22 + ((i * 7) % 11) * 0.035;
+                const q = (t * speed + i * 0.377 + p._seed) % 1;
+                const y = y1 - q * depth;
+                const x = Math.sin(t * 2 + i * 1.7) * (x1 - x0) * 0.28 + (((i * 5) % 7) - 3) * (x1 - x0) * 0.06;
+                const r = 0.7 + (i % 3) * 0.4;
+                ctx.globalAlpha = 0.75 * Math.min(1, (1 - q) * 6);
+                ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+            }
+            // Pressure ring from the impact point.
+            if (m && m.sinceHit < 0.45) {
+                const q = m.sinceHit / 0.45, iy = clamp(m.impactY * L.hh, y0, y1);
+                ctx.globalAlpha = (1 - q) * 0.85;
+                ctx.lineWidth = 1.6 * (1 - q) + 0.4;
+                ctx.beginPath(); ctx.ellipse(0, iy, (x1 - x0) * (0.3 + q * 0.6), 2 + q * L.hh * 0.7, 0, 0, TAU); ctx.stroke();
+                ctx.globalAlpha = hitGlow * 0.35;
+                ctx.fillStyle = rgba(light, 1);
+                ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+            }
+            ctx.restore();
+        },
+    };
+
+    // ── Magma ─────────────────────────────────────────────────────────
+    // A slab of cracked basalt with lava running through the cracks. The
+    // veins smoulder and breathe, heat up as the ball comes in, flare white
+    // hot on a hit and cool off for a moment when a point is lost. Embers
+    // drift up off the rock.
+    const magma = {
+        layout(w, h) {
+            const hw = w / 2, hh = h / 2;
+            const R = rng(Math.round(w * 131 + h * 7));
+            // Rough outline: chipped corners and a few bumps along the edges.
+            const pts = [];
+            const step = 9;
+            pts.push([-hw + 2.5, -hh], [hw - 1.5, -hh + 0.5], [hw + 0.6, -hh + 3]);
+            for (let y = -hh + step; y < hh - 4; y += step) pts.push([hw + (R() * 2.6 - 0.8), y]);
+            pts.push([hw - 0.5, hh - 2], [hw - 3, hh], [-hw + 1.5, hh - 0.5], [-hw - 0.6, hh - 3]);
+            for (let y = hh - step; y > -hh + 4; y -= step) pts.push([-hw - (R() * 2.6 - 0.8), y]);
+            // Cracks: a main vein down the middle and branches out to the edges.
+            const main = [];
+            for (let y = -hh + 3; y <= hh - 3; y += 6) main.push([(R() - 0.5) * hw * 0.7, y]);
+            main[main.length - 1][1] = hh - 3;
+            const branches = [];
+            for (let i = 2; i < main.length - 1; i += 3 + Math.floor(R() * 2)) {
+                const sx = R() < 0.5 ? -1 : 1;
+                const b = [main[i]];
+                let x = main[i][0], y = main[i][1];
+                for (let j = 0; j < 3; j++) {
+                    x += sx * (hw * 0.32 + R() * hw * 0.25);
+                    y += (R() - 0.5) * 9;
+                    b.push([clamp(x, -hw + 0.5, hw - 0.5), y]);
+                }
+                branches.push(b);
+            }
+            return { hw, hh, pts, main, branches, R };
+        },
+        strokeCracks(g, L) {
+            g.beginPath();
+            for (const line of [L.main, ...L.branches]) {
+                g.moveTo(line[0][0], line[0][1]);
+                for (let i = 1; i < line.length; i++) g.lineTo(line[i][0], line[i][1]);
+            }
+            g.stroke();
+        },
+        bake(c, w, h, s) {
+            const L = this.layout(w, h);
+            const { hw, hh, pts } = L;
+            const hot = mix(c, WHITE, 0.72);
+            const body = sprite(w, h, s), veins = sprite(w, h, s);
+            const g = body.ctx;
+            const bloom = bloomFor(c);
+
+            g.save();
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 15 * s * bloom;
+            g.fillStyle = rgba(c, 0.32 * bloom);
+            polyPath(g, pts); g.fill();
+            g.restore();
+
+            // Basalt: warm dark stone, shaded like a rounded slab.
+            const rg = g.createLinearGradient(-hw, 0, hw, 0);
+            rg.addColorStop(0, '#2b2422');
+            rg.addColorStop(0.4, '#1d1816');
+            rg.addColorStop(1, '#0c0a09');
+            g.fillStyle = rg;
+            polyPath(g, pts); g.fill();
+            // Rock grain: small faceted chips, light and dark.
+            g.save();
+            polyPath(g, pts); g.clip();
+            const R = rng(Math.round(w * 17 + h * 3));
+            for (let i = 0; i < h / 3; i++) {
+                const x = (R() - 0.5) * w, y = (R() - 0.5) * h, r = 1 + R() * 2.4;
+                g.fillStyle = R() < 0.5 ? 'rgba(255,240,230,0.07)' : 'rgba(0,0,0,0.28)';
+                g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r, y + r * 0.4); g.lineTo(x - r * 0.8, y + r * 0.7); g.closePath(); g.fill();
+            }
+            // Warm underglow from the lava inside, strongest at the core.
+            const ug = g.createLinearGradient(-hw, 0, hw, 0);
+            ug.addColorStop(0, rgba(c, 0));
+            ug.addColorStop(0.5, rgba(c, 0.16));
+            ug.addColorStop(1, rgba(c, 0));
+            g.fillStyle = ug;
+            g.fillRect(-hw - 2, -hh, w + 4, h);
+            g.restore();
+            polyPath(g, pts);
+            innerBevel(g, -hw - 2, -hh, hw + 2, hh, 3);
+            // Cracks cut into the rock.
+            g.strokeStyle = '#050303'; g.lineWidth = 2.4; g.lineJoin = 'round'; g.lineCap = 'round';
+            this.strokeCracks(g, L);
+            g.strokeStyle = rgba(mix(c, BLACK, 0.55), 1); g.lineWidth = 1.2;
+            this.strokeCracks(g, L);
+            // Crust edge.
+            g.strokeStyle = 'rgba(255,235,220,0.2)'; g.lineWidth = 0.8;
+            polyPath(g, pts); g.stroke();
+
+            // The lava layer: glowing veins with a white-hot core.
+            const v = veins.ctx;
+            v.lineJoin = 'round'; v.lineCap = 'round';
+            v.save();
+            v.shadowColor = rgba(c, bloom); v.shadowBlur = 6 * s * bloom;
+            v.strokeStyle = rgba(c, 1); v.lineWidth = 1.8;
+            this.strokeCracks(v, L);
+            v.restore();
+            v.strokeStyle = rgba(hot, 1); v.lineWidth = 0.7;
+            this.strokeCracks(v, L);
+            return { body: body.canvas, veins: veins.canvas, L, hot };
+        },
+        draw(ctx, p, k, t, hitGlow) {
+            const { w, h, c } = k;
+            const { L, hot } = k.sprites;
+            const m = p.motion;
+            drawSprite(ctx, k.sprites.body, w, h);
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const heat = clamp(0.5 + 0.16 * Math.sin(t * 1.7 + p._seed) + 0.1 * Math.sin(t * 4.3 + 1)
+                + (m?.ant || 0) * 0.3 + hitGlow * 0.9 + reactEnv(m, 'win') * 0.5 - reactEnv(m, 'lose') * 0.45, 0.08, 1.6);
+            ctx.globalAlpha = Math.min(1, heat);
+            drawSprite(ctx, k.sprites.veins, w, h);
+            if (heat > 1) {
+                ctx.globalAlpha = heat - 1;
+                drawSprite(ctx, k.sprites.veins, w, h);
+            }
+            // A blob of brighter lava runs down the main vein.
+            const main = L.main;
+            const q = ((t * 0.3 + p._seed) % 1) * (main.length - 1);
+            const i = Math.floor(q), f = q - i;
+            const a = main[i], b = main[Math.min(main.length - 1, i + 1)];
+            glowDot(ctx, a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, 1.5, rgba(hot, 1), rgba(c, 1), Math.min(1, 0.4 + heat * 0.5));
+            // Embers drift up off the rock and fade.
+            ctx.fillStyle = rgba(hot, 1);
+            for (let e = 0; e < 7; e++) {
+                const cyc = (t * (0.32 + (e % 3) * 0.06) + e * 0.37 + p._seed) % 1;
+                const side = e % 2 ? 1 : -1;
+                const x0 = side * L.hw * (0.2 + ((e * 3) % 5) * 0.18);
+                const y0 = -L.hh + ((e * 41) % Math.max(1, Math.floor(h)));
+                const x = x0 + Math.sin(cyc * 6 + e) * 2.2 + side * cyc * 4;
+                const y = y0 - cyc * 24;
+                ctx.globalAlpha = (1 - cyc) * Math.min(1, heat) * 0.9;
+                const r = 0.6 + (1 - cyc) * 0.7;
+                ctx.fillRect(x - r, y - r, r * 2, r * 2);
+            }
+            ctx.restore();
+        },
+    };
+
+    // ── Bassline ──────────────────────────────────────────────────────
+    // A speaker stack: woofers at both ends and a stereo level meter between
+    // them that grows from the middle outwards. It dances to the game's
+    // music when there is some (a beat of its own when there isn't), spikes
+    // on every hit and maxes out on a won point.
+    const bassline = {
+        layout(w, h) {
+            const hw = w / 2, hh = h / 2;
+            const spk = clamp(w * 0.62, 5, 11);
+            const spkY = hh - spk - 2.5;
+            const top = -spkY + spk + 3.5, bot = spkY - spk - 3.5;
+            const rowH = 4.2;
+            const half = Math.max(2, Math.floor((bot - top) / 2 / rowH));
+            const cols = [[-hw + 2, -0.6], [0.6, hw - 2]];
+            return { hw, hh, spk, spkY, rowH, half, cols };
+        },
+        cell(L, i, dir) {
+            // Row i (0 at the centre) going up (dir -1) or down (dir 1).
+            const y = dir < 0 ? -(i + 1) * L.rowH + 0.6 : i * L.rowH + 0.6;
+            return [y, y + L.rowH - 1.2];
+        },
+        bake(c, w, h, s) {
+            const L = this.layout(w, h);
+            const { hw, hh, spk, spkY, half, cols } = L;
+            const light = mix(c, WHITE, 0.6);
+            const body = sprite(w, h, s), lit = sprite(w, h, s);
+            const g = body.ctx;
+            const bloom = bloomFor(c);
+            const r = Math.min(hw, 5);
+
+            g.save();
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 14 * s * bloom;
+            g.fillStyle = rgba(c, 0.3 * bloom);
+            roundRect(g, -hw, -hh, w, h, r); g.fill();
+            g.restore();
+
+            // Cabinet.
+            const cg = g.createLinearGradient(-hw, 0, hw, 0);
+            cg.addColorStop(0, '#262a33');
+            cg.addColorStop(0.35, '#171a21');
+            cg.addColorStop(1, '#07080b');
+            g.fillStyle = cg;
+            roundRect(g, -hw, -hh, w, h, r); g.fill();
+            roundRect(g, -hw, -hh, w, h, r);
+            innerBevel(g, -hw, -hh, hw, hh, 3);
+            g.strokeStyle = metalGradient(g, -hw, hw); g.lineWidth = 1.2;
+            roundRect(g, -hw + 0.6, -hh + 0.6, w - 1.2, h - 1.2, r); g.stroke();
+
+            // Woofers.
+            for (const dir of [-1, 1]) {
+                const y = dir * spkY;
+                g.fillStyle = metalGradient(g, -spk - 1, spk + 1);
+                g.beginPath(); g.arc(0, y, spk + 1, 0, TAU); g.fill();
+                const cone = g.createRadialGradient(-spk * 0.3, y - spk * 0.3, spk * 0.1, 0, y, spk);
+                cone.addColorStop(0, '#3a3f4a');
+                cone.addColorStop(0.6, '#15181e');
+                cone.addColorStop(1, '#050608');
+                g.fillStyle = cone;
+                g.beginPath(); g.arc(0, y, spk - 0.4, 0, TAU); g.fill();
+                g.strokeStyle = 'rgba(255,255,255,0.09)'; g.lineWidth = 0.6;
+                for (const f of [0.78, 0.56]) { g.beginPath(); g.arc(0, y, spk * f, 0, TAU); g.stroke(); }
+                g.fillStyle = '#20242c';
+                g.beginPath(); g.arc(0, y, spk * 0.32, 0, TAU); g.fill();
+                g.fillStyle = 'rgba(255,255,255,0.3)';
+                g.beginPath(); g.arc(-spk * 0.1, y - spk * 0.12, spk * 0.12, 0, TAU); g.fill();
+                g.strokeStyle = rgba(c, 0.8); g.lineWidth = 0.8;
+                g.beginPath(); g.arc(0, y, spk - 0.4, 0, TAU); g.stroke();
+            }
+
+            // Meter: unlit cells in the body, lit cells in their own layer.
+            const l = lit.ctx;
+            l.save();
+            l.shadowColor = rgba(c, bloom); l.shadowBlur = 4 * s * bloom;
+            for (const [xa, xb] of cols) {
+                for (let i = 0; i < half; i++) {
+                    const hotness = i / Math.max(1, half - 1);
+                    for (const dir of [-1, 1]) {
+                        const [ya, yb] = this.cell(L, i, dir);
+                        g.fillStyle = rgba(c, 0.13);
+                        g.fillRect(xa, ya, xb - xa, yb - ya);
+                        l.fillStyle = rgba(mix(c, WHITE, hotness * 0.75), 1);
+                        l.fillRect(xa, ya, xb - xa, yb - ya);
+                    }
+                }
+            }
+            l.restore();
+            g.fillStyle = rgba(light, 0.5);
+            g.fillRect(-hw + 2, -0.3, w - 4, 0.6);
+            return { body: body.canvas, lit: lit.canvas, L };
+        },
+        // Music levels for the two meter columns, shared by both paddles and
+        // read once per frame.
+        music() {
+            const now = performance.now();
+            const cache = this._music || (this._music = { at: 0, l: 0, r: 0, on: false });
+            if (now - cache.at < 12) return cache;
+            cache.at = now;
+            const snap = window.game?.audio?.getVisualizerSnapshot?.(4);
+            cache.on = !!(snap && snap.active && snap.level > 0.04);
+            if (cache.on) {
+                cache.l = clamp((snap.bars[0] + snap.bars[1]) / 2, 0, 1);
+                cache.r = clamp((snap.bars[1] + snap.bars[2]) / 2, 0, 1);
+            }
+            return cache;
+        },
+        draw(ctx, p, k, t, hitGlow) {
+            const { w, h, s, c, light } = k;
+            const { L } = k.sprites;
+            const m = p.motion;
+            drawSprite(ctx, k.sprites.body, w, h);
+
+            const st = p._bass || (p._bass = { lv: [0, 0], pk: [0, 0], at: 0 });
+            const now = performance.now();
+            const dt = st.at ? Math.min(0.05, (now - st.at) / 1000) : 0;
+            st.at = now;
+            const mus = this.music();
+            const beat = (t * 1.9 + p._seed) % 1;
+            const kick = Math.exp(-beat * 7);
+            const win = reactEnv(m, 'win'), lose = reactEnv(m, 'lose');
+            for (let i = 0; i < 2; i++) {
+                const own = 0.3 + 0.18 * Math.sin(t * 3.1 + i * 1.3) + 0.12 * Math.sin(t * 7.7 + i * 2.1) + kick * 0.3;
+                let target = mus.on ? (i ? mus.r : mus.l) * 1.1 : own;
+                target = Math.max(target + (m?.ant || 0) * 0.25, hitGlow, win) * (1 - lose * 0.85);
+                target = clamp(target, 0.04, 1);
+                // Fast attack, slow release, like a real meter.
+                const lv = st.lv[i];
+                st.lv[i] = lv + (target - lv) * (1 - Math.exp(-(target > lv ? 30 : 6) * dt));
+                st.pk[i] = Math.max(st.lv[i], st.pk[i] - dt * 0.6);
+            }
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < 2; i++) {
+                const [xa, xb] = L.cols[i];
+                const n = Math.round(st.lv[i] * L.half);
+                if (n > 0) {
+                    ctx.globalAlpha = 1;
+                    drawSpriteRect(ctx, k.sprites.lit, w, h, s, xa - 0.5, -n * L.rowH, xb + 0.5, n * L.rowH);
+                }
+                // Peak hold marks.
+                const pr = Math.min(L.half - 1, Math.round(st.pk[i] * L.half) - 1);
+                if (pr >= 0) {
+                    ctx.globalAlpha = 0.9;
+                    ctx.fillStyle = '#ffffff';
+                    for (const dir of [-1, 1]) {
+                        const [ya, yb] = this.cell(L, pr, dir);
+                        ctx.fillRect(xa, dir < 0 ? ya : yb - 0.8, xb - xa, 0.8);
+                    }
+                }
+            }
+            // Woofers thump: a ring pushes out of each cone on the beat.
+            const thump = mus.on ? (st.lv[0] - 0.3) * 1.4 : kick;
+            const push = clamp(thump + hitGlow + win * 0.6, 0, 1.4);
+            ctx.strokeStyle = rgba(light, 1);
+            for (const dir of [-1, 1]) {
+                const y = dir * L.spkY;
+                ctx.globalAlpha = 0.25 + push * 0.45;
+                ctx.lineWidth = 0.9;
+                ctx.beginPath(); ctx.arc(0, y, L.spk * (0.45 + push * 0.22), 0, TAU); ctx.stroke();
+                ctx.globalAlpha = 0.18 + push * 0.4;
+                ctx.fillStyle = rgba(c, 1);
+                ctx.beginPath(); ctx.arc(0, y, L.spk * 0.3, 0, TAU); ctx.fill();
+            }
+            ctx.restore();
+        },
+    };
+
+    const DESIGNS = {
+        neonBlade: satelliten, shieldWall: worldShield, arcadeBlock: aiRebel, prismGlass: prizma,
+        riptide, magmaCore: magma, bassline,
+    };
 
     // Pixel scale of the current transform, in quarter steps so a little
     // squash on a hit never forces a rebake.
@@ -983,7 +1555,7 @@
         }
         if (paddle._seed == null) paddle._seed = Math.random() * 10;
         ctx.save();
-        d.draw(ctx, paddle, cache, time, hitGlow || 0);
+        d.draw(ctx, paddle, cache, paddle.motion ? paddle.motion.phase : time, hitGlow || 0);
         ctx.restore();
         return true;
     }

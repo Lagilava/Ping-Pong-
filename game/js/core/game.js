@@ -7153,6 +7153,9 @@ class Game {
         if (this.cameraKick) this.cameraKick.vx += goalOnRight ? 420 : -420;
         this.screenFlash = Math.max(this.screenFlash || 0, 0.35);
         this.particles.spawnGodTierHit(goalOnRight ? this.width - 6 : 6, y, goalOnRight ? '#ff3a5c' : '#00ffd6', 1400);
+        // The scorer cheers, the other paddle slumps.
+        (goalOnRight ? this.player : this.aiPaddle)?.react?.('win');
+        (goalOnRight ? this.aiPaddle : this.player)?.react?.('lose');
     }
 
     // Hold the ball at the serve spot briefly (with a telegraph) so each point
@@ -7259,7 +7262,8 @@ class Game {
     onPaddleImpact(ball, paddle, isPlayer, edgeHit) {
         this._lastHitAt = performance.now();
         const impact = ball.lastImpact || 0;
-        paddle.kick?.(isPlayer ? -1 : 1, 0.35 + impact * 0.9);
+        const impactY = Math.max(-1, Math.min(1, (ball.pos.y - (paddle.pos.y + paddle.h / 2)) / (paddle.h / 2 || 1)));
+        paddle.kick?.(isPlayer ? -1 : 1, 0.35 + impact * 0.9, impactY);
         ball.squashImpact?.(0, 0.3 + impact * 0.45);
         if (this.cameraKick) this.cameraKick.vx += (isPlayer ? 1 : -1) * (40 + impact * 260);
         this.hitStop = Math.max(this.hitStop || 0, 0.012 + impact * 0.045 + (edgeHit ? 0.02 : 0));
@@ -7310,6 +7314,10 @@ class Game {
             }
             const a = p.anticipation || 0;
             p.anticipation = a + (target - a) * Math.min(1, dt * 12);
+            // While a serve is held, the paddle it's heading for gets ready.
+            const serve = this.serveHold > 0 && this.pendingServe && Math.sign(this.pendingServe.vx) === dir
+                ? 1 - this.serveHold / (this.serveHoldTotal || 1) : 0;
+            p.setServeCharge?.(Math.max(0, Math.min(1, serve)));
         }
     }
 

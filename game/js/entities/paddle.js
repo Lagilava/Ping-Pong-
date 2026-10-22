@@ -54,6 +54,9 @@ class Paddle {
         this.recoil = 0;
         this.recoilVel = 0;
         this.squash = 0;
+        // Body language shared by every design (see _stepMotion). Visual
+        // only: collision still uses pos, w and h.
+        this.motion = Paddle.freshMotion(h);
 
         // "Alive" behaviour
         this.circuitNodes = [];
@@ -473,11 +476,235 @@ class Paddle {
 
     // Trigger a paddle hit particle effect
     // Knock the paddle back on contact. dir is -1 (push left) or 1 (push right).
-    kick(dir, strength = 1) {
+    // impactY is where the ball landed, -1 (top end) to 1 (bottom end).
+    kick(dir, strength = 1, impactY = 0) {
+        const m = this.motion;
         this.recoilVel += dir * 420 * strength;
         this.squash = Math.min(1, this.squash + 0.55 * strength);
+        // Wobble: bulges on contact, then rings out like a struck bar.
+        m.wobVel += 7.5 * strength;
+        // An off-centre hit twists the paddle about its middle.
+        m.twVel += -dir * impactY * 5.5 * strength;
+        m.impactY = impactY;
+        m.hitAt = Paddle.now();
         this.lastHitTime = Date.now();
         this.energyPulse = 1.0;
+    }
+
+    // A point was decided. 'win' cheers (a hop, a twirl, sparks and rings),
+    // 'lose' slumps (droops, shudders and dims for a moment).
+    react(type) {
+        const m = this.motion;
+        m.react = type;
+        m.reactT = 0;
+        if (type === 'win') {
+            m.wobVel -= 9;
+            m.twVel += (this._face() > 0 ? 1 : -1) * 7;
+            if (window.PPSettings?.get('particles') !== false) {
+                const x = this.pos.x + this.w / 2, y = this.pos.y + this.h / 2;
+                // Particles want a #rrggbb colour.
+                const hex = /^#[0-9a-f]{6}$/i.test(this.primaryColor) ? this.primaryColor : '#ffffff';
+                this.particleSystem.spawnSparkle(x, y - this.h * 0.3, hex, 1.6, 0.5);
+                this.particleSystem.spawnSparkle(x, y + this.h * 0.3, '#ffffff', 1.2, 0.45);
+            }
+        } else if (type === 'lose') {
+            m.wobVel += 4;
+        }
+    }
+
+    // 0..1 while the ball waits to be served towards this paddle.
+    setServeCharge(v) {
+        const m = this.motion;
+        if (m.serve > 0.6 && v === 0) {
+            // Released: a small ready-pop.
+            m.wobVel -= 3.5;
+            m.serveFlash = 1;
+        }
+        m.serve = v;
+    }
+
+    // +1 when the striking face points right (left paddle), -1 otherwise.
+    _face() {
+        const gameW = window.game?.width || 0;
+        return gameW && this.pos.x > gameW / 2 ? -1 : 1;
+    }
+
+    // Springs for the paddle's body language, stepped once per drawn frame
+    // so it runs the same for the player, the AI, an online opponent and
+    // the settings previews:
+    //  - lean: tilts into its motion (top towards the court when moving up),
+    //    the same way it puts spin on the ball, and overshoots on a stop
+    //  - stretch: a little longer and thinner at speed
+    //  - breathe: a slow swell when it sits still
+    //  - wind-up: draws back and tenses as the ball comes in
+    //  - hit: bulge and ring out, twist on an off-centre hit, recoil with a
+    //    small follow-through
+    //  - size changes: grow or shrink with an elastic overshoot
+    //  - point won / lost: see react()
+    _stepMotion() {
+        const m = this.motion;
+        const now = Paddle.now();
+        const dt = m.at ? Math.min(0.05, Math.max(0, (now - m.at) / 1000)) : 0;
+        m.at = now;
+        const cy = this.pos.y + this.h / 2;
+        if (m.lastY != null && dt > 0) {
+            const dy = cy - m.lastY;
+            // A jump of more than a paddle length is a reposition, not motion.
+            const meas = Math.abs(dy) > this.h ? 0 : dy / dt;
+            m.vy += (meas - m.vy) * (1 - Math.exp(-14 * dt));
+        }
+        m.lastY = cy;
+        if (Math.abs(this.h - m.lastH) > 0.5) {
+            m.size = Math.max(-0.45, Math.min(0.6, m.lastH / this.h - 1 + m.size));
+            m.lastH = this.h;
+        }
+        if (dt <= 0) return;
+
+        const still = window.PPSettings?.get('reduceMotion') ? 0.3 : 1;
+        const max = this.maxSpeed || 850;
+        const v = Math.max(-1, Math.min(1, m.vy / max));
+        const face = this._face();
+        // Damped springs, integrated in small steps so stiff ones stay stable.
+        const steps = Math.ceil(dt / 0.008), h = dt / steps;
+        const leanTarget = -v * face * 0.085 * still;
+        for (let i = 0; i < steps; i++) {
+            m.leanVel += (-150 * (m.lean - leanTarget) - 2 * 0.45 * Math.sqrt(150) * m.leanVel) * h;
+            m.lean += m.leanVel * h;
+            m.wobVel += (-900 * m.wob - 2 * 0.22 * 30 * m.wobVel) * h;
+            m.wob += m.wobVel * h;
+            m.twVel += (-420 * m.tw - 2 * 0.3 * Math.sqrt(420) * m.twVel) * h;
+            m.tw += m.twVel * h;
+            m.sizeVel += (-320 * m.size - 2 * 0.32 * Math.sqrt(320) * m.sizeVel) * h;
+            m.size += m.sizeVel * h;
+            // Recoil: a little under-damped, so it follows through.
+            this.recoilVel += (-520 * this.recoil - 2 * 0.62 * Math.sqrt(520) * this.recoilVel) * h;
+            this.recoil += this.recoilVel * h;
+        }
+        m.wob = Math.max(-0.9, Math.min(0.9, m.wob));
+        m.speed = Math.abs(v);
+        m.ant = this.anticipation || 0;
+        m.idle += ((m.speed < 0.08 ? 1 : 0) - m.idle) * (1 - Math.exp(-3 * dt));
+        // Animation clock for the designs: runs faster while moving, as the
+        // ball comes in, and for a moment after a hit.
+        const sinceHit = (now - (m.hitAt || -1e9)) / 1000;
+        m.sinceHit = sinceHit;
+        m.phase += dt * (1 + m.speed * 1.4 + m.ant * 0.7 + Math.max(0, 1 - sinceHit / 0.4) * 1.6);
+        if (m.react) {
+            m.reactT += dt;
+            if (m.reactT > 1.2) m.react = null;
+        }
+        m.serveFlash = Math.max(0, (m.serveFlash || 0) - dt * 3);
+        this.squash *= Math.exp(-10 * dt);
+    }
+
+    // The visual transform for the current motion state, about the paddle's
+    // centre. Returns the body's alpha (dims while slumping).
+    _motionTransform(ctx) {
+        const m = this.motion;
+        const still = window.PPSettings?.get('reduceMotion') ? 0.3 : 1;
+        const face = this._face();
+        let rot = m.lean + m.tw * 0.12 * still;
+        let dx = this.recoil - face * m.ant * 2.5 * still;
+        let dy = 0;
+        let alpha = 1;
+        if (m.react === 'lose') {
+            const t = m.reactT;
+            const env = Math.min(1, t / 0.12) * Math.max(0, 1 - Math.max(0, t - 0.55) / 0.6);
+            rot += -face * 0.11 * env * still;
+            dx += Math.sin(t * 58) * 2.6 * Math.max(0, 1 - t / 0.6) * still;
+            dy += 4 * env * still;
+            alpha = 1 - 0.42 * env;
+        } else if (m.react === 'win') {
+            const t = m.reactT;
+            dy -= Math.sin(Math.min(1, t / 0.5) * Math.PI) * 9 * still;
+        }
+        // Bulge from a hit, stretch at speed, tension on wind-up, breathing.
+        const breathe = Math.sin(m.phase * 2.1) * 0.012 * m.idle;
+        let sx = 1 + m.wob * 0.3 - m.speed * 0.05 + m.ant * 0.06;
+        let sy = (1 - m.wob * 0.09 + m.speed * 0.05 + breathe) * (1 + m.size);
+        ctx.translate(this.pos.x + this.w / 2 + dx, this.pos.y + this.h / 2 + dy);
+        if (rot) ctx.rotate(rot);
+        ctx.scale(Math.max(0.5, sx), Math.max(0.5, sy));
+        return alpha;
+    }
+
+    // Apply the motion transform in world space (for overlays that draw in
+    // world coordinates, like the glow underlay in game-enhancements.js).
+    applyMotionTransform(ctx) {
+        const alpha = this._motionTransform(ctx);
+        if (alpha < 1) ctx.globalAlpha *= alpha;
+        ctx.translate(-(this.pos.x + this.w / 2), -(this.pos.y + this.h / 2));
+    }
+
+    // Reaction and serve touches drawn over the paddle in its local space.
+    _renderMotionFx(ctx) {
+        const m = this.motion;
+        const hw = this.w / 2, hh = this.h / 2;
+        const color = this.primaryColor || this.color || '#00ffd6';
+        const face = this._face();
+        ctx.save();
+        ctx.shadowBlur = 0;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        // Serve: a frame of light closes in on the paddle as the ball is
+        // about to come its way, and flashes when it's released.
+        if (m.serve > 0 || m.serveFlash > 0) {
+            const q = m.serve > 0 ? m.serve : 1;
+            const gap = 4 + (1 - q) * 26;
+            ctx.globalAlpha = m.serve > 0 ? 0.15 + q * 0.5 : m.serveFlash * 0.9;
+            ctx.lineWidth = 1.5 + q;
+            this._roundRect(ctx, -hw - gap, -hh - gap, this.w + gap * 2, this.h + gap * 2, 6 + gap * 0.3);
+            ctx.stroke();
+            // Ready chevrons on the striking face.
+            if (m.serve > 0) {
+                ctx.globalAlpha = 0.35 + 0.5 * q;
+                const x = face * (hw + 7 + (1 - q) * 6);
+                for (const sy of [-1, 1]) {
+                    const y = sy * hh * 0.45;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y - 5); ctx.lineTo(x + face * 4, y); ctx.lineTo(x, y + 5);
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
+        }
+        if (m.react === 'win') {
+            // Two rings burst outwards and sparks rise off the ends.
+            const t = m.reactT;
+            for (let i = 0; i < 2; i++) {
+                const q = (t - i * 0.14) / 0.7;
+                if (q <= 0 || q >= 1) continue;
+                const grow = 6 + q * 34;
+                ctx.globalAlpha = (1 - q) * 0.75;
+                ctx.lineWidth = 3 * (1 - q) + 0.6;
+                this._roundRect(ctx, -hw - grow, -hh - grow, this.w + grow * 2, this.h + grow * 2, 8 + grow * 0.4);
+                ctx.stroke();
+            }
+            const q = Math.min(1, t / 1.1);
+            for (let i = 0; i < 6; i++) {
+                const side = i % 2 ? 1 : -1;
+                const x = Math.sin(i * 2.3) * hw * 1.4;
+                const y = side * (hh + 4 + q * (18 + (i % 3) * 8));
+                ctx.globalAlpha = (1 - q) * 0.9;
+                ctx.fillRect(x - 1, y - 3, 2, 6);
+            }
+        } else if (m.react === 'lose') {
+            // A crackle of dying sparks along the edges.
+            const t = m.reactT;
+            if (t < 0.5) {
+                ctx.globalAlpha = (1 - t / 0.5) * 0.7;
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                const seg = 6, step = this.h / seg, k = Math.floor(t * 30);
+                for (const sx of [-1, 1]) {
+                    ctx.moveTo(sx * (hw + 2), -hh);
+                    for (let i = 1; i <= seg; i++) ctx.lineTo(sx * (hw + 2 + (((k + i * 7) % 5) - 2) * 1.4), -hh + i * step);
+                }
+                ctx.stroke();
+            }
+        }
+        ctx.restore();
     }
 
     addHitParticles(x, y, speed = 800) {
@@ -501,11 +728,8 @@ class Paddle {
         // Update the particle system
         this.particleSystem.update(dt);
 
-        // Critically damped spring pulls the recoil back to rest.
-        const k = 520, c = 2 * Math.sqrt(k);
-        this.recoilVel += (-k * this.recoil - c * this.recoilVel) * dt;
-        this.recoil += this.recoilVel * dt;
-        this.squash *= Math.exp(-10 * dt);
+        // Recoil, squash and the rest of the body language spring back in
+        // _stepMotion, which runs per drawn frame.
 
         // "alive" behaviour
         if (this.isAI) {
@@ -536,16 +760,16 @@ class Paddle {
         const style = this._normalizePaddleStyle(this.paddleStyle);
 
         // Designs bake their sprites at the canvas's pixel scale; read it
-        // before the squash/alive scaling below so hits never force a rebake.
+        // before the motion transform below so hits never force a rebake.
         this._scaleHint = style !== 'classic' && window.PaddleDesigns ? window.PaddleDesigns.pixelScale(ctx) : 0;
+        this._stepMotion();
 
         ctx.save();
         // Stun wobble is visual only so it never drifts the paddle's real position.
         const wobble = this.laserStunned ? Math.sin(Date.now() * 0.02) * 3 : 0;
-        ctx.translate(this.pos.x + this.w / 2 + this.recoil, this.pos.y + this.h / 2 + wobble);
-        if (this.squash > 0.01) {
-            ctx.scale(1 + this.squash * 0.35, 1 - this.squash * 0.12);
-        }
+        if (wobble) ctx.translate(0, wobble);
+        const bodyAlpha = this._motionTransform(ctx);
+        if (bodyAlpha < 1) ctx.globalAlpha *= bodyAlpha;
 
         if (this.isAI && this.isZombieBoss) {
             this.renderZombieBossAI(ctx, time, hitGlow, pulse, pulseIntensity, transformPulse);
@@ -567,6 +791,7 @@ class Paddle {
         }
 
         if (!this.isZombieBoss) this._renderAnimatedAccents(ctx, time, hitGlow, style !== 'classic');
+        this._renderMotionFx(ctx);
         window.LaserFX?.ready(ctx, this, time);
 
         ctx.restore();
@@ -1311,4 +1536,15 @@ class Paddle {
 
 // Fragment system for destructible obstacle rendering
 
-Paddle.STYLES = ['classic', 'neonBlade', 'shieldWall', 'arcadeBlock', 'prismGlass'];
+Paddle.STYLES = ['classic', 'neonBlade', 'shieldWall', 'arcadeBlock', 'prismGlass', 'riptide', 'magmaCore', 'bassline'];
+
+// Motion timing clock (falls back to Date.now outside a browser).
+Paddle.now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+Paddle.freshMotion = (h) => ({
+    at: 0, lastY: null, vy: 0, speed: 0, ant: 0, idle: 1, phase: Math.random() * 10,
+    lean: 0, leanVel: 0, wob: 0, wobVel: 0, tw: 0, twVel: 0,
+    size: 0, sizeVel: 0, lastH: h,
+    impactY: 0, hitAt: -1e9, sinceHit: 99,
+    react: null, reactT: 0, serve: 0, serveFlash: 0,
+});
