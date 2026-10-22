@@ -399,6 +399,10 @@
             // Same C++ integrator as the live ball, so the AI reads spin and wall
             // kicks. predictionSteps (difficulty) limits how far ahead it can see.
             const faceX = this.paddle.pos.x - this.ball.r;
+            // Forge gadgets (portals, deflectors, lit lasers, crystals) bend
+            // the path; follow the ball through them when there are any.
+            const viaGadgets = this.game?.isForgeArenaActive?.() ? this.game.forgeGadgets?.predictY(this.ball, faceX, this.predictionSteps * 2, this.H) : null;
+            if (viaGadgets != null) return viaGadgets;
             return PhysicsCore.predictY(this.ball, faceX, this.predictionSteps * 2, this.H);
         }
 

@@ -1,7 +1,8 @@
 // Forge: a Halo Forge-style builder for Custom matches.
 //
-// Players place walls, bumpers, spinners, moving gates, black holes, boost
-// pads, ? blocks, coins and zombies on the court, set the match rules, save maps,
+// Players place walls, bumpers, spinners, moving gates, deflectors, laser
+// gates, crystals, portals, black holes, boost pads, ? blocks, coins and
+// zombies on the court, set the match rules, save maps,
 // and share them as copy-paste codes. Map coordinates are stored as
 // fractions of the court (x of width, y and sizes of height) so a map plays
 // the same on any screen.
@@ -17,6 +18,10 @@
         { id: 'bumper', label: 'Bumper', key: '2', hint: 'Round, bouncy.' },
         { id: 'spinner', label: 'Spinner', key: '3', hint: 'Rotating bar.' },
         { id: 'gate', label: 'Moving gate', key: '4', hint: 'Slides up and down.' },
+        { id: 'deflector', label: 'Deflector', key: 'd', hint: 'Angled slab that turns the ball a right angle. R flips it.' },
+        { id: 'laser', label: 'Laser gate', key: 'l', hint: 'Beam blocks the ball while lit, then switches off. Flickers first. R turns it.' },
+        { id: 'crystal', label: 'Crystal', key: 'c', hint: 'Cracks on each hit and shatters on the third. Grows back.' },
+        { id: 'portal', label: 'Portal', key: 'p', hint: 'Place two: the ball goes in one and out the other. Pairs link in order.' },
         { id: 'well', label: 'Black hole', key: '5', hint: 'Bends the ball. Bigger pulls harder.' },
         { id: 'pad', label: 'Boost pad', key: '6', hint: 'Launches the ball. R flips it.' },
         { id: 'block', label: '? Block', key: '7', hint: 'Coins, Turbo or Star.' },
@@ -41,8 +46,17 @@
     const isZombie = (t) => Object.prototype.hasOwnProperty.call(ZOMBIE_CAPS, t);
     const kindInfo = (t) => ZOMBIE_KINDS.find(k => k.id === t);
 
-    const DEFAULT_SIZE = { wall: 0.22, bumper: 0.05, spinner: 0.2, gate: 0.16, well: 0.06, pad: 1, block: 1, coin: 1 };
-    const SIZE_RANGE = { wall: [0.08, 0.6], bumper: [0.03, 0.1], spinner: [0.1, 0.34], gate: [0.08, 0.3], well: [0.04, 0.1] };
+    // Gadget caps: portals come in two linked pairs; lasers and crystals are
+    // capped so a court stays readable and every beam stays cheap.
+    const GADGET_CAPS = { portal: 4, laser: 6, crystal: 10 };
+    const GADGETS = new Set(['deflector', 'laser', 'crystal', 'portal']);
+    // Objects that R turns, and those whose mirror twin faces the other way.
+    const TURNS = new Set(['wall', 'gate', 'pad', 'deflector', 'laser']);
+    const FLIPS = new Set(['pad', 'deflector']);
+    const twinRot = (t, rot) => (FLIPS.has(t) ? (rot ? 0 : 1) : (rot || 0));
+
+    const DEFAULT_SIZE = { wall: 0.22, bumper: 0.05, spinner: 0.2, gate: 0.16, deflector: 0.16, laser: 0.24, well: 0.06, pad: 1, block: 1, coin: 1, crystal: 1, portal: 1 };
+    const SIZE_RANGE = { wall: [0.08, 0.6], bumper: [0.03, 0.1], spinner: [0.1, 0.34], gate: [0.08, 0.3], deflector: [0.08, 0.3], laser: [0.1, 0.5], well: [0.04, 0.1] };
 
     const RULE_OPTIONS = {
         scoreToWin: [[5, 'First to 5'], [7, 'First to 7'], [11, 'First to 11'], [15, 'First to 15'], [21, 'First to 21']],
@@ -55,7 +69,7 @@
     const DEFAULT_RULES = { scoreToWin: 11, ballSpeed: 1, hitSpeedup: 'normal', paddleSize: 1, gravity: 0 };
 
     const item = (t, x, y, extra = {}) => ({ t, x, y, s: DEFAULT_SIZE[t] ?? 1, rot: 0, ...extra });
-    const mirrorPair = (t, x, y, extra = {}) => [item(t, x, y, extra), item(t, 1 - x, y, { ...extra, rot: t === 'pad' ? (extra.rot ? 0 : 1) : (extra.rot || 0) })];
+    const mirrorPair = (t, x, y, extra = {}) => [item(t, x, y, extra), item(t, 1 - x, y, { ...extra, rot: twinRot(t, extra.rot) })];
 
     const PRESETS = [
         { id: 'preset:open', name: 'Open Court', items: [] },
@@ -95,7 +109,25 @@
                 item('coin', 0.5, 0.16), item('coin', 0.5, 0.84),
             ]
         },
+        {
+            id: 'preset:lab', name: 'Laser Lab', items: [
+                ...mirrorPair('portal', 0.2, 0.16), ...mirrorPair('laser', 0.34, 0.5, { s: 0.3 }),
+                ...mirrorPair('deflector', 0.42, 0.2, { s: 0.14 }), ...mirrorPair('deflector', 0.42, 0.8, { s: 0.14, rot: 1 }),
+                item('crystal', 0.5, 0.38), item('crystal', 0.5, 0.5), item('crystal', 0.5, 0.62),
+                ...mirrorPair('coin', 0.26, 0.84), item('coin', 0.5, 0.16), item('coin', 0.5, 0.84),
+            ]
+        },
     ];
+
+    // A laser keeps both posts on the court: near an edge the beam is
+    // shortened around its centre. Returns the post-to-post length in px.
+    function laserLength(it, W, H) {
+        const post = 0.022 * H + 3;
+        const half = it.rot
+            ? Math.min(it.x * W - W * 0.07, W * 0.93 - it.x * W) - post
+            : Math.min(it.y * H, H - it.y * H) - post;
+        return Math.max(0.06 * H, Math.min(it.s * H, half * 2));
+    }
 
     const clone = (v) => JSON.parse(JSON.stringify(v));
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -109,10 +141,16 @@
             if (!Array.isArray(items)) return [];
             const ok = new Set(TOOLS.map(t => t.id).filter(id => id !== 'erase' && id !== 'zombie'));
             ZOMBIE_KINDS.forEach(k => ok.add(k.id));
-            // Zombies over the caps (a hand-edited code, say) are dropped.
+            // Zombies and gadgets over the caps (a hand-edited code, say) are dropped.
             const zombies = {};
             let zombieTotal = 0;
+            const gadgets = {};
             const underCap = (i) => {
+                if (GADGET_CAPS[i.t]) {
+                    if ((gadgets[i.t] || 0) >= GADGET_CAPS[i.t]) return false;
+                    gadgets[i.t] = (gadgets[i.t] || 0) + 1;
+                    return true;
+                }
                 if (!isZombie(i.t)) return true;
                 if (zombieTotal >= MAX_ZOMBIES || (zombies[i.t] || 0) >= ZOMBIE_CAPS[i.t]) return false;
                 zombies[i.t] = (zombies[i.t] || 0) + 1;
@@ -126,7 +164,7 @@
                     x: clamp(+i.x, BUILD_MIN_X, BUILD_MAX_X),
                     y: clamp(+i.y, 0.04, 0.96),
                     s: range ? clamp(Number(i.s) || DEFAULT_SIZE[i.t], range[0], range[1]) : 1,
-                    rot: i.rot && !isZombie(i.t) ? 1 : 0,
+                    rot: i.rot && TURNS.has(i.t) ? 1 : 0,
                 };
             });
         },
@@ -189,6 +227,9 @@
         ctx.globalAlpha = opts.alpha ?? 1;
         const glow = (color, blur) => { ctx.shadowColor = color; ctx.shadowBlur = blur; };
         const noGlow = () => { ctx.shadowBlur = 0; };
+        // ForgeLook turns the context for blades and slanted pieces; keep
+        // that from leaking into the selection box.
+        const look = (piece, extra) => { ctx.save(); ForgeLook.drawItem(ctx, piece, H, opts.time, extra); ctx.restore(); };
         switch (it.t) {
             case 'wall':
             case 'gate': {
@@ -211,7 +252,7 @@
                         ctx.fill();
                     }
                 }
-                ForgeLook.drawItem(ctx, it, H, opts.time);
+                look(it);
                 break;
             }
             case 'bumper':
@@ -219,7 +260,15 @@
             case 'pad':
             case 'block':
             case 'coin':
-                ForgeLook.drawItem(ctx, it, H, opts.time);
+            case 'deflector':
+            case 'crystal':
+                look(it);
+                break;
+            case 'laser':
+                look({ ...it, s: laserLength(it, W, H) / H });
+                break;
+            case 'portal':
+                look(it, { pair: opts.pair ?? -1 });
                 break;
             case 'shambler':
             case 'runner':
@@ -325,6 +374,14 @@
                 break;
             }
             case 'spinner': hw = hh = it.s * H / 2; break;
+            case 'deflector': hw = hh = (it.s * H / 2 + 0.013 * H) * Math.SQRT1_2; break;
+            case 'laser': {
+                const len = laserLength(it, W, H) / 2 + 0.024 * H, th = 0.024 * H;
+                hw = it.rot ? len : th; hh = it.rot ? th : len;
+                break;
+            }
+            case 'crystal': hw = hh = 0.034 * H; break;
+            case 'portal': hw = hh = 0.05 * H; break;
             case 'bumper': hw = hh = it.s * H; break;
             case 'well': hw = hh = 0.15 * H * (it.s / 0.06) * 0.6; break;
             case 'pad': hw = 0.05 * H; hh = 0.021 * H; break;
@@ -378,11 +435,37 @@
         ctx.fillRect(W * 0.97 - Math.max(4, W * 0.012), H * 0.41, Math.max(4, W * 0.012), H * 0.18);
     }
 
+    // Portals link in placement order: 1st with 2nd, 3rd with 4th. Returns
+    // each portal's pair number (-1 while it waits for a partner).
+    function portalPairs(items) {
+        const portals = items.filter(i => i.t === 'portal');
+        const pairs = new Map();
+        portals.forEach((p, k) => pairs.set(p, k + 1 < portals.length || k % 2 ? k >> 1 : -1));
+        return { portals, pairs };
+    }
+
     function drawMap(canvas, items, opts = {}) {
         const ctx = canvas.getContext('2d');
         const W = canvas.width, H = canvas.height;
         drawCourt(ctx, W, H, { live: opts.live });
-        for (const it of items) drawItem(ctx, it, W, H, { time: opts.time, selected: it === opts.selected });
+        const { portals, pairs } = portalPairs(items);
+        if (portals.length > 1) {
+            // Dotted links show which portals are joined.
+            ctx.save();
+            ctx.lineWidth = Math.max(1, H * 0.003);
+            ctx.setLineDash([H * 0.008, H * 0.014]);
+            ctx.lineDashOffset = -(opts.time || 0) * H * 0.04;
+            for (let k = 0; k + 1 < portals.length; k += 2) {
+                const a = portals[k], b = portals[k + 1];
+                ctx.strokeStyle = (window.ForgeLook?.PORTAL_COLORS?.[(k >> 1) % 2]?.rim || '#ffffff') + '88';
+                ctx.beginPath();
+                ctx.moveTo(a.x * W, a.y * H);
+                ctx.lineTo(b.x * W, b.y * H);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+        for (const it of items) drawItem(ctx, it, W, H, { time: opts.time, selected: it === opts.selected, pair: pairs.get(it) });
     }
 
     // ── Runtime: turn a map + rules into a playable arena ──────────────
@@ -393,6 +476,7 @@
         const wells = [];
         const arcadeItems = { pads: [], blocks: [], coins: [] };
         const zombies = [];
+        const gadgets = [];
         for (const it of forge.map.items) {
             const x = it.x * W, y = it.y * H;
             if (it.t === 'wall') {
@@ -429,12 +513,14 @@
                 arcadeItems.coins.push({ x, y, homeX: x, homeY: y, phase: arcadeItems.coins.length * 0.5, alive: true });
             } else if (isZombie(it.t)) {
                 zombies.push({ kind: it.t, x, y });
+            } else if (GADGETS.has(it.t)) {
+                gadgets.push({ kind: it.t, x, y, s: it.t === 'laser' ? laserLength(it, W, H) / H : it.s, rot: it.rot });
             }
         }
         // The shared obstacle renderer also serves Obstacle mode. Texture only
         // the objects explicitly placed in Forge.
         for (const obstacle of obstacles) obstacle.forgeSurface = true;
-        return { forge, obstacles, wells, arcadeItems, zombies };
+        return { forge, obstacles, wells, arcadeItems, zombies, gadgets };
     }
 
     function getRuleSpeedIncrease(game) {
@@ -492,7 +578,7 @@
                     </div>
                 </div>
                 <div class="forge-editor-body">
-                    <div class="forge-palette"><div class="forge-palette-title">Object library</div>${TOOLS.map(t => `<button type="button" class="forge-tool" data-tool="${t.id}" title="${t.hint} (${t.key})"><canvas width="44" height="44"></canvas><span>${t.label}</span><kbd aria-hidden="true">${t.key}</kbd></button>`).join('')}</div>
+                    <div class="forge-palette"><div class="forge-palette-title">Object library</div>${TOOLS.map(t => `<button type="button" class="forge-tool" data-tool="${t.id}" title="${t.hint} (${t.key.toUpperCase()})"><canvas width="44" height="44"></canvas><span>${t.label}</span><kbd aria-hidden="true">${t.key.toUpperCase()}</kbd></button>`).join('')}</div>
                     <div class="forge-stage"><div class="forge-stage-label">LIVE ARENA<span>Place · arrange · play</span></div><canvas class="forge-canvas"></canvas></div>
                     <div class="forge-inspector" aria-live="polite">
                         <span class="forge-kicker">Selection</span>
@@ -510,7 +596,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="forge-editor-hint"><span class="forge-count"></span> <span class="forge-zombie-count"></span> <span class="forge-hint-pc">Click to place &middot; drag to move &middot; scroll or +/- to resize &middot; R turns walls, gates and pads &middot; right-click or Delete removes &middot; Ctrl+Z undo &middot; Ctrl+Y redo</span><span class="forge-hint-touch">Tap to place &middot; drag to move &middot; tap an object, then use the panel to resize, turn or delete it</span></div>`;
+                <div class="forge-editor-hint"><span class="forge-count"></span> <span class="forge-zombie-count"></span> <span class="forge-hint-pc">Click to place &middot; drag to move &middot; scroll or +/- to resize &middot; R turns walls, gates, pads, deflectors and lasers &middot; right-click or Delete removes &middot; Ctrl+Z undo &middot; Ctrl+Y redo</span><span class="forge-hint-touch">Tap to place &middot; drag to move &middot; tap an object, then use the panel to resize, turn or delete it</span></div>`;
             document.body.appendChild(el);
             this.el = el;
             this.canvas = el.querySelector('.forge-canvas');
@@ -534,10 +620,10 @@
                     ctx.moveTo(12, 12); ctx.lineTo(32, 32); ctx.moveTo(32, 12); ctx.lineTo(12, 32);
                     ctx.stroke();
                 } else {
-                    const demo = { t, x: 0.5, y: 0.5, s: { wall: 0.6, gate: 0.5, spinner: 0.7, bumper: 0.18, well: 0.16 }[t] || 1, rot: 0 };
-                    const fixed = { pad: 360, block: 560, coin: 900 }[t];
+                    const demo = { t, x: 0.5, y: 0.5, s: { wall: 0.6, gate: 0.5, spinner: 0.7, bumper: 0.18, well: 0.16, deflector: 0.7, laser: 0.16 }[t] || 1, rot: t === 'laser' ? 1 : 0 };
+                    const fixed = { pad: 360, block: 560, coin: 900, laser: 190, crystal: 520, portal: 400 }[t];
                     if (fixed) {
-                        drawItem(ctx, { ...demo, x: 22 / fixed, y: 22 / fixed }, fixed, fixed, {});
+                        drawItem(ctx, { ...demo, x: 22 / fixed, y: 22 / fixed }, fixed, fixed, { pair: 0, time: 0.2 });
                     } else {
                         drawItem(ctx, demo, 44, 44, {});
                     }
@@ -710,11 +796,11 @@
         }
 
         rotate(it) {
-            if (!it || !['wall', 'gate', 'pad'].includes(it.t)) return;
+            if (!it || !TURNS.has(it.t)) return;
             this.pushHistory();
             const twin = this.mirrorOf(it);
             it.rot = it.rot ? 0 : 1;
-            if (twin) twin.rot = it.t === 'pad' ? (it.rot ? 0 : 1) : it.rot;
+            if (twin) twin.rot = twinRot(it.t, it.rot);
         }
 
         zombieCounts(items = this.items) {
@@ -727,8 +813,18 @@
             return counts;
         }
 
-        // Can `n` more zombies of this kind go in? Optionally say why not.
+        // Can `n` more zombies (or capped gadgets) of this kind go in?
+        // Optionally say why not.
         zombieRoom(type, n, warn = false, items = this.items) {
+            if (GADGET_CAPS[type]) {
+                const have = items.filter(o => o.t === type).length;
+                if (have + n <= GADGET_CAPS[type]) return true;
+                const label = TOOLS.find(t => t.id === type).label;
+                if (warn) this.ui.toast(n > 1 && have + 1 <= GADGET_CAPS[type]
+                    ? `Room for one more ${label.toLowerCase()}: turn Mirror off to place it`
+                    : `${label}s are full (${GADGET_CAPS[type]} max)`);
+                return false;
+            }
             if (!isZombie(type)) return true;
             const c = this.zombieCounts(items);
             const label = kindInfo(type).label;
@@ -807,7 +903,7 @@
             this.pushHistory();
             const it = item(type, p.x, p.y);
             this.items.push(it);
-            if (room === 2) this.items.push(item(type, 1 - p.x, p.y, { rot: type === 'pad' ? 1 : 0 }));
+            if (room === 2) this.items.push(item(type, 1 - p.x, p.y, { rot: twinRot(type, 0) }));
             this.selected = it;
             this.drag = { it, twin: room === 2 ? this.items[this.items.length - 1] : null, dx: 0, dy: 0 };
         }
@@ -834,7 +930,7 @@
                 return;
             }
             const key = e.key;
-            const tool = TOOLS.find(t => t.key === key);
+            const tool = !e.ctrlKey && !e.metaKey && !e.altKey && TOOLS.find(t => t.key === key.toLowerCase());
             if (tool) { this.setTool(tool.id); e.preventDefault(); return; }
             if (key === 'Escape') { this.close(true); e.preventDefault(); e.stopPropagation(); return; }
             if ((e.ctrlKey || e.metaKey) && key.toLowerCase() === 'z') { if (e.shiftKey) this.redo(); else this.undo(); e.preventDefault(); return; }
@@ -845,6 +941,12 @@
             else if ((key === '+' || key === '=') && SIZE_RANGE[this.selected.t]) { this.pushHistory(); this.resize(this.selected, 1); e.preventDefault(); }
             else if ((key === '-' || key === '_') && SIZE_RANGE[this.selected.t]) { this.pushHistory(); this.resize(this.selected, -1); e.preventDefault(); }
             e.stopPropagation();
+        }
+
+        portalHint(it) {
+            const pair = portalPairs(this.items).pairs.get(it);
+            if (pair < 0) return 'Waiting for a partner: place one more portal to link it.';
+            return `${pair ? 'Blue' : 'Orange'} pair. The ball goes in one and comes out of the other, at the same speed.`;
         }
 
         syncZombieKinds() {
@@ -887,15 +989,18 @@
             const hint = this.el.querySelector('.forge-object-hint');
             const position = this.el.querySelector('.forge-object-position');
             const size = this.el.querySelector('.forge-object-size');
-            name.textContent = tool?.label || 'Select an object';
-            hint.textContent = tool?.hint || 'Choose any object on the court to edit it.';
+            // With nothing selected the panel describes the tool in hand.
+            const active = this.tool === 'zombie' ? kindInfo(this.zombieKind) : TOOLS.find(t => t.id === this.tool);
+            name.textContent = tool?.label || (active ? `Placing: ${active.label}` : 'Select an object');
+            hint.textContent = this.selected?.t === 'portal' ? this.portalHint(this.selected)
+                : (tool?.hint || (active ? `${active.hint} Choose an object on the court to edit it.` : 'Choose any object on the court to edit it.'));
             position.textContent = this.selected ? `Position ${Math.round(this.selected.x * 100)}%, ${Math.round(this.selected.y * 100)}%` : '';
             size.textContent = this.selected && SIZE_RANGE[this.selected.t] ? `Size ${Math.round(this.selected.s * 100)}%` : '';
             this.el.querySelectorAll('.forge-inspector-actions button').forEach(button => {
-                button.disabled = !this.selected || (['smaller', 'bigger'].includes(button.dataset.act) && !SIZE_RANGE[this.selected.t]) || (button.dataset.act === 'turn' && !['wall', 'gate', 'pad'].includes(this.selected.t));
+                button.disabled = !this.selected || (['smaller', 'bigger'].includes(button.dataset.act) && !SIZE_RANGE[this.selected.t]) || (button.dataset.act === 'turn' && !TURNS.has(this.selected.t));
             });
             this.el.querySelectorAll('.forge-editor-actions [data-act="smaller"], .forge-editor-actions [data-act="bigger"], .forge-editor-actions [data-act="turn"]').forEach(button => {
-                button.disabled = !this.selected || (button.dataset.act !== 'turn' && !SIZE_RANGE[this.selected.t]) || (button.dataset.act === 'turn' && !['wall', 'gate', 'pad'].includes(this.selected.t));
+                button.disabled = !this.selected || (button.dataset.act !== 'turn' && !SIZE_RANGE[this.selected.t]) || (button.dataset.act === 'turn' && !TURNS.has(this.selected.t));
             });
             this.el.querySelector('[data-act="undo"]').disabled = !this.history.length;
             this.el.querySelector('[data-act="redo"]').disabled = !this.future.length;
@@ -1103,7 +1208,7 @@
         },
     };
 
-    window.Forge = { Store, UI, buildArena, getRuleSpeedIncrease, getGravityAccel, PRESETS, RULE_OPTIONS, ZOMBIE_CAPS, MAX_ZOMBIES };
+    window.Forge = { Store, UI, buildArena, getRuleSpeedIncrease, getGravityAccel, PRESETS, RULE_OPTIONS, ZOMBIE_CAPS, MAX_ZOMBIES, GADGET_CAPS };
 
     const boot = () => { if (window.game) UI.init(window.game); };
     window.addEventListener('pp-game-ready', boot);

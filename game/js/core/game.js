@@ -827,6 +827,8 @@ class Game {
 
         if (!this.forgeZombies && typeof ForgeZombies === 'function') this.forgeZombies = new ForgeZombies(this);
         this.forgeZombies?.build(arena.zombies || []);
+        if (!this.forgeGadgets && typeof ForgeGadgets === 'function') this.forgeGadgets = new ForgeGadgets(this);
+        this.forgeGadgets?.build(arena.gadgets || []);
 
         const items = arena.arcadeItems;
         const zombieCount = arena.zombies?.length || 0;
@@ -5534,6 +5536,7 @@ class Game {
         Obstacle.groups = []; // Clear obstacle groups when changing modes
         this.obstacleArcade?.setHudVisible(false);
         this.forgeZombies?.clear();
+        this.forgeGadgets?.clear();
         this.gravityWells = [];
         if (!this.gravityWarp && typeof GravityWormhole === 'function') {
             this.gravityWarp = new GravityWormhole(this);
@@ -7617,6 +7620,7 @@ class Game {
             for (let i = 0; i < this.obstacles.length; i++) this.obstacles[i].update(dt);
             if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.update(dt);
             this.forgeZombies?.update(dt);
+            this.forgeGadgets?.update(dt);
         }
         if (this.gameMode === 'obstacle') {
             if (!this.obstacleCourse) {
@@ -7759,7 +7763,10 @@ class Game {
             if (this.checkPaddleCollision(this.aiPaddle, false) && this.net) this.net.onLocalHit(this.ball);
         }
         this.handleZombieBallCollisions(this.ball);
-        if (this.isForgeArenaActive()) this.forgeZombies?.collide(this.ball);
+        if (this.isForgeArenaActive()) {
+            this.forgeZombies?.collide(this.ball);
+            this.forgeGadgets?.collide(this.ball);
+        }
         if (!this.ghostBallActive && !((this.gameMode === 'obstacle' || this.obstacleArcade?.fixedLayout) && this.obstacleArcade?.isStarActive())) {
             const ball = this.ball;
             for (let i = 0; i < this.obstacles.length; i++) {
@@ -8495,6 +8502,7 @@ class Game {
             const wellTime = performance.now() * 0.001;
             for (let i = 0; i < this.gravityWells.length; i++) this.gravityWells[i].render(ctx, wellTime);
             if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.renderUnder(ctx);
+            this.forgeGadgets?.render(ctx);
             for (let i = 0; i < this.obstacles.length; i++) this.obstacles[i].render(ctx);
             this.forgeZombies?.render(ctx);
             if (this.obstacleArcade?.fixedLayout) this.obstacleArcade.render(ctx);

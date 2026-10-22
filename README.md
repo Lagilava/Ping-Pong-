@@ -175,7 +175,8 @@ prompt to unlock frame rates above 60 (expect some screen tearing).
 
 Plus **Custom** (local 1v1 with your own paddles, background, music and
 power-ups, played on an arena you build in the **Forge**: place walls, bumpers,
-spinners, moving gates, black holes, boost pads, ? blocks and coins, set the
+spinners, moving gates, deflectors, laser gates, crystals, portal pairs, black
+holes, boost pads, ? blocks, coins and zombies, set the
 rules (score to win, ball speed, rally speed-up, paddle size, arena gravity),
 save maps and share them as codes), **Ball Studio** (a ball skin editor whose
 preview uses the real in-match ball renderer), local

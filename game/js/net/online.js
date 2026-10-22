@@ -981,6 +981,7 @@
             if (g.gravityWells?.length) s.w = g.gravityWells.map((w) => [round1(w.pos.x), round1(w.pos.y)]);
             if (g.obstacles?.length) s.o = g.obstacles.map((o) => [round1(o.pos.x), round1(o.pos.y), Math.round((o.rotation || 0) * 1000) / 1000]);
             if (g.forgeZombies?.zombies.length && g.isForgeArenaActive?.()) s.fz = g.forgeZombies.snapshot();
+            if (g.forgeGadgets?.count && g.isForgeArenaActive?.()) s.fg = g.forgeGadgets.snapshot();
             const ar = g.obstacleArcade;
             if (ar && (g.gameMode === 'obstacle' || ar.fixedLayout)) {
                 s.ar = [ar.wallet.player, ar.wallet.ai, round1(ar.starTime), round1(ar.boostTime),
@@ -1118,6 +1119,7 @@
                 }
             }
             if (s.fz && g.forgeZombies) g.forgeZombies.applySnapshot(s.fz);
+            if (s.fg && g.forgeGadgets) g.forgeGadgets.applySnapshot(s.fg, lat);
             const ar = g.obstacleArcade;
             if (Array.isArray(s.ar) && ar) {
                 ar.wallet.player = num(s.ar[0]);
