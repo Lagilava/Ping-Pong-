@@ -61,7 +61,7 @@
     };
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-    // �� Touch ability buttons �����������������������������������������������
+    // ── Touch ability buttons ───────────────────────────────────────────────
     const buttons = {};
     let placedFor = '';
 
@@ -170,7 +170,7 @@
                 const waiting = !ab.enabled;
                 // Lucky Dice reports its roll and the face's effect.
                 const dice = mode === 'obstacle' ? ab.dice?.status(side) : null;
-                const diceText = dice ? (dice.text.includes('�') ? dice.text.split('�')[0].trim() : dice.text.replace(/\s*\d+s$/, '').replace('ROLLING.', 'Rolling')) : '';
+                const diceText = dice ? (dice.text.includes('·') ? dice.text.split('·')[0].trim() : dice.text.replace(/\s*\d+s$/, '').replace('ROLLING…', 'Rolling')) : '';
                 status = dice ? diceText.charAt(0) + diceText.slice(1).toLowerCase() : s.active > 0 ? 'Active' : s.miss > 0 ? 'Missed' : waiting ? 'Wait' : ready ? (inRange ? 'Now!' : 'Ready') : `${s.cooldown.toFixed(1)}s`;
                 tone = s.active > 0 ? 'active' : s.miss > 0 ? 'missed' : (waiting || !ready) ? 'cooling' : inRange ? 'now' : 'ready';
             }
@@ -214,7 +214,7 @@
         setTimeout(() => el.remove(), 250);
     }
 
-    // �� First-match controls tutorial ���������������������������������������
+    // ── First-match controls tutorial ───────────────────────────────────────
     let tutorial = null;
     function tutorialOpen() { return !!tutorial && !tutorial.hidden; }
 
@@ -225,10 +225,10 @@
         const modeName = MODE_NAMES[g?.gameMode] || 'This mode';
         if (device.touch) {
             const move = two
-                ? ['Each player takes a half', 'Player 1 slides a thumb up and down on the left half of the screen, player 2 on the right half. Each paddle follows its thumb's slide.']
+                ? ['Each player takes a half', 'Player 1 slides a thumb up and down on the left half of the screen, player 2 on the right half. Each paddle follows its thumb’s slide.']
                 : ['Move with your right thumb', 'Rest your right thumb anywhere on the right side of the screen and slide it up and down. Your paddle follows the slide, so your thumb never covers it or the ball.'];
             const ability = info
-                ? [`${info.hold ? 'Hold' : 'Tap'} ${info.name} with your left thumb`, `${two ? 'Each player has a button in their bottom corner; player 1's is bottom left.' : 'The round button sits in the bottom-left corner.'} ${info.touch}`]
+                ? [`${info.hold ? 'Hold' : 'Tap'} ${info.name} with your left thumb`, `${two ? 'Each player has a button in their bottom corner; player 1’s is bottom left.' : 'The round button sits in the bottom-left corner.'} ${info.touch}`]
                 : [`${modeName} has no ability button`, two
                     ? 'If either player catches a Laser power-up, they tap their half with a second finger to fire it.'
                     : 'It is just you and the ball. If you catch a Laser power-up, tap the screen with a second finger to fire it.'];
@@ -242,7 +242,7 @@
         const ability = info
             ? [`${info.hold ? 'Hold' : 'Press'} ${fire} for ${info.name}`, `${info.pc}${two ? ` Player 2 uses ${keyLabel('p2Fire', 'enter')}.` : ' The right mouse button works too.'}`]
             : [`${modeName} has no ability`, `It is just you and the ball. If you catch a Laser power-up, ${fire} fires it.`];
-        const pause = ['Pause any time', 'Esc pauses the match. Keys can be changed in Settings  Controls.'];
+        const pause = ['Pause any time', 'Esc pauses the match. Keys can be changed in Settings → Controls.'];
         return [move, ability, pause];
     }
 
@@ -294,7 +294,7 @@
                     <span class="pp-ct-kicker">${device.touch ? 'Playing on a touch screen' : 'Playing on a computer'}</span>
                     <h2 id="ppControlsTutorialTitle">How to play</h2>
                     <ol class="pp-ct-steps">${list.map(([t, d], i) => `<li><span class="pp-ct-n">${i + 1}</span><div><b>${esc(t)}</b><p>${esc(d)}</p></div></li>`).join('')}</ol>
-                    <button type="button" class="pp-ct-go" data-ct-close>Got it, let's play</button>
+                    <button type="button" class="pp-ct-go" data-ct-close>Got it, let’s play</button>
                 </div>
             </div>`;
         // The mode's scene (js/menu/mode-art.js) frames the controls picture.
@@ -331,7 +331,7 @@
         showTutorial(g);
     }
 
-    // �� Loop ����������������������������������������������������������������
+    // ── Loop ────────────────────────────────────────────────────────────────
     // One light check per frame; DOM is only written when something changes.
     function frame() {
         requestAnimationFrame(frame);

@@ -1253,7 +1253,7 @@ class Game {
         // soft vignette and ambient tint (blend with original radial grad)
         ctx.globalCompositeOperation = 'source-over';
 
-        // Draw distant city silhouette (subtle) - positioned above the sea
+        // Draw distant city silhouette (subtle) — positioned above the sea
         const cityY = H * 0.56;
         ctx.save();
         ctx.fillStyle = 'rgba(8,6,12,0.45)';
@@ -1388,7 +1388,7 @@ class Game {
         }
         this.syncViewportMetrics();
         const viewport = this.getViewportSize();
-        // Backing-store scale comes from the quality governor (� devicePixelRatio).
+        // Backing-store scale comes from the quality governor (≤ devicePixelRatio).
         const dpr = PerfGovernor.renderScale;
         const screenW = Math.max(1, Math.round(container.clientWidth || viewport.width));
         const screenH = Math.max(1, Math.round(container.clientHeight || viewport.height));
@@ -1568,7 +1568,7 @@ class Game {
                 this.ai = new ZombieBoss(this.aiPaddle, this.ball, this);
             } else {
                 console.warn(
-                    "[createGameObjects] Zombie mode activated but core objects missing  " +
+                    "[createGameObjects] Zombie mode activated but core objects missing → " +
                     "falling back to normal AI"
                 );
                 // Fallback to normal AI if something went wrong
@@ -2339,7 +2339,7 @@ class Game {
             return;
         }
 
-        // Reset intro flag for new match - ensures intro plays at start of every match
+        // Reset intro flag for new match — ensures intro plays at start of every match
         this.introHasPlayed = false;
 
         if (this.introRafId !== null) {
@@ -2567,7 +2567,7 @@ class Game {
             this.audio.stopAllGravityWellSounds();
         }
 
-        // ? CRITICAL FIX: Stop all music when switching modes
+        // ✅ CRITICAL FIX: Stop all music when switching modes
         if (typeof this.audio?.stopMusic === 'function') {
             this.audio.stopMusic('all');
         }
@@ -3106,7 +3106,7 @@ class Game {
                 this.scoreElements.ai.removeAttribute('data-score-label');
             }
         }
-        set(this.scoreDivider, zombieMode ? '/' : '-');
+        set(this.scoreDivider, zombieMode ? '/' : '—');
 
         set(this.waveDisplay, zombieMode ? `W ${currentWave}/${state.maxWave}` : '-');
         set(this.breachDisplay, zombieMode ? `Lives ${hearts}/${state.maxHearts}` : '-');
@@ -3123,11 +3123,11 @@ class Game {
             const badges = [];
             const badge = window.ZombiePowerups?.badge;
             if (badge) {
-                if (state.shieldCharges > 0) badges.push(badge('shield', `Shield x${state.shieldCharges}`));
+                if (state.shieldCharges > 0) badges.push(badge('shield', `Shield ×${state.shieldCharges}`));
                 if (rageSeconds > 0) badges.push(badge('rage', `Rage ${rageSeconds}s`));
                 if (slowSeconds > 0) badges.push(badge('slow', `Slow ${slowSeconds}s`));
             }
-            this._setHTML(this.zombieProgressBoosts, badges.length ? badges.join('') : boostParts.join(' � '));
+            this._setHTML(this.zombieProgressBoosts, badges.length ? badges.join('') : boostParts.join(' · '));
             if (this.zombieProgressBoosts) this.zombieProgressBoosts.classList.toggle('empty', !boostParts.length);
         }
 
@@ -3542,7 +3542,7 @@ class Game {
         }
 
         const left = state.hearts;
-        this.showNotification('Breach!', `${reason} � ${left} ${left === 1 ? 'life' : 'lives'} left`, '#ff7043');
+        this.showNotification('Breach!', `${reason} · ${left} ${left === 1 ? 'life' : 'lives'} left`, '#ff7043');
         this.syncZombieHUD();
     }
 
@@ -5517,7 +5517,7 @@ class Game {
         const scaledMax = Math.max(scaledBase + 200, Math.round(config.ballMax * scale));
         const scaledMin = Math.max(200, Math.round(config.ballBase * 0.35 * scale));
         // Enforce a sensible floor so the game never gets too slow on large screens
-        const GLOBAL_MIN_BALL_SPEED = 420; // editable constant - keeps pace
+        const GLOBAL_MIN_BALL_SPEED = 420; // editable constant — keeps pace
         // Ensure min is not higher than base (use 90% of base as safety)
         const allowedMin = Math.min(Math.max(scaledMin, GLOBAL_MIN_BALL_SPEED), Math.round(scaledBase * 0.9));
 
@@ -6035,7 +6035,7 @@ class Game {
         this.renderPauseMenu();
     }
 
-    // �� Pause menu ����������������������������������������������������������
+    // ── Pause menu ──────────────────────────────────────────────────────────
     renderPauseMenu() {
         const menu = document.getElementById('pauseMenu');
         if (!menu) return;
@@ -6275,7 +6275,7 @@ class Game {
             this.audio.stopAllGravityWellSounds();
         }
 
-        // Reset game state variables (preserve gameMode - do NOT reset to 'classic')
+        // Reset game state variables (preserve gameMode — do NOT reset to 'classic')
         this.progression.clearRecentlyUnlocked();
         this.scores.player = 0;
         this.scores.ai = 0;
@@ -6288,7 +6288,7 @@ class Game {
         this.challengePaused = false;
         this.paused = false;
         this.syncPauseState();
-        // gameMode intentionally NOT reset here - keep whatever mode was selected
+        // gameMode intentionally NOT reset here — keep whatever mode was selected
         this.comeback = false;
         this.physicsHz = 240;
         this.dt = 1 / this.physicsHz;
@@ -6725,7 +6725,7 @@ class Game {
                         // Additional balls persist and are only removed on ball loss
                     }
                     if (type === 'chaosMode') {
-                        // Chaos mode effects stop being triggered - restore paddles
+                        // Chaos mode effects stop being triggered — restore paddles
                         if (this.player && typeof this.player.resetSize === 'function') {
                             this.player.resetSize();
                         }
@@ -6989,7 +6989,7 @@ class Game {
         return this.postFx;
     }
 
-    // �� Gamepads ������������������������������������������������������������
+    // ── Gamepads ────────────────────────────────────────────────────────────
     // Pad 1 drives the left paddle, pad 2 the right paddle in local 1v1.
     // Left stick / d-pad move (analog), A = laser (or skip intro), Start = pause.
     hasLoadedLaser(paddle) {
@@ -7069,8 +7069,8 @@ class Game {
         this._perfStart = now;
         const gov = PerfGovernor;
         this.perfOverlay.textContent =
-            `${fps} FPS  �  display ${gov.fps} Hz  �  quality ${gov.tierName}  �  ` +
-            `scale ${gov.renderScale.toFixed(2)}x  �  shaders ${this.postFx?.active ? 'on' : 'off'}  �  ` +
+            `${fps} FPS  ·  display ${gov.fps} Hz  ·  quality ${gov.tierName}  ·  ` +
+            `scale ${gov.renderScale.toFixed(2)}x  ·  shaders ${this.postFx?.active ? 'on' : 'off'}  ·  ` +
             `physics ${PhysicsCore.backend === 'wasm' ? 'C++/wasm' : 'JS'}`;
     }
 
@@ -7263,7 +7263,7 @@ class Game {
         ctx.restore();
     }
 
-    // Stereo position for a sound at canvas x (-1 left . 1 right), kept subtle.
+    // Stereo position for a sound at canvas x (-1 left … 1 right), kept subtle.
     panFor(x) {
         return Math.max(-1, Math.min(1, (x / Math.max(1, this.width) - 0.5) * 1.3));
     }
@@ -7897,7 +7897,7 @@ class Game {
             }
         }
 
-        // boss updates (curse, particles, etc.) - run regardless of PvP so the
+        // boss updates (curse, particles, etc.) – run regardless of PvP so the
         // overlay can animate.  update() itself decides what behaviour to execute.
         if (this.gameMode === 'zombie' && this.ai instanceof ZombieBoss) {
             this.ai.update(dt);
@@ -8274,7 +8274,7 @@ class Game {
             });
         }
         actions.push({ label: 'Main menu', back: true, onClick: () => window.PPResults?.hide() });
-        return { kicker: `${modeLabel} � match over`, title, tone, left, right, lines, actions };
+        return { kicker: `${modeLabel} · match over`, title, tone, left, right, lines, actions };
     }
 
     updateScoreUI() {
@@ -8496,7 +8496,7 @@ class Game {
             ctx.textAlign = 'center';
             ctx.shadowBlur = 15;
             ctx.shadowColor = '#ff00ff';
-            ctx.fillText('?  ?', W / 2, 40);
+            ctx.fillText('⚡  ⚡', W / 2, 40);
             ctx.restore();
         }
         ctx.strokeStyle = 'rgba(0, 255, 214, 0.12)';
@@ -8594,7 +8594,7 @@ class Game {
             ctx.restore();
         }
 
-        // Render fire hit effect (blue  yellow flash  back to blue)
+        // Render fire hit effect (blue → yellow flash → back to blue)
         if (this.player && this.player.fireHitFlashing && this.player.fireHitFlashTimer > 0) {
             const flashIntensity = this.player.fireHitFlashTimer / 0.5; // 1.0 at start, 0.0 at end
             ctx.save();
@@ -8624,7 +8624,7 @@ class Game {
                 ctx.textBaseline = 'middle';
                 ctx.shadowBlur = 20;
                 ctx.shadowColor = '#00ffff';
-                ctx.fillText(`?${this.aiPaddle.laserCharges}`,
+                ctx.fillText(`⚡${this.aiPaddle.laserCharges}`,
                     this.aiPaddle.pos.x + this.aiPaddle.w / 2,
                     this.aiPaddle.pos.y + this.aiPaddle.h / 2);
                 ctx.restore();
@@ -8762,3 +8762,4 @@ class Game {
 if (typeof window !== 'undefined' && typeof Game !== 'undefined') {
     window.Game = Game;
 }
+

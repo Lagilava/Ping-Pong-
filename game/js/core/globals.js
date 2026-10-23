@@ -99,10 +99,7 @@ const PerfGovernor = {
     get particleScale() { return this.current.particles; },
     get tierName() { return this.current.name; },
     /** Canvas backing-store scale: never above the screen's own pixel ratio. */
-    get renderScale() {
-        return Math.min(window.devicePixelRatio || 1, this.current.scale,
-            window.game?.gameMode === 'gravity' ? 1 : Infinity);
-    },
+    get renderScale() { return Math.min(window.devicePixelRatio || 1, this.current.scale, window.game?.gameMode === 'gravity' ? 1 : Infinity); },
     get fps() { return Math.round(1000 / this.refreshMs); },
 
     onChange(fn) { this._listeners.push(fn); },
