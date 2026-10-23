@@ -1,10 +1,10 @@
 /**
  * Speed mode scenery: a night highway racing toward a striped synthwave sun.
- * Every piece of art (sky, stars, sun, clouds, mountain ranges, skyline,
- * road, palms, street lamps, chevron signs, cars) is painted once into
- * offscreen sprites at the canvas pixel scale. A frame is only drawImage
- * calls plus a few batched strokes for the moving ground grid, so the scene
- * costs about the same as the old tunnel and uses no draw-time blur.
+ * Generated WebP scenery and a transparent prop atlas are decoded once and
+ * baked into bounded textures. Perspective traffic, lane markings and grid
+ * rows keep moving; the sky has a subtle parallax. The procedural painter is
+ * retained for loading failures and Custom Match's original palette.
+ * No draw-time blur, image decoding or texture allocation on warm frames.
  */
 (function () {
     const TAU = Math.PI * 2;
@@ -13,6 +13,52 @@
     const NEAR = 1;          // depth of the bottom edge of the screen
     const FAR = 34;          // depth at which objects fade in from the haze
     const HORIZON = 0.44;    // horizon height as a fraction of the screen
+
+    // Shared across matches. Decode once; a failed image leaves the original
+    // procedural renderer available, including Custom Match's original palette.
+    const assetRoot = document.currentScript?.src
+        ? new URL('../../assets/speed/', document.currentScript.src).href : 'assets/speed/';
+    const artwork = { started: false, ready: false, scene: null, props: null };
+    function loadArtwork() {
+        if (artwork.started || typeof Image === 'undefined') return;
+        artwork.started = true;
+        const load = name => new Promise((resolve, reject) => {
+            const image = new Image();
+            image.decoding = 'async';
+            image.onload = () => Promise.resolve(image.decode ? image.decode() : undefined)
+                .then(() => resolve(image), reject);
+            image.onerror = reject;
+            image.src = assetRoot + name + '.webp';
+        });
+        Promise.all([load('speed-scene'), load('speed-props')]).then(([scene, props]) => {
+            artwork.scene = scene;
+            artwork.props = props;
+            artwork.ready = true;
+            // Static-background settings still need one repaint after loading.
+            window.game?.bgRenderer?._invalidateBackgroundRenderCache?.();
+        }).catch(() => { /* retain procedural fallback without retrying each frame */ });
+    }
+
+    // Source rectangles follow the delivered atlas rather than assuming the
+    // generator produced an exact grid. Crop/flip only when baking a scene.
+    function artworkSprite(kind, flip = false) {
+        const rects = {
+            palm: [90, 0, 495, 745], lamp: [835, 15, 320, 730],
+            sign: [55, 840, 510, 360], car: [598, 838, 648, 360]
+        };
+        const [rx, ry, rw, rh] = rects[kind];
+        const w = rw / 1254 * artwork.props.naturalWidth;
+        const h = rh / 1254 * artwork.props.naturalHeight;
+        const scale = Math.min(1, 384 / Math.max(w, h));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * scale));
+        c.height = Math.max(1, Math.round(h * scale));
+        const x = c.getContext('2d');
+        if (flip) { x.translate(c.width, 0); x.scale(-1, 1); }
+        x.drawImage(artwork.props, rx / 1254 * artwork.props.naturalWidth,
+            ry / 1254 * artwork.props.naturalHeight, w, h, 0, 0, c.width, c.height);
+        return { c, w: rw, h: rh, anchor: kind === 'lamp' ? (flip ? 0.8 : 0.2) : kind === 'palm' ? (flip ? 0.65 : 0.35) : 0.5 };
+    }
 
     function rng(seed) {
         let s = seed >>> 0;
@@ -31,7 +77,7 @@
         return [c, x];
     }
 
-    // ── Sky, stars and ground (one static base layer) ──────────────────
+    // �� Sky, stars and ground (one static base layer) ������������������
     function paintBase(x, w, h, hy) {
         const sky = x.createLinearGradient(0, 0, 0, hy);
         sky.addColorStop(0, '#03020d');
@@ -182,7 +228,7 @@
         x.fillRect(0, hy - gh * 0.12, w, gh * 0.26);
     }
 
-    // ── Striped sun, bottom edge sits on the horizon ───────────────────
+    // �� Striped sun, bottom edge sits on the horizon �������������������
     function paintSun(R, sx, sy) {
         const S = R * 2.8;
         const [c, x] = canvas(S, S * 0.62, sx, sy);
@@ -217,7 +263,7 @@
         return { c, w: S, h: S * 0.62 };
     }
 
-    // ── Long, thin clouds drifting across the sun ──────────────────────
+    // �� Long, thin clouds drifting across the sun ����������������������
     function paintClouds(w, hy, sx, sy) {
         const W = w * 2, H = hy * 0.5;
         const [c, x] = canvas(W, H, sx, sy);
@@ -248,7 +294,7 @@
         return { c, w: W, h: H };
     }
 
-    // ── Mountain ranges with rim light and wireframe faces ─────────────
+    // �� Mountain ranges with rim light and wireframe faces �������������
     function ridge(seed, n, rough) {
         const r = rng(seed);
         let pts = [r(), r()];
@@ -329,7 +375,7 @@
         return { c, w: W, h: H };
     }
 
-    // ── City skyline on the horizon, framed by the sun ─────────────────
+    // �� City skyline on the horizon, framed by the sun �����������������
     function paintCity(w, ch, sx, sy) {
         const W = w * 0.62, H = ch;
         const [c, x] = canvas(W, H, sx, sy);
@@ -375,7 +421,7 @@
         return { c, w: W, h: H };
     }
 
-    // ── Roadside sprites ───────────────────────────────────────────────
+    // �� Roadside sprites �����������������������������������������������
     function paintPalm(sx, sy, flip) {
         const W = 240, H = 330;
         const [c, x] = canvas(W, H, sx, sy);
@@ -622,16 +668,40 @@
         }
 
         _bake(ctx, w, h) {
+            if (window.game?.gameMode !== 'customise') loadArtwork();
             const m = ctx.getTransform();
-            const sx = Math.hypot(m.a, m.b) || 1, sy = Math.hypot(m.c, m.d) || 1;
-            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}`;
+            const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
+            const budget = Math.min(1, (mobile ? 768 : 1024) / w, (mobile ? 432 : 576) / h);
+            const sx = Math.min(Math.hypot(m.a, m.b) || 1, budget);
+            const sy = Math.min(Math.hypot(m.c, m.d) || 1, budget);
+            const generated = artwork.ready && window.game?.gameMode !== 'customise';
+            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${generated}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}`;
             if (key === this.key) return;
             this.key = key;
-            const hy = Math.round(h * HORIZON);
+            this.generated = generated;
+            const hy = Math.round(h * (generated ? 0.48 : HORIZON));
             this.hy = hy;
             // Sprites that are drawn scaled get a little extra resolution.
             const ps = Math.max(sx, sy) * 1.25;
             const [bc, bx] = canvas(w, h, sx, sy);
+            if (generated) {
+                bx.drawImage(artwork.scene, 0, 0, w, h);
+                this.base = bc;
+                // The sky is a separate parallax strip; the road stays fixed so
+                // lane markers and traffic retain their perspective alignment.
+                const [sky, skyCtx] = canvas(w, hy, sx, sy);
+                skyCtx.drawImage(artwork.scene, 0, 0, artwork.scene.naturalWidth,
+                    artwork.scene.naturalHeight * 0.48, 0, 0, w, hy);
+                this.sky = sky;
+                this.sprites = {
+                    palmL: artworkSprite('palm'), palmR: artworkSprite('palm', true),
+                    lampL: artworkSprite('lamp'), lampR: artworkSprite('lamp', true),
+                    signL: artworkSprite('sign'), signR: artworkSprite('sign', true),
+                    carA: artworkSprite('car'), carB: null
+                };
+                this.sprites.carB = this.sprites.carA;
+                this.sun = this.clouds = this.far = this.near = this.city = null;
+            } else {
             paintBase(bx, w, h, hy);
             this.base = bc;
             this.sun = paintSun(h * 0.2, sx, sy);
@@ -651,6 +721,8 @@
                 signL: paintSign(ps, ps, 1), signR: paintSign(ps, ps, -1),
                 carA: paintCar(ps, ps, '#1d0f33'), carB: paintCar(ps, ps, '#2a0d24'),
             };
+                this.sky = null;
+            }
             const [oc, ox] = canvas(w, h, sx, sy);
             paintOverlay(ox, w, h);
             this.overlay = oc;
@@ -669,6 +741,11 @@
             const lean = st.lean;
 
             ctx.drawImage(this.base, 0, 0, w, h);
+
+            if (this.generated) {
+                // Two image copies total for the backdrop; no draw-time filters.
+                ctx.drawImage(this.sky, -w * 0.012 - lean * w * 0.008, 0, w * 1.024, hy);
+            } else {
 
             // Sun, anchored on the horizon; it swells a touch on hits.
             const sun = this.sun;
@@ -690,6 +767,7 @@
             ctx.drawImage(far.c, (w - far.w) / 2 - lean * w * 0.012, hy - far.h + 1, far.w, far.h);
             ctx.drawImage(city.c, (w - city.w) / 2 - lean * w * 0.018, hy - city.h + 1, city.w, city.h);
             ctx.drawImage(near.c, (w - near.w) / 2 - lean * w * 0.03, hy - near.h + 1, near.w, near.h);
+            }
 
             // Moving ground grid: rows equally spaced in world depth.
             const rowY = (d) => hy + gh * NEAR / d;
@@ -713,7 +791,8 @@
             }
 
             // Centre lane dashes rushing toward the viewer.
-            const proj = (X, d) => cx + X * (w * 0.5) / d;
+            const roadScale = this.generated ? 1.85 : 1;
+            const proj = (X, d) => cx + X * roadScale * (w * 0.5) / d;
             const DASH = 2.4, DLEN = 1.0;
             const dz = (this.phase * 0.35) % DASH;
             ctx.fillStyle = `rgba(255,214,140,${(0.55 + st.pulse * 0.3).toFixed(3)})`;

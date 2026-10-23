@@ -942,7 +942,7 @@ class BackgroundRenderer {
     _getBackgroundRenderScale(w, h) {
         // Bound decorative fill/blend work independently of display resolution.
         // Gameplay entities and HUD are drawn later at native resolution.
-        if (this.mode === 'zombie') {
+        if (this.mode === 'zombie' || this.mode === 'speed') {
             const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
             return Math.min(1, (mobile ? 768 : 1024) / w, (mobile ? 432 : 576) / h);
         }
@@ -970,7 +970,7 @@ class BackgroundRenderer {
         // Settings > Animated backgrounds off: redraw only when the cache is
         // invalidated (mode, size or quality change).
         if (tier && tier.bgFps < 0) return Infinity;
-        if (this.mode === 'zombie') {
+        if (this.mode === 'zombie' || this.mode === 'speed') {
             const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
             const target = mobile ? 24 : 30;
             const configured = tier && Number.isFinite(tier.bgFps) && tier.bgFps > 0 ? tier.bgFps : target;
