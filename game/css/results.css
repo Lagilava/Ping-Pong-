@@ -14,9 +14,11 @@
 :where(.ppres) button { text-transform: none; letter-spacing: normal; font-family: inherit; }
 
 .ppres-box {
-    zoom: var(--pp-ui-zoom, 1);
-    width: min(460px, 100%);
-    max-height: calc(100dvh - 32px);
+    /* --ppres-k grows the card on big monitors (set from the viewport in results-card.js). */
+    --ppres-z: calc(var(--pp-ui-zoom, 1) * var(--ppres-k, 1));
+    zoom: var(--ppres-z);
+    width: min(460px, calc(100% / var(--ppres-z)));
+    max-height: calc((100dvh - 32px) / var(--ppres-z));
     overflow-y: auto;
     padding: 26px 26px 18px;
     border: 1px solid rgba(120, 220, 255, 0.3);

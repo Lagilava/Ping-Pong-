@@ -1121,7 +1121,39 @@ class ZombieBoss {
         ctx.restore();
     }
 
+    // The bar is text-heavy and changes only when the boss takes a hit, so it is
+    // drawn once into a small canvas (at the screen's pixel density) and blitted.
     renderHealthBar(ctx, now) {
+        const t = ctx.getTransform();
+        const scale = Math.max(1, Math.hypot(t.a, t.b));
+        const uiScale = Math.max(0.85, Math.min(1.4, this.game.width / 1280));
+        const barWidth = Math.min(300 * uiScale, this.game.width * 0.56);
+        const ratio = Math.max(0, Math.min(1, this.health / this.maxHealth));
+        const key = `${Math.round(barWidth * ratio * scale)}|${Math.round(barWidth * 10)}|${Math.ceil(ratio * 100)}|${ratio < 0.3 ? 1 : 0}|${this.wave >= this.maxWave ? 1 : 0}|${this.bossDisabled ? 1 : 0}|${Math.round(uiScale * 100)}|${scale}|${document.fonts?.check('11px "Share Tech Mono"') ? 1 : 0}`;
+        const pad = 16;
+        const w = Math.ceil(barWidth + 24 + pad * 2);
+        const h = 64 + pad * 2;
+        let c = this._hbCache;
+        if (!c || c.key !== key) {
+            if (!c) c = this._hbCache = { canvas: document.createElement('canvas'), key: '' };
+            const cv = c.canvas;
+            cv.width = Math.ceil(w * scale);
+            cv.height = Math.ceil(h * scale);
+            const cctx = cv.getContext('2d');
+            cctx.setTransform(scale, 0, 0, scale, 0, 0);
+            // Draw with the bar's left edge at x=pad+12 and its top plate at y=pad.
+            cctx.translate(pad + 12 - (this.game.width - barWidth) / 2, pad - (91 - 28));
+            this.drawHealthBar(cctx);
+            c.key = key;
+            c.x = (this.game.width - barWidth) / 2 - 12 - pad;
+            c.y = 91 - 28 - pad;
+            c.w = w;
+            c.h = h;
+        }
+        ctx.drawImage(c.canvas, c.x, c.y, c.w, c.h);
+    }
+
+    drawHealthBar(ctx) {
         const uiScale = Math.max(0.85, Math.min(1.4, this.game.width / 1280));
         const barWidth = Math.min(300 * uiScale, this.game.width * 0.56);
         const x = (this.game.width - barWidth) / 2;

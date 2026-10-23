@@ -41,6 +41,15 @@
         return root;
     }
 
+    // Grow the card on big monitors (1440p, 4K, ultrawide) so it keeps its presence;
+    // never shrink it (small screens are handled by max-height and mobile-fit.css).
+    function fitScale() {
+        if (!root) return;
+        const k = Math.min(1.8, Math.max(1, Math.min(window.innerWidth / 1280, window.innerHeight / 760)));
+        root.style.setProperty('--ppres-k', k.toFixed(3));
+    }
+    window.addEventListener('resize', fitScale);
+
     function isOpen() { return !!root?.classList.contains('open'); }
 
     // opts: { kicker, title, tone ('win'|'loss'|'neutral'), left: {label, score},
@@ -80,6 +89,7 @@
             box.classList.add('has-art');
             box.prepend(layer);
         }
+        fitScale();
         lastFocus = document.activeElement;
         root.classList.add('open');
         root.setAttribute('aria-hidden', 'false');

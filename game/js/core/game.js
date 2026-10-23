@@ -6816,10 +6816,16 @@ class Game {
             const titleFont = `800 ${Math.round(13 * k)}px ${window.PPArt?.DISPLAY || 'Orbitron, sans-serif'}`;
             const msgFont = `600 ${Math.round(15 * k)}px ${window.PPArt?.BODY || 'Rajdhani, sans-serif'}`;
             ctx.save();
-            ctx.font = titleFont;
-            const tw = ctx.measureText(n.title).width;
-            ctx.font = msgFont;
-            const mw = ctx.measureText(n.message).width;
+            // Text widths only change with the fonts, so measure once per toast.
+            const mkey = titleFont + '|' + msgFont;
+            if (!n._m || n._m.key !== mkey) {
+                ctx.font = titleFont;
+                const tw0 = ctx.measureText(n.title).width;
+                ctx.font = msgFont;
+                n._m = { key: mkey, tw: tw0, mw: ctx.measureText(n.message).width };
+            }
+            const tw = n._m.tw;
+            const mw = n._m.mw;
             const pad = 10 * k;
             const w = Math.min(this.width * 0.6, Math.max(tw, mw) + pad * 2);
             const h = 48 * k;

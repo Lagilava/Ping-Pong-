@@ -2164,11 +2164,17 @@ class ProgressionSystem {
     text-align: center;
     padding: 20px;
 }
+.all-unlocked-overlay { overflow-y: auto; box-sizing: border-box; }
 .all-unlocked-overlay .all-unlocked-message {
-    font-size: 28px;
-    line-height: 1.2;
-    max-width: 90%;
+    /* Scales with the screen: readable on small laptops, not tiny on 1440p/4K/ultrawide. */
+    font-size: clamp(15px, min(1.9vw, 3.6vh), 52px);
+    line-height: 1.4;
+    max-width: min(36em, 100%);
+    margin: auto;
+    text-wrap: pretty;
 }
+.all-unlocked-overlay .all-unlocked-message p { margin: 0 0 .8em; }
+.all-unlocked-overlay .all-unlocked-message button { font-size: .8em; }
 
 `;
 
