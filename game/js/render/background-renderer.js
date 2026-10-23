@@ -1279,14 +1279,18 @@ class BackgroundRenderer {
         leftRig.addColorStop(0.35, leftColor.replace('ALPHA', (0.14 * alphaMul).toFixed(3)));
         leftRig.addColorStop(1, 'transparent');
         ctx.fillStyle = leftRig;
-        ctx.fillRect(0, 0, w, h);
+        // Past its radius a rig is fully transparent, which leaves the
+        // destination untouched under 'screen', so fill only the part it
+        // reaches (the same picture for about half the blended pixels).
+        ctx.fillRect(0, 0, Math.min(w, Math.ceil(w * 0.47) + 1), h);
 
         const rightRig = ctx.createRadialGradient(w * 1.08, h * 0.45, 0, w * 1.08, h * 0.45, w * 0.55);
         rightRig.addColorStop(0, rightColor.replace('ALPHA', (0.24 * alphaMul).toFixed(3)));
         rightRig.addColorStop(0.35, rightColor.replace('ALPHA', (0.14 * alphaMul).toFixed(3)));
         rightRig.addColorStop(1, 'transparent');
         ctx.fillStyle = rightRig;
-        ctx.fillRect(0, 0, w, h);
+        const rightX = Math.max(0, Math.floor(w * 0.53) - 1);
+        ctx.fillRect(rightX, 0, w - rightX, h);
 
         const kicker = ctx.createLinearGradient(0, 0, 0, h * 0.35);
         kicker.addColorStop(0, `rgba(255,255,255,${(0.045 * alphaMul).toFixed(3)})`);
