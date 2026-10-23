@@ -977,6 +977,9 @@ class BackgroundRenderer {
             return 1000 / Math.min(target, configured);
         }
         if (tier && Number.isFinite(tier.bgFps)) {
+            // Gravity's scenery stacks several full-screen blend passes, so it
+            // refreshes at 30 like Zombie; Ultra (bgFps 0) still redraws every frame.
+            if (this.mode === 'gravity' && tier.bgFps > 30) return 1000 / 30;
             return tier.bgFps > 0 ? 1000 / tier.bgFps : 0;
         }
         switch (this.mode) {
