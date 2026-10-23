@@ -53,9 +53,13 @@ body.zombie-mode .ai-score::before { color: #a3b7b8; }
 @media (max-height: 520px) {
     .zombie-progress-overlay { bottom: 10px; right: 10px; }
 }
+/* No dark strip behind the scoreboard: the numbers carry their own outline. */
 body.zombie-mode #pp-enhanced-hud {
-    background: linear-gradient(180deg, #050c12ed, #050c1255);
-    border-bottom-color: #94afb51c;
+    background: none;
+    border-bottom: 0;
+}
+body.zombie-mode #pp-enhanced-hud :is(.pp-score-label, .pp-score-display) {
+    text-shadow: 0 1px 2px #000, 0 0 3px #000, 0 0 10px #000c;
 }
 body.zombie-mode .player-side .pp-score-label { color: #a3b7b8; }
 body.zombie-mode .ai-side .pp-score-label { color: #c69b8c; }
