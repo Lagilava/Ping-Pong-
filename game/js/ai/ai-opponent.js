@@ -302,6 +302,13 @@
         ],
     };
 
+    // More lines live in ai-lines*.js: general pools merge into LINES, while
+    // mode / style / difficulty pools are added per match in line().
+    for (const k in (window.AI_EXTRA_LINES || {})) LINES[k] = (LINES[k] || []).concat(window.AI_EXTRA_LINES[k]);
+    LINES.flavour = (LINES.flavour || []).concat(window.AI_STYLE_LINES?.flavour || []);
+    const MODE_LINES = window.AI_MODE_LINES || {};
+    const STYLE_LINES = window.AI_STYLE_LINES || {};
+
     class AIController {
         constructor(paddle, ball, canvasW, canvasH, diff = 2) {
             this.paddle = paddle;
@@ -333,7 +340,7 @@
 
             // What we know about the player
             this.habits = {
-                missTop: 0, missBottom: 0, wrongWay: 0, frozen: 0, fooledByFeint: 0,
+                missTop: 0, missBottom: 0, recentTop: 0, recentBottom: 0, wrongWay: 0, frozen: 0, fooledByFeint: 0,
                 returnsUp: 0, returnsDown: 0, returnsFlat: 0,
                 middleStreak: 0, sameDirStreak: 0, lastDir: 0,
                 pointsFromSpin: 0, pointsFromEdge: 0, spinShown: false,
@@ -345,6 +352,10 @@
             this.playerVelHistory = [];
             this.consecutiveAIScores = 0;
             this.consecutivePlayerScores = 0;
+            this.pointsSeen = 0;
+            this.peakAiLead = 0;
+            this.peakPlayerLead = 0;
+            this.playerTopSpeed = 0;
 
             // Talk
             this.currentTaunt = '';
@@ -411,6 +422,9 @@
         // when behind, so a match rarely turns into a blowout either way.
         intensity() {
             const lead = this.gameState.aiScore - this.gameState.playerScore;
+            // Near the end nobody eases off: match point is played for real.
+            const max = this.game?.maxScore || 0;
+            if (max && (this.gameState.playerScore >= max - 1 || this.gameState.aiScore >= max - 1)) return lead <= 0 ? 1.15 : 1;
             if (lead >= 6) return 0.45;
             if (lead >= 4) return 0.7;
             if (lead <= -3) return 1.15;
@@ -484,11 +498,18 @@
             const reach = SKILL.reach[d] * speedK * (f.tactic === 'safe' ? 0.3 : 1) * (0.85 + 0.15 * this.intensity());
             const pc = player.pos.y + player.h / 2;
             const pv = player.vel?.y || 0;
-            const pMax = (player.maxSpeed || 850) * (g.getKeyboardPaddleSpeed?.() || 1);
+            const nominalMax = (player.maxSpeed || 850) * (g.getKeyboardPaddleSpeed?.() || 1);
             const read = SKILL.read[d];
+            // A player who never gets near full paddle speed can be out-run
+            // more aggressively; trust that read as far as the level allows.
+            const seen = this.playerTopSpeed;
+            const pMax = seen > 0 && this.pointsSeen >= 3
+                ? nominalMax * (1 - read * (1 - clamp(seen * 1.1 / nominalMax, 0.55, 1)))
+                : nominalMax;
             const h = this.habits;
-            const missTotal = h.missTop + h.missBottom;
-            const weak = missTotal >= 2 ? (h.missTop > h.missBottom * 1.5 ? -1 : h.missBottom > h.missTop * 1.5 ? 1 : 0) : 0;
+            // Recent misses count most, so it follows you when you fix a side.
+            const missTotal = h.recentTop + h.recentBottom;
+            const weak = missTotal >= 1.5 ? (h.recentTop > h.recentBottom * 1.6 ? -1 : h.recentBottom > h.recentTop * 1.6 ? 1 : 0) : 0;
             const lastLand = this.lastLandings[this.lastLandings.length - 1];
 
             let best = null;
@@ -636,6 +657,7 @@
             const player = g?.player;
             if (!player) return;
             this.playerVelHistory.push(player.vel?.y || 0);
+            this.playerTopSpeed = Math.max(this.playerTopSpeed * 0.9998, Math.abs(player.vel?.y || 0));
             if (this.playerVelHistory.length > 60) this.playerVelHistory.shift();
 
             if (b.vel.x < 0 && !this.passSnapshot && b.pos.x < player.pos.x - b.r * 0.5) {
@@ -719,15 +741,31 @@
             return window.PPSettings?.get('taunts') !== false;
         }
 
+        modeId() {
+            const m = this.game?.gameMode || 'classic';
+            return m === 'customise' ? 'custom' : m;
+        }
+
+        // The general pool plus whatever fits this arena, play style and level.
+        poolFor(key) {
+            const mode = this.modeId();
+            return [].concat(
+                LINES[key] || [],
+                MODE_LINES[key + '@' + mode] || [],
+                STYLE_LINES[key + '@' + this.style.id] || [],
+                STYLE_LINES[key + '@d' + this.difficulty] || []);
+        }
+
         line(key, fill) {
-            const pool = LINES[key];
-            if (!pool || !pool.length) return null;
-            let bag = this.bags.get(key);
+            const pool = this.poolFor(key);
+            if (!pool.length) return null;
+            const bagKey = key + '|' + this.modeId() + '|' + this.style.id + '|' + this.difficulty;
+            let bag = this.bags.get(bagKey);
             if (!bag || !bag.length) {
                 bag = pool.slice().sort(() => Math.random() - 0.5);
                 // Don't restart a pool with the line we just used.
                 if (bag.length > 1 && this.lastLines.includes(bag[bag.length - 1])) bag.unshift(bag.pop());
-                this.bags.set(key, bag);
+                this.bags.set(bagKey, bag);
             }
             let text = bag.pop();
             if (fill) text = text.replace(/\{(\w+)\}/g, (m, name) => (fill[name] !== undefined ? fill[name] : m));
@@ -849,7 +887,9 @@
             if (shot) this.creditPlan(shot, 1);
 
             if (!snap) { this.say('ai_point'); this.pointPlayed(); return; }
-            if (snap.side < 0) h.missTop++; else h.missBottom++;
+            this.pointsSeen++;
+            h.recentTop *= 0.8; h.recentBottom *= 0.8;
+            if (snap.side < 0) { h.missTop++; h.recentTop++; } else { h.missBottom++; h.recentBottom++; }
             if (snap.wrongWay) h.wrongWay++;
             if (snap.frozen) h.frozen++;
             const sideCount = snap.side < 0 ? h.missTop : h.missBottom;
@@ -877,11 +917,23 @@
             else if (snap.gap > snap.h) opts.push(['miss_far']);
             if (snap.speed > snap.maxSpeed * 0.75) opts.push(['miss_fast']);
 
-            // Usually the top reason, sometimes the second, so a repeated
-            // situation doesn't always get the same kind of line.
+            // Moments (first point, ace, streak) beat the usual explanation.
+            const sc = this.game?.scores || {};
+            const aiS = sc.ai ?? this.gameState.aiScore, plS = sc.player ?? this.gameState.playerScore;
+            this.peakAiLead = Math.max(this.peakAiLead, aiS - plS);
+            if (aiS === 1 && plS === 0) opts.unshift(['first_point_ai']);
+            if (snap.rally <= 1 && snap.gap > snap.h * 0.2) opts.unshift([Math.random() < 0.5 ? 'ace_ai' : 'quick_point_ai']);
+            else if (snap.rally <= 2) opts.push(['quick_point_ai']);
+            if (this.consecutiveAIScores >= 3) opts.unshift(['ai_streak', { n: this.consecutiveAIScores }]);
+            if (this.peakPlayerLead >= 3 && aiS === plS) { opts.unshift(['comeback_ai']); this.peakPlayerLead = 0; }
+
+            // Usually the top reason, sometimes the second, sometimes a plain
+            // remark, so a repeated situation doesn't always sound the same.
             const choice = opts.length > 1 && Math.random() < 0.3 ? opts[1] : opts[0];
-            if (choice) this.say(choice[0], choice[1]);
-            else if (Math.random() < 0.5) this.say(this.scoreFlavourKey() || 'ai_point');
+            if (choice && Math.random() < 0.18) this.say(Math.random() < 0.5 ? 'miss_any' : 'ai_point');
+            else if (choice) this.say(choice[0], choice[1]);
+            else if (Math.random() < 0.5) this.say(this.scoreFlavourKey() || (Math.random() < 0.35 ? 'miss_any' : 'ai_point'));
+            this.announceMatchPoint(aiS, plS);
             this.pointPlayed();
         }
 
@@ -908,9 +960,17 @@
             if (hit?.steep) opts.push(['hit_angle']);
             const rally = snap?.rally || 0;
             if (rally >= 12) opts.push(['player_point_long_rally', { n: rally }]);
+            const sc = this.game?.scores || {};
+            const aiS = sc.ai ?? this.gameState.aiScore, plS = sc.player ?? this.gameState.playerScore;
+            this.peakPlayerLead = Math.max(this.peakPlayerLead, plS - aiS);
+            if (plS === 1 && aiS === 0) opts.unshift(['first_point_player']);
+            if (this.peakAiLead >= 3 && aiS === plS) { opts.unshift(['comeback_player', { n: this.peakAiLead }]); this.peakAiLead = 0; }
+
             const choice = opts.length > 1 && Math.random() < 0.3 ? opts[1] : opts[0];
-            if (choice) this.say(choice[0], choice[1]);
+            if (choice && Math.random() < 0.15) this.say('player_point');
+            else if (choice) this.say(choice[0], choice[1]);
             else if (Math.random() < 0.55) this.say(this.scoreFlavourKey() || 'player_point');
+            this.announceMatchPoint(aiS, plS);
             this.pointPlayed();
         }
 
@@ -920,7 +980,23 @@
             if (diff >= 5) return 'lead_big';
             if (diff <= -4) return 'trail_big';
             if (diff === 0 && this.gameState.aiScore >= 3) return 'tied';
+            // Quiet moment: a remark about the arena, the level or the match.
+            const r = Math.random();
+            if (r < 0.3) return 'flavour';
+            if (r < 0.45) return 'mode_' + this.modeId();
             return null;
+        }
+
+        // Said a beat after the point line, if that has cleared by then.
+        announceMatchPoint(aiS, plS) {
+            const max = this.game?.maxScore || 0;
+            if (!max || max < 4) return;
+            const key = aiS === max - 1 && plS < aiS ? 'match_point_ai' : plS === max - 1 && aiS < plS ? 'match_point_player' : null;
+            if (!key) return;
+            clearTimeout(this._momentTimer);
+            this._momentTimer = setTimeout(() => {
+                if (this.game?.running && !this.currentTaunt) this.say(key, null, 3);
+            }, 3400);
         }
 
         // ── Game plan ──────────────────────────────────────────────────
@@ -963,7 +1039,7 @@
             if (this.introDone || !this.tacticsEnabled()) return;
             this.introDone = true;
             setTimeout(() => {
-                if (this.game?.running && !this.game.introActive) this.say('intro_' + this.style.id, null, 3);
+                if (this.game?.running && !this.game.introActive) this.say(Math.random() < 0.5 && this.poolFor('intro_mode').length ? 'intro_mode' : 'intro_' + this.style.id, null, 3);
             }, 900);
         }
 
@@ -971,6 +1047,7 @@
             if (this.hasShownMatchEnd || !this.tacticsEnabled()) return;
             this.hasShownMatchEnd = true;
             clearTimeout(this._planTimer);
+            clearTimeout(this._momentTimer);
             const h = this.habits;
             let key = aiWon ? 'end_win' : 'end_loss', fill = null;
             if (aiWon) {
