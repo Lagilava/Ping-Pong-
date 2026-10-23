@@ -259,58 +259,53 @@ class GravityWell {
         }
     }
 
-    #renderLightBloom(ctx, pulse, excit, intensity = this.#lightIntensity) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = 0.3 * intensity;
+    // Fixed-size maps are shared by every well, including Forge wells.
+    // Movement and pulse still render every frame; soft gradients are baked once.
+    static #glowSprites = new Map();
 
-        const radius = this.#radius * (1.8 + excit * 0.2) * pulse;
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-        grad.addColorStop(0, `rgba(185, 225, 255, ${0.28 + excit * 0.12})`);
-        grad.addColorStop(0.45, 'rgba(118, 178, 255, 0.16)');
-        grad.addColorStop(1, 'transparent');
-
-        ctx.fillStyle = grad;
+    static #sprite(kind) {
+        if (this.#glowSprites.has(kind)) return this.#glowSprites.get(kind);
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        const stops = {
+            bloom: [[0, 'rgba(185,225,255,0.28)'], [0.45, 'rgba(118,178,255,0.16)'], [1, 'transparent']],
+            core: [[0, 'rgba(18,24,48,0)'], [0.55, 'rgba(18,24,48,0)'], [0.76, GravityWell.COLORS.CORE_GLOW], [0.9, 'rgba(195,230,255,0.18)'], [1, 'transparent']],
+            horizon: [[0, '#000'], [0.7, 'rgba(3,5,13,0.98)'], [1, 'rgba(10,18,40,0.1)']],
+            burst: [[0, 'rgba(215,240,255,0.75)'], [0.35, 'rgba(118,178,255,0.28)'], [1, 'transparent']]
+        };
+        const gradient = ctx.createRadialGradient(128, 128, kind === 'core' ? 32 : 0, 128, 128, 128);
+        for (const [at, color] of stops[kind]) gradient.addColorStop(at, color);
+        ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.arc(128, 128, 128, 0, Math.PI * 2);
         ctx.fill();
+        this.#glowSprites.set(kind, canvas);
+        return canvas;
+    }
+
+    #drawGlow(ctx, kind, radius, alpha, screen = true) {
+        const sprite = GravityWell.#sprite(kind);
+        if (!sprite) return;
+        ctx.save();
+        if (screen) ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha *= alpha;
+        ctx.drawImage(sprite, -radius, -radius, radius * 2, radius * 2);
         ctx.restore();
+    }
+
+    #renderLightBloom(ctx, pulse, excit, intensity = this.#lightIntensity) {
+        this.#drawGlow(ctx, 'bloom', this.#radius * (1.8 + excit * 0.2) * pulse,
+            0.3 * intensity * (1 + excit * 0.2));
     }
 
     #renderCoreGlow(ctx, pulse, excit) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-
-        const glowRadius = this.#radius * pulse * 1.2;
-        const coreGrad = ctx.createRadialGradient(0, 0, this.#radius * 0.3, 0, 0, glowRadius);
-        coreGrad.addColorStop(0, 'rgba(18, 24, 48, 0)');
-        coreGrad.addColorStop(0.55, 'rgba(18, 24, 48, 0)');
-        coreGrad.addColorStop(0.76, GravityWell.COLORS.CORE_GLOW);
-        coreGrad.addColorStop(0.9, 'rgba(195, 230, 255, 0.18)');
-        coreGrad.addColorStop(1, 'transparent');
-
-        ctx.fillStyle = coreGrad;
-        ctx.globalAlpha = 0.75 + excit * 0.2;
-        ctx.beginPath();
-        ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.restore();
+        this.#drawGlow(ctx, 'core', this.#radius * pulse * 1.2, 0.75 + excit * 0.2);
     }
 
     #renderEventHorizon(ctx, pulse, excit) {
-        ctx.save();
-        const radius = this.#radius * pulse;
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-        grad.addColorStop(0, 'rgba(0, 0, 0, 1)');
-        grad.addColorStop(0.7, 'rgba(3, 5, 13, 0.98)');
-        grad.addColorStop(1, 'rgba(10, 18, 40, 0.1)');
-
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        this.#drawGlow(ctx, 'horizon', this.#radius * pulse, 1, false);
     }
 
     render(ctx, timeOverride) {
@@ -346,20 +341,7 @@ class GravityWell {
 
         // Intensity burst (Visual pop without blur overhead)
         if (excit > 0.8) {
-            ctx.save();
-            ctx.globalCompositeOperation = 'screen';
-            ctx.globalAlpha = (excit - 0.8) * 0.3;
-
-            const burstGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.#radius * 3);
-            burstGrad.addColorStop(0, 'rgba(215, 240, 255, 0.75)');
-            burstGrad.addColorStop(0.35, 'rgba(118, 178, 255, 0.28)');
-            burstGrad.addColorStop(1, 'transparent');
-
-            ctx.fillStyle = burstGrad;
-            ctx.beginPath();
-            ctx.arc(0, 0, this.#radius * 3, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
+            this.#drawGlow(ctx, 'burst', this.#radius * 3, (excit - 0.8) * 0.3);
         }
 
         ctx.restore();
