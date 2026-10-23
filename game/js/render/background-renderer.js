@@ -105,18 +105,18 @@ class BackgroundRenderer {
             },
         };
 
-        // Speed mode v2 — road splashes pool
+        // Speed mode v2 - road splashes pool
         this._splashes = [];
         this._MAX_SPLASHES = 20;
 
-        // Speed mode v2 — baked rain config (matches screenshot settings)
-        this._speedRainSlant = 0.60;   // slant (0–1)
+        // Speed mode v2 - baked rain config (matches screenshot settings)
+        this._speedRainSlant = 0.60;   // slant (0-1)
         this._speedRainSpeed = 2.00;   // speed multiplier
         this._speedPollutionAmt = 1.00;   // sky light pollution strength
         this._speedBloomAmt = 0.25;   // bloom intensity
         this._speedSaturation = 0.00;   // colour saturation (0 = greyscale/gritty)
 
-        // Speed mode — lightning strike state
+        // Speed mode - lightning strike state
         this._speedLightning = null;
         this._resetSpeedLightning();
 
@@ -303,7 +303,7 @@ class BackgroundRenderer {
 
         switch (this.mode) {
 
-            // ── CLASSIC ──────────────────────────────────────────────
+            // �� CLASSIC ����������������������������������������������
             case 'classic':
                 for (let i = 0; i < 50; i++) {
                     this.dustParticles.push({
@@ -324,7 +324,7 @@ class BackgroundRenderer {
                 }));
                 break;
 
-            // ── ZOMBIE ───────────────────────────────────────────────
+            // �� ZOMBIE �����������������������������������������������
             case 'zombie':
                 this.lightLayers.push(this._makeLight('radial', {
                     x: W * 0.76, y: H * 0.22,
@@ -379,7 +379,7 @@ class BackgroundRenderer {
                 }
                 break;
 
-            // ── GRAVITY ──────────────────────────────────────────────
+            // �� GRAVITY ����������������������������������������������
             case 'gravity':
                 for (let i = 0; i < 200; i++) {
                     this.stars.push({
@@ -416,12 +416,12 @@ class BackgroundRenderer {
                 }));
                 break;
 
-            // ── SPEED ────────────────────────────────────────────────
+            // �� SPEED ������������������������������������������������
             case 'speed':
                 // The rush backdrop is drawn in one cheap cached canvas pass.
                 break;
 
-            // ── OBSTACLE ─────────────────────────────────────────────
+            // �� OBSTACLE ���������������������������������������������
             case 'obstacle':
                 this.lavaVeins = null;
                 break;
@@ -483,7 +483,7 @@ class BackgroundRenderer {
     }
 
     // ------------------------------------------------------------------
-    // SPEED RAIN BUILDER — v2 schema
+    // SPEED RAIN BUILDER - v2 schema
     // ------------------------------------------------------------------
     _buildSpeedRain() {
         const W = this.width, H = this.height;
@@ -813,7 +813,7 @@ class BackgroundRenderer {
             }
             this._splashes.length = splashWriteIndex;
         } else if (this.mode === 'speed') {
-            // v2 rain update — slanted, wobbled
+            // v2 rain update - slanted, wobbled
             const slantPx = this._speedRainSlant * 220 * this._speedRainSpeed;
             for (let i = 0; i < this.rainParticles.length; i++) {
                 const p = this.rainParticles[i];
@@ -942,7 +942,7 @@ class BackgroundRenderer {
     _getBackgroundRenderScale(w, h) {
         // Bound decorative fill/blend work independently of display resolution.
         // Gameplay entities and HUD are drawn later at native resolution.
-        if (this.mode === 'zombie') {
+        if (this.mode === 'zombie' || this.mode === 'gravity') {
             const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
             return Math.min(1, (mobile ? 768 : 1024) / w, (mobile ? 432 : 576) / h);
         }
@@ -970,16 +970,13 @@ class BackgroundRenderer {
         // Settings > Animated backgrounds off: redraw only when the cache is
         // invalidated (mode, size or quality change).
         if (tier && tier.bgFps < 0) return Infinity;
-        if (this.mode === 'zombie') {
+        if (this.mode === 'zombie' || this.mode === 'gravity') {
             const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
             const target = mobile ? 24 : 30;
             const configured = tier && Number.isFinite(tier.bgFps) && tier.bgFps > 0 ? tier.bgFps : target;
             return 1000 / Math.min(target, configured);
         }
         if (tier && Number.isFinite(tier.bgFps)) {
-            // Gravity's scenery stacks several full-screen blend passes, so it
-            // refreshes at 30 like Zombie; Ultra (bgFps 0) still redraws every frame.
-            if (this.mode === 'gravity' && tier.bgFps > 30) return 1000 / 30;
             return tier.bgFps > 0 ? 1000 / tier.bgFps : 0;
         }
         switch (this.mode) {
@@ -1375,7 +1372,7 @@ class BackgroundRenderer {
         const bloomPulse = 0.9 + Math.sin(this.modePhase * 2.2) * 0.10;
         const baseHue = 270 + this.skyHueShift;
 
-        // ── 1. SKY ────────────────────────────────────────────────────────────
+        // �� 1. SKY ������������������������������������������������������������
         const sky = ctx.createLinearGradient(0, 0, 0, horizonY);
         sky.addColorStop(0, `hsl(${baseHue.toFixed(1)},30%,4%)`);
         sky.addColorStop(0.25, `hsl(${(baseHue + 5).toFixed(1)},35%,8%)`);
@@ -1385,12 +1382,12 @@ class BackgroundRenderer {
         ctx.fillStyle = sky;
         ctx.fillRect(0, 0, w, horizonY + 1);
 
-        // ── 2. STARS ──────────────────────────────────────────────────────────
+        // �� 2. STARS ����������������������������������������������������������
         if (areParticleEffectsEnabled()) {
             for (let i = 0; i < this.dustParticles.length; i++) {
                 const p = this.dustParticles[i];
                 if (p.y >= horizonY) continue;
-                // Re-use dustParticles as stars — treat hue 290 as cold, 195 as warm
+                // Re-use dustParticles as stars - treat hue 290 as cold, 195 as warm
                 const tw = (Math.sin(this.time * (p.speed * 0.4) + p.x) + 1) / 2;
                 const a = p.alpha * (0.35 + tw * 0.65);
                 const sz = p.size * (0.65 + tw * 0.35);
@@ -1406,7 +1403,7 @@ class BackgroundRenderer {
             }
         }
 
-        // ── 3. SUN ────────────────────────────────────────────────────────────
+        // �� 3. SUN ������������������������������������������������������������
         const sunCX = w * 0.5 + Math.sin(this.modePhase * 0.3) * w * 0.012;
         const sunCY = horizonY * 0.74;
         const sunR = Math.min(w, h) * 0.072;
@@ -1422,7 +1419,7 @@ class BackgroundRenderer {
             ctx.fillRect(sunCX - sunR * 3.5, sunCY - sunR * 3.5, sunR * 7, sunR * 7);
         }
 
-        // Sun disc — drawn on offscreen canvas to use destination-out stripe clipping
+        // Sun disc - drawn on offscreen canvas to use destination-out stripe clipping
         {
             const side = Math.ceil(sunR * 2 + 4);
             const ox = Math.round(sunCX - sunR);
@@ -1480,7 +1477,7 @@ class BackgroundRenderer {
             ctx.restore();
         }
 
-        // ── 4. HORIZON BLOOM ─────────────────────────────────────────────────
+        // �� 4. HORIZON BLOOM �������������������������������������������������
         {
             const bloom = ctx.createLinearGradient(0, horizonY - 55, 0, horizonY + 30);
             bloom.addColorStop(0, 'transparent');
@@ -1491,8 +1488,8 @@ class BackgroundRenderer {
             ctx.fillRect(0, horizonY - 55, w, 85);
         }
 
-        // ── 5. MOUNTAIN SILHOUETTES ───────────────────────────────────────────
-        // Far layer — lighter purple
+        // �� 5. MOUNTAIN SILHOUETTES �������������������������������������������
+        // Far layer - lighter purple
         {
             ctx.save();
             ctx.beginPath();
@@ -1522,7 +1519,7 @@ class BackgroundRenderer {
             ctx.restore();
         }
 
-        // Near layer — dark purple-black + neon rim
+        // Near layer - dark purple-black + neon rim
         {
             const nearPts = [
                 [0, horizonY + 22],
@@ -1555,7 +1552,7 @@ class BackgroundRenderer {
             ctx.fillStyle = '#0d0420';
             ctx.fill();
 
-            // Neon rim along mountain ridgeline — screen blend
+            // Neon rim along mountain ridgeline - screen blend
             ctx.globalCompositeOperation = 'screen';
             buildPath();
             const rimGrad = ctx.createLinearGradient(0, horizonY - 94, 0, horizonY + 10);
@@ -1567,7 +1564,7 @@ class BackgroundRenderer {
             ctx.restore();
         }
 
-        // ── 6. GROUND — dark base ─────────────────────────────────────────────
+        // �� 6. GROUND - dark base ���������������������������������������������
         const ground = ctx.createLinearGradient(0, horizonY, 0, h);
         ground.addColorStop(0, `hsl(${(baseHue + 36).toFixed(1)},28%,7%)`);
         ground.addColorStop(0.4, `hsl(${(baseHue + 32).toFixed(1)},24%,5%)`);
@@ -1575,7 +1572,7 @@ class BackgroundRenderer {
         ctx.fillStyle = ground;
         ctx.fillRect(0, horizonY, w, h - horizonY);
 
-        // ── 7. PERSPECTIVE GRID ───────────────────────────────────────────────
+        // �� 7. PERSPECTIVE GRID �����������������������������������������������
         {
             const lines = 22;
             const gridShift = this.gridOffset % ((h - horizonY) / lines);
@@ -1600,7 +1597,7 @@ class BackgroundRenderer {
             }
         }
 
-        // ── 8. GROUND GLOW ────────────────────────────────────────────────────
+        // �� 8. GROUND GLOW ����������������������������������������������������
         {
             const gGlow = ctx.createLinearGradient(0, h - 90, 0, h);
             gGlow.addColorStop(0, 'transparent');
@@ -1610,7 +1607,7 @@ class BackgroundRenderer {
             ctx.fillRect(0, h - 90, w, 90);
         }
 
-        // ── 9. DUST PARTICLES (only below horizon — above handled as stars) ───
+        // �� 9. DUST PARTICLES (only below horizon - above handled as stars) ���
         if (areParticleEffectsEnabled()) {
             this.dustParticles.forEach(p => {
                 if (p.y < horizonY) return;
@@ -1621,12 +1618,12 @@ class BackgroundRenderer {
             });
         }
 
-        // ── 10. SCANLINES ─────────────────────────────────────────────────────
+        // �� 10. SCANLINES �����������������������������������������������������
         ctx.fillStyle = 'rgba(0,0,0,0.032)';
         let startY = -(this.scanlineOffset % 3);
         for (let y = startY; y < h; y += 3) ctx.fillRect(0, y, w, 1);
 
-        // ── 11. VIGNETTES & PERIPHERAL RIGS ──────────────────────────────────
+        // �� 11. VIGNETTES & PERIPHERAL RIGS ����������������������������������
         const topVig = ctx.createLinearGradient(0, 0, 0, h * 0.22);
         topVig.addColorStop(0, 'rgba(0,0,0,0.68)');
         topVig.addColorStop(1, 'transparent');
@@ -2384,7 +2381,7 @@ class BackgroundRenderer {
         ctx.lineWidth = 0.8;
         ctx.stroke();
 
-        // ── Moonlight Top Rim (High contrast) ──────────────────────
+        // �� Moonlight Top Rim (High contrast) ����������������������
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         palmPath();
@@ -2441,7 +2438,7 @@ class BackgroundRenderer {
         ctx.lineWidth = 0.7;
         ctx.stroke();
 
-        // ── Moonlight Top Rim (Consistency) ──
+        // �� Moonlight Top Rim (Consistency) ��
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         wristPath();
@@ -2541,7 +2538,7 @@ class BackgroundRenderer {
         let sprite = ZOMBIE_PHALANX_SPRITES.get(key);
         if (!sprite) {
             const wb2 = wb / 2;
-            // Local drawing bounds: the widest fill is the base at ±wb2, the bone
+            // Local drawing bounds: the widest fill is the base at �wb2, the bone
             // stub reaches -len-11, and knuckle ellipses extend a little past y=0.
             const pad = 6;
             const minX = -(wb2 + pad);
@@ -2620,7 +2617,7 @@ class BackgroundRenderer {
         ctx.fill();
 
         // Moonlight glow (directional). Light angle is continuous, so quantise the
-        // centre to keep the cache bounded — sub-pixel, so it is not visible.
+        // centre to keep the cache bounded - sub-pixel, so it is not visible.
         skinPath();
         const glx = Math.round(lx * 4) / 4;
         const gly = Math.round(ly * 4) / 4;
@@ -2725,7 +2722,7 @@ class BackgroundRenderer {
     // GRAVITY
     // ------------------------------------------------------------------
     _buildGravityNebulaSprite(p) {
-        const size = Math.max(8, Math.round(p.size));
+        const size = Math.max(8, Math.min(128, Math.round(p.size)));
         const side = size * 2;
         const sprite = document.createElement('canvas');
         sprite.width = side;
@@ -2901,12 +2898,18 @@ class BackgroundRenderer {
     }
 
     _ensureGravityStaticLayer(w, h) {
+        const scale = this._getBackgroundRenderScale(w, h);
+        const pw = Math.max(1, Math.round(w * scale));
+        const ph = Math.max(1, Math.round(h * scale));
         if (!this._gravityStaticCanvas ||
-            this._gravityStaticCanvas.width !== w ||
-            this._gravityStaticCanvas.height !== h) {
+            this._gravityStaticCanvas.width !== pw ||
+            this._gravityStaticCanvas.height !== ph ||
+            this._gravityStaticW !== w || this._gravityStaticH !== h) {
             this._gravityStaticCanvas = document.createElement('canvas');
-            this._gravityStaticCanvas.width = w;
-            this._gravityStaticCanvas.height = h;
+            this._gravityStaticCanvas.width = pw;
+            this._gravityStaticCanvas.height = ph;
+            this._gravityStaticW = w;
+            this._gravityStaticH = h;
             this._gravityStaticCtx = this._gravityStaticCanvas.getContext('2d');
             this._gravityStaticPainted = false;
         }
@@ -2917,6 +2920,7 @@ class BackgroundRenderer {
         if (this._gravityStaticPainted) return this._gravityStaticCanvas;
         this._gravityStaticPainted = true;
 
+        gctx.setTransform(pw / w, 0, 0, ph / h, 0, 0);
         gctx.clearRect(0, 0, w, h);
 
         const base = gctx.createRadialGradient(w * 0.5, h * 0.4, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.9);
@@ -2953,7 +2957,7 @@ class BackgroundRenderer {
         const lctx = layer.ctx;
         if (!lctx) {
             const staticLayer = this._ensureGravityStaticLayer(w, h);
-            if (staticLayer) ctx.drawImage(staticLayer, 0, 0);
+            if (staticLayer) ctx.drawImage(staticLayer, 0, 0, w, h);
             return;
         }
         const pos = layer.pos;
@@ -2965,7 +2969,7 @@ class BackgroundRenderer {
             lctx.setTransform(pw / w, 0, 0, ph / h, 0, 0);
             lctx.clearRect(0, 0, w, h);
             const staticLayer = this._ensureGravityStaticLayer(w, h);
-            if (staticLayer) lctx.drawImage(staticLayer, 0, 0);
+            if (staticLayer) lctx.drawImage(staticLayer, 0, 0, w, h);
             const next = layer.pos = new Array(nebula.length * 2);
             for (let i = 0; i < nebula.length; i++) {
                 const p = nebula[i];
@@ -3130,7 +3134,7 @@ class BackgroundRenderer {
     }
 
     // ------------------------------------------------------------------
-    // SPEED — v2 (realism pass)
+    // SPEED - v2 (realism pass)
     // Settings baked from screenshot:
     //   count=200, slant=0.60, speed=2.00
     //   roadY=0.80, pollution=1.00, bloom=0.25, saturation=0.00
@@ -3162,7 +3166,7 @@ class BackgroundRenderer {
     _paintSpeedStaticSky(ctx, w, h, roadY, vx, pollA, sat) {
         const sSat = (s) => (s * sat).toFixed(1);
 
-        // ── 1. SKY — sodium light-pollution palette ───────────────────
+        // �� 1. SKY - sodium light-pollution palette �������������������
         const sky = ctx.createLinearGradient(0, 0, 0, roadY);
         sky.addColorStop(0, `hsl(240,${sSat(14)}%,3%)`);
         sky.addColorStop(0.5, `hsl(245,${sSat(18)}%,5%)`);
@@ -3186,7 +3190,7 @@ class BackgroundRenderer {
         ctx.fillStyle = neonBleed;
         ctx.fillRect(0, roadY * 0.80, w, roadY * 0.20);
 
-        // ── 2. CITY — far layer ───────────────────────────────────────
+        // �� 2. CITY - far layer ���������������������������������������
         ctx.save();
         ctx.shadowBlur = 3;
         ctx.shadowColor = 'rgba(40,20,60,0.5)';
@@ -3202,7 +3206,7 @@ class BackgroundRenderer {
         }
         ctx.restore();
 
-        // Far haze — warm-tinted
+        // Far haze - warm-tinted
         const fHaze = ctx.createLinearGradient(0, roadY * 0.70, 0, roadY);
         fHaze.addColorStop(0, 'rgba(8,5,14,0.0)');
         fHaze.addColorStop(1, 'rgba(16,11,12,0.74)');
@@ -4047,4 +4051,3 @@ class BackgroundRenderer {
 // ===================================================================
 // PARTICLE CLASS - cartoony & short-lived edition
 // ===================================================================
-
