@@ -14,16 +14,16 @@
     'use strict';
 
     const C = {
-        RANGE: 0.44,          // reach in front of the paddle, fraction of court width (< 0.5)
-        HALF_BAND: 0.28,      // reach above and below the paddle centre, fraction of court height
-        DRAIN: 0.42,           // energy per second while pulling (2 s from full)
+        RANGE: 0.48,          // reach in front of the paddle, fraction of court width (< 0.5)
+        HALF_BAND: 0.33,      // reach above and below the paddle centre, fraction of court height
+        DRAIN: 0.30,           // energy per second while pulling (3.3 s from full)
         REGEN: 0.45,           // energy per second while idle
         REGEN_DELAY: 0.35,    // seconds after letting go before it recharges
         MIN_START: 0.12,      // energy needed to start a pull
-        PULL_SPEED: 320,      // px/s at 720p, close to the paddle
-        TAG_TIME: 1.1,        // a zombie stays "pulled" this long after leaving the field
-        KILL_SCORE: 0.75,      // share of the normal kill score for a barricade kill
-        MASS: { shambler: 1, runner: 0.8, spitter: 0.9, tank: 0.62 },
+        PULL_SPEED: 480,      // px/s at 720p, close to the paddle
+        TAG_TIME: 1.4,        // a zombie stays "pulled" this long after leaving the field
+        KILL_SCORE: 1.0,      // share of the normal kill score for a barricade kill
+        MASS: { shambler: 1, runner: 0.8, spitter: 0.9, tank: 0.78 },
     };
 
     const TAU = Math.PI * 2;
@@ -94,12 +94,12 @@
                 if (this.energy <= 0) { this.exhaust = 0.7; g.audio?.zombiePull?.('empty'); }
                 else g.audio?.zombiePull?.('end');
                 this.snap = 1;
-                this.rings.push({ age: 0 });
+                if (this.rings.length < 6) this.rings.push({ age: 0 });
             }
 
             if (this.active) {
                 this.energy = Math.max(0, this.energy - C.DRAIN * dt);
-                this.ramp = Math.min(1, this.ramp + dt / 0.22);
+                this.ramp = Math.min(1, this.ramp + dt / 0.16);
                 this.sfxTimer -= dt;
                 if (this.sfxTimer <= 0) { this.sfxTimer = 0.2; g.audio?.zombiePull?.('tick'); }
             } else {
@@ -162,6 +162,7 @@
 
         // A pulled zombie reached the line: destroyed for points, no life lost.
         devour(zombie) {
+            if (zombie.dead) return;
             const g = this.game, st = g.zombieState;
             zombie.dead = true;
             // Keep a copy that spirals into the maw for a moment.
@@ -169,11 +170,11 @@
             st.kills++;
             st.totalKills++;
             g.addZombieScore(Math.round(zombie.type.score * C.KILL_SCORE));
-            g.particles.spawnGodTierHit(zombie.x, zombie.y, '#9dff6a', 900);
+            this.energy = Math.min(1, this.energy + 0.06); // successful devours sustain a chain
             g.audio?.zombiePull?.('devour');
             g.screenShake = Math.max(g.screenShake || 0, 4);
             this.gulp = 1;
-            this.rings.push({ age: 0 });
+            if (this.rings.length < 6) this.rings.push({ age: 0 });
         }
 
         // World-space data for the shader (null when idle).
@@ -191,7 +192,7 @@
             if (this.ramp <= 0.01) return;
             const g = this.game, b = this.band, r = this.ramp;
             const shader = !!(g.postFx && g.postFx.active);
-            const t = this.time;
+            const t = window.PPSettings?.get('reduceMotion') ? 0 : this.time;
             ctx.save();
             ctx.lineWidth = 1.5;
             ctx.setLineDash([10, 9]);
@@ -224,18 +225,42 @@
                     ctx.stroke();
                 }
             }
+            // Six curved soul streams converge into the maw. Three travelling
+            // wavefronts communicate suction without a full-screen shader.
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = 'rgba(169,255,126,0.28)';
+            ctx.globalAlpha = r;
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            for (let lane = 0; lane < 6; lane++) {
+                const v = (lane / 5 - 0.5) * 1.8;
+                ctx.moveTo(end, b.y0 + v * b.half);
+                ctx.quadraticCurveTo(b.x0 + b.range * 0.42, b.y0 + v * b.half * 0.6, b.x0, b.y0);
+            }
+            ctx.stroke();
+            for (let n = 0; n < 3; n++) {
+                const u = 1 - ((t * 0.85 + n / 3) % 1);
+                ctx.globalAlpha = r * Math.sin(u * Math.PI) * 0.65;
+                ctx.strokeStyle = n % 2 ? '#bc93ff' : '#ceff9b';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(b.x0 + b.range * u, b.y0,
+                    Math.max(2, b.half * 0.14 * u), Math.max(2, b.half * u), 0, -Math.PI / 2, Math.PI / 2);
+                ctx.stroke();
+            }
             ctx.restore();
         }
 
         // Tendrils from the paddle to every zombie it is dragging.
         renderTethers(ctx, zombies) {
             if (this.ramp <= 0.3) return;
-            const b = this.band, t = this.time, r = this.ramp;
+            const b = this.band, t = window.PPSettings?.get('reduceMotion') ? 0 : this.time, r = this.ramp;
             ctx.save();
             ctx.lineCap = 'round';
-            for (let i = 0; i < zombies.length; i++) {
+            for (let i = 0, drawn = 0; i < zombies.length && drawn < 12; i++) {
                 const z = zombies[i];
                 if (z.dead || !(z.pullAmt > 0.05)) continue;
+                drawn++;
                 const sx = b.x0 + 2, sy = b.y0 + (z.y - b.y0) * 0.25;
                 const ex = z.x - z.radius * 0.7, ey = z.y;
                 const mx = (sx + ex) / 2, my = (sy + ey) / 2 + Math.sin(t * 7 + i * 1.7) * 18 * r;
@@ -272,7 +297,7 @@
                 const tx = b.x0 + 4, ty = b.y0;
                 ctx.save();
                 ctx.translate(tx + (e.x - tx) * (1 - ease), ty + (e.y - ty) * (1 - ease));
-                ctx.rotate(k * 7);
+                ctx.rotate(window.PPSettings?.get('reduceMotion') ? 0 : k * 7);
                 const sc = Math.max(0.05, 1 - ease * 0.95);
                 ctx.scale(sc, sc);
                 ctx.globalAlpha = 1 - k * 0.4;
@@ -291,7 +316,7 @@
             this._wrapped = true;
             const t = this.time;
             // lub-dub heartbeat while the pull is open
-            const hb = r * (Math.max(0, Math.sin(this.beat)) ** 6 * 0.07 + Math.max(0, Math.sin(this.beat - 0.9)) ** 6 * 0.04);
+            const hb = window.PPSettings?.get('reduceMotion') ? 0 : r * (Math.max(0, Math.sin(this.beat)) ** 6 * 0.07 + Math.max(0, Math.sin(this.beat - 0.9)) ** 6 * 0.04);
             const brace = r < 1 ? Math.sin(Math.min(1, r / 0.55) * Math.PI) * 0.1 : 0;   // squash, then open
             const sx = 1 + hb + this.gulp * 0.25 + r * 0.14 - brace - this.snap * 0.1;
             const sy = 1 - hb * 0.4 + r * 0.03 + brace * 0.4 + this.gulp * 0.04;
@@ -310,7 +335,7 @@
         renderPaddle(ctx) {
             const g = this.game, p = g.player;
             if (!p) return;
-            const r = this.ramp, t = this.time;
+            const r = this.ramp, t = window.PPSettings?.get('reduceMotion') ? 0 : this.time;
             const x = p.pos.x, y = p.pos.y, w = p.w, h = p.h;
             const front = x + w, cy = y + h / 2;
 
@@ -376,12 +401,12 @@
                 ctx.strokeStyle = `rgba(190,140,255,${0.8 * r * flicker})`;
                 ctx.lineWidth = 2;
                 ctx.setLineDash([h * 0.05, h * 0.045]);
-                ctx.lineDashOffset = -this.spin * 14;
+                ctx.lineDashOffset = window.PPSettings?.get('reduceMotion') ? 0 : -this.spin * 14;
                 ctx.beginPath(); ctx.ellipse(front, cy, rr * 0.55, rr, 0, 0, TAU); ctx.stroke();
                 ctx.setLineDash([]);
                 ctx.strokeStyle = `rgba(157,255,106,${0.7 * r * flicker})`;
                 for (let k = 0; k < 4; k++) {
-                    const a = this.spin + k * Math.PI / 2;
+                    const a = (window.PPSettings?.get('reduceMotion') ? 0 : this.spin) + k * Math.PI / 2;
                     const px = front + Math.cos(a) * rr * 0.55, py = cy + Math.sin(a) * rr;
                     ctx.beginPath(); ctx.moveTo(px, py - 4); ctx.lineTo(px + 3, py); ctx.lineTo(px, py + 4); ctx.lineTo(px - 3, py); ctx.closePath(); ctx.stroke();
                 }
@@ -426,11 +451,10 @@
                 ctx.fillStyle = '#d8ffbf';
                 for (let i = 0; i < this.motes.length; i++) {
                     const m = this.motes[i];
-                    m.u -= (0.25 + 0.9 * (1 - m.u)) * m.s * (1 / 60);
-                    if (m.u <= 0.02) { m.u = 0.5 + Math.random() * 0.5; m.v = (Math.random() - 0.5) * 2; }
-                    const mx = b.x0 + b.range * m.u * 0.9;
-                    const my = b.y0 + m.v * b.half * m.u * 0.9;
-                    ctx.globalAlpha = Math.min(1, m.u * 3) * 0.8 * r;
+                    const u = 1 - ((t * m.s * 0.7 + m.u) % 1);
+                    const mx = b.x0 + b.range * u * 0.9;
+                    const my = b.y0 + m.v * b.half * u * 0.9;
+                    ctx.globalAlpha = Math.min(1, u * 3) * 0.8 * r;
                     ctx.fillRect(mx - 1.5, my - 1.5, 3, 3);
                 }
                 ctx.globalAlpha = 1;
@@ -439,10 +463,22 @@
             // Rings when the pull ends or a zombie is eaten.
             for (let i = 0; i < this.rings.length; i++) {
                 const k = this.rings[i].age / 0.5;
+                const expansion = window.PPSettings?.get('reduceMotion') ? 0.15 : 1 - (1 - k) ** 3;
                 ctx.strokeStyle = `rgba(190,255,150,${0.7 * (1 - k)})`;
                 ctx.lineWidth = 3 * (1 - k) + 1;
                 ctx.beginPath();
-                ctx.arc(front, cy, h * 0.15 + k * h * 0.7, 0, TAU);
+                ctx.ellipse(front, cy, h * (0.18 + expansion * 0.8), h * (0.3 + expansion * 0.6), 0, 0, TAU);
+                ctx.stroke();
+                ctx.strokeStyle = `rgba(190,140,255,${0.55 * (1 - k) ** 2})`;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                for (let shard = 0; shard < 8; shard++) {
+                    const a = shard * TAU / 8;
+                    const radius = h * (0.3 + expansion * 0.65);
+                    ctx.moveTo(front + Math.cos(a) * radius, cy + Math.sin(a) * radius);
+                    ctx.lineTo(front + Math.cos(a) * (radius + h * 0.12 * (1 - k)),
+                        cy + Math.sin(a) * (radius + h * 0.12 * (1 - k)));
+                }
                 ctx.stroke();
             }
             ctx.restore();

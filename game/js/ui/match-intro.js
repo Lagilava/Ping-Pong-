@@ -64,6 +64,27 @@ class Intro {
         this.createAnimatedTexts();
     }
 
+    // Drawing uses the game's existing DPR / online-view transform.
+    // Backing-store pixels must never be used as text layout coordinates.
+    get viewWidth() { return this.game.width || this.canvas.clientWidth || this.canvas.width; }
+    get viewHeight() { return this.game.height || this.canvas.clientHeight || this.canvas.height; }
+
+    refreshTextMetrics() {
+        let index = 0;
+        this.textConfigs.forEach((config, block) => {
+            const chars = Array.from(config.phrase), tracking = config.fontSize * 0.05;
+            const widths = chars.map(ch => ch === ' ' ? config.fontSize * 0.5
+                : this.measureTextWidth(ch, config.fontSize) + tracking);
+            const width = widths.reduce((a, b) => a + b, 0) - tracking;
+            this.textBlocks[block].width = width;
+            let x = -width / 2;
+            chars.forEach((ch, n) => {
+                if (ch !== ' ') this.texts[index++].offsetX = x;
+                x += widths[n];
+            });
+        });
+    }
+
     initAudio() {
         if (!this.bgMusic) {
             this.bgMusic = new Audio();
@@ -141,9 +162,9 @@ class Intro {
         return {
             type: 'comet',
             x: startOnScreen
-                ? Math.random() * this.canvas.width
-                : (goLeft ? this.canvas.width + 80 : -80),
-            y: Math.random() * this.canvas.height * 0.38,
+                ? Math.random() * this.viewWidth
+                : (goLeft ? this.viewWidth + 80 : -80),
+            y: Math.random() * this.viewHeight * 0.38,
             size: 3.0 + Math.random() * 3.8,
             speedX: goLeft ? -speed * Math.cos(angle) : speed * Math.cos(angle),
             speedY: speed * Math.sin(angle),
@@ -165,9 +186,9 @@ class Intro {
         return {
             type: 'streak',
             x: startOnScreen
-                ? Math.random() * this.canvas.width
-                : (goRight ? -(60 + Math.random() * 180) : this.canvas.width + 60 + Math.random() * 180),
-            y: this.canvas.height * (0.04 + Math.random() * 0.50),
+                ? Math.random() * this.viewWidth
+                : (goRight ? -(60 + Math.random() * 180) : this.viewWidth + 60 + Math.random() * 180),
+            y: this.viewHeight * (0.04 + Math.random() * 0.50),
             size: 1.1 + Math.random() * 2.0,
             speedX: goRight ? speed * Math.cos(Math.abs(drift)) : -speed * Math.cos(Math.abs(drift)),
             speedY: speed * Math.sin(drift),
@@ -183,8 +204,8 @@ class Intro {
         // Twinkling 4-pointed star sparkles drifting in the sky
         return {
             type: 'spark',
-            x: Math.random() * this.canvas.width,
-            y: Math.random() * this.canvas.height * 0.56,
+            x: Math.random() * this.viewWidth,
+            y: Math.random() * this.viewHeight * 0.56,
             size: 1.8 + Math.random() * 3.2,
             speedX: (Math.random() - 0.5) * 16,
             speedY: -(5 + Math.random() * 18), // float upward
@@ -202,8 +223,8 @@ class Intro {
         // Neon ping-pong balls — thematic to the game
         return {
             type: 'ball',
-            x: 20 + Math.random() * (this.canvas.width - 40),
-            y: 20 + Math.random() * this.canvas.height * 0.44,
+            x: 20 + Math.random() * (this.viewWidth - 40),
+            y: 20 + Math.random() * this.viewHeight * 0.44,
             size: 5 + Math.random() * 7,
             speedX: (Math.random() - 0.5) * 85,
             speedY: (Math.random() - 0.5) * 65,
@@ -315,8 +336,8 @@ class Intro {
     }
 
     handleParticleBoundaries(p) {
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this.viewWidth;
+        const h = this.viewHeight;
 
         // Ping-pong balls bounce within the sky area
         if (p.type === 'ball') {
@@ -423,8 +444,8 @@ class Intro {
 
         this.ctx.clearRect(
             -this.screenShake * 12, -this.screenShake * 12,
-            this.canvas.width + this.screenShake * 24,
-            this.canvas.height + this.screenShake * 24
+            this.viewWidth + this.screenShake * 24,
+            this.viewHeight + this.screenShake * 24
         );
 
         this.renderBackground(dt);
@@ -434,8 +455,8 @@ class Intro {
     }
 
     renderBackground(dt = 0) {
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this.viewWidth;
+        const h = this.viewHeight;
 
         const game = typeof window !== 'undefined' ? window.game : null;
         const settings = game?.customSettings;
@@ -484,8 +505,8 @@ class Intro {
     }
 
     renderSunset() {
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this.viewWidth;
+        const h = this.viewHeight;
         // bob sun up and down slightly for a living sky effect
         const sunY = h * Intro.HORIZON_Y_RATIO - 80 + Math.sin(this.time * 0.08) * 12;
         const sunX = w * 0.5 + Math.sin(this.time * 0.12) * 40;
@@ -511,8 +532,8 @@ class Intro {
 
     renderSunLightingOverlay(x, y, pulse) {
         const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this.viewWidth;
+        const h = this.viewHeight;
 
         const grad = ctx.createRadialGradient(x, y, 0, x, y, h * 0.8);
         grad.addColorStop(0, 'rgba(255,220,180,0.12)');
@@ -539,7 +560,7 @@ class Intro {
 
     renderSunRays(x, y, pulse) {
         const ctx = this.ctx;
-        const horizonY = this.canvas.height * Intro.HORIZON_Y_RATIO;
+        const horizonY = this.viewHeight * Intro.HORIZON_Y_RATIO;
         const rayCount = 14;
         const innerR = 70 * pulse;
         const outerR = 175 * pulse;
@@ -548,7 +569,7 @@ class Intro {
         ctx.save();
         // only draw rays above the horizon line to avoid them popping behind buildings
         ctx.beginPath();
-        ctx.rect(0, 0, this.canvas.width, horizonY);
+        ctx.rect(0, 0, this.viewWidth, horizonY);
         ctx.clip();
 
         ctx.globalCompositeOperation = 'screen';
@@ -579,7 +600,7 @@ class Intro {
         const hueShift = Math.sin(this.time * 0.09) * 18;
         const baseHue = 260 + p * 80 + hueShift;
 
-        const gradient = this.ctx.createLinearGradient(0, this.canvas.height * 0.28, 0, this.canvas.height);
+        const gradient = this.ctx.createLinearGradient(0, this.viewHeight * 0.28, 0, this.viewHeight);
         gradient.addColorStop(0.00, `hsla(${baseHue}, 60%, 2%, 0)`);
         gradient.addColorStop(0.15, `hsla(${baseHue + 20}, 88%, 8%, 0.42)`);
         gradient.addColorStop(0.30, `hsla(${baseHue + 40}, 96%, 14%, 0.80)`);
@@ -589,12 +610,12 @@ class Intro {
         gradient.addColorStop(1.00, `hsla(${baseHue + 120}, 60%, 2%, 1)`);
 
         this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillRect(0, 0, this.viewWidth, this.viewHeight);
     }
 
     renderMountains() {
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this.viewWidth;
+        const h = this.viewHeight;
         const horizonY = h * Intro.HORIZON_Y_RATIO;
 
         // apply a slow horizontal wobble to the mountain silhouette
@@ -650,8 +671,8 @@ class Intro {
     }
 
     renderCityLine() {
-        const horizonY = this.canvas.height * Intro.HORIZON_Y_RATIO;
-        const w = this.canvas.width;
+        const horizonY = this.viewHeight * Intro.HORIZON_Y_RATIO;
+        const w = this.viewWidth;
 
         // Generate building layout once with a deterministic RNG
         if (!this._cityBuildings) {
@@ -740,8 +761,8 @@ class Intro {
     }
 
     renderDistantGrid() {
-        const horizonY = this.canvas.height * Intro.HORIZON_Y_RATIO;
-        const vpX = this.canvas.width / 2;
+        const horizonY = this.viewHeight * Intro.HORIZON_Y_RATIO;
+        const vpX = this.viewWidth / 2;
         const segments = Intro.GRID_SEGMENTS;
 
         const gridPulse = 0.03 + Math.sin(this.time * 0.18) * 0.015;
@@ -756,7 +777,7 @@ class Intro {
             // wrap index and compute warped position
             let idx = (i + move * segments) % segments;
             if (idx < 1) idx += segments; // ensure in [1,segments]
-            const y = horizonY + (this.canvas.height - horizonY) * Math.pow(idx / segments, 2.2);
+            const y = horizonY + (this.viewHeight - horizonY) * Math.pow(idx / segments, 2.2);
             const widthAtY = (y - horizonY) * 2.8;
 
             this.ctx.beginPath();
@@ -765,7 +786,7 @@ class Intro {
             this.ctx.stroke();
 
             if (i % 5 === 0) {
-                const fade = 0.3 * (1 - (y - horizonY) / (this.canvas.height - horizonY));
+                const fade = 0.3 * (1 - (y - horizonY) / (this.viewHeight - horizonY));
                 this.ctx.globalAlpha = fade;
                 this.ctx.beginPath();
                 this.ctx.moveTo(vpX, horizonY);
@@ -779,8 +800,8 @@ class Intro {
     }
 
     renderGrid() {
-        const horizonY = this.canvas.height * Intro.HORIZON_Y_RATIO;
-        const vpX = this.canvas.width / 2;
+        const horizonY = this.viewHeight * Intro.HORIZON_Y_RATIO;
+        const vpX = this.viewWidth / 2;
         const segments = Intro.GRID_SEGMENTS;
 
         const gridPulse = 0.065 + Math.sin(this.time * 0.18) * 0.032;
@@ -793,7 +814,7 @@ class Intro {
         for (let i = 1; i <= segments; i++) {
             let idx = (i + move * segments) % segments;
             if (idx < 1) idx += segments;
-            const y = horizonY + (this.canvas.height - horizonY) * Math.pow(idx / segments, 1.7);
+            const y = horizonY + (this.viewHeight - horizonY) * Math.pow(idx / segments, 1.7);
             const widthAtY = (y - horizonY) * 4.6;
 
             this.ctx.beginPath();
@@ -802,7 +823,7 @@ class Intro {
             this.ctx.stroke();
 
             if (i % 4 === 0) {
-                const fade = 0.42 * (1 - (y - horizonY) / (this.canvas.height - horizonY));
+                const fade = 0.42 * (1 - (y - horizonY) / (this.viewHeight - horizonY));
                 this.ctx.globalAlpha = fade;
                 this.ctx.beginPath();
                 this.ctx.moveTo(vpX, horizonY);
@@ -979,8 +1000,8 @@ class Intro {
     }
 
     renderRimLighting() {
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this.viewWidth;
+        const h = this.viewHeight;
         const sunX = w * 0.5 + Math.sin(this.time * 0.12) * 40;
         const sunY = h * Intro.HORIZON_Y_RATIO - 80;
 
@@ -998,8 +1019,8 @@ class Intro {
     }
 
     renderVignette() {
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this.viewWidth;
+        const h = this.viewHeight;
 
         const vig = this.ctx.createRadialGradient(w / 2, h / 2, h * 0.18, w / 2, h / 2, h * 1.12);
         vig.addColorStop(0.00, 'rgba(0,0,0,0)');
@@ -1013,8 +1034,8 @@ class Intro {
     }
 
     renderScanlines() {
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this.viewWidth;
+        const h = this.viewHeight;
         const scanMod = 0.5 + Math.sin(this.time * 1.8) * 0.5;
 
         this.ctx.fillStyle = `rgba(0,0,0,${Intro.SCANLINE_ALPHA * scanMod})`;
@@ -1024,8 +1045,8 @@ class Intro {
     }
 
     renderGrain() {
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+        const w = this.viewWidth;
+        const h = this.viewHeight;
 
         this.ctx.globalAlpha = Intro.GRAIN_ALPHA;
         this.ctx.fillStyle = '#ffffff';
@@ -1040,19 +1061,20 @@ class Intro {
     // Scale that keeps the widest line inside the canvas on small windows.
     getTextFit() {
         const maxW = Math.max(...this.textBlocks.map(b => b.width), 1);
-        const byWidth = (this.canvas.width * 0.9) / maxW;
-        const byHeight = this.canvas.height / 640;
-        return Math.min(1, byWidth, Math.max(0.5, byHeight));
+        // Reserve room for italic overhang, glow, entrance overshoot and shake.
+        const byWidth = this.viewWidth * 0.82 / maxW;
+        const byHeight = this.viewHeight / 720;
+        return Math.max(0.001, Math.min(2.5, byWidth, byHeight));
     }
 
     renderTexts() {
-        const cx = this.canvas.width / 2;
+        const cx = this.viewWidth / 2;
         const fit = this.getTextFit();
 
         if (this.impactFlash > 0.02) {
             this.ctx.globalAlpha = Math.min(1, this.impactFlash) * 0.35;
             this.ctx.fillStyle = '#ff0066';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillRect(0, 0, this.viewWidth, this.viewHeight);
             this.ctx.globalAlpha = 1;
         }
 
@@ -1060,20 +1082,20 @@ class Intro {
         const lead = this.texts[0];
         if (lead && this.time > 0.1) {
             const fade = Math.min(1, this.time / 1.2) * Math.max(0, Math.min(1, (this.duration - this.time) / (this.textFade || 0.9)));
-            const h = this.canvas.height;
+            const h = this.viewHeight;
             const g = this.ctx.createLinearGradient(0, h * 0.18, 0, h * 0.78);
             g.addColorStop(0, 'rgba(0,0,0,0)');
             g.addColorStop(0.35, `rgba(0,0,0,${0.38 * fade})`);
             g.addColorStop(0.7, `rgba(0,0,0,${0.38 * fade})`);
             g.addColorStop(1, 'rgba(0,0,0,0)');
             this.ctx.fillStyle = g;
-            this.ctx.fillRect(0, h * 0.18, this.canvas.width, h * 0.6);
+            this.ctx.fillRect(0, h * 0.18, this.viewWidth, h * 0.6);
         }
 
         this.texts.forEach(item => {
             if (item.alpha < 0.02) return;
             this.renderTextLine(item.char, item.fontSize * fit, item.color, item.glowColor,
-                cx + item.offsetX * fit, this.canvas.height * item.y + item.dropY * fit, item);
+                cx + item.offsetX * fit, this.viewHeight * item.y + item.dropY * fit, item);
         });
     }
 
@@ -1134,6 +1156,11 @@ class Intro {
         // Timeline depends on the duration chosen by Game.startIntro.
         this.initTextConfigs();
         this.createAnimatedTexts();
+        // Web fonts may arrive after a fast match start. Re-measure positions
+        // without restarting the timeline or replaying impacts.
+        if (typeof document !== 'undefined' && document.fonts) {
+            document.fonts.ready.then(() => this.refreshTextMetrics());
+        }
 
         this.active = true;
         this.running = true;

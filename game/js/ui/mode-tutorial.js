@@ -16,7 +16,7 @@
             goal: 'Clear each wave by hitting every zombie with the ball. In the boss wave, score past the boss until its health is gone.',
             steps: [
                 ['Protect five lives', 'A ball past your paddle or a zombie reaching the barricade costs one life for the whole run.'],
-                ['Use your pull', 'Hold Space to drag nearby zombies toward the barricade, where they are destroyed for points. Pull uses energy and only reaches part of the court.'],
+                ['Use your pull', 'Hold Space to drag nearby zombies toward the barricade, where they are destroyed for points. Pull uses energy and only reaches part of the court. Devouring zombies restores some energy and awards their full score.'],
                 ['Grow stronger', 'Collect glowing orbs with the ball and pick a reward after each wave. Defeat the boss in wave 10 to win.']
             ],
             tip: 'Use pull when a zombie is close to your side, then let its energy recover. With a mouse, the right button pulls too.',
