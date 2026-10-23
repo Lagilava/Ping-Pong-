@@ -942,6 +942,12 @@ class BackgroundRenderer {
     _getBackgroundRenderScale(w, h) {
         // Bound decorative fill/blend work independently of display resolution.
         // Gameplay entities and HUD are drawn later at native resolution.
+        if (this.mode === 'gravity') {
+            const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
+            const fps = typeof PerfGovernor !== 'undefined' ? PerfGovernor.current.bgFps : 0;
+            const cap = mobile || (fps > 0 && fps <= 30) ? 1024 : fps > 0 && fps <= 45 ? 1536 : 1920;
+            return Math.min(1, cap / w, (cap * 9 / 16) / h);
+        }
         if (this.mode === 'zombie' || this.mode === 'gravity' || this.mode === 'speed') {
             const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
             return Math.min(1, (mobile ? 768 : 1024) / w, (mobile ? 432 : 576) / h);
@@ -1201,6 +1207,7 @@ class BackgroundRenderer {
     // ENHANCED LIGHTING
     // ------------------------------------------------------------------
     renderEnhancedLighting(ctx, w, h) {
+        if (this.mode === 'gravity' && window.GravityArt?.status().sceneReady) return;
         // Zombie's moonlight already includes its tint and surface lighting.
         // The legacy overlay gradients duplicated that work every game frame.
         if (this.mode === 'zombie') return;

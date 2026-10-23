@@ -2,20 +2,21 @@
 
 Generated with OpenAI ImageGen on 24 October 2026.
 
-- gravity-scene.webp: 1280 x 720 opaque cosmic background; 136350 bytes.
-- gravity-well.webp: 512 x 512 transparent vortex sprite; 77570 bytes.
+- gravity-scene-hd.webp: native 1672 x 941 background, quality 94 WebP, 559048 bytes.
+- gravity-planets.webp: 1774 x 887 transparent two-planet atlas, 425480 bytes.
+- gravity-well.webp: 512 x 512 transparent vortex sprite, 77570 bytes.
 
-The assets are decoded once. Background animation uses one image with a small
-parallax offset and 36 simple stars. Each gameplay well uses one rotating image
-and a thin activity ring when excited. Existing well forces, movement and warp
-ownership remain in their original modules. Failed images use procedural fallbacks.
-The fallback wells composite into bounded 384 x 384 caches at up to 30 Hz.
+The HD plate contains no fixed planets. Two separately drawn planets drift and
+rotate; 72 stars move at different speeds and twinkle, with eight cross sparkles.
+The backdrop, planets and well use three shared image requests per page. No
+new textures or gradients are created while drawing warm animation frames.
 
-Gravity disables the full-screen WebGL post-process and live Canvas shadows,
-and caps gameplay backing resolution at CSS pixel size. This avoids the scene
-upload/bloom/composite cost while preserving baked art detail. Background cache
-resolution and cadence remain bounded separately from gameplay.
+Gravity scenery caps: High/Ultra 1920 x 1080, Medium 1536 x 864,
+Low/mobile 1024 x 576, never larger than the logical viewport. Scenery still
+updates at up to 30 Hz desktop / 24 Hz mobile independently of gameplay.
+The quality governor reduces the resolution budget when frame times worsen.
 
-Wormhole input accepts an early press up to 350 ms before entering well range,
-spends cooldown only on activation, and cancels pending presses on a new serve.
-Keyboard, touch and gamepad input use the same request path.
+The full-screen post-process and live Canvas shadows remain disabled for
+Gravity. Existing well forces and the buffered Wormhole input are unchanged.
+The old gravity-scene.webp remains available in history/checkout but is no
+longer requested. Failed new images retain the bounded procedural fallback.
