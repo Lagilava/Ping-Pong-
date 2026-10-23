@@ -186,7 +186,7 @@ class GravityWormhole {
         const color = GravityWormhole.COLORS[charge - 1];
         to.flare?.();
         g.popText?.(charge > before ? `WARP +${charge}` : 'WARP', x, y - 34, color, 30);
-        g.particles?.spawnGodTierHit(x, y, GravityWormhole.WARP, 900);
+        // The bounded portal burst below replaces the expensive general hit emitter.
         g.postFx?.ripple(to.pos.x, to.pos.y, 0.75);
         g.postFx?.punch(0.55);
         g.hitStop = Math.max(g.hitStop || 0, 0.03);
@@ -230,13 +230,22 @@ class GravityWormhole {
         if (!this.warp && ready.length) {
             const entry = this.nearestWell();
             if (entry) {
-                ctx.globalAlpha = 0.6;
+                ctx.globalAlpha = motion ? 0.55 + Math.sin(this.clock * 5) * 0.15 : 0.6;
                 ctx.strokeStyle = '#cbb8ff';
                 ctx.lineWidth = 1.6;
-                ctx.setLineDash([5, 9]);
+                ctx.setLineDash([12, 8]);
                 ctx.lineDashOffset = motion ? -this.clock * 24 : 0;
                 ctx.beginPath(); ctx.arc(entry.pos.x, entry.pos.y, entry.radius * 1.35, 0, Math.PI * 2); ctx.stroke();
                 ctx.setLineDash([]);
+                // Inward ticks make the activation window visible beside the ball.
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const a = i * Math.PI / 3 + (motion ? this.clock * 0.45 : 0);
+                    const r = entry.radius * 1.6;
+                    ctx.moveTo(entry.pos.x + Math.cos(a) * r, entry.pos.y + Math.sin(a) * r);
+                    ctx.lineTo(entry.pos.x + Math.cos(a) * (r + 6), entry.pos.y + Math.sin(a) * (r + 6));
+                }
+                ctx.stroke();
                 for (const side of ready) this.renderExitMarker(ctx, side, this.exitFor(side, entry), motion);
             }
         }
@@ -257,8 +266,7 @@ class GravityWormhole {
         ctx.translate(well.pos.x, well.pos.y);
         ctx.rotate(a);
         ctx.strokeStyle = '#e6dcff';
-        ctx.shadowColor = GravityWormhole.WARP;
-        ctx.shadowBlur = 10;
+        // Crisp chevrons avoid per-frame blur on the full-resolution arena.
         ctx.lineWidth = 3.2;
         ctx.lineJoin = 'round';
         for (let i = 0; i < 3; i++) {
@@ -269,74 +277,96 @@ class GravityWormhole {
         ctx.restore();
     }
 
+    // Layered strokes provide the glow without shadowBlur or temporary canvases.
+    strokeEnergy(ctx, color, width = 2) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width + 7;
+        const alpha = ctx.globalAlpha;
+        ctx.globalAlpha = alpha * 0.12;
+        ctx.stroke();
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = width;
+        ctx.stroke();
+    }
+
     renderWarp(ctx, w, motion) {
-        const from = w.from;
+        const from = w.from, to = w.to || this.exitFor(w.side, from);
         const k = Math.min(1, w.t / GravityWormhole.SWALLOW);
-        // A violet vortex tightening over the entry hole.
+        const transit = Math.max(0, Math.min(1, (w.t - GravityWormhole.SWALLOW) / GravityWormhole.TRANSIT));
         ctx.save();
         ctx.translate(from.pos.x, from.pos.y);
-        ctx.rotate((motion ? this.clock * 7 : 0) * w.spin);
-        ctx.strokeStyle = GravityWormhole.WARP;
-        ctx.shadowColor = GravityWormhole.WARP;
-        ctx.shadowBlur = 14;
-        ctx.globalAlpha = 0.85 * (1 - Math.max(0, w.t - GravityWormhole.SWALLOW) / GravityWormhole.TRANSIT);
-        for (let i = 0; i < 3; i++) {
-            const rr = from.radius * (1.25 - k * 0.5) * (1 - i * 0.2);
-            const a = i * Math.PI * 2 / 3;
-            ctx.lineWidth = 3 - i * 0.7;
-            ctx.beginPath(); ctx.arc(0, 0, rr, a, a + Math.PI * (0.55 + k * 0.4)); ctx.stroke();
-        }
-        ctx.restore();
-        // Once the ball is gone, a thread of light runs to the exit hole.
-        if (w.t < GravityWormhole.SWALLOW * 0.6) return;
-        const to = w.to || this.exitFor(w.side, from);
-        if (!to || to === from) return;
-        const p = Math.min(1, (w.t - GravityWormhole.SWALLOW * 0.6) / (GravityWormhole.SWALLOW * 0.4 + GravityWormhole.TRANSIT));
-        const mx = (from.pos.x + to.pos.x) / 2, my = (from.pos.y + to.pos.y) / 2;
-        const nx = -(to.pos.y - from.pos.y) * 0.18, ny = (to.pos.x - from.pos.x) * 0.18;
-        ctx.save();
-        ctx.strokeStyle = '#e6dcff';
-        ctx.shadowColor = GravityWormhole.WARP;
-        ctx.shadowBlur = 12;
-        ctx.lineWidth = 2.5;
-        ctx.globalAlpha = 0.85;
-        ctx.setLineDash([16, 12]);
-        ctx.lineDashOffset = motion ? -this.clock * 900 : 0;
+        ctx.rotate(motion ? w.spin * k * k * 4 : 0);
+        ctx.globalAlpha = 0.9 * (1 - transit);
         ctx.beginPath();
-        // Draw only the travelled part of the curve.
-        const steps = 16;
-        for (let i = 0; i <= steps; i++) {
-            const t = (i / steps) * p, u = 1 - t;
-            const x = u * u * from.pos.x + 2 * u * t * (mx + nx) + t * t * to.pos.x;
-            const y = u * u * from.pos.y + 2 * u * t * (my + ny) + t * t * to.pos.y;
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        // Three tapered spiral arms contract with the ball.
+        for (let arm = 0; arm < 3; arm++) {
+            for (let i = 0; i <= 12; i++) {
+                const q = i / 12, r = from.radius * (0.25 + q * 1.4) * (1 - k * 0.65);
+                const angle = arm * Math.PI * 2 / 3 + q * 2.8 * w.spin;
+                const x = Math.cos(angle) * r, y = Math.sin(angle) * r;
+                if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
         }
-        ctx.stroke();
+        this.strokeEnergy(ctx, '#c4abff', 2.2);
+        ctx.restore();
+        if (!to) return;
+        // Destination charges before the ball arrives, making the route readable.
+        ctx.save();
+        ctx.globalAlpha = 0.25 + k * 0.65;
+        ctx.beginPath();
+        const r = to.radius * (motion ? 1.8 - k * 0.65 : 1.15);
+        ctx.arc(to.pos.x, to.pos.y, r, 0, Math.PI * 2);
+        this.strokeEnergy(ctx, '#9eefff', 1.5);
+        ctx.restore();
+        if (to === from || w.t < GravityWormhole.SWALLOW * 0.5) return;
+        const p = Math.min(1, (w.t - GravityWormhole.SWALLOW * 0.5)
+            / (GravityWormhole.SWALLOW * 0.5 + GravityWormhole.TRANSIT));
+        const cx = (from.pos.x + to.pos.x) / 2 - (to.pos.y - from.pos.y) * 0.18;
+        const cy = (from.pos.y + to.pos.y) / 2 + (to.pos.x - from.pos.x) * 0.18;
+        ctx.save();
+        ctx.globalAlpha = 0.22;
+        ctx.beginPath(); ctx.moveTo(from.pos.x, from.pos.y);
+        ctx.quadraticCurveTo(cx, cy, to.pos.x, to.pos.y);
+        this.strokeEnergy(ctx, '#b494ff', 1);
+        // A compact comet travels along the curve; only its tail is tessellated.
+        ctx.globalAlpha = 0.95;
+        ctx.beginPath();
+        for (let i = 0; i <= 16; i++) {
+            const t = motion ? Math.max(0, p - 0.23 + i / 16 * 0.23) : i / 16;
+            const u = 1 - t;
+            const x = u * u * from.pos.x + 2 * u * t * cx + t * t * to.pos.x;
+            const y = u * u * from.pos.y + 2 * u * t * cy + t * t * to.pos.y;
+            if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        this.strokeEnergy(ctx, '#ecfaff', 2.5);
         ctx.restore();
     }
 
     renderFlash(ctx, f, motion) {
-        const k = f.t / GravityWormhole.FLASH, e = 1 - k;
+        const k = Math.max(0, f.t / GravityWormhole.FLASH), e = 1 - k;
+        const ease = 1 - Math.pow(k, 3);
         ctx.save();
         ctx.translate(f.x, f.y);
-        ctx.globalAlpha = Math.min(1, k * 1.6);
-        ctx.strokeStyle = '#e6dcff';
-        ctx.shadowColor = GravityWormhole.WARP;
-        ctx.shadowBlur = 16;
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(0, 0, f.r * (0.7 + e * (motion ? 0.9 : 0.3)), 0, Math.PI * 2); ctx.stroke();
-        if (motion) {
-            // Streaks fan out in the direction the ball left.
-            const a0 = Math.atan2(f.dy, f.dx);
-            ctx.lineWidth = 2;
+        ctx.rotate(Math.atan2(f.dy, f.dx));
+        // Two offset shock rings expand quickly, then settle as they fade.
+        for (let i = 0; i < 2; i++) {
+            ctx.globalAlpha = k * k * (i ? 0.5 : 1);
             ctx.beginPath();
-            for (let i = 0; i < 7; i++) {
-                const a = a0 + (i - 3) * 0.16;
-                const inner = f.r * (0.8 + e * 0.6), outer = inner + 26 + e * 60;
-                ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
-                ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer);
+            ctx.ellipse(0, 0, f.r * (0.65 + ease * (motion ? 1.6 : 0.35)),
+                f.r * (0.65 + ease * (motion ? 1.05 : 0.35)) * (1 - i * 0.25), 0, 0, Math.PI * 2);
+            this.strokeEnergy(ctx, i ? '#b494ff' : '#d9faff', 2 - i * 0.7);
+        }
+        if (motion) {
+            ctx.globalAlpha = k * k;
+            ctx.beginPath();
+            for (let i = 0; i < 9; i++) {
+                const angle = (i - 4) * 0.2;
+                const inner = f.r * (0.65 + ease * 0.9) + e * 42;
+                const outer = inner + (18 + 48 * Math.sin(i * 1.7) ** 2) * k;
+                ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+                ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
             }
-            ctx.stroke();
+            this.strokeEnergy(ctx, '#d9caff', 1.5);
         }
         ctx.restore();
     }
@@ -349,7 +379,8 @@ class GravityWormhole {
         if (!this.active || charge <= 0 || this.warp) return;
         const x = ball.prev.x + (ball.pos.x - ball.prev.x) * interp;
         const y = ball.prev.y + (ball.pos.y - ball.prev.y) * interp;
-        const t = performance.now() * 0.001;
+        const motion = !window.PPSettings?.get('reduceMotion');
+        const t = motion ? this.clock : 0;
         const color = GravityWormhole.COLORS[charge - 1];
         const orbit = ball.r + 9;
 
@@ -379,7 +410,7 @@ class GravityWormhole {
     renderBadge(ctx, charge, color) {
         const game = this.game;
         const k = Math.max(0.8, Math.min(1.2, game.height / 720));
-        const pop = this.badgePop;
+        const pop = window.PPSettings?.get('reduceMotion') ? 0 : this.badgePop;
         const size = Math.round((15 + pop * 6) * k);
         const text = `POINT WORTH ${1 + charge}`;
         // Top centre, under the rally counter: the bottom holds notifications.
