@@ -91,7 +91,7 @@ const PerfGovernor = {
     get glowScale() {
         // Zombie lighting is baked into sprites/scenery. Do not replace its
         // disabled post-processing with expensive live Canvas shadow layers.
-        if (window.game?.gameMode === 'zombie') return 0;
+        if (['zombie', 'gravity'].includes(window.game?.gameMode)) return 0;
         const t = this.current;
         // Bloom supplies the glow only while the shader pass blooms (fx < 2).
         return this.fxActive && t.fx < 2 ? t.glowFx : t.glow;
@@ -99,7 +99,10 @@ const PerfGovernor = {
     get particleScale() { return this.current.particles; },
     get tierName() { return this.current.name; },
     /** Canvas backing-store scale: never above the screen's own pixel ratio. */
-    get renderScale() { return Math.min(window.devicePixelRatio || 1, this.current.scale); },
+    get renderScale() {
+        return Math.min(window.devicePixelRatio || 1, this.current.scale,
+            window.game?.gameMode === 'gravity' ? 1 : Infinity);
+    },
     get fps() { return Math.round(1000 / this.refreshMs); },
 
     onChange(fn) { this._listeners.push(fn); },

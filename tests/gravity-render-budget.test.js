@@ -61,16 +61,17 @@ vm.runInContext(read('game/js/entities/gravity-well.js') + '\nglobalThis.Well = 
 const wells = Array.from({length: 5}, (_, i) => new context.Well(600 + i * 400, 900));
 const before = allocations;
 wells[0].render(ctx, 0);
-assert.equal(allocations - before, 3, 'first well bakes three shared maps');
-for (const well of wells) {well.flare(); well.render(ctx, 0);}
-assert.equal(allocations - before, 4, 'all five wells share four maps including the burst');
-assert.ok(canvases.slice(-4).every(c => c.width === 256 && c.height === 256));
+assert.equal(allocations - before, 4, 'first well bakes three shared maps and one bounded frame');
+for (const well of wells) {well.flare(); well.render(ctx, .04);}
+assert.equal(allocations - before, 9, 'five frame caches share four maps including the burst');
+assert.equal(canvases.slice(before).filter(c => c.width === 256).length, 4);
+assert.equal(canvases.slice(before).filter(c => c.width === 384).length, 5);
 const warmGradients = gradients, warmAllocations = allocations;
 blits = 0;
 for (let frame = 0; frame < 120; frame++) {
-    for (const well of wells) well.render(ctx, frame / 60);
+    for (const well of wells) well.render(ctx, .08 + frame / 120);
 }
 assert.equal(gradients, warmGradients, 'warm frames create no radial gradients');
 assert.equal(allocations, warmAllocations, 'warm frames allocate no textures');
-assert.equal(blits, 120 * 5 * 4, 'each excited well draws four cached maps');
+assert.ok(blits <= 120 * 5 + 31 * 5 * 4, 'fallback layers repaint at most 30 Hz on a 120 Hz display');
 console.log('Gravity scenery budgets and shared well texture reuse passed.');

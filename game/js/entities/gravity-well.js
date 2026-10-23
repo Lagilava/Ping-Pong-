@@ -18,6 +18,10 @@ class GravityWell {
     #particles = []; // Event horizon particles
     #movementAngle; // Internal angle for velocity vector
     #rotationalDir; // Current spin direction
+    #frameCanvas;
+    #frameCtx;
+    #frameTime = -Infinity;
+    #frameBaseRadius = 0;
 
     // Reduced lighting properties
     #lightAngle = 0;
@@ -309,6 +313,30 @@ class GravityWell {
     }
 
     render(ctx, timeOverride) {
+        if (!this.#active) return;
+        const time = typeof timeOverride === 'number' ? timeOverride : performance.now() * 0.001;
+        if (window.game?.gameMode === 'gravity' && window.GravityArt?.drawWell(ctx, this.#pos.x, this.#pos.y, this.#radius, time, this.#excitement)) return;
+        if (!this.#frameCanvas) {
+            this.#frameCanvas = document.createElement('canvas');
+            this.#frameCanvas.width = this.#frameCanvas.height = 384;
+            this.#frameCtx = this.#frameCanvas.getContext('2d');
+        }
+        const frame = this.#frameCtx;
+        if (!frame) { this.#paint(ctx, time); return; }
+        const extent = this.#baseRadius * 3.6;
+        if (time < this.#frameTime || time - this.#frameTime >= 1 / 30 || this.#frameBaseRadius !== this.#baseRadius) {
+            frame.setTransform(1, 0, 0, 1, 0, 0);
+            frame.clearRect(0, 0, 384, 384);
+            const scale = 384 / (extent * 2);
+            frame.setTransform(scale, 0, 0, scale, 192 - this.#pos.x * scale, 192 - this.#pos.y * scale);
+            this.#paint(frame, time);
+            this.#frameTime = time;
+            this.#frameBaseRadius = this.#baseRadius;
+        }
+        ctx.drawImage(this.#frameCanvas, this.#pos.x - extent, this.#pos.y - extent, extent * 2, extent * 2);
+    }
+
+    #paint(ctx, timeOverride) {
         if (!this.#active) return;
 
         const time = typeof timeOverride === 'number' ? timeOverride : performance.now() * 0.001;

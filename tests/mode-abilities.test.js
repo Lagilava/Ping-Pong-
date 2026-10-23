@@ -72,6 +72,29 @@ function gravityGame() {
     return g;
 }
 const WARP = context.window.GravityWormhole;
+{
+    const g = gravityGame(), ability = new ModeAbilities(g);
+    g.gravityWells = [g.near];
+    g.ball.pos.set(800, 50);
+    assert.equal(ability.request('player'), true, 'early Gravity input is buffered');
+    assert.equal(ability.side('player').cooldown, 0, 'buffering does not spend cooldown');
+    ability.update(.1);
+    g.ball.pos.set(260, 300);
+    ability.update(1 / 240);
+    assert.ok(g.gravityWarp.holdsBall(), 'buffer activates on entering well range');
+    assert.ok(ability.side('player').cooldown > 5.9);
+}
+{
+    const g = gravityGame(), ability = new ModeAbilities(g);
+    g.gravityWells = [g.near]; g.ball.pos.set(800, 50);
+    ability.request('player'); ability.update(.4);
+    g.ball.pos.set(260, 300); ability.update(.01);
+    assert.equal(g.gravityWarp.holdsBall(), false, 'expired input cannot warp later');
+    assert.equal(ability.side('player').cooldown, 0);
+    g.ball.pos.set(800, 50); ability.request('player');
+    g.serveHold = 1; ability.update(.01);
+    assert.equal(ability.side('player').pendingWarp, 0, 'serve cancels pending input');
+}
 const runWarp = (g, ability) => {
     for (let i = 0; i < 30; i++) { ability.update(1 / 60); g.gravityWarp.update(1 / 60); }
 };
@@ -166,7 +189,7 @@ const settle = ability => { for (let i = 0; i < 70; i++) ability.update(1 / 60);
     const g = obstacleGame(), ability = new ModeAbilities(g);
     assert.equal(ability.trigger('player'), true, 'the dice can be rolled at any point in a rally');
     assert.equal(ability.trigger('player'), false, 'cooldown blocks a second roll');
-    assert.equal(ability.dice.status('player').text, 'ROLLING…');
+    assert.equal(ability.dice.status('player').text, 'ROLLING.');
     assert.equal(ability.trigger('ai'), false, 'the computer opponent never rolls');
 }
 

@@ -5,6 +5,7 @@
 class ModeAbilities {
     static SPEED_WINDOW = 0.32;
     static SPEED_SLOW = 0.42;
+    static GRAVITY_INPUT_BUFFER = 0.35;
     static COOLDOWN = { speed: 2.3, gravity: 6, obstacle: 9 };
 
     constructor(game) {
@@ -48,6 +49,17 @@ class ModeAbilities {
     nearestWell() {
         return this.game.gravityWarp?.nearestWell() || null;
     }
+    // Consume a slightly early input without spending the charge. All input
+    // devices use this route; trigger() still means "activated immediately".
+    request(side = 'player') {
+        if (this.trigger(side)) return true;
+        const g = this.game, s = this.side(side);
+        if (g.gameMode !== 'gravity' || !this.enabled || !s || s.cooldown > 0
+            || g.gravityWarp?.holdsBall() || !g.gravityWarp || (side === 'ai' && !g.isMultiplayer)
+            || !g.ball?.vel || Math.hypot(g.ball.vel.x, g.ball.vel.y) < 1) return false;
+        s.pendingWarp = ModeAbilities.GRAVITY_INPUT_BUFFER;
+        return true;
+    }
     trigger(side = 'player') {
         const g = this.game, b = g.ball, s = this.side(side);
         if (!this.enabled || !b?.pos || !s || s.cooldown > 0 || (side === 'ai' && !g.isMultiplayer)) return false;
@@ -70,7 +82,12 @@ class ModeAbilities {
 
     update(dt) {
         this.clock += dt;
-        for (const s of Object.values(this.sides)) {
+        for (const [side, s] of Object.entries(this.sides)) {
+            if (s.pendingWarp > 0) {
+                if (!this.enabled || this.game.gameMode !== 'gravity' || this.game.gravityWarp?.holdsBall()) s.pendingWarp = 0;
+                else if (this.trigger(side)) s.pendingWarp = 0;
+                else s.pendingWarp = Math.max(0, s.pendingWarp - dt);
+            }
             const wasActive = s.active > 0;
             s.cooldown = Math.max(0, s.cooldown - dt);
             s.active = Math.max(0, s.active - dt);
@@ -271,7 +288,7 @@ class ModeAbilities {
             const inRange = mode === 'speed' ? this.speedInRange(side) : mode === 'gravity' ? !!this.nearestWell() : false;
             const label = mode === 'speed' ? 'OVERCHARGE' : mode === 'gravity' ? 'WORMHOLE' : 'LUCKY DICE';
             const warping = mode === 'gravity' && g.gravityWarp?.warp?.side === side;
-            const status = dice ? dice.text : warping ? 'WARPING' : s.active > 0 ? 'ACTIVE' : s.miss > 0 ? 'MISSED' : ready ? (inRange ? 'PRESS NOW' : (mode === 'obstacle' ? 'READY TO ROLL' : 'READY')) : `${s.cooldown.toFixed(1)}s`;
+            const status = dice ? dice.text : warping ? 'WARPING' : s.pendingWarp > 0 ? 'WAITING FOR WELL' : s.active > 0 ? 'ACTIVE' : s.miss > 0 ? 'MISSED' : ready ? (inRange ? 'PRESS NOW' : (mode === 'obstacle' ? 'READY TO ROLL' : mode === 'gravity' ? 'NEAR A WELL TO WARP' : 'READY')) : `${s.cooldown.toFixed(1)}s`;
             const pillW = Math.min(236, g.width * (g.isMultiplayer ? 0.38 : 0.48));
             const pillH = Math.max(38, Math.min(48, g.height * 0.071));
             const pillX = side === 'player' ? 20 : g.width - pillW - 20;
