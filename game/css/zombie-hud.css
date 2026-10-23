@@ -58,6 +58,10 @@ body.zombie-mode #pp-enhanced-hud {
     background: none;
     border-bottom: 0;
 }
+body.zombie-mode #pp-enhanced-hud .pp-score-display {
+    background: none;
+    border-radius: 0;
+}
 body.zombie-mode #pp-enhanced-hud :is(.pp-score-label, .pp-score-display) {
     text-shadow: 0 1px 2px #000, 0 0 3px #000, 0 0 10px #000c;
 }
