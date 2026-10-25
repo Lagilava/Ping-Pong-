@@ -9,7 +9,7 @@
 (function () {
     const TAU = Math.PI * 2;
     // Custom Match retains its original palette when it selects this backdrop.
-    const cardColor = (original, matched) => window.game?.gameMode === 'customise' ? original : matched;
+    const cardColor = (original, matched) => matched;
     const NEAR = 1;          // depth of the bottom edge of the screen
     const FAR = 34;          // depth at which objects fade in from the haze
     const HORIZON = 0.44;    // horizon height as a fraction of the screen
@@ -60,6 +60,7 @@
             ry / 1254 * artwork.props.naturalHeight, w, h, 0, 0, c.width, c.height);
         x.filter = 'none';
         x.setTransform(1, 0, 0, 1, 0, 0);
+        window.SceneCompositor?.cleanMatte(c, {minIslandPixels: 14});
         // Ambient purple replaces the atlas's cyan sticker-like fringe; the
         // lower half falls into road shadow. Preserve the source alpha exactly.
         x.globalCompositeOperation = 'source-atop';
@@ -69,7 +70,7 @@
         shade.addColorStop(1, 'rgba(5,5,19,0.72)');
         x.fillStyle = shade; x.fillRect(0, 0, c.width, c.height);
         x.globalCompositeOperation = 'source-over';
-        return { c, w: rw, h: rh, anchor: kind === 'lamp' ? (flip ? 0.8 : 0.2) : kind === 'palm' ? (flip ? 0.65 : 0.35) : 0.5 };
+        return { c, w: rw, h: rh, shadow: window.SceneCompositor?.shadow(c), lightX: flip ? .24 : .76, anchor: kind === 'lamp' ? (flip ? 0.8 : 0.2) : kind === 'palm' ? (flip ? 0.65 : 0.35) : 0.5 };
     }
 
     function rng(seed) {
@@ -680,13 +681,13 @@
         }
 
         _bake(ctx, w, h) {
-            if (window.game?.gameMode !== 'customise') loadArtwork();
+            loadArtwork();
             const m = ctx.getTransform();
             const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
             const budget = Math.min(1, (mobile ? 768 : 1024) / w, (mobile ? 432 : 576) / h);
             const sx = Math.min(Math.hypot(m.a, m.b) || 1, budget);
             const sy = Math.min(Math.hypot(m.c, m.d) || 1, budget);
-            const generated = artwork.ready && window.game?.gameMode !== 'customise';
+            const generated = artwork.ready;
             const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${generated}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}`;
             if (key === this.key) return;
             this.key = key;
@@ -702,8 +703,31 @@
                 // The sky is a separate parallax strip; the road stays fixed so
                 // lane markers and traffic retain their perspective alignment.
                 const [sky, skyCtx] = canvas(w, hy, sx, sy);
-                skyCtx.drawImage(artwork.scene, 0, 0, artwork.scene.naturalWidth,
-                    artwork.scene.naturalHeight * 0.48, 0, 0, w, hy);
+                // The road uses a screen-space vanishing point, but the sky is
+                // an optical image: preserve the sun's circular silhouette.
+                const skyFit = w / artwork.scene.naturalWidth;
+                const skyHeight = artwork.scene.naturalHeight * .48 * skyFit;
+                const skyTop = hy - skyHeight;
+                const night = skyCtx.createLinearGradient(0, 0, 0, hy);
+                night.addColorStop(0, '#030412'); night.addColorStop(1, '#0c0725');
+                skyCtx.fillStyle = night; skyCtx.fillRect(0, 0, w, hy);
+                const stars = rng(531);
+                skyCtx.fillStyle = 'rgba(181,194,234,.38)';
+                for (let i = 0; i < 85 && skyTop > 0; i++) {
+                    skyCtx.globalAlpha = .2 + stars() * .6;
+                    skyCtx.fillRect(stars() * w, stars() * skyTop, .6 + stars() * .6, .7);
+                }
+                skyCtx.globalAlpha = 1;
+                const [plate, plateCtx] = canvas(w, skyHeight, sx, sy);
+                plateCtx.drawImage(artwork.scene, 0, 0, artwork.scene.naturalWidth,
+                    artwork.scene.naturalHeight * .48, 0, 0, w, skyHeight);
+                if (skyTop > 8) {
+                    plateCtx.globalCompositeOperation = 'destination-in';
+                    const feather = plateCtx.createLinearGradient(0, 0, 0, Math.min(48, skyHeight * .4));
+                    feather.addColorStop(0, 'rgba(255,255,255,0)'); feather.addColorStop(1, 'white');
+                    plateCtx.fillStyle = feather; plateCtx.fillRect(0, 0, w, skyHeight);
+                }
+                skyCtx.drawImage(plate, 0, skyTop, w, skyHeight);
                 this.sky = sky;
                 this.sprites = {
                     palmL: artworkSprite('palm'), palmR: artworkSprite('palm', true),
@@ -741,6 +765,8 @@
             this.flash = this.flash || glowSprite('255,150,200');
             this.contact = this.contact || glowSprite('0,0,0');
             this.roadGlow = this.roadGlow || glowSprite('255,90,170');
+            this.lampHalo = this.lampHalo || glowSprite('255,207,145');
+            this.lampPool = this.lampPool || glowSprite('255,182,110');
         }
 
         /**
@@ -793,7 +819,7 @@
                 const near01 = 1 - (d - NEAR) / (FAR - NEAR);
                 buckets[near01 > 0.8 ? 2 : near01 > 0.55 ? 1 : 0].push(y);
             }
-            const ga = 0.18 + st.hot * 0.1 + st.pulse * 0.2;
+            const ga = (this.generated ? .07 : .18) + st.hot * .06 + st.pulse * .12;
             for (let b = 0; b < 3; b++) {
                 const ys = buckets[b];
                 if (!ys.length) continue;
@@ -853,7 +879,7 @@
                 ctx.globalAlpha *= 0.22;
                 ctx.drawImage(this.roadGlow, x - dw * 0.55, y - dh * 0.04, dw * 1.1, dh * 0.4);
                 ctx.restore();
-                ctx.drawImage(s.c, x - dw / 2, y - dh * 0.92, dw, dh);
+                ctx.drawImage(s.c, x - dw / 2, y - dh * 0.96, dw, dh);
             }
             ctx.globalAlpha = 1;
 
@@ -873,10 +899,34 @@
                 const dh = gh * worldH / d;
                 const dw = dh * (s.w / s.h);
                 const x = proj(p.X, d), y = rowY(d);
+                if (x + dw * (1 - s.anchor) < 0 || x - dw * s.anchor > w || y - dh > h) continue;
                 // Fade in from the haze and out before props get huge.
                 const a = Math.min(1, (FAR - d) / 6, (d - 1.6) / 1.2);
                 if (a <= 0.01) continue;
                 ctx.globalAlpha = a;
+                // Sunset is on the horizon: silhouettes project away from it,
+                // onto the road plane, never upwards across the scenery.
+                if (s.shadow) {
+                    ctx.save();
+                    ctx.globalAlpha *= .40;
+                    ctx.translate(x, y);
+                    const away = Math.max(-1, Math.min(1, (x - cx) / (w * .5)));
+                    ctx.transform(1, 0, -away * .45, -.17, 0, 0);
+                    ctx.drawImage(s.shadow, -dw * s.anchor, -dh, dw, dh);
+                    ctx.restore();
+                }
+                // A luminous head needs both local bloom and a pool on the
+                // ground. Their positions use the same projected lamp geometry.
+                if (p.kind === 'lamp') {
+                    const lightX = x + ((s.lightX ?? .5) - s.anchor) * dw;
+                    const lightY = y - dh * .94;
+                    ctx.save(); ctx.globalCompositeOperation = 'screen';
+                    ctx.globalAlpha *= .32;
+                    ctx.drawImage(this.lampHalo, lightX - dw * .18, lightY - dw * .18, dw * .36, dw * .36);
+                    ctx.globalAlpha *= .55;
+                    ctx.drawImage(this.lampPool, lightX - dw * .48, y - dh * .03, dw * .96, dh * .085);
+                    ctx.restore();
+                }
                 // Contact stays at the projected foot, at every depth.
                 const footprint = Math.max(2, dw * 0.42);
                 ctx.drawImage(this.contact, x - footprint * 0.5, y - dh * 0.018,

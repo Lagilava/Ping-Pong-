@@ -17,6 +17,7 @@
         c.height = Math.round(image.naturalHeight * scale);
         const ctx = c.getContext('2d');
         ctx.drawImage(image, 0, 0, c.width, c.height);
+        window.SceneCompositor?.cleanMatte(c, {minIslandPixels: 40});
         ctx.globalCompositeOperation = 'source-atop';
         for (const [rx, ry, rw, rh, lx, ly] of [
             [.015, .03, .46, .92, .13, .15],
@@ -58,8 +59,13 @@
         const motion = !window.PPSettings?.get('reduceMotion');
         const lean = motion ? Math.sin(time * .065) : 0;
         ctx.save();
-        ctx.drawImage(assets.scene, -w * .015 + lean * w * .009,
-            -h * .015 + (motion ? Math.cos(time * .05) * h * .006 : 0), w * 1.03, h * 1.03);
+        // Uniform cover projection: portrait must not stretch circular galaxies
+        // into vertical ribbons. Frame the luminous left nebula on tall screens.
+        const fit = Math.max(w / assets.scene.naturalWidth, h / assets.scene.naturalHeight) * 1.03;
+        const iw = assets.scene.naturalWidth * fit, ih = assets.scene.naturalHeight * fit;
+        const focus = w < h ? .055 : .5;
+        ctx.drawImage(assets.scene, (w - iw) * focus + lean * w * .009,
+            (h - ih) * .5 + (motion ? Math.cos(time * .05) * h * .006 : 0), iw, ih);
         if (assets.planets) {
             const atlas = assets.planets;
             const aw = atlas.naturalWidth || atlas.width, ah = atlas.naturalHeight || atlas.height;
@@ -70,7 +76,8 @@
                 const unit = Math.min(w, h);
                 const side = unit * (i === 0 ? .34 : .40);
                 const drift = motion ? time : 0;
-                const px = w * (i === 0 ? .87 : .12) + Math.sin(drift * .13 + i * 2) * unit * .012;
+                const px = Math.max(side * .55, Math.min(w - side * .55,
+                    w * (i === 0 ? .87 : .12) + Math.sin(drift * .13 + i * 2) * unit * .012));
                 const py = h * (i === 0 ? .17 : .80) + Math.cos(drift * .17 + i) * unit * .01;
                 ctx.save();
                 ctx.translate(px, py);

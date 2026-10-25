@@ -410,11 +410,11 @@ class Game {
 
     getCustomPreviewImageMap() {
         return {
-            classic: 'assets/images/customise-previews/classic.png?v=20261026-lighting-2',
-            zombie: 'assets/images/customise-previews/zombie.png?v=20261026-lighting-2',
-            gravity: 'assets/images/customise-previews/gravity.png?v=20261026-lighting-2',
-            speed: 'assets/images/customise-previews/speed.png?v=20261026-lighting-2',
-            obstacle: 'assets/images/customise-previews/obstacle.png?v=20261026-lighting-2'
+            classic: 'assets/images/customise-previews/classic.png?v=20261026-scene-depth-3',
+            zombie: 'assets/images/customise-previews/zombie.png?v=20261026-scene-depth-3',
+            gravity: 'assets/images/customise-previews/gravity.png?v=20261026-scene-depth-3',
+            speed: 'assets/images/customise-previews/speed.png?v=20261026-scene-depth-3',
+            obstacle: 'assets/images/customise-previews/obstacle.png?v=20261026-scene-depth-3'
         };
     }
 
@@ -1844,6 +1844,12 @@ class Game {
             };
 
             const renderStaticCustomBackgroundPreview = () => {
+                // Once the studio is open, its live renderer owns visibility.
+                // A late thumbnail load must not hide that canvas again.
+                if (window.__ppDrawCustomLiveBackground && window.CustomBackgrounds) {
+                    window.__ppDrawCustomLiveBackground();
+                    return;
+                }
                 const mode = this.customSettings.backgroundMode || 'classic';
                 const deviceScale = Math.max(1, window.devicePixelRatio || 1);
                 const width = Math.max(280, Math.floor((customLivePreview?.clientWidth || 620) * deviceScale));

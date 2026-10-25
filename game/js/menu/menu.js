@@ -1936,7 +1936,6 @@
             const game = window.game;
             if (!canvas || !game?.customSettings) return;
             const img = document.getElementById('customLiveBackgroundImage');
-            if (img && img.style.display !== 'none') img.style.display = 'none';
             const box = canvas.parentElement || canvas;
             const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
             const width = Math.max(280, Math.floor((box.clientWidth || 620) * dpr));
@@ -1944,6 +1943,8 @@
             if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
+            canvas.style.display = 'block';
+            if (img) img.style.display = 'none';
             const mode = game.customSettings.backgroundMode || 'classic';
             if (window.CustomBackgrounds) {
                 window.CustomBackgrounds.drawSelection(ctx, width, height, mode, {
@@ -2538,4 +2539,5 @@
     });
 
 })();
+
 

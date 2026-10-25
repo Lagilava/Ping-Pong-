@@ -14,7 +14,7 @@
 (function () {
     const TAU = Math.PI * 2;
     // Custom Match retains its original palette when it selects this backdrop.
-    const cardColor = (original, matched) => window.game?.gameMode === 'customise' ? original : matched;
+    const cardColor = (original, matched) => matched;
     const FLOOR = 0.6;      // floor horizon as a fraction of the screen height
     const SPOTS = [0.1, 0.29, 0.5, 0.71, 0.9];
 
@@ -378,17 +378,29 @@
         x.fillStyle = m;
         x.fillRect(0, fy, w, fh * 0.22);
 
-        // Long light streaks under every spotlight and banner.
+        // Rough varnish spreads reflections. Feather them in both axes;
+        // hard rectangular columns read like separate transparent cutouts.
         const streak = (cx, width, a, rgb) => {
-            const sg = x.createLinearGradient(0, fy, 0, h);
+            x.save();
+            x.translate(cx, fy + fh * .16);
+            x.scale(width, fh * .85);
+            const sg = x.createRadialGradient(0, -.10, 0, 0, -.10, 1);
             sg.addColorStop(0, `rgba(${rgb},${a})`);
-            sg.addColorStop(0.5, `rgba(${rgb},${a * 0.35})`);
+            sg.addColorStop(.3, `rgba(${rgb},${a * .42})`);
             sg.addColorStop(1, `rgba(${rgb},0)`);
-            x.fillStyle = sg;
-            x.fillRect(cx - width / 2, fy, width, fh);
+            x.fillStyle = sg; x.fillRect(-1, -.19, 2, 1.38);
+            x.restore();
         };
-        for (const s of SPOTS) streak(w * s, w * 0.018, 0.16, cardColor('255,190,200', '255,170,212'));
-        for (const s of [0.17, 0.83]) streak(w * s, w * 0.07, 0.12, cardColor('255,40,70', '255,35,102'));
+        for (const s of SPOTS) streak(w * s, w * .035, .18, '255,193,205');
+        for (const s of [.17, .83]) streak(w * s, w * .06, .15, '255,45,99');
+        // Sparse horizontal micro-reflections break up perfect digital streaks.
+        const r = rng(915);
+        for (let i = 0; i < 160; i++) {
+            const depth = r(), yy = fy + depth * fh;
+            const xx = r() * w, length = 2 + depth * depth * w * .04;
+            x.fillStyle = `rgba(239,145,172,${.015 + (1 - depth) * .025})`;
+            x.fillRect(xx, yy, length, Math.max(.35, depth * .7));
+        }
 
         // Court markings in perspective toward a point above the floor line.
         const vx = w * 0.5, vy = fy - fh * 0.9;
@@ -491,8 +503,10 @@
             paintRoof(bx, w, h, L);
             const lights = [];
             // Far banners first, then the truss in front of them.
-            const bwFar = w * 0.05, bwNear = w * 0.078;
-            for (const f of [0.33, 0.67]) paintBanner(bx, w * f, h * 0.085, bwFar, h * 0.15, true);
+            const farHeight = Math.min(h * .15, w * .26);
+            const bannerH = Math.min(h * .27, w * .48);
+            const bwFar = farHeight * .593, bwNear = bannerH * .515;
+            for (const f of [0.33, 0.67]) paintBanner(bx, w * f, h * 0.085, bwFar, farHeight, true);
             paintTruss(bx, w, h, L, lights);
             paintTier(bx, w, L.upper[0], L.upper[1], 7, 31, {
                 bowlTop: '#2a0a18', bowlBottom: '#3a0e20', lit: 0.55, haze: 0.2, arms: 0.05, phones: 0.03,
@@ -500,7 +514,7 @@
             });
             // Both near banners reuse one tightly bounded sprite on every
             // quality tier. The outer background cache controls frame rate.
-            const pad = 3, bannerH = h * 0.27;
+            const pad = 3;
             const tw = Math.ceil(bwNear + pad * 2), th = Math.ceil(bannerH * 1.3 + pad * 2);
             const [bannerCanvas, bannerCtx] = canvas(tw, th, Math.min(sx, 1), Math.min(sy, 1));
             paintBanner(bannerCtx, tw / 2, bannerH * 0.3 + pad, bwNear, bannerH, false);
@@ -599,14 +613,17 @@
                 const py = trussY(L, px) + h * 0.024 + 9;
                 const lean = (0.5 - SPOTS[i]) * 0.55;
                 const a = lean + Math.sin(this.t * (0.33 + i * 0.07) + i * 1.9) * sweep;
+                const dist = (L.fy + (h - L.fy) * .35 - py) / Math.cos(a);
+                const length = Math.min(beam.h, Math.max(1, dist));
                 ctx.globalAlpha = beamA;
                 ctx.save();
                 ctx.translate(px, py);
                 ctx.rotate(a);
-                ctx.drawImage(beam.c, -beam.w / 2, 0, beam.w, beam.h);
+                // Light ends at its floor intersection, instead of continuing
+                // through the floor below an unrelated pool of light.
+                ctx.drawImage(beam.c, -beam.w * .5 * length / beam.h, 0,
+                    beam.w * length / beam.h, length);
                 ctx.restore();
-                // Pool of light where the beam meets the floor.
-                const dist = (L.fy + (h - L.fy) * 0.35 - py) / Math.cos(a);
                 const fx = px - Math.sin(a) * dist;
                 const pw = w * 0.16, ph = (h - L.fy) * 0.28;
                 ctx.globalAlpha = 0.16 + breath * 0.5 + this.pulse * 0.08 + this.cheer * 0.08;

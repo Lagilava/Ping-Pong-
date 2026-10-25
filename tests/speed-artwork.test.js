@@ -49,6 +49,8 @@ async function main() {
     assert.equal(art.base.height, 576);
     assert.equal(art.hy, Math.round(2160 * .48));
     assert.equal(art.sun, null, 'baked sunset replaces procedural scenery');
+    const sky=s.draws.find(a=>a[0]===s.images[0]&&a.length===9);
+    assert(sky && Math.abs(sky[7]/sky[3]-sky[8]/sky[4])<1e-9, 'uniform sky scale keeps the sun round');
     assert.equal(art.sprites.carA, art.sprites.carB, 'traffic shares one decoded sprite');
     for (const sprite of Object.values(art.sprites)) {
         assert.ok(sprite.c.width <= 384 && sprite.c.height <= 384);
@@ -62,7 +64,7 @@ async function main() {
     assert.notEqual(art.phase, phase, 'road and props continue moving');
     // Contact shadows and tail-light spill add at most one draw per prop
     // and three per car, still without warm-frame allocations or gradients.
-    assert.ok(s.draws.length < 120 * 45, 'bounded image draws including road contact and light spill');
+    assert.ok(s.draws.length < 120 * 56, 'bounded visible-object draws including shadows and lamp pools');
     const held = art.phase;
     art.draw(ctx, 3840, 2160, {...state, slow: 0});
     assert.equal(art.phase, held, 'speed ability freezes scenery consistently');
@@ -74,7 +76,7 @@ async function main() {
     assert.equal(s.images.length, 2, 'new matches reuse decoded artwork');
     s.context.window.game.gameMode = 'customise';
     another.draw(ctx, 1280, 720, state);
-    assert.equal(another.generated, false, 'custom palette retains its existing look');
+    assert.equal(another.generated, true, 'Custom Match uses the same decoded world as Speed mode');
 
     const fail = setup(), fallback = new fail.context.window.SpeedArt(), fctx = fail.makeContext();
     fallback.draw(fctx, 1280, 720, state);

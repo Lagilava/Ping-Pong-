@@ -22,11 +22,11 @@
     const IMAGE_MAX_H = 1080;
 
     const BUILT_INS = [
-        { id: 'classic', name: 'Classic', image: 'assets/images/customise-previews/classic.png?v=20261026-lighting-2' },
-        { id: 'zombie', name: 'Zombie', image: 'assets/images/customise-previews/zombie.png?v=20261026-lighting-2' },
-        { id: 'gravity', name: 'Gravity', image: 'assets/images/customise-previews/gravity.png?v=20261026-lighting-2' },
-        { id: 'speed', name: 'Speed', image: 'assets/images/customise-previews/speed.png?v=20261026-lighting-2' },
-        { id: 'obstacle', name: 'Obstacle', image: 'assets/images/customise-previews/obstacle.png?v=20261026-lighting-2' },
+        { id: 'classic', name: 'Classic', image: 'assets/images/customise-previews/classic.png?v=20261026-scene-depth-3' },
+        { id: 'zombie', name: 'Zombie', image: 'assets/images/customise-previews/zombie.png?v=20261026-scene-depth-3' },
+        { id: 'gravity', name: 'Gravity', image: 'assets/images/customise-previews/gravity.png?v=20261026-scene-depth-3' },
+        { id: 'speed', name: 'Speed', image: 'assets/images/customise-previews/speed.png?v=20261026-scene-depth-3' },
+        { id: 'obstacle', name: 'Obstacle', image: 'assets/images/customise-previews/obstacle.png?v=20261026-scene-depth-3' },
     ];
 
     const EXAMPLE_CANVAS = `// Neon horizon: a Canvas 2D background for Ping Pong.
@@ -455,8 +455,11 @@ parent.postMessage({ type: 'boot' }, '*');
     function builtinFrame(mode) {
         if (typeof BackgroundRenderer !== 'function') return null;
         const game = window.game;
-        const W = Math.round(clamp(game?.width || 1280, 640, 1920));
-        const H = Math.round(clamp(game?.height || 720, 360, 1200));
+        // Bound the preview as a pair, preserving the match camera aspect.
+        const gameW = game?.width || 1280, gameH = game?.height || 720;
+        const scale = Math.min(1, 1280 / gameW, 720 / gameH);
+        const W = Math.max(1, Math.round(gameW * scale));
+        const H = Math.max(1, Math.round(gameH * scale));
         const live = builtinLive;
         try {
             if (!live.renderer) {

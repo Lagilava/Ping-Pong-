@@ -936,7 +936,7 @@ class BackgroundRenderer {
     }
 
     _modeColor(original, matched) {
-        return window.game?.gameMode === 'customise' ? original : matched;
+        return matched;
     }
 
     _getBackgroundRenderScale(w, h) {
@@ -2009,6 +2009,12 @@ class BackgroundRenderer {
         this._paintZombieGroundDetails(zctx, w, h, groundY);
         const hands = this._zombieHandsByScale.length ? this._zombieHandsByScale : this.zombieHands;
         for (const hand of hands) this._renderZombieHandMound(zctx, hand, w, h, groundY);
+        // Soil is in front of the emerging wrists, not behind them. Bake a
+        // separate occlusion lip so articulated hands cannot float over it.
+        this._cemeteryGroundLipCanvas = document.createElement('canvas');
+        this._cemeteryGroundLipCanvas.width = w; this._cemeteryGroundLipCanvas.height = h;
+        const lip = this._cemeteryGroundLipCanvas.getContext('2d');
+        for (const hand of hands) this._renderZombieHandMound(lip, hand, w, h, groundY);
         this._zombieStaticInitialized = true;
         return this._zombieStaticCanvas;
     }
@@ -2019,7 +2025,12 @@ class BackgroundRenderer {
         const image = new Image();
         image.onload = () => {
             this._cemeteryLoading = false;
-            this._cemeteryAtlas = image;
+            if (window.SceneCompositor) {
+                const atlas = document.createElement('canvas');
+                atlas.width = image.naturalWidth; atlas.height = image.naturalHeight;
+                atlas.getContext('2d').drawImage(image, 0, 0);
+                this._cemeteryAtlas = window.SceneCompositor.cleanMatte(atlas, {columns: 8, rows: 10, minIslandPixels: 5});
+            } else this._cemeteryAtlas = image;
             this._zombieStaticInitialized = false;
             this._cemeteryScenePlate = null;
             this._invalidateBackgroundRenderCache();
@@ -2107,6 +2118,7 @@ class BackgroundRenderer {
         ctx.clip();
         handsToDraw.forEach(hand => this._renderZombieHand(ctx, hand, w, h, groundY));
         ctx.restore();
+        if (this._cemeteryGroundLipCanvas && handsToDraw.length) ctx.drawImage(this._cemeteryGroundLipCanvas, 0, 0);
 
     }
 
@@ -2163,7 +2175,7 @@ class BackgroundRenderer {
         return {
             scale,
             emerge,
-            x: hand.xf * w + Math.sin(driftPhase) * hand.drift + secondaryWiggle,
+            x: hand.xf * w, // the buried root stays registered to its soil mound
             y: groundY + 24 * scale
                 - emerge * (118 + hand.scale * 14) * scale
                 + Math.sin(bobPhase) * (6 + emerge * 5) * scale
@@ -2248,9 +2260,9 @@ class BackgroundRenderer {
         spriteCtx.globalCompositeOperation = 'destination-in';
         const burial = spriteCtx.createLinearGradient(0, 0, 0, 224);
         burial.addColorStop(0, 'white');
-        burial.addColorStop(0.67, 'white');
-        burial.addColorStop(0.86, 'rgba(255,255,255,0.18)');
-        burial.addColorStop(0.96, 'rgba(255,255,255,0)');
+        burial.addColorStop(0.62, 'white');
+        burial.addColorStop(0.78, 'rgba(255,255,255,0.06)');
+        burial.addColorStop(0.88, 'rgba(255,255,255,0)');
         spriteCtx.fillStyle = burial;
         spriteCtx.fillRect(0, 0, 128, 224);
         spriteCtx.globalCompositeOperation = 'source-over';
@@ -2307,10 +2319,10 @@ class BackgroundRenderer {
         // 2. Dirt Mound (Raised Soil) - Dynamic settling
         const settleAmount = Math.max(0, Math.sin(this.time * 1.2 + hand.poseOffset) * 0.05);
         const grad = ctx.createRadialGradient(state.x, groundY + 4 + settleAmount, 0, state.x, groundY + 6 + settleAmount, moundW);
-        grad.addColorStop(0, 'rgba(48,36,22,0.95)');
-        grad.addColorStop(0.4, 'rgba(32,22,14,0.98)');
-        grad.addColorStop(0.75, 'rgba(22,14,9,0.4)');
-        grad.addColorStop(1, 'rgba(12,8,4,0)');
+        grad.addColorStop(0, 'rgba(22,33,28,0.95)');
+        grad.addColorStop(0.4, 'rgba(13,24,20,0.98)');
+        grad.addColorStop(0.75, 'rgba(10,19,17,0.4)');
+        grad.addColorStop(1, 'rgba(6,13,11,0)');
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.ellipse(state.x, groundY + 6 + settleAmount, moundW, moundH, 0, 0, Math.PI * 2);
@@ -2366,19 +2378,24 @@ class BackgroundRenderer {
     }
 
     _drawZombiePalm(ctx, splay, lightAngle) {
-        const pw = 114, ph = 102, hw = pw / 2, hwb = pw * 0.42, topY = -ph, botY = 0;
+        const pw = 114, ph = 102, hw = pw / 2, hwb = 32, topY = -ph, botY = 12;
         const sOff = splay * 5;
         const palmPath = () => {
             ctx.beginPath();
             ctx.moveTo(-hwb, botY);
-            ctx.bezierCurveTo(-hwb - 5, botY - ph * 0.22, -hw - sOff, topY + ph * 0.28, -hw - sOff, topY);
-            ctx.bezierCurveTo(-hw * 0.28 - sOff, topY - 4, hw * 0.28 + sOff, topY - 4, hw + sOff, topY);
-            ctx.bezierCurveTo(hw + sOff, topY + ph * 0.28, hwb + 3, botY - ph * 0.22, hwb, botY);
+            ctx.bezierCurveTo(-35, -12, -55 - sOff, -28, -54 - sOff, -55);
+            ctx.bezierCurveTo(-59 - sOff, -77, -56, -95, -44, -104);
+            ctx.quadraticCurveTo(-35, -115, -24, -104);
+            ctx.quadraticCurveTo(-10, -117, 1, -108);
+            ctx.quadraticCurveTo(15, -117, 27, -102);
+            ctx.quadraticCurveTo(42, -109, 49 + sOff, -91);
+            ctx.bezierCurveTo(57 + sOff, -62, 44, -36, 37, -18);
+            ctx.quadraticCurveTo(31, -4, 31, botY);
             ctx.closePath();
         };
 
         palmPath();
-        const base = ctx.createLinearGradient(-hw, botY, hw, botY);
+        const base = ctx.createLinearGradient(hw, botY, -hw, botY);
         base.addColorStop(0, this._modeColor('#424d4b', '#3b5e53'));
         base.addColorStop(0.35, this._modeColor('#2b3535', '#253e35'));
         base.addColorStop(0.7, this._modeColor('#1b2729', '#152d27'));
@@ -2409,6 +2426,24 @@ class BackgroundRenderer {
         ctx.lineWidth = 0.8;
         ctx.stroke();
 
+        ctx.save(); palmPath(); ctx.clip();
+        // Paired tendon shadows/highlights follow the anatomy into the wrist.
+        for (let i = 0; i < 4; i++) {
+            const kx = -37 + i * 25;
+            for (const [off, color] of [[-2, 'rgba(6,17,15,.46)'], [1, 'rgba(146,179,156,.19)']]) {
+                ctx.strokeStyle = color; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(kx + off, -88);
+                ctx.bezierCurveTo(kx + off, -64, kx * .55 + off, -33, kx * .34 + off, 12);
+                ctx.stroke();
+            }
+        }
+        for (let i = 0; i < 95; i++) {
+            const px = Math.sin(i * 17.31) * 53, py = -96 + ((i * 31.17) % 106);
+            ctx.fillStyle = i % 3 ? 'rgba(6,16,13,.24)' : 'rgba(167,189,157,.13)';
+            ctx.fillRect(px, py, 1.4 + (i % 3), .7);
+        }
+        ctx.restore();
+
         // �� Moonlight Top Rim (High contrast) ����������������������
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
@@ -2434,7 +2469,7 @@ class BackgroundRenderer {
     }
 
     _drawZombieWrist(ctx, lightAngle) {
-        const ww = 114 * 0.68, hw = ww / 2, h = 125, palmBotY = 0;
+        const ww = 66, hw = ww / 2, h = 125, palmBotY = 0;
         const wristPath = () => {
             ctx.beginPath();
             ctx.moveTo(-hw, palmBotY);
@@ -2445,7 +2480,7 @@ class BackgroundRenderer {
         };
 
         wristPath();
-        const base = ctx.createLinearGradient(-hw, palmBotY, hw, palmBotY);
+        const base = ctx.createLinearGradient(hw, palmBotY, -hw, palmBotY);
         base.addColorStop(0, this._modeColor('#424d4b', '#3b5e53'));
         base.addColorStop(0.4, this._modeColor('#2b3535', '#253e35'));
         base.addColorStop(0.76, this._modeColor('#1b2729', '#152d27'));
@@ -3019,7 +3054,7 @@ class BackgroundRenderer {
     }
 
     renderGravity(ctx, w, h) {
-        if (window.game?.gameMode !== 'customise' && window.GravityArt?.drawBackground(ctx, w, h, this.time, window.game?.gravityInteraction)) return;
+        if (window.GravityArt?.drawBackground(ctx, w, h, this.time, window.game?.gravityInteraction)) return;
         this._drawGravityBaseLayer(ctx, w, h, areParticleEffectsEnabled() ? this.nebulaParticles : []);
         this._ensureGravityGlowSprites();
         const game = typeof window !== 'undefined' ? window.game : null;
@@ -4027,6 +4062,7 @@ class BackgroundRenderer {
     _buildCityLights() { /* no-op */ }
 
     _cleanupZombieCache() {
+        this._cemeteryGroundLipCanvas = null;
         this._cemeteryAtmosphereCanvas = null;
         this._cemeteryScene = null;
         this._cemeterySceneCtx = null;

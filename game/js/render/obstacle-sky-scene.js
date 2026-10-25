@@ -27,7 +27,7 @@ class ObstacleSkyScene {
     }
 
     _bake(w, h, grid) {
-        const originalPalette = window.game?.gameMode === 'customise';
+        const originalPalette = false;
         const color = (original, matched) => originalPalette ? original : matched;
         const key = [originalPalette, w, h, grid.left, grid.right, grid.top, grid.bottom, grid.cols, grid.rows, this.ready].join(':');
         if (this.canvas && this.key === key) return this.canvas;
@@ -60,13 +60,13 @@ class ObstacleSkyScene {
             ctx.fillRect(0, 0, w, h);
             ctx.globalCompositeOperation = 'source-over';
         }
-        ctx.fillStyle = color('rgba(9,8,20,0.32)', 'rgba(25,16,13,0.25)');
+        ctx.fillStyle = color('rgba(9,8,20,0.32)', 'rgba(25,16,13,0.12)');
         ctx.fillRect(0, 0, w, h);
         // Soft darkening keeps the sunset legible at the edges and the ball
         // readable through the whole playfield, without a hard UI-like panel.
         const shade = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.65);
-        shade.addColorStop(0, color('rgba(10,12,24,0.83)', 'rgba(19,15,18,0.81)'));
-        shade.addColorStop(0.55, color('rgba(10,12,24,0.57)', 'rgba(25,19,20,0.54)'));
+        shade.addColorStop(0, color('rgba(10,12,24,0.83)', 'rgba(14,17,25,0.62)'));
+        shade.addColorStop(0.55, color('rgba(10,12,24,0.57)', 'rgba(23,20,28,0.38)'));
         shade.addColorStop(1, color('rgba(10,12,24,0.08)', 'rgba(29,20,17,0.06)'));
         ctx.fillStyle = shade;
         ctx.fillRect(0, 0, w, h);
@@ -125,20 +125,8 @@ class ObstacleSkyScene {
             this.shader.samples = (this.shader.samples || 0) + 1;
             if (this.shader.samples > 30 && this.shader.costMs > 2 && !ObstacleSkyShader.allowSoftware) this.shader.ok = false;
         }
-        // The scenery is gentle ambient movement (waterfalls, cloud light,
-        // falling glints), so reduced motion never freezes it.
+        // Motion belongs to the painted falls; independent gutter streaks
+        // have no physical emitter and used to look like an overlay sticker.
         this.waterfalls?.render(ctx, w, h, time);
-        ctx.save();
-        // Small cyan falling glints suggest energy spilling into the abyss.
-        // All accents stay in the gutters, away from the playable course.
-        ctx.fillStyle = '#8ce9ff';
-        for (let i = 0; i < 12; i++) {
-            const side = i % 2;
-            const x = side ? w * (0.94 + (i % 3) * 0.014) : w * (0.025 + (i % 3) * 0.014);
-            const y = ((i * 0.137 + time * 0.035) % 1) * h;
-            ctx.globalAlpha = 0.10 + Math.sin(i + time) * 0.045;
-            ctx.fillRect(x, y, Math.max(1, w / 1200), Math.max(4, h * 0.018));
-        }
-        ctx.restore();
     }
 }
