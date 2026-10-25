@@ -41,8 +41,8 @@ function session(width,height,artSource) {
         return image;
     };
     vm.createContext(sandbox);
-    for(const f of ['scene-compositor','classic-art','speed-art','obstacle-waterfalls','obstacle-sky-scene','gravity-materials','gravity-art','background-renderer']) {
-        vm.runInContext(fs.readFileSync(f==='gravity-art'&&artSource?artSource:path.join(root,'js/render',f+'.js'),'utf8'),sandbox);
+    for(const f of ['scene-compositor','arena-motion','classic-art','speed-art','obstacle-waterfalls','obstacle-sky-scene','gravity-materials','gravity-art','background-renderer']) {
+        vm.runInContext(fs.readFileSync((typeof artSource==='object'?artSource?.[f]:f==='gravity-art'?artSource:null)||path.join(root,'js/render',f+'.js'),'utf8'),sandbox);
     }
     sandbox.ClassicArt=sandbox.window.ClassicArt;sandbox.SpeedArt=sandbox.window.SpeedArt;
     vm.runInContext('globalThis.Renderer=BackgroundRenderer;',sandbox);

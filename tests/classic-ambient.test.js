@@ -1,74 +1,31 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-let allocations = 0, gradients = 0, reducedMotion = false;
-const draws = [], rotations = [];
-const makeContext = () => new Proxy({}, {get(target, key) {
-    if (key in target) return target[key];
-    if (key === 'getTransform') return () => ({a:1.5,b:0,c:0,d:1.5});
-    if (key === 'createLinearGradient' || key === 'createRadialGradient') return () => {
-        gradients++; return {addColorStop(){}};
-    };
-    if (key === 'drawImage') return (...args) => draws.push(args);
-    if (key === 'rotate') return angle => rotations.push(angle);
-    return () => {};
-}});
-const context = vm.createContext({Math, window:{game:{gameMode:'classic'}, PPSettings:{get:()=>reducedMotion}},
-    PerfGovernor:{tier:0}, document:{createElement(){
-        allocations++;
-        return {width:0,height:0,getContext:()=>makeContext()};
-    }}
-});
-vm.runInContext(fs.readFileSync(path.join(__dirname,'../game/js/render/classic-art.js'),'utf8'),context);
-const art = new context.window.ClassicArt();
-const ctx = makeContext(), state = {dt:1/30,rally:0,score:0};
-art.draw(ctx,1280,720,state);
-const banner=art.banner, base=art.base, allocated=allocations, bakedGradients=gradients;
-assert(banner, 'normal quality uses the shared banner sprite');
-assert(banner.c.width <= 110 && banner.c.height <= 260, 'sprite stays tightly bounded at 1x despite DPR');
-draws.length=0;rotations.length=0;
-art.draw(ctx,1280,720,state);
-const firstAngles=rotations.slice(-2);
-assert.equal(draws.filter(d=>d[0]===banner.c).length,2,'exactly two banner blits per background frame');
-assert(draws.findIndex(d=>d[0]===banner.c) > draws.findLastIndex(d=>d[0]===art.beam.c),
-    'foreground banners must occlude spotlights');
-for(let i=0;i<120;i++) art.draw(ctx,1280,720,state);
-assert.equal(allocations,allocated,'animation cannot allocate canvases each frame');
-assert.equal(gradients,bakedGradients,'animation cannot repaint gradients each frame');
-assert.equal(art.base,base,'crowd and arena retain the baked base');
-assert.equal(art.banner,banner,'both banners reuse the same sprite');
-rotations.length=0;
-art.draw(ctx,1280,720,state);
-assert.notDeepEqual(rotations.slice(-2),firstAngles,'banner angles change over time');
-assert(rotations.slice(-2).every(a=>Math.abs(a)<=0.022),'sway remains below 1.3 degrees');
-state.dt=0;rotations.length=0;
-art.draw(ctx,1280,720,state);
-const pausedAngles=rotations.slice(-2);
-rotations.length=0;art.draw(ctx,1280,720,state);
-assert.deepEqual(rotations.slice(-2),pausedAngles,'zero dt cannot advance the new animation');
-reducedMotion=true;
-state.dt=1/30;
-rotations.length=0;draws.length=0;
-art.draw(ctx,1280,720,state);
-assert.equal(art.banner,banner,'reduced motion retains the cached ambient sprite');
-assert.notDeepEqual(rotations.slice(-2),pausedAngles,'subtle animation continues with reduced motion enabled');
-assert.equal(draws.filter(d=>d[0]===banner.c).length,2,'reduced motion still adds only two banner blits');
-art.draw(ctx,1280,720,state);
-assert.equal(allocations,allocated,'changing reduced motion cannot rebake the scene');
-assert.equal(gradients,bakedGradients,'reduced motion introduces no dynamic gradients');
-context.PerfGovernor.tier=2;
-art.draw(ctx,1280,720,state);
-assert.equal(art.banner,banner,'low tier retains the same cheap animated sprite');
-context.PerfGovernor.tier=3;
-rotations.length=0;
-art.draw(ctx,1280,720,state);
-const lowAngles=rotations.slice(-2);
-rotations.length=0;
-art.draw(ctx,1280,720,state);
-assert.notDeepEqual(rotations.slice(-2),lowAngles,'lowest tier still animates');
-assert.equal(allocations,allocated,'quality switches alone cannot rebake the sprite');
-context.PerfGovernor.tier=0;
-art.draw(ctx,1280,720,state);
-assert(art.banner,'restoring quality restores ambient animation');
-console.log('Classic ambient motion, shared sprite budget, steady-state cache and all quality tiers passed.');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+let allocations=0,gradients=0,reduced=false;
+const draws=[],transforms=[];
+function context(){return new Proxy({globalAlpha:1,getTransform:()=>({a:1.5,b:0,c:0,d:1.5}),
+    drawImage(...a){draws.push(a);},transform(...a){transforms.push(a);},
+    createLinearGradient(){gradients++;return {addColorStop(){}};},createRadialGradient(){gradients++;return {addColorStop(){}};}
+},{get:(o,k)=>k in o?o[k]:()=>{}});}
+const sandbox=vm.createContext({Math,window:{game:{gameMode:'classic'},PPSettings:{get:()=>reduced}},PerfGovernor:{tier:0},
+    document:{createElement(){allocations++;return {width:0,height:0,getContext:context};}}});
+for(const f of ['arena-motion','classic-art'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../game/js/render/'+f+'.js'),'utf8'),sandbox);
+const art=new sandbox.window.ClassicArt(),ctx=context(),state={dt:1/30,rally:0,score:0};art.draw(ctx,1280,720,state);
+const banner=art.banner,base=art.base,warm=allocations,baked=gradients;
+assert(banner.c.width<=110&&banner.c.height<=260,'shared cloth texture stays bounded');
+assert(art.crowdActors.length>20&&art.crowdActors.length<=96,'bounded independent spectators');
+const roots=JSON.stringify(art.crowdActors);
+draws.length=transforms.length=0;art.draw(ctx,1280,720,state);const first=JSON.stringify(transforms);
+assert.equal(draws.filter(d=>d[0]===banner.c).length,24,'cloth uses twelve coherent rows per banner');
+assert(draws.findIndex(d=>d[0]===banner.c)>draws.findLastIndex(d=>d[0]===art.beam.c),'cloth occludes beams');
+for(let i=0;i<120;i++)art.draw(ctx,1280,720,state);
+assert.equal(allocations,warm);assert.equal(gradients,baked,'warm frames create no gradients');assert.equal(art.base,base);
+transforms.length=0;art.draw(ctx,1280,720,state);assert.notEqual(JSON.stringify(transforms),first,'wind deforms the cloth internally');
+state.score=1;art.draw(ctx,1280,720,state);for(let i=0;i<25;i++)art.draw(ctx,1280,720,state);
+draws.length=0;art.draw(ctx,1280,720,state);
+assert(draws.some(d=>d[0]===art.crowdAtlas&&d[1]>=1280),'spectators raise articulated arms after a point');
+assert.equal(JSON.stringify(art.crowdActors),roots,'spectators keep their seat roots');
+state.dt=0;transforms.length=0;art.draw(ctx,1280,720,state);const paused=JSON.stringify(transforms);
+transforms.length=0;art.draw(ctx,1280,720,state);assert.equal(JSON.stringify(transforms),paused);
+reduced=true;state.dt=1/30;transforms.length=0;art.draw(ctx,1280,720,state);assert.equal(JSON.stringify(transforms),paused,'reduced motion holds the wind phase');
+for(const tier of [2,3,0]){sandbox.PerfGovernor.tier=tier;art.draw(ctx,1280,720,state);}
+assert.equal(allocations,warm);assert.equal(gradients,baked);assert.equal(art.banner,banner);
+console.log('Classic cloth deformation, seated crowd reactions, pause/reduced-motion and warm material budgets passed.');

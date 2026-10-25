@@ -664,6 +664,19 @@ class BackgroundRenderer {
         const pfx = areParticleEffectsEnabled();
 
 
+        // Joint motion is part of the scenery, not an optional particle effect.
+        if(this.mode==='zombie' && !window.PPSettings?.get('reduceMotion')) {
+            for (let i = 0; i < this.zombieHands.length; i++) {
+                const hand = this.zombieHands[i];
+                hand.poseBlend += dt / hand.poseDuration;
+                if (hand.poseBlend >= 1) {
+                    hand.poseBlend %= 1;
+                    hand.poseSeq = (hand.poseSeq + 1) % 10;
+                    hand.poseDuration = 1.85 + ((hand.poseSeq % 3) * 0.22) + (hand.twitch - 0.8) * 0.18;
+                }
+            }
+        }
+
         if (!pfx) return;
 
         for (let i = 0; i < this.dustParticles.length; i++) {
@@ -749,15 +762,7 @@ class BackgroundRenderer {
                 p.flapPhase += dt * p.flapSpeed;
             }
 
-            for (let i = 0; i < this.zombieHands.length; i++) {
-                const hand = this.zombieHands[i];
-                hand.poseBlend += dt / hand.poseDuration;
-                if (hand.poseBlend >= 1) {
-                    hand.poseBlend = 0;
-                    hand.poseSeq = (hand.poseSeq + (hand.poseStep || 1)) % 10;
-                    hand.poseDuration = 1.85 + ((hand.poseSeq % 3) * 0.22) + (hand.twitch - 0.8) * 0.18;
-                }
-            }
+
         }
 
         if (this.mode === 'speed' && this._bgSimEnabled && this._bgWasm.speed.initialized) {
@@ -2039,6 +2044,13 @@ class BackgroundRenderer {
         image.src = new URL('assets/images/cemetery-accents.webp', document.baseURI).href;
     }
 
+    _ensureZombieAmbientMotion() {
+        if(!window.ArenaMotion)return;
+        if(!this._cemeteryFogMotion)this._cemeteryFogMotion=window.ArenaMotion.fog();
+        if(!this._cemeteryLanternGlow)this._cemeteryLanternGlow=this._buildRadialSprite(64,[
+            [0,'rgba(255,198,117,.72)'],[.16,'rgba(255,173,73,.24)'],[1,'rgba(255,154,59,0)']]);
+    }
+
     _drawCemeteryAccents(ctx, w, h, rear = false) {
         const atlas = this._cemeteryAtlas;
         if (!atlas) return;
@@ -2062,18 +2074,32 @@ class BackgroundRenderer {
             [5,.055,.90,.089,.58,7], [4,.945,.895,.071,.41,3]
         ];
         ctx.save();
+        const time=window.PPSettings?.get('reduceMotion')?0:this.time;
         for (const [row,x,y,size,alpha,phase] of accents) {
-            const cycle = Math.floor(this.time * (row===8?3:6) + phase) % 14;
+            const cycle = Math.floor(time * (row===8?3:6) + phase) % 14;
             const frame = cycle < 8 ? cycle : 14-cycle;
             const side=unit*size;
             const top=(row<4) ? h*y : h*y-side*122/128;
             ctx.globalAlpha=alpha;
-            ctx.drawImage(atlas,frame*128,row*128,128,128,w*x-side/2,top,side,side);
+            if(window.ArenaMotion && row<2){
+                // The chain attachment is the pivot; glow follows the flame.
+                ctx.save();ctx.translate(w*x,top);ctx.rotate(Math.sin(time*(row===0?.94:1.12)+phase)*.045+Math.sin(time*2.1+phase)*.012);
+                ctx.drawImage(atlas,0,row*128,128,128,-side/2,0,side,side);
+                if(this._cemeteryLanternGlow){
+                    ctx.globalCompositeOperation='screen';ctx.globalAlpha=alpha*(.78+.12*Math.sin(time*7.3+phase)+.07*Math.sin(time*11.9));
+                    ctx.drawImage(this._cemeteryLanternGlow,-side*.39,side*.21,side*.78,side*.78);
+                }ctx.restore();
+            }else if(window.ArenaMotion && row>=2 && row<=5){
+                window.ArenaMotion.fabric(ctx,atlas,{sx:0,sy:row*128,sw:128,sh:128,w:side,h:side},w*x-side/2,top,time+phase,side*.035,6,row>=4?'bottom':'top');
+            }else{
+                const drift=window.ArenaMotion&&rear?Math.sin(time*.19+phase)*unit*.012:0;
+                ctx.drawImage(atlas,frame*128,row*128,128,128,w*x-side/2+drift,top,side,side);
+            }
         }
         if (rear) { ctx.restore(); return; }
         // The bell is registered to the chapel's local coordinates, not viewport %.
         const side=39*scale;
-        const cycle=Math.floor(this.time*2)%32;
+        const cycle=Math.floor((window.PPSettings?.get('reduceMotion')?0:this.time)*2)%32;
         const frame=cycle<14?(cycle<8?cycle:14-cycle):0;
         ctx.globalAlpha=.68;
         ctx.drawImage(atlas,frame*128,9*128,128,128,w*.745+51*scale-side/2,h*.735-194*scale,side,side);
@@ -2084,10 +2110,12 @@ class BackgroundRenderer {
         const groundY = h * 0.90;
         const staticLayer = this._ensureZombieStaticLayer(w, h, groundY);
         this._ensureCemeteryAtlas();
-        // Decorations advance at six frames/second. Compose their depth,
-        // scenery occlusion and shared grading only when that frame changes.
-        // The hands below retain the background's faster motion cadence.
-        const frame = Math.floor(this.time * 6);
+        this._ensureZombieAmbientMotion();
+        // Atlas characters retain their authored frame rate; continuous wind
+        // and pendulum transforms are composed at 12 Hz. Articulated hands and
+        // drifting fog retain the background's faster cadence.
+        const ambientTime=window.PPSettings?.get('reduceMotion')?0:this.time;
+        const frame = Math.floor(ambientTime * (window.ArenaMotion?12:6));
         let scene = this._cemeteryScene;
         if (!scene || scene.width !== w || scene.height !== h) {
             scene = this._cemeteryScene = document.createElement('canvas');
@@ -2106,6 +2134,7 @@ class BackgroundRenderer {
             this._cemeterySceneFrame = frame;
         }
         ctx.drawImage(scene,0,0);
+        if(this._cemeteryFogMotion)window.ArenaMotion.drawFog(ctx,this._cemeteryFogMotion,w,h,ambientTime);
         // Static ground haze is already baked into the scene. The former
         // twelve translucent circles added fill cost and visible round blobs.
 
@@ -2167,10 +2196,8 @@ class BackgroundRenderer {
             hand.riseBase + Math.sin(this.time * hand.riseSpeed + hand.poseOffset) * hand.riseAmp,
         ));
 
-        // More dynamic drift and bob for expressive movement
-        const driftPhase = this.time * 0.15 + hand.poseOffset;
+        // Wrist emergence pivots above a fixed buried root.
         const bobPhase = this.time * hand.bobSpeed + hand.bobOffset;
-        const secondaryWiggle = Math.sin(this.time * 1.3 + hand.poseOffset) * hand.drift * 0.5;
 
         return {
             scale,
@@ -2229,74 +2256,63 @@ class BackgroundRenderer {
         };
     }
 
+    _ensureZombieHandParts() {
+        if(this._zombieHandParts)return this._zombieHandParts;
+        const make=(paint)=>{const c=document.createElement('canvas');c.width=128;c.height=224;
+            const x=c.getContext('2d');x.save();x.translate(64,154);x.scale(.5,.5);paint(x);x.restore();return c;};
+        const wrist=make(x=>this._drawZombieWrist(x,-Math.PI/3));
+        const palm=make(x=>this._drawZombiePalm(x,0,-Math.PI/3));
+        const shade=document.createElement('canvas');shade.width=128;shade.height=224;
+        const x=shade.getContext('2d'),g=x.createLinearGradient(0,0,0,224);
+        g.addColorStop(0,'rgba(8,25,24,.08)');g.addColorStop(.7,'rgba(5,18,17,.28)');g.addColorStop(1,'rgba(2,9,9,.85)');
+        x.fillStyle=g;x.fillRect(0,0,128,224);
+        const burial=document.createElement('canvas');burial.width=128;burial.height=224;
+        const m=burial.getContext('2d'),fade=m.createLinearGradient(0,0,0,224);
+        fade.addColorStop(0,'white');fade.addColorStop(.62,'white');fade.addColorStop(.78,'rgba(255,255,255,.06)');fade.addColorStop(.88,'rgba(255,255,255,0)');
+        m.fillStyle=fade;m.fillRect(0,0,128,224);
+        const fingers=[
+            {ox:-37,oy:2,ang:-8,pl:60,ml:40,dl:30,pw:14,mw:12,dw:10,nw:9},
+            {ox:-12,oy:-4,ang:-1,pl:67,ml:44,dl:33,pw:16,mw:14,dw:12,nw:10},
+            {ox:13,oy:-2,ang:5,pl:62,ml:41,dl:31,pw:14,mw:12,dw:10,nw:9},
+            {ox:36,oy:9,ang:13,pl:44,ml:29,dl:22,pw:11,mw:9,dw:7.5,nw:7}
+        ];
+        return this._zombieHandParts={wrist,palm,shade,burial,fingers};
+    }
+
     _getZombieHandSprite(hand) {
-        // Four samples per transition, shared by both hands: at most 40 small
-        // textures (~4.4 MiB). Build only the requested pose, never an atlas burst.
-        if (!this._zombieHandSprites) this._zombieHandSprites = new Map();
-        const step = Math.min(3, Math.floor(Math.max(0, hand.poseBlend) * 4));
-        const key = (hand.poseSeq % 10) * 4 + step;
-        if (this._zombieHandSprites.has(key)) return this._zombieHandSprites.get(key);
-        const canvas = document.createElement('canvas');
-        canvas.width = 128;
-        canvas.height = 224;
-        const spriteCtx = canvas.getContext('2d');
-        spriteCtx.save();
-        spriteCtx.translate(64, 154);
-        spriteCtx.scale(0.5, 0.5);
-        const pose = this._getZombieHandPose({ ...hand, poseBlend: step / 4,
-            twitch: 0, poseOffset: 0, splayAmp: 0 });
-        pose.splay = 0; // Stable cached silhouette, independent of first-use time.
-        this._paintZombieHandPose(spriteCtx, pose, -Math.PI / 3);
-        spriteCtx.restore();
-        // Match the moonlit ground exposure, then bury the wrist in soil haze.
-        // Both masks are baked once per pose, keeping the warm path one blit.
-        spriteCtx.globalCompositeOperation = 'source-atop';
-        const shade = spriteCtx.createLinearGradient(0, 0, 0, 224);
-        shade.addColorStop(0, 'rgba(8,25,24,0.08)');
-        shade.addColorStop(0.7, 'rgba(5,18,17,0.28)');
-        shade.addColorStop(1, 'rgba(2,9,9,0.85)');
-        spriteCtx.fillStyle = shade;
-        spriteCtx.fillRect(0, 0, 128, 224);
-        spriteCtx.globalCompositeOperation = 'destination-in';
-        const burial = spriteCtx.createLinearGradient(0, 0, 0, 224);
-        burial.addColorStop(0, 'white');
-        burial.addColorStop(0.62, 'white');
-        burial.addColorStop(0.78, 'rgba(255,255,255,0.06)');
-        burial.addColorStop(0.88, 'rgba(255,255,255,0)');
-        spriteCtx.fillStyle = burial;
-        spriteCtx.fillRect(0, 0, 128, 224);
-        spriteCtx.globalCompositeOperation = 'source-over';
-        this._zombieHandSprites.set(key, canvas);
-        return canvas;
+        // Joint transforms are continuous; only the materials are baked. Two
+        // small frame buffers replace forty stepped whole-hand pose textures.
+        const parts=this._ensureZombieHandParts();
+        if(!hand._artFrame){hand._artFrame=document.createElement('canvas');hand._artFrame.width=128;hand._artFrame.height=224;
+            hand._artCtx=hand._artFrame.getContext('2d');hand._artStamp=-Infinity;}
+        const reduced=!!window.PPSettings?.get('reduceMotion');
+        const stamp=reduced?-1:Math.floor(this.time*30);
+        if(hand._artStamp===stamp)return hand._artFrame;
+        const x=hand._artCtx,pose=this._getZombieHandPose(reduced?{...hand,poseSeq:0,poseBlend:0,twitch:0}:hand);
+        x.setTransform(1,0,0,1,0,0);x.globalCompositeOperation='source-over';x.clearRect(0,0,128,224);
+        x.drawImage(parts.wrist,0,0);
+        x.save();x.translate(64,154);x.scale(.5,.5);this._drawZombieThumb(x,pose.thumb,-Math.PI/3);x.restore();
+        x.drawImage(parts.palm,0,0);
+        x.save();x.translate(64,154);x.scale(.5,.5);
+        for(let i=0;i<parts.fingers.length;i++)this._drawZombieFinger(x,parts.fingers[i],pose.fingers[i],-Math.PI/3,i===1);
+        x.restore();x.globalCompositeOperation='source-atop';x.drawImage(parts.shade,0,0);
+        x.globalCompositeOperation='destination-in';x.drawImage(parts.burial,0,0);x.globalCompositeOperation='source-over';
+        hand._artStamp=stamp;return hand._artFrame;
     }
 
     _renderZombieHand(ctx, hand, w, h, groundY) {
+        const fixed=window.PPSettings?.get('reduceMotion');
         const state = this._getZombieHandState(hand, w, h, groundY);
+        if(fixed){state.y=groundY-50*state.scale;state.rot=hand.rotOffset||0;}
         const sprite = this._getZombieHandSprite(hand);
         ctx.save();
         ctx.translate(state.x, state.y);
         ctx.rotate(this._degToRad(state.rot));
         ctx.globalAlpha = Math.min(1, 0.48 + state.emerge * 0.78);
-        // Live drift, rotation and emergence; no live paths, gradients or blur.
+        // Articulated joints, rotation and emergence; warm materials stay cached.
         ctx.drawImage(sprite, -128 * state.scale, -308 * state.scale,
             256 * state.scale, 448 * state.scale);
         ctx.restore();
-    }
-
-    _paintZombieHandPose(ctx, pose, lightAngle) {
-        const fingerDefs = [
-            { ox: -37, oy: 2, ang: -8, pl: 60, ml: 40, dl: 30, pw: 14, mw: 12, dw: 10, nw: 9 },
-            { ox: -12, oy: -4, ang: -1, pl: 67, ml: 44, dl: 33, pw: 16, mw: 14, dw: 12, nw: 10 },
-            { ox: 13, oy: -2, ang: 5, pl: 62, ml: 41, dl: 31, pw: 14, mw: 12, dw: 10, nw: 9 },
-            { ox: 36, oy: 9, ang: 13, pl: 44, ml: 29, dl: 22, pw: 11, mw: 9, dw: 7.5, nw: 7 },
-        ];
-        this._drawZombieWrist(ctx, lightAngle);
-        this._drawZombieThumb(ctx, pose.thumb, lightAngle);
-        this._drawZombiePalm(ctx, pose.splay, lightAngle);
-        fingerDefs.forEach((def, i) => {
-            this._drawZombieFinger(ctx, def, pose.fingers[i], lightAngle, i === 1);
-        });
-
     }
 
     _renderZombieHandMound(ctx, hand, w, h, groundY) {
@@ -4062,13 +4078,16 @@ class BackgroundRenderer {
     _buildCityLights() { /* no-op */ }
 
     _cleanupZombieCache() {
+        this._zombieHandParts=null;
+        this._cemeteryFogMotion=null;
+        this._cemeteryLanternGlow=null;
+        for(const hand of this.zombieHands||[]){hand._artFrame=null;hand._artCtx=null;}
         this._cemeteryGroundLipCanvas = null;
         this._cemeteryAtmosphereCanvas = null;
         this._cemeteryScene = null;
         this._cemeterySceneCtx = null;
         this._cemeteryScenePlate = null;
         this._cemeterySceneFrame = -1;
-        this._zombieHandSprites = null;
         this._zombieSkyCanvas = null;
         this._zombieStaticCanvas = null;
         this._zombieStaticCtx = null;

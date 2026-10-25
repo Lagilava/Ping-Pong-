@@ -4,12 +4,10 @@
  * from a lighting truss, spotlights sweep over two tiers of crowd, LED boards
  * scroll and the glossy floor mirrors the lights.
  *
- * Everything static (roof, truss, banners, crowd, boards, floor) is painted
- * once into offscreen canvases at the canvas pixel scale. A frame is a few
- * drawImage calls: the base, the scrolling LED strips, five spotlight beams
- * and their floor pools (additive), camera flashes, and the vignette. No
- * draw-time blur. Two near banners share one small cached cloth sprite;
- * their slow sway adds only two blits at the existing background cadence.
+ * The arena and material maps are baked once. Attached cloth deforms along
+ * coherent rows, a bounded set of spectators articulates in their seats, and
+ * moving lights retain registered floor reflections. No warm-frame textures,
+ * gradients or blur are created.
  */
 (function () {
     const TAU = Math.PI * 2;
@@ -257,6 +255,10 @@
                 const hy = ry + rh * (0.36 + r() * 0.1) - (r() < 0.12 ? rh * 0.18 : 0); // some stand up
                 const shade = 6 + Math.floor(r() * 12);
                 x.fillStyle = `rgb(${shade + 6},${Math.floor(shade * 0.35)},${Math.floor(shade * 0.6)})`;
+                if (opts.actors && opts.actors.length < opts.actorLimit && ((Math.round(hx/rh)*3+row+seed)%7+7)%7===0) {
+                    opts.actors.push({x:hx,y:ry+rh,scale:hr/4,phase:(hx/w+row*.173)%1,delay:((Math.sin(hx*12.98+row*78.23)*43758.54)%1+1)%1*.42});
+                    continue;
+                }
                 // Shoulders, then head.
                 x.beginPath();
                 x.ellipse(hx, hy + hr * 2.1, hr * 1.9, hr * 1.25, 0, Math.PI, TAU);
@@ -493,6 +495,8 @@
             if (key === this.key) return;
             this.key = key;
             const L = this.L = layout(w, h);
+            this.crowdActors=[];
+            this.crowdAtlas=window.ArenaMotion?.crowdAtlas();
             const glowW = glowSprite(cardColor('255,215,190', '255,198,225'));
             const glowR = glowSprite(cardColor('255,70,110', '255,50,125'));
             this.glowW = glowW;
@@ -511,6 +515,7 @@
             paintTier(bx, w, L.upper[0], L.upper[1], 7, 31, {
                 bowlTop: '#2a0a18', bowlBottom: '#3a0e20', lit: 0.55, haze: 0.2, arms: 0.05, phones: 0.03,
                 aisles: [0.08, 0.24, 0.41, 0.59, 0.76, 0.92],
+                actors: this.crowdAtlas?this.crowdActors:null, actorLimit:40,
             });
             // Both near banners reuse one tightly bounded sprite on every
             // quality tier. The outer background cache controls frame rate.
@@ -530,11 +535,15 @@
             bannerCtx.fillStyle = clothShade;
             bannerCtx.fillRect(0, 0, bannerCanvas.width, bannerCanvas.height);
             bannerCtx.restore();
-            this.banner = { c: bannerCanvas, w: tw, h: th, pivot: pad, y: h * 0.05 - bannerH * 0.3 };
+            const shade=(color)=>{const c=document.createElement('canvas');c.width=bannerCanvas.width;c.height=bannerCanvas.height;
+                const x=c.getContext('2d');x.drawImage(bannerCanvas,0,0);x.globalCompositeOperation='source-in';x.fillStyle=color;x.fillRect(0,0,c.width,c.height);return c;};
+            this.banner = { c: bannerCanvas, w: tw, h: th, pivot: pad, y: h * 0.05 - bannerH * 0.3,
+                shadeDark:shade('#0d0310'),shadeLight:shade('#ffe3df') };
             paintFascia(bx, w, L.ribbon[0], L.ribbon[1] - L.ribbon[0]);
             paintTier(bx, w, L.ribbon[1], L.lower[1], 6, 57, {
                 bowlTop: '#320c1b', bowlBottom: '#3e1021', lit: 0.74, haze: 0.06, arms: 0.1, phones: 0.04,
                 aisles: [0.15, 0.37, 0.63, 0.85],
+                actors: this.crowdAtlas?this.crowdActors:null, actorLimit:96,
             });
             paintFascia(bx, w, L.board[0], L.board[1] - L.board[0]);
             paintFloor(bx, w, h, L);
@@ -574,17 +583,20 @@
             this._bake(ctx, w, h);
             const L = this.L;
             const dt = Math.max(0, Math.min(0.1, st.dt || 0));
-            this.t += dt;
+            const reduced=!!window.PPSettings?.get('reduceMotion');
+            if(!reduced)this.t += dt;
             if (st.rally !== this._rally) {
                 if (st.rally > this._rally) this.pulse = 1;
                 this._rally = st.rally;
             }
-            if (this._score >= 0 && st.score !== this._score) this.cheer = 1;
+            if (this._score >= 0 && st.score !== this._score) {this.cheer = 1;this.crowdEventTime=this.t;}
             this._score = st.score;
             this.pulse = Math.max(0, this.pulse - dt * 2.4);
             this.cheer = Math.max(0, this.cheer - dt * 0.45);
 
             ctx.drawImage(this.base, 0, 0, w, h);
+
+            if(this.crowdAtlas)window.ArenaMotion.drawCrowd(ctx,this.crowdAtlas,this.crowdActors,this.t,this.crowdEventTime??-Infinity);
 
             // LED boards scroll in opposite directions.
             this._strip(ctx, this.ribbon, L.ribbon[0] + 2, w, -w * 0.035);
@@ -593,7 +605,7 @@
             // Camera flashes in the stands, a burst after every point.
             const r = this._rnd;
             const rate = 2.5 + this.cheer * 40 + this.pulse * 4;
-            if (r() < rate * dt) {
+            if (!reduced && r() < rate * dt) {
                 const tier = r() < 0.55 ? L.lower : L.upper;
                 this.flashes.push({ x: r() * w, y: tier[0] + r() * (tier[1] - tier[0]), life: 1, s: 7 + r() * 9 });
             }
@@ -628,6 +640,8 @@
                 const pw = w * 0.16, ph = (h - L.fy) * 0.28;
                 ctx.globalAlpha = 0.16 + breath * 0.5 + this.pulse * 0.08 + this.cheer * 0.08;
                 ctx.drawImage(this.pool, fx - pw / 2, L.fy + (h - L.fy) * 0.35 - ph / 2, pw, ph);
+                ctx.globalAlpha *= .28;
+                ctx.drawImage(this.pool,fx-pw*.12,L.fy+(h-L.fy)*.35,pw*.24,ph*2.1);
             }
 
             // Truss lamps flare on hits.
@@ -650,17 +664,14 @@
             this.flashes.length = keep;
             ctx.restore();
 
-            // Near cloth occludes the airborne beams behind it.
-            // About one degree of sway, offset so both banners do not move
-            // in unison. No cloth simulation, paths, gradients or new timers.
+            // Cloth hangs from a fixed top; a wind wave travels down to its
+            // free hem and carries the crest with it, instead of rotating a card.
             if (this.banner) {
-                const b = this.banner;
-                for (let i = 0; i < 2; i++) {
-                    ctx.save();
-                    ctx.translate(w * (i === 0 ? 0.17 : 0.83), b.y);
-                    ctx.rotate(Math.sin(this.t * 0.7 + i * 2.1) * 0.022);
-                    ctx.drawImage(b.c, -b.w / 2, -b.pivot, b.w, b.h);
-                    ctx.restore();
+                const b=this.banner;
+                for(let i=0;i<2;i++){
+                    const x=w*(i===0?.17:.83)-b.w/2,y=b.y-b.pivot;
+                    if(window.ArenaMotion)window.ArenaMotion.fabric(ctx,b.c,{w:b.w,h:b.h,shadeDark:b.shadeDark,shadeLight:b.shadeLight},x,y,this.t+i*2.1,b.w*.075);
+                    else ctx.drawImage(b.c,x,y,b.w,b.h);
                 }
             }
 
