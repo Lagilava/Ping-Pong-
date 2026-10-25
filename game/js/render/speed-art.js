@@ -55,8 +55,20 @@
         c.height = Math.max(1, Math.round(h * scale));
         const x = c.getContext('2d');
         if (flip) { x.translate(c.width, 0); x.scale(-1, 1); }
+        x.filter = 'saturate(0.68) brightness(0.82)';
         x.drawImage(artwork.props, rx / 1254 * artwork.props.naturalWidth,
             ry / 1254 * artwork.props.naturalHeight, w, h, 0, 0, c.width, c.height);
+        x.filter = 'none';
+        x.setTransform(1, 0, 0, 1, 0, 0);
+        // Ambient purple replaces the atlas's cyan sticker-like fringe; the
+        // lower half falls into road shadow. Preserve the source alpha exactly.
+        x.globalCompositeOperation = 'source-atop';
+        const shade = x.createLinearGradient(0, 0, 0, c.height);
+        shade.addColorStop(0, 'rgba(29,12,42,0.08)');
+        shade.addColorStop(.5, 'rgba(17,9,33,0.20)');
+        shade.addColorStop(1, 'rgba(5,5,19,0.72)');
+        x.fillStyle = shade; x.fillRect(0, 0, c.width, c.height);
+        x.globalCompositeOperation = 'source-over';
         return { c, w: rw, h: rh, anchor: kind === 'lamp' ? (flip ? 0.8 : 0.2) : kind === 'palm' ? (flip ? 0.65 : 0.35) : 0.5 };
     }
 

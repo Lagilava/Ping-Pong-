@@ -22,11 +22,11 @@
     const IMAGE_MAX_H = 1080;
 
     const BUILT_INS = [
-        { id: 'classic', name: 'Classic', image: 'assets/images/customise-previews/classic.png?v=20261025-lighting' },
-        { id: 'zombie', name: 'Zombie', image: 'assets/images/customise-previews/zombie.png?v=20261025-lighting' },
-        { id: 'gravity', name: 'Gravity', image: 'assets/images/customise-previews/gravity.png?v=20261025-lighting' },
-        { id: 'speed', name: 'Speed', image: 'assets/images/customise-previews/speed.png?v=20261025-lighting' },
-        { id: 'obstacle', name: 'Obstacle', image: 'assets/images/customise-previews/obstacle.png?v=20261025-lighting' },
+        { id: 'classic', name: 'Classic', image: 'assets/images/customise-previews/classic.png?v=20261026-lighting-2' },
+        { id: 'zombie', name: 'Zombie', image: 'assets/images/customise-previews/zombie.png?v=20261026-lighting-2' },
+        { id: 'gravity', name: 'Gravity', image: 'assets/images/customise-previews/gravity.png?v=20261026-lighting-2' },
+        { id: 'speed', name: 'Speed', image: 'assets/images/customise-previews/speed.png?v=20261026-lighting-2' },
+        { id: 'obstacle', name: 'Obstacle', image: 'assets/images/customise-previews/obstacle.png?v=20261026-lighting-2' },
     ];
 
     const EXAMPLE_CANVAS = `// Neon horizon: a Canvas 2D background for Ping Pong.

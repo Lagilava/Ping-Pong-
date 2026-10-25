@@ -504,6 +504,18 @@
             const tw = Math.ceil(bwNear + pad * 2), th = Math.ceil(bannerH * 1.3 + pad * 2);
             const [bannerCanvas, bannerCtx] = canvas(tw, th, Math.min(sx, 1), Math.min(sy, 1));
             paintBanner(bannerCtx, tw / 2, bannerH * 0.3 + pad, bwNear, bannerH, false);
+            // Cloth receives overhead spill and folds into shadow at the hem.
+            // Shade only opaque cloth pixels in the shared cached banner.
+            bannerCtx.save();
+            bannerCtx.setTransform(1, 0, 0, 1, 0, 0);
+            bannerCtx.globalCompositeOperation = 'source-atop';
+            const clothShade = bannerCtx.createLinearGradient(0, 0, bannerCanvas.width, bannerCanvas.height);
+            clothShade.addColorStop(0, 'rgba(18,3,14,0)');
+            clothShade.addColorStop(.48, 'rgba(18,3,14,0.16)');
+            clothShade.addColorStop(1, 'rgba(8,2,10,0.70)');
+            bannerCtx.fillStyle = clothShade;
+            bannerCtx.fillRect(0, 0, bannerCanvas.width, bannerCanvas.height);
+            bannerCtx.restore();
             this.banner = { c: bannerCanvas, w: tw, h: th, pivot: pad, y: h * 0.05 - bannerH * 0.3 };
             paintFascia(bx, w, L.ribbon[0], L.ribbon[1] - L.ribbon[0]);
             paintTier(bx, w, L.ribbon[1], L.lower[1], 6, 57, {

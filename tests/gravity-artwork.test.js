@@ -4,12 +4,12 @@ const vm = require('node:vm');
 const path = require('node:path');
 async function main() {
     const images = [], positions = [], rotations = [];
-    let invalidations = 0, blits = 0, dots = 0;
+    let invalidations = 0, blits = 0, dots = 0, bakes = 0, shades = 0;
     const ctx = {save(){},restore(){},translate(x,y){positions.push([x,y]);},rotate(a){rotations.push(a);},beginPath(){},arc(){},stroke(){},
         drawImage(){blits++;}, fillRect(){dots++;}, globalAlpha: 1};
     const sandbox = {URL, Promise, window: {game: {bgRenderer: {_invalidateBackgroundRenderCache(){invalidations++;}}}},
         Image: class {constructor(){images.push(this);}},
-        document: {currentScript: {src:'https://example.com/Ping-Pong-/game/js/render/gravity-art.js'}},
+        document: {createElement() { bakes++; return {width:0,height:0,getContext:()=>new Proxy({}, {get:(_,key)=>key==='createRadialGradient'?()=>{shades++;return {addColorStop(){}};}:()=>{}})}; }, currentScript: {src:'https://example.com/Ping-Pong-/game/js/render/gravity-art.js'}},
         areParticleEffectsEnabled: () => true};
     vm.createContext(sandbox);
     vm.runInContext(fs.readFileSync(path.join(__dirname,'../game/js/render/gravity-art.js'),'utf8'),sandbox);
@@ -23,6 +23,8 @@ async function main() {
     await new Promise(resolve=>setImmediate(resolve));
     assert.equal(invalidations,3);
     assert.equal(art.status().sceneReady,true);
+    assert.equal(bakes,1,'shade the transparent planet atlas once after decoding');
+    assert.equal(shades,2,'each planet has directional illumination');
     blits=dots=0;
     for(let i=0;i<120;i++) {
         assert.equal(art.drawBackground(ctx,1024,576,i/60),true);
@@ -31,6 +33,8 @@ async function main() {
     assert.equal(blits,120*8,'one backdrop, two planets and one image draw per well');
     assert.equal(dots,120*88,'72 stars plus eight simple cross sparkles have a fixed budget');
     assert.equal(images.length,3,'warm frames do not create new images');
+    assert.equal(bakes,1,'warm frames reuse the lit planet atlas');
+    assert.equal(shades,2,'warm frames never rebuild lighting gradients');
     positions.length=rotations.length=0;
     art.drawBackground(ctx,1920,1080,0);
     const atStart=JSON.stringify(positions), angleStart=JSON.stringify(rotations);
@@ -44,3 +48,4 @@ async function main() {
     console.log('Gravity generated artwork loading and animated draw budgets passed.');
 }
 main().catch(err=>{console.error(err);process.exitCode=1;});
+

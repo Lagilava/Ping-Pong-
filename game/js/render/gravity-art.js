@@ -8,6 +8,36 @@
         x: ((i * 0.61803398875 + .13) % 1), y: ((i * .41421356237 + .07) % 1),
         phase: i * 2.39, size: i % 9 === 0 ? 1.6 : .8, speed: .3 + (i % 3) * .4
     }));
+    // Shade the transparent atlas once. The galaxy at upper left is the key
+    // light: planets need an unlit hemisphere instead of a uniformly neon rim.
+    function lightPlanets(image) {
+        const c = document.createElement('canvas');
+        const scale = Math.min(1, 1024 / image.naturalWidth);
+        c.width = Math.round(image.naturalWidth * scale);
+        c.height = Math.round(image.naturalHeight * scale);
+        const ctx = c.getContext('2d');
+        ctx.drawImage(image, 0, 0, c.width, c.height);
+        ctx.globalCompositeOperation = 'source-atop';
+        for (const [rx, ry, rw, rh, lx, ly] of [
+            [.015, .03, .46, .92, .13, .15],
+            [.472, .06, .528, .83, .57, .08]
+        ]) {
+            const x = rx * c.width, y = ry * c.height;
+            const w = rw * c.width, h = rh * c.height;
+            ctx.save();
+            ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+            const shade = ctx.createRadialGradient(x + w * lx, y + h * ly, w * .06,
+                x + w * lx, y + h * ly, w * 1.05);
+            shade.addColorStop(0, 'rgba(8,12,32,0)');
+            shade.addColorStop(.32, 'rgba(8,12,32,0.12)');
+            shade.addColorStop(.66, 'rgba(5,8,25,0.58)');
+            shade.addColorStop(1, 'rgba(3,6,20,0.92)');
+            ctx.fillStyle = shade; ctx.fillRect(x, y, w, h);
+            ctx.restore();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        return c;
+    }
     function load() {
         if (assets.started || typeof Image === 'undefined') return;
         assets.started = true;
@@ -15,7 +45,7 @@
             const image = new Image();
             image.decoding = 'async';
             image.onload = () => Promise.resolve(image.decode ? image.decode() : undefined).then(() => {
-                assets[key] = image;
+                assets[key] = key === 'planets' ? lightPlanets(image) : image;
                 window.game?.bgRenderer?._invalidateBackgroundRenderCache?.();
             }).catch(() => {});
             image.onerror = () => {}; // keep the bounded procedural fallback
@@ -32,6 +62,7 @@
             -h * .015 + (motion ? Math.cos(time * .05) * h * .006 : 0), w * 1.03, h * 1.03);
         if (assets.planets) {
             const atlas = assets.planets;
+            const aw = atlas.naturalWidth || atlas.width, ah = atlas.naturalHeight || atlas.height;
             // Explicit rectangles keep the ring intact across the atlas midpoint.
             const rects = [[.015, .03, .46, .92], [.472, .06, .528, .83]];
             for (let i = 0; i < 2; i++) {
@@ -43,10 +74,11 @@
                 const py = h * (i === 0 ? .17 : .80) + Math.cos(drift * .17 + i) * unit * .01;
                 ctx.save();
                 ctx.translate(px, py);
-                ctx.rotate((i === 0 ? 1 : -1) * drift * .025);
-                const height = side * (rh * atlas.naturalHeight) / (rw * atlas.naturalWidth);
-                ctx.drawImage(atlas, rx * atlas.naturalWidth, ry * atlas.naturalHeight,
-                    rw * atlas.naturalWidth, rh * atlas.naturalHeight,
+                // Keep the baked light direction stable in world space.
+                ctx.rotate(Math.sin(drift * .13 + i) * .025);
+                const height = side * (rh * ah) / (rw * aw);
+                ctx.drawImage(atlas, rx * aw, ry * ah,
+                    rw * aw, rh * ah,
                     -side / 2, -height / 2, side, height);
                 ctx.restore();
             }
@@ -90,3 +122,4 @@
     window.GravityArt = {drawBackground, drawWell,
         status: () => ({sceneReady: !!assets.scene, wellReady: !!assets.well, planetsReady: !!assets.planets})};
 })();
+
