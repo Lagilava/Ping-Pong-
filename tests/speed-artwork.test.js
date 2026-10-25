@@ -60,7 +60,9 @@ async function main() {
     assert.equal(s.gradients(), gradients, 'no warm-frame gradients');
     assert.equal(s.images.length, 2, 'no repeated image requests');
     assert.notEqual(art.phase, phase, 'road and props continue moving');
-    assert.ok(s.draws.length < 120 * 25, 'bounded image draws per scenery update');
+    // Contact shadows and tail-light spill add at most one draw per prop
+    // and three per car, still without warm-frame allocations or gradients.
+    assert.ok(s.draws.length < 120 * 45, 'bounded image draws including road contact and light spill');
     const held = art.phase;
     art.draw(ctx, 3840, 2160, {...state, slow: 0});
     assert.equal(art.phase, held, 'speed ability freezes scenery consistently');
@@ -97,3 +99,4 @@ async function main() {
     console.log('Speed artwork loading, fallback, animation and texture budgets passed.');
 }
 main().catch(err => {console.error(err); process.exitCode = 1;});
+

@@ -57,7 +57,7 @@
 .customise-overlay .customise-summary-swatch { border-color: #30444d; background: #0a151d; box-shadow: none; height: 135px; }
 .customise-overlay .customise-summary-label { color: var(--studio-muted); font-size: 11px; letter-spacing: .07em; }
 .customise-overlay .customise-background-studio { grid-template-columns: minmax(240px, .7fr) minmax(0, 1.3fr); gap: 22px; }
-.customise-overlay .customise-live-preview { width: 100%; }
+.customise-overlay .customise-live-preview { width: 100%; height: auto; aspect-ratio: 16 / 9; }
 .customise-overlay .customise-powerups-panel { padding: 24px; }
 .customise-overlay .customise-powerup-option { min-height: 52px; border: 1px solid #2c414a; background: #0c1821; border-radius: 8px; color: #a7bdc3; font-size: 13px; }
 .customise-overlay .customise-powerup-option:has(input:checked) { background: #173831; border-color: #598f7e; color: #d6fff0; }
@@ -266,3 +266,4 @@
     .forge-editor .forge-palette .forge-tool canvas { width: 24px; height: 24px; }
     .forge-editor .forge-palette .forge-tool kbd { display: none; }
 }
+

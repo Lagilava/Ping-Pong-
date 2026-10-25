@@ -22,11 +22,11 @@
     const IMAGE_MAX_H = 1080;
 
     const BUILT_INS = [
-        { id: 'classic', name: 'Classic', image: 'assets/images/customise-previews/classic.png' },
-        { id: 'zombie', name: 'Zombie', image: 'assets/images/customise-previews/zombie.png' },
-        { id: 'gravity', name: 'Gravity', image: 'assets/images/customise-previews/gravity.png' },
-        { id: 'speed', name: 'Speed', image: 'assets/images/customise-previews/speed.png' },
-        { id: 'obstacle', name: 'Obstacle', image: 'assets/images/customise-previews/obstacle.png' },
+        { id: 'classic', name: 'Classic', image: 'assets/images/customise-previews/classic.png?v=20261025-lighting' },
+        { id: 'zombie', name: 'Zombie', image: 'assets/images/customise-previews/zombie.png?v=20261025-lighting' },
+        { id: 'gravity', name: 'Gravity', image: 'assets/images/customise-previews/gravity.png?v=20261025-lighting' },
+        { id: 'speed', name: 'Speed', image: 'assets/images/customise-previews/speed.png?v=20261025-lighting' },
+        { id: 'obstacle', name: 'Obstacle', image: 'assets/images/customise-previews/obstacle.png?v=20261025-lighting' },
     ];
 
     const EXAMPLE_CANVAS = `// Neon horizon: a Canvas 2D background for Ping Pong.
@@ -490,7 +490,8 @@ parent.postMessage({ type: 'boot' }, '*');
                 c.fillRect(0, 0, W, H);
                 r._renderModeBackground(c, W, H);
                 r.renderEnhancedLighting(c, W, H);
-                if (mode === 'speed') r._renderSpeedLightningPass(c, W, H);
+                // Speed's synthwave scenery owns its light; the old storm pass
+                // belongs to the retired rainy-city background.
                 c.restore();
                 live.last = now;
             }

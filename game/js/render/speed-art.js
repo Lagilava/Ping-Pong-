@@ -727,6 +727,8 @@
             paintOverlay(ox, w, h);
             this.overlay = oc;
             this.flash = this.flash || glowSprite('255,150,200');
+            this.contact = this.contact || glowSprite('0,0,0');
+            this.roadGlow = this.roadGlow || glowSprite('255,90,170');
         }
 
         /**
@@ -831,7 +833,15 @@
                 const k = (gh * 0.5) / d / s.h;
                 const dw = s.w * k * 1.4, dh = s.h * k * 1.4;
                 ctx.globalAlpha = Math.min(1, (FAR - d) / 8);
-                ctx.drawImage(s.c, proj(X, d) - dw / 2, rowY(d) - dh * 0.92, dw, dh);
+                const x = proj(X, d), y = rowY(d);
+                // Tyres occlude the road; tail lights spill onto the same plane.
+                ctx.drawImage(this.contact, x - dw * 0.6, y - dh * 0.14, dw * 1.2, dh * 0.28);
+                ctx.save();
+                ctx.globalCompositeOperation = 'screen';
+                ctx.globalAlpha *= 0.22;
+                ctx.drawImage(this.roadGlow, x - dw * 0.55, y - dh * 0.04, dw * 1.1, dh * 0.4);
+                ctx.restore();
+                ctx.drawImage(s.c, x - dw / 2, y - dh * 0.92, dw, dh);
             }
             ctx.globalAlpha = 1;
 
@@ -855,6 +865,10 @@
                 const a = Math.min(1, (FAR - d) / 6, (d - 1.6) / 1.2);
                 if (a <= 0.01) continue;
                 ctx.globalAlpha = a;
+                // Contact stays at the projected foot, at every depth.
+                const footprint = Math.max(2, dw * 0.42);
+                ctx.drawImage(this.contact, x - footprint * 0.5, y - dh * 0.018,
+                    footprint, Math.max(2, dh * 0.045));
                 ctx.drawImage(s.c, x - dw * s.anchor, y - dh, dw, dh);
             }
             ctx.globalAlpha = 1;
@@ -875,3 +889,4 @@
 
     window.SpeedArt = SpeedArt;
 })();
+

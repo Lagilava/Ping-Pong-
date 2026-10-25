@@ -47,30 +47,13 @@ class ObstacleSkyScene {
         if (this.ready) {
             const fit = Math.max(w / this.art.naturalWidth, h / this.art.naturalHeight);
             const iw = this.art.naturalWidth * fit, ih = this.art.naturalHeight * fit;
-            ctx.drawImage(this.art, (w - iw) / 2, (h - ih) / 2, iw, ih);
-            if (w < h) {
-                // Portrait cover cropping otherwise loses every citadel. Pin
-                // softly masked corner crops at natural proportions instead.
-                const size = w * 0.72;
-                const crop = Math.min(this.art.naturalWidth, this.art.naturalHeight) * 0.65;
-                for (const corner of [0, 1]) {
-                    const patch = document.createElement('canvas');
-                    patch.width = patch.height = Math.ceil(size * scale);
-                    const pc = patch.getContext('2d');
-                    pc.drawImage(this.art, corner ? this.art.naturalWidth - crop : 0,
-                        corner ? this.art.naturalHeight - crop : 0, crop, crop,
-                        0, 0, patch.width, patch.height);
-                    pc.globalCompositeOperation = 'destination-in';
-                    const fadeX = pc.createLinearGradient(corner ? patch.width : 0, 0, corner ? 0 : patch.width, 0);
-                    fadeX.addColorStop(0, 'white'); fadeX.addColorStop(0.45, 'white'); fadeX.addColorStop(1, 'transparent');
-                    pc.fillStyle = fadeX; pc.fillRect(0, 0, patch.width, patch.height);
-                    const fadeY = pc.createLinearGradient(0, corner ? patch.height : 0, 0, corner ? 0 : patch.height);
-                    fadeY.addColorStop(0, 'white'); fadeY.addColorStop(0.45, 'white'); fadeY.addColorStop(1, 'transparent');
-                    pc.fillStyle = fadeY; pc.fillRect(0, 0, patch.width, patch.height);
-                    ctx.drawImage(patch, corner ? w - size : 0, corner ? h - size : 0, size, size);
-                }
-            }
+            // Keep one camera projection in portrait too. Pasting corner crops
+            // introduced duplicate skies, mismatched scale and visible cutout seams.
+            // Frame the right citadel and its sun instead of the empty centre.
+            const focusX = w < h ? 0.92 : 0.5;
+            ctx.drawImage(this.art, (w - iw) * focusX, (h - ih) / 2, iw, ih);
         }
+
         if (!originalPalette) {
             ctx.globalCompositeOperation = 'soft-light';
             ctx.fillStyle = 'rgba(255,181,104,0.16)';

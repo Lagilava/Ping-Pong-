@@ -1098,6 +1098,7 @@ class BackgroundRenderer {
                     baseCtx.setTransform(1, 0, 0, 1, 0, 0);
                     baseCtx.clearRect(0, 0, w, h);
                     this._renderModeBackground(baseCtx, w, h);
+                    this.renderEnhancedLighting(baseCtx, w, h);
                     baseCtx.restore();
                     baseCanvas._ppMode = this.mode;
                     this._customToneStale = false;
@@ -1120,7 +1121,7 @@ class BackgroundRenderer {
             this._renderModeBackground(ctx, w, h);
         }
 
-        this.renderEnhancedLighting(ctx, w, h);
+        if (!applyCustomTone) this.renderEnhancedLighting(ctx, w, h);
         // Speed Mode uses the game's existing WebGL post effects for impact.
     }
 
@@ -1208,9 +1209,9 @@ class BackgroundRenderer {
     // ------------------------------------------------------------------
     renderEnhancedLighting(ctx, w, h) {
         if (this.mode === 'gravity' && window.GravityArt?.status().sceneReady) return;
-        // Zombie's moonlight already includes its tint and surface lighting.
-        // The legacy overlay gradients duplicated that work every game frame.
-        if (this.mode === 'zombie') return;
+        // These scenes light their own surfaces and emissive sources. A second
+        // overlay wash clips highlights and tints foreground cutouts twice.
+        if (['zombie', 'classic', 'speed', 'obstacle'].includes(this.mode)) return;
         if (!this.dynamicLights || this.lightLayers.length === 0) return;
 
         const prev = ctx.globalCompositeOperation;
@@ -2227,12 +2228,32 @@ class BackgroundRenderer {
         canvas.width = 128;
         canvas.height = 224;
         const spriteCtx = canvas.getContext('2d');
+        spriteCtx.save();
         spriteCtx.translate(64, 154);
         spriteCtx.scale(0.5, 0.5);
         const pose = this._getZombieHandPose({ ...hand, poseBlend: step / 4,
             twitch: 0, poseOffset: 0, splayAmp: 0 });
         pose.splay = 0; // Stable cached silhouette, independent of first-use time.
         this._paintZombieHandPose(spriteCtx, pose, -Math.PI / 3);
+        spriteCtx.restore();
+        // Match the moonlit ground exposure, then bury the wrist in soil haze.
+        // Both masks are baked once per pose, keeping the warm path one blit.
+        spriteCtx.globalCompositeOperation = 'source-atop';
+        const shade = spriteCtx.createLinearGradient(0, 0, 0, 224);
+        shade.addColorStop(0, 'rgba(8,25,24,0.08)');
+        shade.addColorStop(0.7, 'rgba(5,18,17,0.28)');
+        shade.addColorStop(1, 'rgba(2,9,9,0.85)');
+        spriteCtx.fillStyle = shade;
+        spriteCtx.fillRect(0, 0, 128, 224);
+        spriteCtx.globalCompositeOperation = 'destination-in';
+        const burial = spriteCtx.createLinearGradient(0, 0, 0, 224);
+        burial.addColorStop(0, 'white');
+        burial.addColorStop(0.67, 'white');
+        burial.addColorStop(0.86, 'rgba(255,255,255,0.18)');
+        burial.addColorStop(0.96, 'rgba(255,255,255,0)');
+        spriteCtx.fillStyle = burial;
+        spriteCtx.fillRect(0, 0, 128, 224);
+        spriteCtx.globalCompositeOperation = 'source-over';
         this._zombieHandSprites.set(key, canvas);
         return canvas;
     }
@@ -2827,6 +2848,11 @@ class BackgroundRenderer {
     }
 
     _ensureGravityGlowSprites() {
+        if (!this._gravityStarBloom) {
+            this._gravityStarBloom = ['190,218,255', '228,195,255'].map(rgb =>
+                this._buildRadialSprite(32, [[0, `rgba(${rgb},0.8)`],
+                    [0.18, `rgba(${rgb},0.32)`], [1, `rgba(${rgb},0)`]]));
+        }
         if (!this._gravityClusterSprite) {
             this._gravityClusterSprite = this._buildRadialSprite(240, [
                 [0, this._modeColor('rgba(140,200,255,0.18)', 'rgba(92,209,255,0.23)')],
@@ -3100,7 +3126,7 @@ class BackgroundRenderer {
                     const bloomSize = size * (2 + pullAmount * 4);
                     ctx.globalAlpha = alphaOf(a * 0.22);
                     ctx.fillStyle = starColors.bloom[tone];
-                    ctx.fillRect(drawX - bloomSize * 0.5, drawY - bloomSize * 0.5, bloomSize, bloomSize);
+                    ctx.drawImage(this._gravityStarBloom[tone], drawX - bloomSize, drawY - bloomSize, bloomSize * 2, bloomSize * 2);
                 }
 
                 if (s.size > 1.3) {
@@ -4059,3 +4085,4 @@ class BackgroundRenderer {
 // ===================================================================
 // PARTICLE CLASS - cartoony & short-lived edition
 // ===================================================================
+

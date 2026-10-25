@@ -560,19 +560,6 @@
 
             ctx.drawImage(this.base, 0, 0, w, h);
 
-            // About one degree of sway, offset so both banners do not move
-            // in unison. No cloth simulation, paths, gradients or new timers.
-            if (this.banner) {
-                const b = this.banner;
-                for (let i = 0; i < 2; i++) {
-                    ctx.save();
-                    ctx.translate(w * (i === 0 ? 0.17 : 0.83), b.y);
-                    ctx.rotate(Math.sin(this.t * 0.7 + i * 2.1) * 0.022);
-                    ctx.drawImage(b.c, -b.w / 2, -b.pivot, b.w, b.h);
-                    ctx.restore();
-                }
-            }
-
             // LED boards scroll in opposite directions.
             this._strip(ctx, this.ribbon, L.ribbon[0] + 2, w, -w * 0.035);
             this._strip(ctx, this.board, L.board[0] + 2, w, w * 0.05);
@@ -633,6 +620,20 @@
             }
             this.flashes.length = keep;
             ctx.restore();
+
+            // Near cloth occludes the airborne beams behind it.
+            // About one degree of sway, offset so both banners do not move
+            // in unison. No cloth simulation, paths, gradients or new timers.
+            if (this.banner) {
+                const b = this.banner;
+                for (let i = 0; i < 2; i++) {
+                    ctx.save();
+                    ctx.translate(w * (i === 0 ? 0.17 : 0.83), b.y);
+                    ctx.rotate(Math.sin(this.t * 0.7 + i * 2.1) * 0.022);
+                    ctx.drawImage(b.c, -b.w / 2, -b.pivot, b.w, b.h);
+                    ctx.restore();
+                }
+            }
 
             ctx.drawImage(this.overlay, 0, 0, w, h);
         }

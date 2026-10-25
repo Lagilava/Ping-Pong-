@@ -39,7 +39,8 @@ console.log('Zombie scenery budget and moving-cache refresh passed.');
 // Whole-hand poses must be reused across hands and sizes. Once warm, drawing a
 // hand must not invoke the expensive articulated painter or allocate textures.
 let paintedPoses = 0;
-const spriteContext = {translate() {}, scale() {}};
+const spriteContext = {translate() {}, scale() {}, save() {}, restore() {},
+    createLinearGradient() { return {addColorStop() {}}; }, fillRect() {}};
 context.document.createElement = () => ({getContext: () => spriteContext});
 renderer.time = 0;
 renderer._paintZombieHandPose = () => { paintedPoses++; };
