@@ -3,7 +3,7 @@
 (function () {
     const root = document.currentScript?.src
         ? new URL('../../assets/gravity/', document.currentScript.src).href : 'assets/gravity/';
-    const assets = {started: false, scene: null, well: null, planets: null};
+    const assets = {started: false, scene: null, well: null, planets: null, materials: null, wellBands: null};
     const stars = Array.from({length: 72}, (_, i) => ({
         x: ((i * 0.61803398875 + .13) % 1), y: ((i * .41421356237 + .07) % 1),
         phase: i * 2.39, size: i % 9 === 0 ? 1.6 : .8, speed: .3 + (i % 3) * .4
@@ -47,6 +47,8 @@
             image.decoding = 'async';
             image.onload = () => Promise.resolve(image.decode ? image.decode() : undefined).then(() => {
                 assets[key] = key === 'planets' ? lightPlanets(image) : image;
+                if (key === 'planets' && window.GravityMaterials) assets.materials = window.GravityMaterials.buildPlanets(image);
+                if (key === 'well' && window.GravityMaterials) assets.wellBands = window.GravityMaterials.buildWell(image);
                 window.game?.bgRenderer?._invalidateBackgroundRenderCache?.();
             }).catch(() => {});
             image.onerror = () => {}; // keep the bounded procedural fallback
@@ -57,7 +59,7 @@
         load();
         if (!assets.scene) return false;
         const motion = !window.PPSettings?.get('reduceMotion');
-        const lean = motion ? Math.sin(time * .065) : 0;
+        const lean = 0; // distant sky is the stable reference for foreground motion
         ctx.save();
         // Uniform cover projection: portrait must not stretch circular galaxies
         // into vertical ribbons. Frame the luminous left nebula on tall screens.
@@ -65,7 +67,7 @@
         const iw = assets.scene.naturalWidth * fit, ih = assets.scene.naturalHeight * fit;
         const focus = w < h ? .055 : .5;
         ctx.drawImage(assets.scene, (w - iw) * focus + lean * w * .009,
-            (h - ih) * .5 + (motion ? Math.cos(time * .05) * h * .006 : 0), iw, ih);
+            (h - ih) * .5 + 0, iw, ih);
         if (assets.planets) {
             const atlas = assets.planets;
             const aw = atlas.naturalWidth || atlas.width, ah = atlas.naturalHeight || atlas.height;
@@ -75,27 +77,47 @@
                 const [rx, ry, rw, rh] = rects[i];
                 const unit = Math.min(w, h);
                 const side = unit * (i === 0 ? .34 : .40);
-                const drift = motion ? time : 0;
+                const drift = 0; // surface/cloud motion replaces whole-planet bobbing
                 const px = Math.max(side * .55, Math.min(w - side * .55,
                     w * (i === 0 ? .87 : .12) + Math.sin(drift * .13 + i * 2) * unit * .012));
                 const py = h * (i === 0 ? .17 : .80) + Math.cos(drift * .17 + i) * unit * .01;
-                ctx.save();
-                ctx.translate(px, py);
-                // Keep the baked light direction stable in world space.
-                ctx.rotate(Math.sin(drift * .13 + i) * .025);
-                const height = side * (rh * ah) / (rw * aw);
-                ctx.drawImage(atlas, rx * aw, ry * ah,
-                    rw * aw, rh * ah,
-                    -side / 2, -height / 2, side, height);
-                ctx.restore();
+                if (assets.materials) {
+                    window.GravityMaterials.drawPlanet(ctx, assets.materials, i, px, py, side, motion ? time : 0);
+                } else {
+                    ctx.save();ctx.translate(px,py);
+                    const height = side * (rh * ah) / (rw * aw);
+                    ctx.drawImage(atlas,rx*aw,ry*ah,rw*aw,rh*ah,-side/2,-height/2,side,height);
+                    ctx.restore();
+                }
             }
         }
         if (typeof areParticleEffectsEnabled !== 'function' || areParticleEffectsEnabled()) {
             ctx.fillStyle = '#b7dcff';
-            for (const star of stars) {
+            for (let i=0;i<stars.length;i++) {
+                const star=stars[i], depth=[.18,.75,2.4][i%3];
                 ctx.globalAlpha = .18 + (Math.sin(time * .65 + star.phase) + 1) * .14;
-                const x = ((star.x * w + (motion ? time * star.speed * 2 : 0)) % w + w) % w;
-                const y = ((star.y * h + (motion ? time * star.speed * .4 : 0)) % h + h) % h;
+                let x = ((star.x * w + (motion ? time * star.speed * 3 * depth : 0)) % w + w) % w;
+                let y = ((star.y * h + (motion ? time * star.speed * .5 * depth : 0)) % h + h) % h;
+                // Near starlight enters an actual well's field along a curved,
+                // inward trajectory. Far stars remain the depth reference.
+                if (motion && i%3===2) {
+                    let target=null,pull=0;
+                    for (const well of interaction?.activeWells || []) {
+                        const distance=Math.hypot(x-well.x,y-well.y),reach=well.radius*3.2;
+                        const amount=Math.max(0,1-distance/reach);
+                        if(amount>pull){pull=amount;target=well;}
+                    }
+                    if(target && pull>.08){
+                        const dx=x-target.x,dy=y-target.y,age=(time*.12+star.phase)%1;
+                        const a=Math.atan2(dy,dx)+time*(.1+pull*.5);
+                        const r=Math.max(target.radius*.55,Math.hypot(dx,dy)*(1-age*.65*pull));
+                        x=target.x+Math.cos(a)*r;y=target.y+Math.sin(a)*r;
+                        ctx.globalAlpha*=Math.sin(age*Math.PI);
+                        ctx.strokeStyle='#94c8ff';ctx.lineWidth=.65;ctx.beginPath();
+                        ctx.moveTo(target.x+Math.cos(a-.05)*r*1.015,target.y+Math.sin(a-.05)*r*1.015);
+                        ctx.lineTo(x,y);ctx.stroke();
+                    }
+                }
                 ctx.fillRect(x, y, star.size, star.size);
                 if (star.size > 1.3) {
                     ctx.globalAlpha *= .45;
@@ -107,11 +129,15 @@
         ctx.restore();
         return true;
     }
-    function drawWell(ctx, x, y, radius, time, excitement = 0) {
+    function drawWell(ctx, x, y, radius, time, excitement = 0, spin = 1, phase = 0) {
         load();
         if (!assets.well) return false;
         const motion = !window.PPSettings?.get('reduceMotion');
-        // Compact decorative disk; force/reach calculations remain unchanged.
+        if (assets.wellBands) {
+            window.GravityMaterials.drawWell(ctx,assets.wellBands,x,y,radius,motion?time:0,excitement,spin,phase);
+            return true;
+        }
+        // Loading/compatibility fallback; force/reach calculations stay unchanged.
         const size = radius * 3.3 * (1 + excitement * .035);
         ctx.save();
         ctx.translate(x, y);
@@ -127,6 +153,6 @@
         return true;
     }
     window.GravityArt = {drawBackground, drawWell,
-        status: () => ({sceneReady: !!assets.scene, wellReady: !!assets.well, planetsReady: !!assets.planets})};
+        status: () => ({sceneReady: !!assets.scene, wellReady: !!assets.well, planetsReady: !!assets.planets, surfaceReady: !!assets.materials, wellFlowReady: !!assets.wellBands})};
 })();
 

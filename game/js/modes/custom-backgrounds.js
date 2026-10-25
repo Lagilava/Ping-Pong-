@@ -24,7 +24,7 @@
     const BUILT_INS = [
         { id: 'classic', name: 'Classic', image: 'assets/images/customise-previews/classic.png?v=20261026-scene-depth-3' },
         { id: 'zombie', name: 'Zombie', image: 'assets/images/customise-previews/zombie.png?v=20261026-scene-depth-3' },
-        { id: 'gravity', name: 'Gravity', image: 'assets/images/customise-previews/gravity.png?v=20261026-scene-depth-3' },
+        { id: 'gravity', name: 'Gravity', image: 'assets/images/customise-previews/gravity.png?v=20261026-gravity-flow-4' },
         { id: 'speed', name: 'Speed', image: 'assets/images/customise-previews/speed.png?v=20261026-scene-depth-3' },
         { id: 'obstacle', name: 'Obstacle', image: 'assets/images/customise-previews/obstacle.png?v=20261026-scene-depth-3' },
     ];

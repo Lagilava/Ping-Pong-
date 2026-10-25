@@ -315,7 +315,7 @@ class GravityWell {
     render(ctx, timeOverride) {
         if (!this.#active) return;
         const time = typeof timeOverride === 'number' ? timeOverride : performance.now() * 0.001;
-        if (window.game?.gameMode === 'gravity' && window.GravityArt?.drawWell(ctx, this.#pos.x, this.#pos.y, this.#radius, time, this.#excitement)) return;
+        if (window.GravityArt?.drawWell(ctx, this.#pos.x, this.#pos.y, this.#radius, time, this.#excitement, this.#rotationalDir, this.#id.length + (parseInt(this.#id.slice(0,4),36)||0)*.0001)) return;
         if (!this.#frameCanvas) {
             this.#frameCanvas = document.createElement('canvas');
             this.#frameCanvas.width = this.#frameCanvas.height = 384;
@@ -416,3 +416,4 @@ class GravityWell {
 }
 
 // Ball
+

@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '../game');
 const out = path.resolve(process.argv[2] || '/tmp/ping-pong-scenes');
 fs.mkdirSync(out, {recursive:true});
 const modes = ['classic','zombie','gravity','speed','obstacle'];
-function session(width,height) {
+function session(width,height,artSource) {
     let seed=73, pending=0, allocations=0;
     const errors=[];
     const math=Object.create(Math);
@@ -41,8 +41,8 @@ function session(width,height) {
         return image;
     };
     vm.createContext(sandbox);
-    for(const f of ['scene-compositor','classic-art','speed-art','obstacle-waterfalls','obstacle-sky-scene','gravity-art','background-renderer']) {
-        vm.runInContext(fs.readFileSync(path.join(root,'js/render',f+'.js'),'utf8'),sandbox);
+    for(const f of ['scene-compositor','classic-art','speed-art','obstacle-waterfalls','obstacle-sky-scene','gravity-materials','gravity-art','background-renderer']) {
+        vm.runInContext(fs.readFileSync(f==='gravity-art'&&artSource?artSource:path.join(root,'js/render',f+'.js'),'utf8'),sandbox);
     }
     sandbox.ClassicArt=sandbox.window.ClassicArt;sandbox.SpeedArt=sandbox.window.SpeedArt;
     vm.runInContext('globalThis.Renderer=BackgroundRenderer;',sandbox);
@@ -52,7 +52,7 @@ function session(width,height) {
 }
 function pixels(c){return c.getContext('2d').getImageData(0,0,c.width,c.height).data;}
 function differences(a,b){let changed=0;for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>3)changed++;return changed;}
-(async()=>{
+async function main(){
     const report=[];
     for(const [w,h] of [[1280,720],[1920,1080],[2560,1080]]) {
         const env=session(w,h);
@@ -68,7 +68,7 @@ function differences(a,b){let changed=0;for(let i=0;i<a.length;i+=4)if(Math.abs(
                 reference=pixels(c).slice();
                 if(w===1280)fs.writeFileSync(path.join(out,mode+'.png'),c.toBuffer('image/png'));
                 if(mode==='speed')assert(r._speedArt.generated,'decoded Speed art is used');
-                if(mode==='gravity')assert(env.sandbox.window.GravityArt.status().sceneReady,'decoded Gravity art is used');
+                if(mode==='gravity'){const status=env.sandbox.window.GravityArt.status();assert(status.sceneReady&&status.surfaceReady&&status.wellFlowReady,'decoded Gravity material paths are active');}
                 r.time=4;ctx.clearRect(0,0,w,h);r._renderModeBackground(ctx,w,h);
                 assert(differences(reference,pixels(c))>10,mode+' retains ambient animation');
                 const before=env.allocations(),samples=[];
@@ -87,4 +87,6 @@ function differences(a,b){let changed=0;for(let i=0;i<a.length;i+=4)if(Math.abs(
     }
     fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify(report,null,2));
     console.log(JSON.stringify(report,null,2));
-})().catch(error=>{console.error(error);process.exitCode=1;});
+}
+if(require.main===module)main().catch(error=>{console.error(error);process.exitCode=1;});
+module.exports={session};

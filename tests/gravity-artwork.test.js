@@ -45,11 +45,21 @@ async function main() {
     const atStart=JSON.stringify(positions), angleStart=JSON.stringify(rotations);
     positions.length=rotations.length=0;
     art.drawBackground(ctx,1920,1080,10);
-    assert.notEqual(JSON.stringify(positions),atStart,'planets drift independently over time');
-    assert.notEqual(JSON.stringify(rotations),angleStart,'planets rotate');
+    assert.equal(JSON.stringify(positions),atStart,'planet centres provide a stable reference for material motion');
+    assert.equal(JSON.stringify(rotations),angleStart,'whole planet cards must not spin');
     sandbox.areParticleEffectsEnabled=()=>false;
     dots=0; art.drawBackground(ctx,1024,576,2);
     assert.equal(dots,0,'particle preference removes moving stars');
+    const phases=[];
+    sandbox.window.GravityMaterials={buildPlanets:()=>({}),buildWell:()=>[],
+        drawPlanet(...args){phases.push(args[6]);},drawWell(...args){phases.push(args[5]);}};
+    images[2].onload();images[1].onload();await new Promise(resolve=>setImmediate(resolve));
+    sandbox.window.PPSettings={get:()=>true};
+    art.drawBackground(ctx,1280,720,9);art.drawWell(ctx,100,100,90,9);
+    assert(phases.every(t=>t===0),'reduced motion holds the material phase fixed');
+    phases.length=0;sandbox.window.PPSettings.get=()=>false;
+    art.drawBackground(ctx,1280,720,10);art.drawWell(ctx,100,100,90,10);
+    assert(phases.every(t=>t===10),'normal motion passes the simulation clock to the materials');
     console.log('Gravity generated artwork loading and animated draw budgets passed.');
 }
 main().catch(err=>{console.error(err);process.exitCode=1;});

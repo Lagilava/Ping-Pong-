@@ -412,7 +412,7 @@ class Game {
         return {
             classic: 'assets/images/customise-previews/classic.png?v=20261026-scene-depth-3',
             zombie: 'assets/images/customise-previews/zombie.png?v=20261026-scene-depth-3',
-            gravity: 'assets/images/customise-previews/gravity.png?v=20261026-scene-depth-3',
+            gravity: 'assets/images/customise-previews/gravity.png?v=20261026-gravity-flow-4',
             speed: 'assets/images/customise-previews/speed.png?v=20261026-scene-depth-3',
             obstacle: 'assets/images/customise-previews/obstacle.png?v=20261026-scene-depth-3'
         };
