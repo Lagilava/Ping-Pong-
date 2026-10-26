@@ -266,6 +266,7 @@ class Paddle {
 
         this.laserReadyGlow = 0;
         this._laserFiredAt = Date.now();
+        window.LaserFX?.muzzle?.(this, laser.pos.x, laser.pos.y, direction);
         if (!window.PPSettings?.get('reduceMotion')) this.kick(-direction, 0.24);
         this.energyPulse = 1.0;
         if (window.PPSettings?.get('particles') !== false && !window.PPSettings?.get('reduceMotion')) {
@@ -381,6 +382,7 @@ class Paddle {
 
                     // Add hit effect radius for visual feedback
                     this.hitEffectRadius = 50;
+                    window.LaserFX?.impact?.(this, game.ball.pos.x, game.ball.pos.y, -Math.sign(laser.vel.x) || 1, false);
                     this.energyPulse = 1.0;
 
                     if (game.audio && game.audio.hit) {
@@ -404,6 +406,7 @@ class Paddle {
                 // Hit opponent - stun them
                 targetPaddle.laserStunned = true;
                 targetPaddle.laserStunTime = 1.0;
+                window.LaserFX?.impact?.(this, laser.pos.x, laser.pos.y, -Math.sign(laser.vel.x) || 1, true);
 
                 // Enhanced visual effect
                 this.particleSystem.spawnGodTierHit(

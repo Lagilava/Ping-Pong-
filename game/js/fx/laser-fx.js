@@ -26,56 +26,94 @@
     function lowDetail() {
         return (typeof PerfGovernor !== 'undefined' && (PerfGovernor.isMobile || PerfGovernor.current?.particles < 0.5));
     }
+    const now = () => performance.now() / 1000;
+    const WHITE = '#fff4da';
+    // Spine, fins and the muzzle lens. Everything is a flat fill or a pre-baked
+    // glow sprite: no shadowBlur, so it costs the same on every paddle design.
     function ready(ctx, p, time) {
-        if (!p.hasLaser || p.laserCharges <= 0) return;
+        if (!p.hasLaser) return;
         const color = palette(p), glow = sprite(color);
         const hw = p.w / 2, hh = p.h / 2;
-        const motion = !reduced();
+        const motion = !reduced(), detail = !lowDetail();
         const phase = motion ? time : 0;
-        const ready = Math.max(0, Math.min(1, 1 - p.laserCooldown / 0.2));
-        const intensity = 0.58 + ready * 0.3;
         const face = window.game && p.pos.x > window.game.width / 2 ? -1 : 1;
+        const sinceShot = p._laserFiredAt ? (Date.now() - p._laserFiredAt) / 1000 : 9;
+        const heat = Math.max(0, 1 - sinceShot / 0.45);
+        const cd = Math.max(0, Math.min(1, 1 - p.laserCooldown / 0.2));
+        const live = p.laserCharges > 0;
+        const intensity = live ? 0.62 + cd * 0.3 + (motion ? Math.sin(phase * 9) * 0.05 : 0) : 0.25;
         ctx.save();
         ctx.shadowBlur = 0;
         ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = intensity * 0.48;
+        ctx.globalAlpha = intensity * 0.42 + heat * 0.25;
         ctx.drawImage(glow, -hw - 17, -hh - 13, p.w + 34, p.h + 26);
-        // Three capacitors live inside the paddle, visibly draining per shot.
-        const gap = 5, cellH = (p.h - 22 - gap * 2) / 3;
+
+        // Capacitor spine: three glass cells that visibly drain, one per shot.
+        const spineW = Math.max(4, p.w * 0.5), gap = 5;
+        const cellH = (p.h - 26 - gap * 2) / 3;
+        ctx.globalAlpha = 0.28;
+        ctx.fillStyle = '#04080c';
+        ctx.fillRect(-spineW / 2 - 1, -hh + 8, spineW + 2, p.h - 16);
         for (let i = 0; i < 3; i++) {
-            const y = -hh + 11 + i * (cellH + gap);
-            ctx.globalAlpha = i < p.laserCharges ? intensity * 0.7 : 0.1;
-            ctx.fillStyle = i < p.laserCharges ? color : '#879ea3';
-            ctx.fillRect(-Math.max(2, hw * 0.45), y, Math.max(4, p.w * 0.45), cellH);
-            if (i < p.laserCharges) {
-                ctx.globalAlpha = intensity * 0.9;
-                ctx.fillStyle = '#fff2d4';
-                ctx.fillRect(face * (hw - 2) - 1, y, 2, cellH);
+            const y = -hh + 13 + i * (cellH + gap);
+            const full = i < p.laserCharges;
+            const pulse = motion && full ? 0.82 + Math.sin(phase * 14 + i * 1.7) * 0.18 : 1;
+            ctx.globalAlpha = full ? intensity * pulse : 0.1;
+            ctx.fillStyle = full ? color : '#879ea3';
+            ctx.fillRect(-spineW / 2, y, spineW, cellH);
+            if (full) {
+                ctx.globalAlpha = intensity * 0.85;
+                ctx.fillStyle = WHITE;
+                ctx.fillRect(-1, y + 1, 2, cellH - 2);
             }
         }
-        // Energy climbs the rails and converges at the firing aperture.
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.3;
-        const strands = lowDetail() ? 1 : 2;
-        for (let i = 0; i < strands; i++) {
-            ctx.globalAlpha = intensity * 0.72;
-            ctx.beginPath();
-            for (let j = 0; j <= 12; j++) {
-                const y = -hh + (j / 12) * p.h;
-                const x = face * (hw + 3) + Math.sin(j * 1.65 - phase * 7 + i * 3) * (motion ? 2.8 : 1);
-                if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
+        // Scanline sweeps the spine so the weapon never looks idle.
+        if (live && motion) {
+            const sy = -hh + 8 + ((phase * 1.4) % 1) * (p.h - 16);
+            ctx.globalAlpha = 0.75;
+            ctx.fillStyle = WHITE;
+            ctx.fillRect(-spineW / 2 - 2, sy, spineW + 4, 1.5);
         }
-        if (motion) {
-            ctx.globalAlpha = 0.7;
-            for (let i = 0; i < (lowDetail() ? 2 : 4); i++) {
-                const y = (((phase * 0.4 + i * 0.25) % 1) - 0.5) * p.h;
-                ctx.drawImage(glow, face * hw - 5, y - 5, 10, 10);
+        // Rim ticks on the firing edge.
+        ctx.globalAlpha = intensity * 0.55;
+        ctx.fillStyle = color;
+        for (let i = 0; i < 9; i++) ctx.fillRect(face > 0 ? hw - 1 : -hw - 5, -hh + 8 + i * (p.h - 18) / 8, 6, 1.4);
+
+        // Heat fins flare out on each shot and cool back in.
+        if (heat > 0 && motion) {
+            const n = detail ? 7 : 4;
+            for (let i = 0; i < n; i++) {
+                const y = -hh + (i + 0.5) * p.h / n;
+                const len = 4 + heat * (10 + (i % 2) * 6);
+                ctx.globalAlpha = heat * 0.9;
+                ctx.fillStyle = i % 2 ? '#ffb347' : color;
+                ctx.beginPath();
+                ctx.moveTo(face * hw, y - 3);
+                ctx.lineTo(face * (hw + len), y);
+                ctx.lineTo(face * hw, y + 3);
+                ctx.fill();
             }
         }
-        ctx.globalAlpha = 0.65 + ready * 0.3;
-        ctx.drawImage(glow, face * hw - 11, -11, 22, 22);
+
+        // Muzzle lens: brighter as the cooldown refills, flickers when live.
+        const lens = (live ? 0.6 + cd * 0.35 : 0.2) * (motion ? 0.9 + Math.sin(phase * 22) * 0.1 : 1);
+        ctx.globalAlpha = lens;
+        ctx.drawImage(glow, face * hw - 14, -14, 28, 28);
+        ctx.globalAlpha = Math.min(1, lens + 0.1);
+        ctx.fillStyle = WHITE;
+        ctx.beginPath();
+        ctx.arc(face * (hw + 1), 0, 2.4 + heat * 2, 0, TAU);
+        ctx.fill();
+        if (live) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.4;
+            ctx.globalAlpha = 0.5 + cd * 0.3;
+            for (const r of [7, 11]) {
+                ctx.beginPath();
+                ctx.arc(face * (hw + 1), 0, r, face > 0 ? -1.05 : Math.PI - 1.05, face > 0 ? 1.05 : Math.PI + 1.05);
+                ctx.stroke();
+            }
+        }
         ctx.restore();
     }
     function hint(ctx, p) {
@@ -111,61 +149,155 @@
         ctx.fillText(text, x + 8, y + 11);
         ctx.restore();
     }
-    function shots(ctx, p) {
-        const color = palette(p), glow = sprite(color);
-        const motion = !reduced(), detail = !lowDetail();
-        ctx.save();
-        ctx.shadowBlur = 0;
-        ctx.globalCompositeOperation = 'screen';
-        for (const laser of p.lasers) {
-            const dir = Math.sign(laser.vel.x) || 1;
-            const x = laser.pos.x, y = laser.pos.y;
-            const length = motion ? (detail ? 96 : 68) : 38;
+
+    // Short-lived world-space effects (muzzle flash, impact rings). They live on
+    // the shooter so they render with its lasers and die with a reset.
+    function spawn(p, fx) {
+        const list = p._laserFx || (p._laserFx = []);
+        fx.t0 = now();
+        if (list.length > 10) list.shift();
+        list.push(fx);
+    }
+    function muzzle(p, x, y, dir) { spawn(p, { kind: 'muzzle', x, y, dir, life: 0.2 }); }
+    function impact(p, x, y, dir, big) { spawn(p, { kind: 'impact', x, y, dir, life: big ? 0.5 : 0.36, big: !!big }); }
+
+    function drawFx(ctx, p, color, glow, motion) {
+        const list = p._laserFx;
+        if (!list || !list.length) return;
+        const t = now();
+        for (let i = list.length - 1; i >= 0; i--) {
+            const fx = list[i], k = (t - fx.t0) / fx.life;
+            if (k >= 1) { list.splice(i, 1); continue; }
+            const inv = 1 - k;
             ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(dir, 1);
-            ctx.globalAlpha = 0.65;
-            ctx.drawImage(glow, -length, -16, length + 24, 32);
-            // Tapered plasma sheath, a white-hot core and a sharp leading edge.
-            ctx.globalAlpha = 0.9;
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.moveTo(10, 0); ctx.lineTo(-6, -4.5); ctx.lineTo(-length, -0.7);
-            ctx.lineTo(-length, 0.7); ctx.lineTo(-6, 4.5); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = '#fff6dc';
-            ctx.beginPath();
-            ctx.moveTo(10, 0); ctx.lineTo(-8, -1.4); ctx.lineTo(-length * 0.7, 0);
-            ctx.lineTo(-8, 1.4); ctx.closePath(); ctx.fill();
-            if (detail && motion) {
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 1;
-                for (let i = 0; i < 2; i++) {
-                    ctx.globalAlpha = 0.55;
+            ctx.translate(fx.x, fx.y);
+            ctx.scale(fx.dir, 1);
+            if (fx.kind === 'muzzle') {
+                ctx.globalAlpha = inv * 0.9;
+                ctx.drawImage(glow, -4, -30, 70 * (0.6 + k), 60);
+                ctx.strokeStyle = WHITE;
+                ctx.lineWidth = 2;
+                if (motion) {
                     ctx.beginPath();
-                    for (let j = 0; j <= 7; j++) {
-                        const px = -j * length / 7;
-                        const py = Math.sin(j * 2.3 + laser.pulsePhase * 2 + i * 3) * (2 + j * 0.5);
-                        if (j === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                    for (let r = -3; r <= 3; r++) {
+                        const a = r * 0.24, len = (28 + (r & 1) * 14) * (0.4 + k * 0.9);
+                        ctx.moveTo(6, 0);
+                        ctx.lineTo(6 + Math.cos(a) * len, Math.sin(a) * len);
+                    }
+                    ctx.stroke();
+                }
+                ctx.fillStyle = WHITE;
+                ctx.fillRect(4, -2, 22 * inv, 4);
+            } else {
+                // Shock ring, white core flash and a spray of spark ticks.
+                const big = fx.big ? 1.5 : 1;
+                ctx.globalAlpha = inv;
+                ctx.drawImage(glow, -34 * big, -34 * big, 68 * big, 68 * big);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3 * inv + 1;
+                const rings = motion ? 2 : 1;
+                for (let r = 0; r < rings; r++) {
+                    const kk = Math.max(0, k - r * 0.14);
+                    ctx.globalAlpha = (1 - kk) * (r ? 0.6 : 1);
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, (4 + kk * 30) * big * 0.5, (4 + kk * 30) * big, 0, 0, TAU);
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = inv;
+                ctx.fillStyle = WHITE;
+                ctx.beginPath();
+                ctx.arc(0, 0, (7 * inv + 2) * big, 0, TAU);
+                ctx.fill();
+                if (motion) {
+                    ctx.strokeStyle = WHITE;
+                    ctx.lineWidth = 1.6;
+                    ctx.beginPath();
+                    for (let s = 0; s < 12; s++) {
+                        const a = (s / 12) * TAU + fx.t0 * 7, r0 = (6 + k * 20) * big, r1 = r0 + (6 + (s % 3) * 5) * inv;
+                        ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0 * 1.2);
+                        ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1 * 1.2);
                     }
                     ctx.stroke();
                 }
             }
             ctx.restore();
         }
-        const flash = Math.max(0, 1 - (Date.now() - (p._laserFiredAt || 0)) / 180);
-        if (flash > 0 && motion) {
-            const dir = window.game && p.pos.x > window.game.width / 2 ? -1 : 1;
-            const x = p.pos.x + (dir > 0 ? p.w : 0), y = p.pos.y + p.h / 2;
-            ctx.globalAlpha = flash * 0.8;
-            ctx.drawImage(glow, x - 27, y - 24, 54, 48);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.ellipse(x, y, 5 + (1 - flash) * 16, 10 + (1 - flash) * 19, 0, 0, TAU);
-            ctx.stroke();
-        }
-        ctx.restore();
-        hint(ctx, p);
     }
-    window.LaserFX = { ready, shots };
+
+    // Prism lance: cyan and red fringes split from a white core behind a
+    // diamond head, with packets racing along it and a scorch line that fades
+    // across the arena behind the shot.
+    function shots(ctx, p) {
+        const color = palette(p), glow = sprite(color);
+        const other = color === '#ff513c' ? '#53dfff' : '#ff513c';
+        const motion = !reduced(), detail = !lowDetail();
+        const t = now();
+        ctx.save();
+        ctx.shadowBlur = 0;
+        ctx.globalCompositeOperation = 'screen';
+        for (const laser of p.lasers) {
+            const dir = Math.sign(laser.vel.x) || 1;
+            const x = laser.pos.x, y = laser.pos.y;
+            if (laser.ox === undefined) laser.ox = x;
+            const length = motion ? (detail ? 130 : 90) : 54;
+            const scorch = Math.min(Math.abs(x - laser.ox), 520);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(dir, 1);
+            if (motion && scorch > length) {
+                const grad = ctx.createLinearGradient(-scorch, 0, -length, 0);
+                grad.addColorStop(0, color + '00');
+                grad.addColorStop(1, color + '66');
+                ctx.fillStyle = grad;
+                ctx.fillRect(-scorch, -1, scorch - length, 2);
+                ctx.globalAlpha = 0.18;
+                ctx.fillRect(-scorch, -6, scorch - length, 12);
+            }
+            ctx.globalAlpha = 0.7;
+            ctx.drawImage(glow, -length, -18, length + 30, 36);
+            // Fringes split slightly toward the tail.
+            const spread = motion ? 4.5 : 2;
+            ctx.lineWidth = 2;
+            const fringe = (col, dy) => {
+                ctx.strokeStyle = col;
+                ctx.globalAlpha = 0.85;
+                ctx.beginPath();
+                ctx.moveTo(8, dy * 0.2);
+                ctx.lineTo(-length, dy);
+                ctx.stroke();
+            };
+            fringe(color, spread);
+            if (detail) fringe(other, -spread);
+            // White-hot core, tapered.
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = WHITE;
+            ctx.beginPath();
+            ctx.moveTo(10, 0); ctx.lineTo(-6, -2.6); ctx.lineTo(-length * 0.8, -0.6);
+            ctx.lineTo(-length * 0.8, 0.6); ctx.lineTo(-6, 2.6); ctx.closePath();
+            ctx.fill();
+            // Diamond head.
+            ctx.fillStyle = WHITE;
+            ctx.beginPath();
+            ctx.moveTo(22, 0); ctx.lineTo(8, -6); ctx.lineTo(0, 0); ctx.lineTo(8, 6); ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 0.55;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(26, 0); ctx.lineTo(8, -10); ctx.lineTo(-4, 0); ctx.lineTo(8, 10); ctx.closePath();
+            ctx.fill();
+            // Packets racing down the beam read as speed.
+            if (motion && detail) {
+                ctx.fillStyle = WHITE;
+                for (let i = 0; i < 4; i++) {
+                    const f = ((t * 3.2 + i * 0.25) % 1);
+                    ctx.globalAlpha = (1 - f) * 0.9;
+                    ctx.fillRect(-f * length - 8, -3, 8 + f * 6, 6);
+                }
+            }
+            ctx.restore();
+        }
+        drawFx(ctx, p, color, glow, motion);
+        ctx.restore();
+    }
+    window.LaserFX = { ready, shots, muzzle, impact };
 })();
