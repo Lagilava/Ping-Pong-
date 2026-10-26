@@ -101,14 +101,14 @@
     function buildWell(image){
         const side=256,source=canvas(side),ctx=source.getContext('2d');ctx.drawImage(image,0,0,side,side);
         const original=ctx.getImageData(0,0,side,side),bands=[];
-        // Soft overlapping annuli share material but have independent angular
-        // rates. No rigidly rotating square or re-painted full-well frame.
-        for(let b=0;b<7;b++){
+        // Three shared annuli retain differential flow with fewer translucent
+        // blits per well. Their angular density is baked once after decode.
+        for(let b=0;b<3;b++){
             const c=canvas(side),x=c.getContext('2d'),data=x.createImageData(side,side);
-            const center=.36+b*.105;
+            const center=[.43,.66,.89][b];
             for(let y=0;y<side;y++)for(let u=0;u<side;u++){
                 const r=Math.hypot(u+.5-side*.5,y+.5-side*.5)/(side*.5);
-                const weight=Math.max(0,1-Math.abs(r-center)/.115),p=(y*side+u)*4;
+                const weight=Math.max(0,1-Math.abs(r-center)/.19),p=(y*side+u)*4;
                 if(r<.315||weight<=0)continue;
                 // Uneven spiral density makes differential rotation legible.
                 // Bake the density into the seven shared textures, not each frame.
@@ -126,20 +126,17 @@
         const size=radius*2.95,t=time,hot=Math.max(0,Math.min(1,excitement));
         ctx.save();ctx.translate(x,y);
         ctx.globalCompositeOperation='screen';
-        for(let i=6;i>=0;i--){
-            const r=.36+i*.105,omega=(.28+.34/Math.pow(r,1.5))*(1+hot*.35);
+        for(let i=2;i>=0;i--){
+            const r=[.43,.66,.89][i],omega=(.28+.34/Math.pow(r,1.5))*(1+hot*.35);
             ctx.save();ctx.rotate(spin*(t*omega+phase));
             ctx.drawImage(bands[i],-size*.5,-size*.5,size,size);ctx.restore();
         }
-        // Two offset arcs sweep around the photon ring. Their geometry is
-        // fixed, while their angular positions track the disk's inner flow.
+        // A single sweeping highlight makes the inner orbit readable.
         ctx.lineWidth=Math.max(.8,radius/80);
-        for(let i=0;i<2;i++){
-            const a=spin*(t*(1.25+hot*.4)+phase)+i*Math.PI;
-            ctx.globalAlpha=(.22+hot*.24)*(i? .65:1);
-            ctx.strokeStyle=i?'#e2a8ff':'#b9eaff';
-            ctx.beginPath();ctx.arc(0,0,size*.178,a,a+.58*spin,spin<0);ctx.stroke();
-        }
+        const a=spin*(t*(1.25+hot*.4)+phase);
+        ctx.globalAlpha=.22+hot*.24;
+        ctx.strokeStyle='#b9eaff';
+        ctx.beginPath();ctx.arc(0,0,size*.178,a,a+.58*spin,spin<0);ctx.stroke();
         if(typeof areParticleEffectsEnabled!=='function'||areParticleEffectsEnabled()){
             // Sparse infalling sparks with curved trails. Fixed path count and
             // no per-frame gradients, offscreen surfaces or Canvas shadows.
@@ -148,9 +145,9 @@
                 ctx.strokeStyle=group?'#c7abff':'#a4dcff';
                 ctx.globalAlpha=(.31+hot*.27)*(group?.7:1);
                 ctx.beginPath();
-                for(let i=group;i<14;i+=2){
+                for(let i=group;i<8;i+=2){
                     const age=((t*(.19+(i%3)*.026)+i*.6180339+phase)%1+1)%1;
-                    for(let j=0;j<4;j++){
+                    for(let j=0;j<3;j++){
                         const u=Math.max(0,age-j*.034),r=size*(.47-u*.30);
                         const a=spin*(i*2.399+u*5.8+t*.2)+phase;
                         const px=Math.cos(a)*r,py=Math.sin(a)*r;
