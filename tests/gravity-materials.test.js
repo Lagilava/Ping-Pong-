@@ -10,7 +10,7 @@ function context(canvas){return {
 const sandbox=vm.createContext({window:{},areParticleEffectsEnabled:()=>false,document:{createElement(){allocations++;const c={};c.getContext=()=>c.ctx||(c.ctx=context(c));return c;}}});
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../game/js/render/gravity-materials.js'),'utf8'),sandbox);
 const materials=sandbox.window.GravityMaterials,maps=materials.buildPlanets({}),bands=materials.buildWell({});
-assert.equal(bands.length,7,'shared shells have a fixed texture budget');
+assert.equal(bands.length,3,'shared shells have a fixed texture budget');
 const ctx=context({});
 materials.drawPlanet(ctx,maps,0,100,100,150,0);
 const first=maps.blue.output.pixels.slice(),shade=Array.from(maps.blue.shade);
@@ -24,11 +24,12 @@ materials.drawPlanet(ctx,maps,0,100,100,150,1.001);
 assert.equal(uploads,before,'sub-frame requests reuse the material frame');
 for(let i=0;i<80;i++){materials.drawPlanet(ctx,maps,0,100,100,150,2+i/60);materials.drawPlanet(ctx,maps,1,100,100,150,2+i/60);}
 assert.equal(allocations,warm,'warm material animation never allocates textures');
-const angles=[],cores=[];ctx.rotate=a=>angles.push(a);ctx.arc=(x,y,r)=>cores.push([x,y,r]);
+const angles=[],cores=[];ctx.rotate=a=>angles.push(a);ctx.arc=(...args)=>cores.push(args);
 materials.drawWell(ctx,bands,100,100,80,0,0,1,.5);const start=angles.slice();angles.length=0;
 materials.drawWell(ctx,bands,100,100,80,1,0,1,.5);
 const rates=angles.map((a,i)=>a-start[i]);
-assert.equal(rates.length,7);assert(rates[6]>rates[0]*2,'inner gas orbits faster than outer material');
-assert.deepEqual(cores[0],cores[1],'event horizon cannot rotate or breathe with the texture');
-assert.equal(allocations,warm,'all wells share the same seven shell textures');
+assert.equal(rates.length,3);assert(rates[2]>rates[0]*2,'inner gas orbits faster than outer material');
+assert.deepEqual(cores[1],cores[3],'event horizon cannot rotate or breathe with the texture');
+assert.notEqual(cores[0][3],cores[2][3],'photon ring highlight advances');
+assert.equal(allocations,warm,'all wells share the same three shell textures');
 console.log('Gravity cloud advection, fixed illumination/silhouette, differential flow and warm texture budgets passed.');
