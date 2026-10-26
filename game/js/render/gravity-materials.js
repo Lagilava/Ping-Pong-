@@ -110,8 +110,13 @@
                 const r=Math.hypot(u+.5-side*.5,y+.5-side*.5)/(side*.5);
                 const weight=Math.max(0,1-Math.abs(r-center)/.115),p=(y*side+u)*4;
                 if(r<.315||weight<=0)continue;
+                // Uneven spiral density makes differential rotation legible.
+                // Bake the density into the seven shared textures, not each frame.
+                const angle=Math.atan2(y+.5-side*.5,u+.5-side*.5);
+                const flow=.73+.17*Math.cos(angle*3-r*16+b*.85)
+                    +.10*Math.sin(angle*7+r*23-b*.6);
                 data.data[p]=original.data[p];data.data[p+1]=original.data[p+1];data.data[p+2]=original.data[p+2];
-                data.data[p+3]=original.data[p+3]*weight;
+                data.data[p+3]=original.data[p+3]*weight*flow;
             }
             x.putImageData(data,0,0);bands.push(c);
         }
@@ -120,28 +125,45 @@
     function drawWell(ctx,bands,x,y,radius,time,excitement=0,spin=1,phase=0){
         const size=radius*2.95,t=time,hot=Math.max(0,Math.min(1,excitement));
         ctx.save();ctx.translate(x,y);
-        // The shadow and the lens centre remain fixed while gas shears around it.
-        ctx.fillStyle='#01030b';ctx.beginPath();ctx.arc(0,0,size*.169,0,TAU);ctx.fill();
         ctx.globalCompositeOperation='screen';
         for(let i=6;i>=0;i--){
             const r=.36+i*.105,omega=(.28+.34/Math.pow(r,1.5))*(1+hot*.35);
             ctx.save();ctx.rotate(spin*(t*omega+phase));
             ctx.drawImage(bands[i],-size*.5,-size*.5,size,size);ctx.restore();
         }
-        if(typeof areParticleEffectsEnabled!=='function'||areParticleEffectsEnabled()){
-            ctx.save();ctx.globalCompositeOperation='screen';ctx.globalAlpha=.38+hot*.22;
-            ctx.strokeStyle='#8cceff';ctx.lineWidth=Math.max(.6,radius/140);ctx.beginPath();
-            for(let i=0;i<18;i++){
-                const age=((t*(.18+(i%3)*.025)+i*.6180339+phase)%1+1)%1;
-                for(let j=0;j<4;j++){
-                    const u=Math.max(0,age-j*.008),r=size*(.49-u*.31);
-                    const a=spin*(i*2.399+u*5.8+t*.18)+phase;
-                    const px=Math.cos(a)*r,py=Math.sin(a)*r;
-                    if(j===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
-                }
-            }
-            ctx.stroke();ctx.restore();
+        // Two offset arcs sweep around the photon ring. Their geometry is
+        // fixed, while their angular positions track the disk's inner flow.
+        ctx.lineWidth=Math.max(.8,radius/80);
+        for(let i=0;i<2;i++){
+            const a=spin*(t*(1.25+hot*.4)+phase)+i*Math.PI;
+            ctx.globalAlpha=(.22+hot*.24)*(i? .65:1);
+            ctx.strokeStyle=i?'#e2a8ff':'#b9eaff';
+            ctx.beginPath();ctx.arc(0,0,size*.178,a,a+.58*spin,spin<0);ctx.stroke();
         }
+        if(typeof areParticleEffectsEnabled!=='function'||areParticleEffectsEnabled()){
+            // Sparse infalling sparks with curved trails. Fixed path count and
+            // no per-frame gradients, offscreen surfaces or Canvas shadows.
+            ctx.lineWidth=Math.max(.7,radius/120);
+            for(let group=0;group<2;group++){
+                ctx.strokeStyle=group?'#c7abff':'#a4dcff';
+                ctx.globalAlpha=(.31+hot*.27)*(group?.7:1);
+                ctx.beginPath();
+                for(let i=group;i<14;i+=2){
+                    const age=((t*(.19+(i%3)*.026)+i*.6180339+phase)%1+1)%1;
+                    for(let j=0;j<4;j++){
+                        const u=Math.max(0,age-j*.034),r=size*(.47-u*.30);
+                        const a=spin*(i*2.399+u*5.8+t*.2)+phase;
+                        const px=Math.cos(a)*r,py=Math.sin(a)*r;
+                        if(j===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+                    }
+                }
+                ctx.stroke();
+            }
+        }
+        // Paint the event horizon last so even bright gas and sparks vanish
+        // behind the silhouette. The boundary stays fixed as the disk flows.
+        ctx.globalCompositeOperation='source-over';ctx.globalAlpha=1;
+        ctx.fillStyle='#01030b';ctx.beginPath();ctx.arc(0,0,size*.169,0,TAU);ctx.fill();
         ctx.restore();
     }
     window.GravityMaterials={buildPlanets,drawPlanet,buildWell,drawWell};
