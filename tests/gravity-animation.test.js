@@ -9,7 +9,7 @@ const from = well(250), to = well(650);
 const ball = {pos: {x: 270, y: 300}, warpCharge: 0};
 const game = {gameMode: 'gravity', width: 1000, height: 600, ball, gravityWells: [from, to]};
 const effect = new context.window.GravityWormhole(game);
-let depth = 0, strokes = 0, calls = 0;
+let depth = 0, strokes = 0, calls = 0, maxStrokes = 0, maxCalls = 0;
 const ctx = new Proxy({globalAlpha: 1}, {
     get(target, key) {
         if (key in target) return target[key];
@@ -36,9 +36,11 @@ for (const motion of [true, false]) {
         effect.flashes = t >= 0.32 && t < 0.82 ? [{x: 650, y: 300, r: 38, dx: 1, dy: 0, t: 0.82 - t}] : [];
         effect.render(ctx, motion, ['player']);
         assert.equal(depth, 0, 'canvas state restored');
-        assert.ok(strokes <= 12, 'bounded stroke budget');
-        assert.ok(calls < 160, 'bounded geometry budget');
+        maxStrokes = Math.max(maxStrokes, strokes); maxCalls = Math.max(maxCalls, calls);
+        // Two active orbital rims and the transfer helix have fixed budgets.
+        assert.ok(strokes <= 20, 'bounded stroke budget');
+        assert.ok(calls < 240, 'bounded geometry budget');
     }
 }
 assert.equal(effect.flashes.length, 0, 'exit effects expire');
-console.log('Gravity animation lifecycle and render budget passed.');
+console.log('Gravity animation lifecycle and render budget passed.', {maxStrokes, maxCalls});

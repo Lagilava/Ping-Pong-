@@ -289,10 +289,41 @@ class GravityWormhole {
         ctx.stroke();
     }
 
+    // Broken orbital rims and infalling motes give the portal a living
+    // surface. Fixed geometry budgets avoid full-court blur or emitters.
+    renderPortal(ctx, x, y, radius, energy, spin, motion) {
+        const phase = motion ? this.clock * spin * 3.6 : 0;
+        ctx.save(); ctx.translate(x, y);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha *= energy;
+        for (let ring = 0; ring < 2; ring++) {
+            ctx.beginPath();
+            for (let arc = 0; arc < 3; arc++) {
+                const a = arc * Math.PI * 2 / 3 + phase * (ring ? -0.7 : 1);
+                const r = radius * (1.05 + ring * 0.28);
+                ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+                ctx.arc(0, 0, r, a, a + 1.4);
+            }
+            this.strokeEnergy(ctx, ring ? '#81eaff' : '#d3b5ff', ring ? 1.2 : 2.5);
+        }
+        ctx.fillStyle = '#e9dcff'; ctx.beginPath();
+        const count = window.PerfGovernor?.isMobile ? 5 : 8;
+        for (let i = 0; i < count; i++) {
+            const u = motion ? (i / count + this.clock * 0.9) % 1 : i / count;
+            const a = i * 2.4 + phase + u * spin;
+            const r = radius * (1.75 - u * 0.7), size = 0.8 + u * 1.5;
+            const px = Math.cos(a) * r, py = Math.sin(a) * r;
+            ctx.moveTo(px + size, py); ctx.arc(px, py, size, 0, Math.PI * 2);
+        }
+        ctx.fill(); ctx.restore();
+    }
+
     renderWarp(ctx, w, motion) {
         const from = w.from, to = w.to || this.exitFor(w.side, from);
         const k = Math.min(1, w.t / GravityWormhole.SWALLOW);
         const transit = Math.max(0, Math.min(1, (w.t - GravityWormhole.SWALLOW) / GravityWormhole.TRANSIT));
+        this.renderPortal(ctx, from.pos.x, from.pos.y, from.radius * (1 - k * 0.18),
+            1 - transit * 0.8, w.spin, motion);
         ctx.save();
         ctx.translate(from.pos.x, from.pos.y);
         ctx.rotate(motion ? w.spin * k * k * 4 : 0);
@@ -310,6 +341,8 @@ class GravityWormhole {
         this.strokeEnergy(ctx, '#c4abff', 2.2);
         ctx.restore();
         if (!to) return;
+        this.renderPortal(ctx, to.pos.x, to.pos.y, to.radius * (0.8 + k * 0.25),
+            0.3 + k * 0.7, -w.spin, motion);
         // Destination charges before the ball arrives, making the route readable.
         ctx.save();
         ctx.globalAlpha = 0.25 + k * 0.65;
@@ -339,12 +372,32 @@ class GravityWormhole {
             if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         this.strokeEnergy(ctx, '#ecfaff', 2.5);
+        // A twin helix braids around the transfer path. Its envelope closes
+        // at both holes so it reads as a tunnel joining their centres.
+        if (motion) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = 0.6 * Math.sin(p * Math.PI);
+            const dx = to.pos.x - from.pos.x, dy = to.pos.y - from.pos.y;
+            const len = Math.hypot(dx, dy) || 1;
+            for (let strand = -1; strand <= 1; strand += 2) {
+                ctx.beginPath();
+                for (let i = 0; i <= 20; i++) {
+                    const t = i / 20, u = 1 - t;
+                    const wave = Math.sin(t * Math.PI) * Math.sin(t * 22 - this.clock * 30) * 14 * strand;
+                    const x = u * u * from.pos.x + 2 * u * t * cx + t * t * to.pos.x - dy / len * wave;
+                    const y = u * u * from.pos.y + 2 * u * t * cy + t * t * to.pos.y + dx / len * wave;
+                    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+                }
+                ctx.strokeStyle = strand < 0 ? '#c4a2ff' : '#85efff'; ctx.lineWidth = 1.4; ctx.stroke();
+            }
+        }
         ctx.restore();
     }
 
     renderFlash(ctx, f, motion) {
         const k = Math.max(0, f.t / GravityWormhole.FLASH), e = 1 - k;
         const ease = 1 - Math.pow(k, 3);
+        this.renderPortal(ctx, f.x, f.y, f.r * (1 + ease * 0.3), k * k, 1, motion);
         ctx.save();
         ctx.translate(f.x, f.y);
         ctx.rotate(Math.atan2(f.dy, f.dx));
@@ -367,6 +420,16 @@ class GravityWormhole {
                 ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
             }
             this.strokeEnergy(ctx, '#d9caff', 1.5);
+            // A luminous forward plume makes the exit direction immediate.
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = k * k * 0.65;
+            ctx.fillStyle = '#a294ff';
+            ctx.beginPath(); ctx.moveTo(0, -f.r * k * 0.6);
+            ctx.quadraticCurveTo(f.r + ease * 85, -f.r * k, f.r + ease * 170, 0);
+            ctx.quadraticCurveTo(f.r + ease * 85, f.r * k, 0, f.r * k * 0.6);
+            ctx.closePath(); ctx.fill();
+            ctx.globalAlpha = k * k; ctx.strokeStyle = '#e4ffff'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(f.r * 0.4, 0); ctx.lineTo(f.r + ease * 145, 0); ctx.stroke();
         }
         ctx.restore();
     }

@@ -188,6 +188,29 @@ class ModeAbilities {
             ctx.stroke();
         }
         ctx.setLineDash([]);
+        // The shield charges toward contact: a segmented turbine with an
+        // electric edge, rather than a static outline around the paddle.
+        const charge = 1 - s.active / ModeAbilities.SPEED_WINDOW;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = fade;
+        ctx.shadowBlur = 0;
+        for (let i = 0; i < 6; i++) {
+            const a = i * Math.PI / 3 + (motion ? this.clock * dir * 4 : 0);
+            ctx.strokeStyle = i % 2 ? '#49baff' : '#d5ffff';
+            ctx.lineWidth = i % 2 ? 2 : 3;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 24 + charge * 10, paddle.h * 0.82, 0, a, a + 0.52);
+            ctx.stroke();
+        }
+        ctx.beginPath();
+        for (let i = 0; i <= 24; i++) {
+            const q = i / 24, a = -1.45 + q * 2.9;
+            const jitter = motion ? Math.sin(i * 7.3 + Math.floor(this.clock * 28)) * 3 : 0;
+            const x = cx + dir * (Math.cos(a) * (27 + charge * 12) + jitter);
+            const y = cy + Math.sin(a) * paddle.h * 0.78;
+            if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        }
+        ctx.strokeStyle = '#baffff'; ctx.lineWidth = 2.2; ctx.stroke();
         if (motion) {
             ctx.shadowBlur = 0;
             for (let i = 0; i < 9; i++) {
@@ -219,6 +242,32 @@ class ModeAbilities {
             ctx.shadowBlur = layer === 2 ? 12 : 0;
             ctx.stroke();
         }
+        // Tapered wake ribbons follow the recorded trajectory, including
+        // wall bounces. Their phase advances in game time, never render time.
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.shadowBlur = 0;
+        for (let ribbon = -1; ribbon <= 1; ribbon += 2) {
+            ctx.beginPath();
+            for (let i = 0; i < s.trail.length; i++) {
+                const p = s.trail[i], prev = s.trail[Math.max(0, i - 1)];
+                const dx = p.x - prev.x, dy = p.y - prev.y, len = Math.hypot(dx, dy) || 1;
+                const u = i / (s.trail.length - 1);
+                const spread = Math.sin(u * Math.PI) * (8 + Math.sin(u * 14 - this.clock * 35) * 3);
+                const x = p.x - dy / len * spread * ribbon, y = p.y + dx / len * spread * ribbon;
+                if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+            }
+            ctx.globalAlpha = fade * 0.65; ctx.strokeStyle = ribbon < 0 ? '#5f8fff' : '#baffff';
+            ctx.lineWidth = 1.4; ctx.stroke();
+        }
+        const head = s.trail[s.trail.length - 1], tail = s.trail[s.trail.length - 2];
+        const angle = Math.atan2(head.y - tail.y, head.x - tail.x);
+        ctx.translate(head.x, head.y); ctx.rotate(angle);
+        ctx.globalAlpha = fade; ctx.fillStyle = '#efffff';
+        ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(-20, -4); ctx.lineTo(-13, 0); ctx.lineTo(-20, 4); ctx.closePath(); ctx.fill();
+        for (let i = 0; i < 2; i++) {
+            ctx.globalAlpha = fade * (0.6 - i * 0.2); ctx.lineWidth = 1.6;
+            ctx.beginPath(); ctx.ellipse(-12 - i * 22, 0, 5, 14 + i * 5, 0, -1.6, 1.6); ctx.stroke();
+        }
         ctx.restore();
     }
 
@@ -231,6 +280,13 @@ class ModeAbilities {
         ctx.lineWidth = 2.5;
         const radius = 12 + (1 - k) * (motion ? 78 : 32);
         ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.stroke();
+        if (motion) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = k * k;
+            ctx.beginPath(); ctx.ellipse(x, y, radius * 0.45, radius * 1.45, -0.25, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.ellipse(x, y, radius * 0.66, radius * 1.12, 0.25, 0, Math.PI * 2); ctx.stroke();
+        }
         if (motion) for (let i = 0; i < 8; i++) {
             const a = i * Math.PI / 4;
             const inner = radius * 0.5, outer = radius * 1.22;
