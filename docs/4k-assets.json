@@ -1,0 +1,421 @@
+{
+  "method": "Local Lanczos resizing with premultiplied alpha and mild RGB unsharp mask; no AI detail reconstruction.",
+  "assets": [
+    {
+      "path": "game/assets/gravity/gravity-planets.webp",
+      "before": [
+        1774,
+        887
+      ],
+      "after": [
+        3548,
+        1774
+      ],
+      "alpha": true,
+      "bytes": 899184
+    },
+    {
+      "path": "game/assets/gravity/gravity-scene-hd.webp",
+      "before": [
+        1672,
+        941
+      ],
+      "after": [
+        3840,
+        2162
+      ],
+      "alpha": false,
+      "bytes": 1272340
+    },
+    {
+      "path": "game/assets/gravity/gravity-scene.webp",
+      "before": [
+        1280,
+        720
+      ],
+      "after": [
+        3840,
+        2160
+      ],
+      "alpha": false,
+      "bytes": 703820
+    },
+    {
+      "path": "game/assets/gravity/gravity-well.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "bytes": 214766
+    },
+    {
+      "path": "game/assets/images/backgrounds/obstacle-citadel.webp",
+      "before": [
+        1600,
+        900
+      ],
+      "after": [
+        3840,
+        2160
+      ],
+      "alpha": false,
+      "bytes": 828604
+    },
+    {
+      "path": "game/assets/images/cemetery-accents.webp",
+      "before": [
+        1024,
+        1280
+      ],
+      "after": [
+        2048,
+        2560
+      ],
+      "alpha": true,
+      "bytes": 1328504
+    },
+    {
+      "path": "game/assets/images/customise-previews/classic.png",
+      "before": [
+        960,
+        540
+      ],
+      "after": [
+        1920,
+        1080
+      ],
+      "alpha": true,
+      "bytes": 1357855
+    },
+    {
+      "path": "game/assets/images/customise-previews/gravity.png",
+      "before": [
+        960,
+        540
+      ],
+      "after": [
+        1920,
+        1080
+      ],
+      "alpha": true,
+      "bytes": 3076035
+    },
+    {
+      "path": "game/assets/images/customise-previews/obstacle.png",
+      "before": [
+        960,
+        540
+      ],
+      "after": [
+        1920,
+        1080
+      ],
+      "alpha": true,
+      "bytes": 1924066
+    },
+    {
+      "path": "game/assets/images/customise-previews/speed.png",
+      "before": [
+        960,
+        540
+      ],
+      "after": [
+        1920,
+        1080
+      ],
+      "alpha": true,
+      "bytes": 1540688
+    },
+    {
+      "path": "game/assets/images/customise-previews/zombie.png",
+      "before": [
+        960,
+        540
+      ],
+      "after": [
+        1920,
+        1080
+      ],
+      "alpha": true,
+      "bytes": 436144
+    },
+    {
+      "path": "game/assets/images/enemies/zombie-atlas.webp",
+      "before": [
+        1536,
+        1024
+      ],
+      "after": [
+        3072,
+        2048
+      ],
+      "alpha": true,
+      "bytes": 1197690
+    },
+    {
+      "path": "game/assets/images/menu-art/classic.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 223036
+    },
+    {
+      "path": "game/assets/images/menu-art/custom.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 259020
+    },
+    {
+      "path": "game/assets/images/menu-art/gravity.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 222792
+    },
+    {
+      "path": "game/assets/images/menu-art/obstacle.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 205762
+    },
+    {
+      "path": "game/assets/images/menu-art/speed.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 230862
+    },
+    {
+      "path": "game/assets/images/menu-art/zombie.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 223718
+    },
+    {
+      "path": "game/assets/images/menu-textures/ball-shell.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 112018
+    },
+    {
+      "path": "game/assets/images/menu-textures/brass.webp",
+      "before": [
+        256,
+        256
+      ],
+      "after": [
+        512,
+        512
+      ],
+      "alpha": false,
+      "bytes": 90656
+    },
+    {
+      "path": "game/assets/images/menu-textures/carbon.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 258370
+    },
+    {
+      "path": "game/assets/images/menu-textures/court-inlay.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 71526
+    },
+    {
+      "path": "game/assets/images/menu-textures/gunmetal.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 248514
+    },
+    {
+      "path": "game/assets/images/menu-textures/mesh.webp",
+      "before": [
+        256,
+        256
+      ],
+      "after": [
+        512,
+        512
+      ],
+      "alpha": false,
+      "bytes": 65354
+    },
+    {
+      "path": "game/assets/images/menu-textures/mode-decals.webp",
+      "before": [
+        768,
+        512
+      ],
+      "after": [
+        1536,
+        1024
+      ],
+      "alpha": true,
+      "bytes": 403322
+    },
+    {
+      "path": "game/assets/images/menu-textures/paddle-cyan.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 142398
+    },
+    {
+      "path": "game/assets/images/menu-textures/paddle-magenta.webp",
+      "before": [
+        512,
+        512
+      ],
+      "after": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "bytes": 134252
+    },
+    {
+      "path": "game/assets/images/menu-textures/stadium-360.webp",
+      "before": [
+        2048,
+        1024
+      ],
+      "after": [
+        4096,
+        2048
+      ],
+      "alpha": false,
+      "bytes": 402024
+    },
+    {
+      "path": "game/assets/images/powerups/zombie-powerups.webp",
+      "before": [
+        768,
+        768
+      ],
+      "after": [
+        1536,
+        1536
+      ],
+      "alpha": true,
+      "bytes": 712504
+    },
+    {
+      "path": "game/assets/images/zombie-hud-plaque.webp",
+      "before": [
+        1050,
+        350
+      ],
+      "after": [
+        2100,
+        700
+      ],
+      "alpha": false,
+      "bytes": 240758
+    },
+    {
+      "path": "game/assets/speed/speed-props.webp",
+      "before": [
+        1254,
+        1254
+      ],
+      "after": [
+        2508,
+        2508
+      ],
+      "alpha": true,
+      "bytes": 849654
+    },
+    {
+      "path": "game/assets/speed/speed-scene.webp",
+      "before": [
+        1672,
+        941
+      ],
+      "after": [
+        3840,
+        2162
+      ],
+      "alpha": false,
+      "bytes": 567136
+    }
+  ]
+}

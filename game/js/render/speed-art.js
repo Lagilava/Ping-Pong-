@@ -28,7 +28,7 @@
             image.onload = () => Promise.resolve(image.decode ? image.decode() : undefined)
                 .then(() => resolve(image), reject);
             image.onerror = reject;
-            image.src = assetRoot + name + '.webp';
+            image.src = assetRoot + name + '.webp?v=20261027-4k-1';
         });
         Promise.all([load('speed-scene'), load('speed-props')]).then(([scene, props]) => {
             artwork.scene = scene;
@@ -49,7 +49,8 @@
         const [rx, ry, rw, rh] = rects[kind];
         const w = rw / 1254 * artwork.props.naturalWidth;
         const h = rh / 1254 * artwork.props.naturalHeight;
-        const scale = Math.min(1, 384 / Math.max(w, h));
+        const limit = window.PPResolution?.spriteLimit() || 384;
+        const scale = Math.min(1, limit / Math.max(w, h));
         const c = document.createElement('canvas');
         c.width = Math.max(1, Math.round(w * scale));
         c.height = Math.max(1, Math.round(h * scale));
@@ -684,11 +685,12 @@
             loadArtwork();
             const m = ctx.getTransform();
             const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
-            const budget = Math.min(1, (mobile ? 768 : 1024) / w, (mobile ? 432 : 576) / h);
+            const budget = window.PPResolution?.scale(w, h, 768, 432)
+                ?? Math.min(1, (mobile ? 768 : 1024) / w, (mobile ? 432 : 576) / h);
             const sx = Math.min(Math.hypot(m.a, m.b) || 1, budget);
             const sy = Math.min(Math.hypot(m.c, m.d) || 1, budget);
             const generated = artwork.ready;
-            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${generated}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}`;
+            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${window.PPResolution?.spriteLimit()}|${generated}|${window.game?.gameMode === 'customise' ? 'original' : 'card'}`;
             if (key === this.key) return;
             this.key = key;
             this.generated = generated;

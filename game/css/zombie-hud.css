@@ -121,7 +121,7 @@ body.zombie-mode #cyber-menu-btn:hover { border-color: #bdc9bd; background: #162
     inset: 0 auto 0 0;
     width: 270px;
     border-right: 1px solid #89978733;
-    background: linear-gradient(0deg, #050e16d9, #050e1611 65%), url('../assets/images/menu-art/zombie.webp') center / cover;
+    background: linear-gradient(0deg, #050e16d9, #050e1611 65%), url('../assets/images/menu-art/zombie.webp?v=20261027-4k-1') center / cover;
     z-index: -1;
 }
 #zombieBriefing .zombie-briefing-rules { gap: 0; margin-top: 22px; }
@@ -274,7 +274,7 @@ html.pp-mobile #zombieProgressBoosts { font-size: 9px; }
 .zombie-powerup-art {
     display: inline-block;
     flex-shrink: 0;
-    background-image: url('../assets/images/powerups/zombie-powerups.webp');
+    background-image: url('../assets/images/powerups/zombie-powerups.webp?v=20261027-4k-1');
     background-repeat: no-repeat;
     background-size: 200% 200%;
 }

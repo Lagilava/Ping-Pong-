@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict'), fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
+const source = fs.readFileSync(path.join(__dirname, '../game/js/core/boot.js'), 'utf8');
+const context = vm.createContext({URL, window: {location: {href: 'https://example.test/game/play.html'}}});
+vm.runInContext(source.slice(source.indexOf('const isAbsoluteUrl ='), source.indexOf('window.applyResolvedAssetUrls =')), context);
+const resolve = context.window.resolveAssetUrl;
+assert.equal(resolve('assets/a b.webp?v=4k#preview'), 'https://example.test/game/assets/a%20b.webp?v=4k#preview');
+assert.equal(resolve('assets/a%20b.webp'), 'https://example.test/game/assets/a%20b.webp');
+assert.equal(resolve('https://cdn.test/a.webp?v=1'), 'https://cdn.test/a.webp?v=1');
+assert.equal(resolve('data:image/png;base64,AA'), 'data:image/png;base64,AA');
+console.log('Asset paths preserve cache-version queries, fragments and encoded filenames.');

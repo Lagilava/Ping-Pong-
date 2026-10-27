@@ -4,6 +4,19 @@
     const root = document.currentScript?.src
         ? new URL('../../assets/gravity/', document.currentScript.src).href : 'assets/gravity/';
     const assets = {started: false, scene: null, well: null, planets: null, materials: null, wellBands: null};
+    const detail = () => window.PPResolution?.detail() || 1;
+    function refreshMaterials() {
+        const density = detail();
+        if (assets.planetSource && assets.planetDetail !== density) {
+            assets.planets = lightPlanets(assets.planetSource);
+            assets.materials = window.GravityMaterials?.buildPlanets(assets.planetSource);
+            assets.planetDetail = density;
+        }
+        if (assets.well && assets.wellDetail !== density) {
+            assets.wellBands = window.GravityMaterials?.buildWell(assets.well);
+            assets.wellDetail = density;
+        }
+    }
     const stars = Array.from({length: 72}, (_, i) => ({
         x: ((i * 0.61803398875 + .13) % 1), y: ((i * .41421356237 + .07) % 1),
         phase: i * 2.39, size: i % 9 === 0 ? 1.6 : .8, speed: .3 + (i % 3) * .4
@@ -12,7 +25,7 @@
     // light: planets need an unlit hemisphere instead of a uniformly neon rim.
     function lightPlanets(image) {
         const c = document.createElement('canvas');
-        const scale = Math.min(1, 1024 / image.naturalWidth);
+        const scale = Math.min(1, (1024 * (window.PPResolution?.detail() || 1)) / image.naturalWidth);
         c.width = Math.round(image.naturalWidth * scale);
         c.height = Math.round(image.naturalHeight * scale);
         const ctx = c.getContext('2d');
@@ -47,16 +60,19 @@
             image.decoding = 'async';
             image.onload = () => Promise.resolve(image.decode ? image.decode() : undefined).then(() => {
                 assets[key] = key === 'planets' ? lightPlanets(image) : image;
+                if (key === 'planets') { assets.planetSource = image; assets.planetDetail = detail(); }
+                if (key === 'well') assets.wellDetail = detail();
                 if (key === 'planets' && window.GravityMaterials) assets.materials = window.GravityMaterials.buildPlanets(image);
                 if (key === 'well' && window.GravityMaterials) assets.wellBands = window.GravityMaterials.buildWell(image);
                 window.game?.bgRenderer?._invalidateBackgroundRenderCache?.();
             }).catch(() => {});
             image.onerror = () => {}; // keep the bounded procedural fallback
-            image.src = root + name + '.webp';
+            image.src = root + name + '.webp?v=20261027-4k-1';
         }
     }
     function drawBackground(ctx, w, h, time, interaction) {
         load();
+        refreshMaterials();
         if (!assets.scene) return false;
         const motion = !window.PPSettings?.get('reduceMotion');
         const lean = 0; // distant sky is the stable reference for foreground motion
@@ -131,6 +147,7 @@
     }
     function drawWell(ctx, x, y, radius, time, excitement = 0, spin = 1, phase = 0) {
         load();
+        refreshMaterials();
         if (!assets.well) return false;
         const motion = !window.PPSettings?.get('reduceMotion');
         if (assets.wellBands) {

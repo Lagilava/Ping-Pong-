@@ -20,14 +20,17 @@
     // or letting neighboring pixels bleed into a frame. This runs once, yields
     // between rows, and preserves the generated colors and antialiased edges.
     async function prepareGeneratedAtlas(image) {
-        if (image.naturalWidth !== 1536 || image.naturalHeight !== 1024) throw new Error('Expected a 1536 × 1024 enemy atlas');
+        const density = image.naturalWidth / 1536;
+        if (density < 1 || image.naturalHeight !== 1024 * density) throw new Error('Expected a 6 × 4 enemy atlas');
         const source = document.createElement('canvas');
         source.width = 1536; source.height = 256;
         const ctx = source.getContext('2d', { willReadFrequently: true });
         const atlas = {};
         for (let row = 0; row < 4; row++) {
             ctx.clearRect(0, 0, 1536, 256);
-            ctx.drawImage(image, 0, row * 256, 1536, 256, 0, 0, 1536, 256);
+            // Analyse topology at the authored grid size, then extract color
+            // from the full-density source. Upscaling cannot shift hitboxes.
+            ctx.drawImage(image, 0, row * 256 * density, image.naturalWidth, 256 * density, 0, 0, 1536, 256);
             const pixels = ctx.getImageData(0, 0, 1536, 256);
             const labels = new Uint16Array(1536 * 256);
             const queue = new Int32Array(labels.length);
@@ -87,13 +90,23 @@
                     }
                 }
                 frameCtx.putImageData(frame, 0, 0);
+                let artwork = canvas;
+                if (density > 1) {
+                    artwork = document.createElement('canvas');
+                    artwork.width = Math.round(width * density); artwork.height = Math.round(height * density);
+                    const high = artwork.getContext('2d');
+                    high.drawImage(image, x0 * density, (row * 256 + y0) * density,
+                        width * density, height * density, 0, 0, artwork.width, artwork.height);
+                    high.globalCompositeOperation = 'destination-in';
+                    high.drawImage(canvas, 0, 0, artwork.width, artwork.height);
+                }
                 const hit = document.createElement('canvas');
-                hit.width = width; hit.height = height;
+                hit.width = artwork.width; hit.height = artwork.height;
                 const hitCtx = hit.getContext('2d');
-                hitCtx.drawImage(canvas, 0, 0);
+                hitCtx.drawImage(artwork, 0, 0);
                 hitCtx.globalCompositeOperation = 'source-in';
-                hitCtx.fillStyle = '#e5f3e8'; hitCtx.fillRect(0, 0, width, height);
-                frames.push({ canvas, hit, ox: col * 256 + 128 - x0,
+                hitCtx.fillStyle = '#e5f3e8'; hitCtx.fillRect(0, 0, hit.width, hit.height);
+                frames.push({ canvas: artwork, hit, width, height, ox: col * 256 + 128 - x0,
                     // Align the feet while preserving the smaller coiled pose.
                     oy: part.y1 - bodyHeight * 0.5 - y0, bodyHeight });
             }
@@ -112,7 +125,7 @@
                 catch (error) { console.warn('[ZombieSprites] Generated atlas unavailable; using procedural sprites.', error); resolve(false); }
             };
             image.onerror = () => resolve(false);
-            const src = 'assets/images/enemies/zombie-atlas.webp';
+            const src = 'assets/images/enemies/zombie-atlas.webp?v=20261027-4k-1';
             image.src = window.resolveAssetUrl?.(src) || src;
         });
         return generatedLoad;
@@ -352,11 +365,11 @@
             ctx.rotate(tilt - pull * 0.12);
             ctx.translate(0, bob);
             ctx.scale(facing * scale * visualScale * (1 + pull * 0.18), scale * visualScale * (1 - pull * 0.08));
-            ctx.drawImage(frame.canvas, -frame.ox, -frame.oy);
+            ctx.drawImage(frame.canvas, -frame.ox, -frame.oy, frame.width, frame.height);
             const flash = Math.max(0, Math.min(1, zombie.flash || 0));
             if (flash > 0.04 && (window.PPSettings?.flashEnabled?.() ?? true)) {
                 ctx.globalAlpha *= flash * 0.6;
-                ctx.drawImage(frame.hit, -frame.ox, -frame.oy);
+                ctx.drawImage(frame.hit, -frame.ox, -frame.oy, frame.width, frame.height);
             }
             ctx.restore();
             if (zombie.typeKey === 'tank' || zombie.typeKey === 'spitter') {

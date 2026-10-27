@@ -32,7 +32,8 @@
         ctx.restore();
     }
     function crowdAtlas(){
-        const c=document.createElement('canvas');c.width=40*64;c.height=40;const x=c.getContext('2d');
+        const density=window.PPResolution?.detail() || 1;
+        const c=document.createElement('canvas');c.width=40*64*density;c.height=40*density;const x=c.getContext('2d');x.scale(density,density);
         for(let family=0;family<2;family++)for(let frame=0;frame<32;frame++){
             const t=frame/31,raise=family?(1-Math.cos(t*TAU))*.5:0;
             const lean=(family?.45:.8)*Math.sin(t*TAU);
@@ -57,7 +58,8 @@
             const cheer=elapsed>=0&&elapsed<1.8;
             const phase=cheer?Math.min(31,Math.floor(elapsed/1.8*32)):Math.floor((time*.32+a.phase)*32)%32;
             const frame=(cheer?32:0)+phase,s=a.scale;
-            ctx.drawImage(atlas,frame*40,0,40,40,a.x-20*s,a.y-25*s,40*s,40*s);
+            const cell=atlas.height;
+            ctx.drawImage(atlas,frame*cell,0,cell,cell,a.x-20*s,a.y-25*s,40*s,40*s);
         }
     }
     function fog(){

@@ -5,7 +5,7 @@
     const TYPES = ['rage', 'shield', 'slow', 'life'];
     const COLORS = ['#ff8748', '#65dfff', '#7effb5', '#ff73b6'];
     const atlas = new Image();
-    atlas.src = 'assets/images/powerups/zombie-powerups.webp';
+    atlas.src = 'assets/images/powerups/zombie-powerups.webp?v=20261027-4k-1';
     // Collectible feedback stays animated independently of scene motion settings.
 
     function icon(ctx, type, x, y, size) {

@@ -9,6 +9,7 @@ const context = vm.createContext({
     PerfGovernor: {isMobile: false, current: {bgFps: 60}},
     document: {createElement: () => ({getContext: () => canvasContext})}
 });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../game/js/render/render-resolution.js'), 'utf8'), context);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../game/js/render/background-renderer.js'), 'utf8') + '\nglobalThis.Renderer = BackgroundRenderer;', context);
 const renderer = Object.create(context.Renderer.prototype);
 renderer.mode = 'zombie';
@@ -16,9 +17,9 @@ renderer._backgroundRenderCache = {lastRenderMs: -Infinity};
 const rendered = [];
 renderer._renderModeBackground = (ctx, w, h) => rendered.push([w, h]);
 const output = {imageSmoothingEnabled: true, drawImage() {}};
-// Even a 4K display must not allocate 4K scenery intermediates.
+// High quality keeps scenery sharp at 4K and reuses it between updates.
 renderer._renderCachedBackground(output, 3840, 2160, false);
-assert.deepEqual(rendered, [[1024, 576]]);
+assert.deepEqual(rendered, [[3840, 2160]]);
 const firstCanvas = renderer._backgroundRenderCache.canvas;
 now = 16;
 renderer._renderCachedBackground(output, 3840, 2160, false);

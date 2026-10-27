@@ -33,7 +33,7 @@ function session(width,height,artSource) {
         Object.defineProperty(image,'src',{set(value){
             pending++;
             try{
-                const p=value.startsWith('file://')?value.slice(7):value;
+                const p=(value.startsWith('file://')?value.slice(7):value).split('?')[0];
                 Object.getOwnPropertyDescriptor(Image.prototype,'src').set.call(image,
                     p.startsWith('data:')?Buffer.from(p.split(',')[1],'base64'):fs.readFileSync(path.resolve(root,p)));
             }catch(error){pending--;errors.push(error);failed?.(error);}
@@ -41,7 +41,7 @@ function session(width,height,artSource) {
         return image;
     };
     vm.createContext(sandbox);
-    for(const f of ['scene-compositor','arena-motion','classic-art','speed-art','obstacle-waterfalls','obstacle-sky-scene','gravity-materials','gravity-art','background-renderer']) {
+    for(const f of ['render-resolution','scene-compositor','arena-motion','classic-art','speed-art','obstacle-waterfalls','obstacle-sky-scene','gravity-materials','gravity-art','background-renderer']) {
         vm.runInContext(fs.readFileSync((typeof artSource==='object'?artSource?.[f]:f==='gravity-art'?artSource:null)||path.join(root,'js/render',f+'.js'),'utf8'),sandbox);
     }
     sandbox.ClassicArt=sandbox.window.ClassicArt;sandbox.SpeedArt=sandbox.window.SpeedArt;

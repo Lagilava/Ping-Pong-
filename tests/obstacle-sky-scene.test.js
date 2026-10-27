@@ -11,11 +11,12 @@ const context = vm.createContext({
     PerfGovernor: {isMobile: false},
     document: {createElement: () => { allocations++; return {getContext: () => ctx}; }}
 });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../game/js/render/render-resolution.js'), 'utf8'), context);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../game/js/render/obstacle-sky-scene.js'), 'utf8') + '\nglobalThis.Scene = ObstacleSkyScene;', context);
 const scene = new context.Scene(() => invalidations++);
 const grid = {left: 200, right: 3600, top: 150, bottom: 2000, cols: 8, rows: 6};
 scene.render(ctx, 3840, 2160, grid, 0);
-assert(scene.canvas.width <= 1280 && scene.canvas.height <= 720);
+assert.equal(scene.canvas.width,3840); assert.equal(scene.canvas.height,2160);
 const first = scene.canvas;
 for (let i = 1; i < 60; i++) scene.render(ctx, 3840, 2160, grid, i / 60);
 assert.equal(scene.canvas, first, 'animation must not rebuild scenery');

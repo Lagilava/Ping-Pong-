@@ -163,7 +163,10 @@ window.__ppStartCustomMatch = async function (event) {
         if (!assetPath || isAbsoluteUrl(assetPath) || assetPath.startsWith('data:') || assetPath.startsWith('blob:')) {
             return assetPath;
         }
-        const encodedPath = encodePathSegments(assetPath);
+        // Encode filename segments without turning cache-version queries or
+        // fragments into part of the filename (which would return a 404).
+        const [, pathname, suffix] = assetPath.match(/^([^?#]*)(.*)$/);
+        const encodedPath = encodePathSegments(pathname) + suffix;
         return new URL(encodedPath, window.location.href).toString();
     };
 

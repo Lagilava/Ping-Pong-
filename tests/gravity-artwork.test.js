@@ -17,7 +17,7 @@ async function main() {
     assert.equal(art.drawBackground(ctx,1024,576,0),false);
     assert.equal(art.drawWell(ctx,100,100,90,0),false);
     assert.equal(images.length,3);
-    assert.equal(images[0].src,'https://example.com/Ping-Pong-/game/assets/gravity/gravity-scene-hd.webp');
+    assert.equal(images[0].src,'https://example.com/Ping-Pong-/game/assets/gravity/gravity-scene-hd.webp?v=20261027-4k-1');
     images[0].naturalWidth=1920; images[0].naturalHeight=1080;
     images[2].naturalWidth=1774; images[2].naturalHeight=887;
     images[0].onload(); images[1].onload(); images[2].onload();

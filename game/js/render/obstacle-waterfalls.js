@@ -4,7 +4,8 @@ class ObstacleWaterfalls {
     constructor(source) {
         this.regions = [];
         const sample = document.createElement('canvas');
-        const scale = Math.min(1, 640 / source.width, 360 / source.height);
+        const detail = window.PPResolution?.detail() || 1;
+        const scale = Math.min(1, 640 * detail / source.width, 360 * detail / source.height);
         sample.width = Math.max(1, Math.round(source.width * scale));
         sample.height = Math.max(1, Math.round(source.height * scale));
         const ctx = sample.getContext('2d', {willReadFrequently: true});

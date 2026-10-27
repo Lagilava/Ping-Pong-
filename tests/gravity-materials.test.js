@@ -33,3 +33,13 @@ assert.deepEqual(cores[1],cores[3],'event horizon cannot rotate or breathe with 
 assert.notEqual(cores[0][3],cores[2][3],'photon ring highlight advances');
 assert.equal(allocations,warm,'all wells share the same three shell textures');
 console.log('Gravity cloud advection, fixed illumination/silhouette, differential flow and warm texture budgets passed.');
+sandbox.window.PPResolution={detail:()=>2};
+const highMaps=materials.buildPlanets({}),highBands=materials.buildWell({});
+assert.equal(highMaps.blue.side,384,'High/Ultra doubles the animated planet output');
+assert.equal(highMaps.purple.side,256);
+assert.equal(highMaps.ring.width,1024,'ring crops retain doubled source detail');
+assert.ok(highBands.every(b=>b.width===512),'well materials retain doubled source detail');
+materials.drawPlanet(ctx,highMaps,0,100,100,450,1);
+const highWarm=allocations;
+materials.drawPlanet(ctx,highMaps,0,100,100,450,2);
+assert.equal(allocations,highWarm,'4K material animation reuses its larger buffers');

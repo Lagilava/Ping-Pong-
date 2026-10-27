@@ -11,10 +11,16 @@ vm.runInContext(fs.readFileSync(path.join(__dirname,'../game/js/core/globals.js'
 sandbox.window.game = {gameMode:'gravity'};
 const gov = sandbox.gov;
 gov._effective = {...gov.ULTRA}; gov.fxActive = false;
-assert.equal(gov.renderScale,1,'Gravity does not allocate a supersampled gameplay surface');
+assert.equal(gov.renderScale,2,'Gravity supports a 4K backing surface on a 1080p 2x-DPI viewport');
+Object.assign(sandbox.window,{innerWidth:3840,innerHeight:2160});
+assert.equal(gov.renderScale,1,'a native 4K screen is never supersampled beyond the 4K pixel budget');
+Object.assign(sandbox.window,{innerWidth:1920,innerHeight:1080});
 assert.equal(gov.glowScale,0,'disabling bloom does not turn expensive Canvas shadows back on');
 sandbox.window.game.gameMode = 'speed';
 assert.equal(gov.renderScale,2,'other modes retain their quality setting');
+sandbox.window.game.gameMode='gravity'; gov.isMobile=true;
+assert.equal(gov.renderScale,1,'mobile Gravity retains its existing backing-store limit');
+gov.isMobile=false;
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../game/js/core/game.js'),'utf8'),sandbox);
 let quality = null;
 sandbox.window.PostFX = sandbox.PostFX = {create:()=>({setQuality:q=>{quality=q;},setGrade:noop})};

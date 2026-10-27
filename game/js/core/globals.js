@@ -58,8 +58,8 @@ const PerfGovernor = {
     ],
     // Settings > Display > Visual quality > Ultra: above the adaptive ladder,
     // so Auto never climbs into it. Same look as the top tier, drawn sharper
-    // (full screen resolution up to 2x), with scenery redrawn every frame
-    // (bgFps 0) and fuller particle bursts.
+    // (up to 2x, bounded to 4K physical pixels), with full-resolution scenery
+    // at each arena's separate animation cadence and fuller particle bursts.
     ULTRA:        { name: 'ultra',        glow: 1.0, glowFx: 0.35, particles: 1.35, scale: 2, fx: 0, bgFps: 0 },
     MOBILE_ULTRA: { name: 'mobile-ultra', glow: 0,   glowFx: 0,    particles: 0.75, scale: 2, fx: 0, bgFps: 60 },
     // Visual quality presets: auto (adaptive, the default) or a fixed tier.
@@ -99,7 +99,14 @@ const PerfGovernor = {
     get particleScale() { return this.current.particles; },
     get tierName() { return this.current.name; },
     /** Canvas backing-store scale: never above the screen's own pixel ratio. */
-    get renderScale() { return Math.min(window.devicePixelRatio || 1, this.current.scale, window.game?.gameMode === 'gravity' ? 1 : Infinity); },
+    get renderScale() {
+        const w = window.innerWidth || window.game?.width || 1920;
+        const h = window.innerHeight || window.game?.height || 1080;
+        // Permit Retina/4K in every arena, bounded to one 4K gameplay surface.
+        const mobileGravity = this.isMobile && window.game?.gameMode === 'gravity';
+        return Math.min(window.devicePixelRatio || 1, this.current.scale,
+            mobileGravity ? 1 : Infinity, Math.sqrt(3840 * 2160 / (w * h)));
+    },
     get fps() { return Math.round(1000 / this.refreshMs); },
 
     onChange(fn) { this._listeners.push(fn); },

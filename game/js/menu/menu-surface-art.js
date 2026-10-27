@@ -6,7 +6,7 @@
     function install({renderer, arena, railMat, postMat, netMat, seaUniforms}) {
         const anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
         const load = (name, {repeat = [1, 1], color = true} = {}) => new Promise(resolve => {
-            const texture = new THREE.TextureLoader().load(`assets/images/menu-textures/${name}.webp`, tex => {
+            const texture = new THREE.TextureLoader().load(`assets/images/menu-textures/${name}.webp?v=20261027-4k-1`, tex => {
                 tex.name = `menu-${name}`;
                 tex.encoding = color ? THREE.sRGBEncoding : THREE.LinearEncoding;
                 tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
@@ -82,7 +82,7 @@
             ['ball-shell', ballMat], ['paddle-cyan', leftPaddleMat],
             ['paddle-magenta', rightPaddleMat], ['court-inlay', null], ['stadium-360', null]
         ].map(([name, material]) => new Promise(resolve => {
-            new THREE.TextureLoader().load(`assets/images/menu-textures/${name}.webp`, tex => {
+            new THREE.TextureLoader().load(`assets/images/menu-textures/${name}.webp?v=20261027-4k-1`, tex => {
                 tex.name = `menu-${name}`;
                 tex.encoding = material || name === 'stadium-360' ? THREE.sRGBEncoding : THREE.LinearEncoding;
                 tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());

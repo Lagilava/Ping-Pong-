@@ -358,7 +358,7 @@
             if (!scenes[key]) return '';
             if (!cache[key]) {
                 const svg = `<svg xmlns="http://www.w3.org/2000/svg" ${VB}>${scenes[key]()}</svg>`;
-                cache[key] = `url("${new URL(key + '.webp', artBase).href}"), url("data:image/svg+xml,${encodeURIComponent(svg.replace(/\s+/g, ' '))}")`;
+                cache[key] = `url("${new URL(key + '.webp?v=20261027-4k-1', artBase).href}"), url("data:image/svg+xml,${encodeURIComponent(svg.replace(/\s+/g, ' '))}")`;
             }
             return cache[key];
         },

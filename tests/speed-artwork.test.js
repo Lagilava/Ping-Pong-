@@ -24,6 +24,7 @@ function setup() {
             }
         }
     });
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../game/js/render/render-resolution.js'), 'utf8'), context);
     vm.runInContext(source, context);
     return {context, images, canvases, draws, makeContext, gradients: () => gradients};
 }
@@ -35,7 +36,7 @@ async function main() {
     art.draw(ctx, 3840, 2160, state);
     assert.equal(art.generated, false, 'render immediately while images load');
     assert.equal(s.images.length, 2);
-    assert.equal(s.images[0].src, 'https://example.test/Ping-Pong-/game/assets/speed/speed-scene.webp');
+    assert.equal(s.images[0].src, 'https://example.test/Ping-Pong-/game/assets/speed/speed-scene.webp?v=20261027-4k-1');
     for (const [i, image] of s.images.entries()) {
         image.naturalWidth = i ? 1254 : 1672;
         image.naturalHeight = i ? 1254 : 941;
@@ -45,15 +46,15 @@ async function main() {
     assert.equal(invalidations, 1, 'static-background caches refresh when artwork arrives');
     art.draw(ctx, 3840, 2160, state);
     assert.equal(art.generated, true);
-    assert.equal(art.base.width, 1024);
-    assert.equal(art.base.height, 576);
+    assert.equal(art.base.width, 3840);
+    assert.equal(art.base.height, 2160);
     assert.equal(art.hy, Math.round(2160 * .48));
     assert.equal(art.sun, null, 'baked sunset replaces procedural scenery');
     const sky=s.draws.find(a=>a[0]===s.images[0]&&a.length===9);
     assert(sky && Math.abs(sky[7]/sky[3]-sky[8]/sky[4])<1e-9, 'uniform sky scale keeps the sun round');
     assert.equal(art.sprites.carA, art.sprites.carB, 'traffic shares one decoded sprite');
     for (const sprite of Object.values(art.sprites)) {
-        assert.ok(sprite.c.width <= 384 && sprite.c.height <= 384);
+        assert.ok(sprite.c.width <= 1536 && sprite.c.height <= 1536);
     }
     const n = s.canvases.length, gradients = s.gradients(), phase = art.phase;
     s.draws.length = 0;
@@ -90,7 +91,7 @@ async function main() {
     renderer.mode = 'speed';
     s.context.PerfGovernor.isMobile = false;
     s.context.PerfGovernor.current = {bgFps: 0};
-    assert.equal(renderer._getBackgroundRenderScale(3840, 2160) * 3840, 1024);
+    assert.equal(renderer._getBackgroundRenderScale(3840, 2160) * 3840, 3840);
     assert.equal(renderer._getBackgroundFrameMs(), 1000 / 30, 'Ultra keeps a separate scenery budget');
     s.context.PerfGovernor.isMobile = true;
     assert.equal(renderer._getBackgroundFrameMs(), 1000 / 24);

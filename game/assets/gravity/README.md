@@ -2,17 +2,22 @@
 
 Generated with OpenAI ImageGen on 24 October 2026.
 
-- gravity-scene-hd.webp: native 1672 x 941 background, quality 94 WebP, 559048 bytes.
-- gravity-planets.webp: 1774 x 887 transparent two-planet atlas, 425480 bytes.
-- gravity-well.webp: 512 x 512 transparent vortex sprite, 77570 bytes.
+- gravity-scene-hd.webp: 3840 x 2162 background (originally 1672 x 941).
+- gravity-planets.webp: 3548 x 1774 transparent two-planet atlas.
+- gravity-well.webp: 1024 x 1024 transparent vortex sprite.
 
-The HD plate contains no fixed planets. Two separately drawn planets drift and
-rotate; 72 stars move at different speeds and twinkle, with eight cross sparkles.
+Locally enlarged on 27 October 2026 using Lanczos resampling with premultiplied
+alpha and mild color sharpening. This preserves the artwork; it does not
+reconstruct missing detail with AI. All asset dimensions are in docs/4k-assets.json.
+
+The HD plate contains no fixed planets. Cloud material moves inside two fixed
+planet silhouettes; 72 stars move at different speeds and twinkle, with eight cross sparkles.
 The backdrop, planets and well use three shared image requests per page. No
 new textures or gradients are created while drawing warm animation frames.
 
-Gravity scenery caps: High/Ultra 1920 x 1080, Medium 1536 x 864,
-Low/mobile 1024 x 576, never larger than the logical viewport. Scenery still
+Gravity scenery caps: High/Ultra 3840 x 2160, Medium 2560 x 1440,
+Low 1280 x 720, mobile 1024 x 576. High-DPI viewports can supersample up to
+these physical-pixel limits. Planet/cloud and well maps also scale with quality. Scenery still
 updates at up to 30 Hz desktop / 24 Hz mobile independently of gameplay.
 The quality governor reduces the resolution budget when frame times worsen.
 

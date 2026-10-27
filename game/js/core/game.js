@@ -410,11 +410,11 @@ class Game {
 
     getCustomPreviewImageMap() {
         return {
-            classic: 'assets/images/customise-previews/classic.png?v=20261026-arena-motion-5',
-            zombie: 'assets/images/customise-previews/zombie.png?v=20261026-arena-motion-5',
-            gravity: 'assets/images/customise-previews/gravity.png?v=20261026-gravity-flow-4',
-            speed: 'assets/images/customise-previews/speed.png?v=20261026-scene-depth-3',
-            obstacle: 'assets/images/customise-previews/obstacle.png?v=20261026-scene-depth-3'
+            classic: 'assets/images/customise-previews/classic.png?v=20261027-4k-1',
+            zombie: 'assets/images/customise-previews/zombie.png?v=20261027-4k-1',
+            gravity: 'assets/images/customise-previews/gravity.png?v=20261027-4k-1',
+            speed: 'assets/images/customise-previews/speed.png?v=20261027-4k-1',
+            obstacle: 'assets/images/customise-previews/obstacle.png?v=20261027-4k-1'
         };
     }
 

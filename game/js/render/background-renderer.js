@@ -945,6 +945,10 @@ class BackgroundRenderer {
     }
 
     _getBackgroundRenderScale(w, h) {
+        const nativeMobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile
+            && ['classic', 'obstacle', 'customise'].includes(this.mode);
+        if (window.PPResolution && !nativeMobile) return window.PPResolution.scale(w, h,
+            this.mode === 'gravity' ? 1024 : 768, this.mode === 'gravity' ? 576 : 432);
         // Bound decorative fill/blend work independently of display resolution.
         // Gameplay entities and HUD are drawn later at native resolution.
         if (this.mode === 'gravity') {
@@ -2041,7 +2045,7 @@ class BackgroundRenderer {
             this._invalidateBackgroundRenderCache();
         };
         image.onerror = () => { this._cemeteryLoading = false; this._cemeteryFailed = true; };
-        image.src = new URL('assets/images/cemetery-accents.webp', document.baseURI).href;
+        image.src = new URL('assets/images/cemetery-accents.webp?v=20261027-4k-1', document.baseURI).href;
     }
 
     _ensureZombieAmbientMotion() {
@@ -2054,6 +2058,7 @@ class BackgroundRenderer {
     _drawCemeteryAccents(ctx, w, h, rear = false) {
         const atlas = this._cemeteryAtlas;
         if (!atlas) return;
+        const cell = atlas.width / 8;
         const unit = Math.min(w,h);
         // Row, position, size in scene units, opacity, phase, optional mirror.
         // The middle ball lane stays empty. Feet and cloth tops share fixed anchors.
@@ -2084,16 +2089,16 @@ class BackgroundRenderer {
             if(window.ArenaMotion && row<2){
                 // The chain attachment is the pivot; glow follows the flame.
                 ctx.save();ctx.translate(w*x,top);ctx.rotate(Math.sin(time*(row===0?.94:1.12)+phase)*.045+Math.sin(time*2.1+phase)*.012);
-                ctx.drawImage(atlas,0,row*128,128,128,-side/2,0,side,side);
+                ctx.drawImage(atlas,0,row*cell,cell,cell,-side/2,0,side,side);
                 if(this._cemeteryLanternGlow){
                     ctx.globalCompositeOperation='screen';ctx.globalAlpha=alpha*(.78+.12*Math.sin(time*7.3+phase)+.07*Math.sin(time*11.9));
                     ctx.drawImage(this._cemeteryLanternGlow,-side*.39,side*.21,side*.78,side*.78);
                 }ctx.restore();
             }else if(window.ArenaMotion && row>=2 && row<=5){
-                window.ArenaMotion.fabric(ctx,atlas,{sx:0,sy:row*128,sw:128,sh:128,w:side,h:side},w*x-side/2,top,time+phase,side*.035,6,row>=4?'bottom':'top');
+                window.ArenaMotion.fabric(ctx,atlas,{sx:0,sy:row*cell,sw:cell,sh:cell,w:side,h:side},w*x-side/2,top,time+phase,side*.035,6,row>=4?'bottom':'top');
             }else{
                 const drift=window.ArenaMotion&&rear?Math.sin(time*.19+phase)*unit*.012:0;
-                ctx.drawImage(atlas,frame*128,row*128,128,128,w*x-side/2+drift,top,side,side);
+                ctx.drawImage(atlas,frame*cell,row*cell,cell,cell,w*x-side/2+drift,top,side,side);
             }
         }
         if (rear) { ctx.restore(); return; }
@@ -2102,7 +2107,7 @@ class BackgroundRenderer {
         const cycle=Math.floor((window.PPSettings?.get('reduceMotion')?0:this.time)*2)%32;
         const frame=cycle<14?(cycle<8?cycle:14-cycle):0;
         ctx.globalAlpha=.68;
-        ctx.drawImage(atlas,frame*128,9*128,128,128,w*.745+51*scale-side/2,h*.735-194*scale,side,side);
+        ctx.drawImage(atlas,frame*cell,9*cell,cell,cell,w*.745+51*scale-side/2,h*.735-194*scale,side,side);
         ctx.restore();
     }
 
@@ -2257,17 +2262,18 @@ class BackgroundRenderer {
     }
 
     _ensureZombieHandParts() {
-        if(this._zombieHandParts)return this._zombieHandParts;
-        const make=(paint)=>{const c=document.createElement('canvas');c.width=128;c.height=224;
-            const x=c.getContext('2d');x.save();x.translate(64,154);x.scale(.5,.5);paint(x);x.restore();return c;};
+        const density=window.PPResolution?.detail() || 1;
+        if(this._zombieHandParts?.density===density)return this._zombieHandParts;
+        const make=(paint)=>{const c=document.createElement('canvas');c.width=128*density;c.height=224*density;
+            const x=c.getContext('2d');x.scale(density,density);x.save();x.translate(64,154);x.scale(.5,.5);paint(x);x.restore();return c;};
         const wrist=make(x=>this._drawZombieWrist(x,-Math.PI/3));
         const palm=make(x=>this._drawZombiePalm(x,0,-Math.PI/3));
-        const shade=document.createElement('canvas');shade.width=128;shade.height=224;
-        const x=shade.getContext('2d'),g=x.createLinearGradient(0,0,0,224);
+        const shade=document.createElement('canvas');shade.width=128*density;shade.height=224*density;
+        const x=shade.getContext('2d');x.scale(density,density);const g=x.createLinearGradient(0,0,0,224);
         g.addColorStop(0,'rgba(8,25,24,.08)');g.addColorStop(.7,'rgba(5,18,17,.28)');g.addColorStop(1,'rgba(2,9,9,.85)');
         x.fillStyle=g;x.fillRect(0,0,128,224);
-        const burial=document.createElement('canvas');burial.width=128;burial.height=224;
-        const m=burial.getContext('2d'),fade=m.createLinearGradient(0,0,0,224);
+        const burial=document.createElement('canvas');burial.width=128*density;burial.height=224*density;
+        const m=burial.getContext('2d');m.scale(density,density);const fade=m.createLinearGradient(0,0,0,224);
         fade.addColorStop(0,'white');fade.addColorStop(.62,'white');fade.addColorStop(.78,'rgba(255,255,255,.06)');fade.addColorStop(.88,'rgba(255,255,255,0)');
         m.fillStyle=fade;m.fillRect(0,0,128,224);
         const fingers=[
@@ -2276,27 +2282,28 @@ class BackgroundRenderer {
             {ox:13,oy:-2,ang:5,pl:62,ml:41,dl:31,pw:14,mw:12,dw:10,nw:9},
             {ox:36,oy:9,ang:13,pl:44,ml:29,dl:22,pw:11,mw:9,dw:7.5,nw:7}
         ];
-        return this._zombieHandParts={wrist,palm,shade,burial,fingers};
+        return this._zombieHandParts={wrist,palm,shade,burial,fingers,density};
     }
 
     _getZombieHandSprite(hand) {
         // Joint transforms are continuous; only the materials are baked. Two
         // small frame buffers replace forty stepped whole-hand pose textures.
         const parts=this._ensureZombieHandParts();
-        if(!hand._artFrame){hand._artFrame=document.createElement('canvas');hand._artFrame.width=128;hand._artFrame.height=224;
-            hand._artCtx=hand._artFrame.getContext('2d');hand._artStamp=-Infinity;}
+        const density=parts.density;
+        if(!hand._artFrame || hand._artDensity!==density){hand._artFrame=document.createElement('canvas');hand._artFrame.width=128*density;hand._artFrame.height=224*density;
+            hand._artCtx=hand._artFrame.getContext('2d');hand._artStamp=-Infinity;hand._artDensity=density;}
         const reduced=!!window.PPSettings?.get('reduceMotion');
         const stamp=reduced?-1:Math.floor(this.time*30);
         if(hand._artStamp===stamp)return hand._artFrame;
         const x=hand._artCtx,pose=this._getZombieHandPose(reduced?{...hand,poseSeq:0,poseBlend:0,twitch:0}:hand);
-        x.setTransform(1,0,0,1,0,0);x.globalCompositeOperation='source-over';x.clearRect(0,0,128,224);
-        x.drawImage(parts.wrist,0,0);
+        x.setTransform(density,0,0,density,0,0);x.globalCompositeOperation='source-over';x.clearRect(0,0,128,224);
+        x.drawImage(parts.wrist,0,0,128,224);
         x.save();x.translate(64,154);x.scale(.5,.5);this._drawZombieThumb(x,pose.thumb,-Math.PI/3);x.restore();
-        x.drawImage(parts.palm,0,0);
+        x.drawImage(parts.palm,0,0,128,224);
         x.save();x.translate(64,154);x.scale(.5,.5);
         for(let i=0;i<parts.fingers.length;i++)this._drawZombieFinger(x,parts.fingers[i],pose.fingers[i],-Math.PI/3,i===1);
-        x.restore();x.globalCompositeOperation='source-atop';x.drawImage(parts.shade,0,0);
-        x.globalCompositeOperation='destination-in';x.drawImage(parts.burial,0,0);x.globalCompositeOperation='source-over';
+        x.restore();x.globalCompositeOperation='source-atop';x.drawImage(parts.shade,0,0,128,224);
+        x.globalCompositeOperation='destination-in';x.drawImage(parts.burial,0,0,128,224);x.globalCompositeOperation='source-over';
         hand._artStamp=stamp;return hand._artFrame;
     }
 

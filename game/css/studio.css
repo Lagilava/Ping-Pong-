@@ -18,7 +18,7 @@
 :is(.customise-overlay, .forge-editor) button:not(:disabled):hover { border-color: var(--studio-cyan); }
 .customise-overlay { background: radial-gradient(ellipse at 75% 0, #17333366, transparent 50%), var(--studio-bg); backdrop-filter: none; }
 .customise-overlay.active { display: grid; grid-template: auto minmax(0, 1fr) auto / 216px minmax(0, 1fr); }
-.customise-overlay .customise-overlay-header { grid-column: 1 / -1; padding: 25px 32px; align-items: center; border-bottom: 1px solid var(--studio-line); background: linear-gradient(90deg, #0d1821 40%, #0d1821dd), url('../assets/images/menu-art/custom.webp') 90% 48% / 480px auto no-repeat; }
+.customise-overlay .customise-overlay-header { grid-column: 1 / -1; padding: 25px 32px; align-items: center; border-bottom: 1px solid var(--studio-line); background: linear-gradient(90deg, #0d1821 40%, #0d1821dd), url('../assets/images/menu-art/custom.webp?v=20261027-4k-1') 90% 48% / 480px auto no-repeat; }
 .customise-overlay .customise-overlay-title { color: #edf5f3; font: 600 clamp(25px, 3vw, 36px)/1.1 'Space Grotesk', sans-serif; letter-spacing: -.035em; text-transform: none; text-shadow: none; }
 .customise-overlay .customise-overlay-subtitle { color: var(--studio-muted); font-size: 13px; margin-top: 9px; }
 .customise-overlay .customise-overlay-back-btn { border: 1px solid #344751; background: #14212a; color: #cad9dd; font-size: 12px; }

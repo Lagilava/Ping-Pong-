@@ -16,7 +16,7 @@ class ObstacleSkyScene {
         };
         // A failed download keeps the procedural sunset and playable court.
         this.art.onerror = () => { this.ready = false; };
-        this.art.src = 'assets/images/backgrounds/obstacle-citadel.webp';
+        this.art.src = 'assets/images/backgrounds/obstacle-citadel.webp?v=20261027-4k-1';
     }
 
     invalidate() {
@@ -29,10 +29,11 @@ class ObstacleSkyScene {
     _bake(w, h, grid) {
         const originalPalette = false;
         const color = (original, matched) => originalPalette ? original : matched;
-        const key = [originalPalette, w, h, grid.left, grid.right, grid.top, grid.bottom, grid.cols, grid.rows, this.ready].join(':');
+        const resolution = window.PPResolution?.scale(w, h, 960, 540);
+        const key = [originalPalette, w, h, resolution, grid.left, grid.right, grid.top, grid.bottom, grid.cols, grid.rows, this.ready].join(':');
         if (this.canvas && this.key === key) return this.canvas;
         const mobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile;
-        const scale = Math.min(1, (mobile ? 960 : 1280) / w, (mobile ? 540 : 720) / h);
+        const scale = resolution ?? Math.min(1, (mobile ? 960 : 1280) / w, (mobile ? 540 : 720) / h);
         const c = document.createElement('canvas');
         c.width = Math.max(1, Math.round(w * scale));
         c.height = Math.max(1, Math.round(h * scale));

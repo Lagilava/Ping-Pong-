@@ -5,21 +5,22 @@
     const TAU = Math.PI * 2;
     function canvas(w,h=w){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
     function makePlanet(image, purple) {
-        const source=canvas(512,256),sx=source.getContext('2d');
-        sx.drawImage(image,0,0,512,256);
-        const src=sx.getImageData(0,0,512,256).data;
+        const detail=window.PPResolution?.detail() || 1, tex=Math.round(256*detail), sourceW=tex*2;
+        const source=canvas(sourceW,tex),sx=source.getContext('2d');
+        sx.drawImage(image,0,0,sourceW,tex);
+        const src=sx.getImageData(0,0,sourceW,tex).data;
         const tier=typeof PerfGovernor!=='undefined'?PerfGovernor.current:null;
         const small=typeof PerfGovernor!=='undefined'&&(PerfGovernor.isMobile||(tier?.bgFps>0&&tier.bgFps<=30));
-        const side=purple?(small?96:128):(small?128:192), half=side*.5, radius=half-2;
+        const side=Math.round((purple?(small?96:128):(small?128:192))*detail), half=side*.5, radius=half-2;
         const output=canvas(side),ctx=output.getContext('2d'),frame=ctx.createImageData(side,side);
         const normals=new Float32Array(side*side*3),shade=new Float32Array(side*side),rim=new Float32Array(side*side);
-        const albedo=new Float32Array(256*256*3);
+        const albedo=new Float32Array(tex*tex*3);
         // Recover cloud albedo from the source's front hemisphere. Normalising
         // its baked key light prevents the bright patch rotating with the gas.
-        for(let y=0;y<256;y++)for(let x=0;x<256;x++){
-            const nx=(x-130)/100,ny=(y-129)/100,z=Math.sqrt(Math.max(0,1-nx*nx-ny*ny));
+        for(let y=0;y<tex;y++)for(let x=0;x<tex;x++){
+            const nx=(x/detail-130)/100,ny=(y/detail-129)/100,z=Math.sqrt(Math.max(0,1-nx*nx-ny*ny));
             const l=.35+.65*Math.max(0,-nx*.48-ny*.48+z*.73);
-            const p=(y*512+x)*4,q=(y*256+x)*3;
+            const p=(y*sourceW+x)*4,q=(y*tex+x)*3;
             const r=src[p]/l,g=src[p+1]/l,b=src[p+2]/l;
             albedo[q]=purple?r*.45+b*.55:r;
             albedo[q+1]=purple?g*.78+b*.035:g;
@@ -34,13 +35,13 @@
             rim[i]=(1-z)**4*Math.max(0,.5-nx*.35-ny*.35)*25;
             frame.data[i*4+3]=Math.min(255,(1-Math.sqrt(r2))*radius*255);
         }
-        return {output,ctx,frame,normals,shade,rim,albedo,side,purple,stamp:-Infinity};
+        return {output,ctx,frame,normals,shade,rim,albedo,side,purple,tex,detail,stamp:-Infinity};
     }
     function planetFrame(planet,time){
         const stamp=Math.floor(time*30);
         if(planet.stamp===stamp)return planet.output;
         planet.stamp=stamp;
-        const {side,normals,shade,rim,albedo,frame}=planet,t=stamp/30;
+        const {side,normals,shade,rim,albedo,frame,tex,detail}=planet,t=stamp/30,stride=tex*3;
         for(let y=0;y<side;y++){
             const lat=(y+.5-side*.5)/(side*.5-2);
             const phase=t*((planet.purple?-.24:.34)+Math.sin(lat*9)*.035);
@@ -48,27 +49,28 @@
             for(let x=0;x<side;x++){
                 const i=y*side+x,p=i*4;if(!frame.data[p+3])continue;
                 const n=i*3,nx=normals[n],ny=normals[n+1],z=normals[n+2];
-                const u=130+(nx*cs+z*sn)*100,v=129+ny*100;
-                const ix=u|0,iy=v|0,fx=u-ix,fy=v-iy,q=(iy*256+ix)*3,L=shade[i];
+                const u=(130+(nx*cs+z*sn)*100)*detail,v=(129+ny*100)*detail;
+                const ix=u|0,iy=v|0,fx=u-ix,fy=v-iy,q=(iy*tex+ix)*3,L=shade[i];
                 const w0=(1-fx)*(1-fy)*L,w1=fx*(1-fy)*L,w2=(1-fx)*fy*L,w3=fx*fy*L;
-                frame.data[p]=albedo[q]*w0+albedo[q+3]*w1+albedo[q+768]*w2+albedo[q+771]*w3+rim[i]*.25;
-                frame.data[p+1]=albedo[q+1]*w0+albedo[q+4]*w1+albedo[q+769]*w2+albedo[q+772]*w3+rim[i]*.6;
-                frame.data[p+2]=albedo[q+2]*w0+albedo[q+5]*w1+albedo[q+770]*w2+albedo[q+773]*w3+rim[i];
+                frame.data[p]=albedo[q]*w0+albedo[q+3]*w1+albedo[q+stride]*w2+albedo[q+stride+3]*w3+rim[i]*.25;
+                frame.data[p+1]=albedo[q+1]*w0+albedo[q+4]*w1+albedo[q+stride+1]*w2+albedo[q+stride+4]*w3+rim[i]*.6;
+                frame.data[p+2]=albedo[q+2]*w0+albedo[q+5]*w1+albedo[q+stride+2]*w2+albedo[q+stride+5]*w3+rim[i];
             }
         }
         planet.ctx.putImageData(frame,0,0);return planet.output;
     }
     function buildPlanets(image){
         const blue=makePlanet(image,false),purple=makePlanet(image,true);
-        const ring=canvas(512,256),ctx=ring.getContext('2d');ctx.drawImage(image,0,0,512,256);
+        const detail=window.PPResolution?.detail() || 1, w=Math.round(512*detail), h=Math.round(256*detail);
+        const ring=canvas(w,h),ctx=ring.getContext('2d');ctx.drawImage(image,0,0,w,h);
         window.SceneCompositor?.cleanMatte(ring,{minIslandPixels:16});
-        const data=ctx.getImageData(0,0,512,256);
+        const data=ctx.getImageData(0,0,w,h);
         // Preserve the source rings, removing its painted body. The front arc
         // alone may occlude the animated sphere; the rear arc stays behind it.
-        const cx=512*.748,cy=256*.51,r=512*.143,cs=Math.cos(-.55),sn=Math.sin(-.55);
-        for(let y=0;y<256;y++)for(let x=0;x<512;x++){
-            const dx=(x-cx)/r,dy=(y-cy)/r,p=(y*512+x)*4;
-            if(x<256){data.data[p+3]=0;continue;}
+        const cx=w*.748,cy=h*.51,r=w*.143,cs=Math.cos(-.55),sn=Math.sin(-.55);
+        for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+            const dx=(x-cx)/r,dy=(y-cy)/r,p=(y*w+x)*4;
+            if(x<w/2){data.data[p+3]=0;continue;}
             if(dx*dx+dy*dy<1.025){
                 const u=dx*cs+dy*sn,v=-dx*sn+dy*cs;
                 const outer=u*u/(1.95*1.95)+v*v/(.5*.5);
@@ -87,7 +89,8 @@
         // Same measured atlas proportions as the original ringed silhouette.
         const h=side*.83/(.528*2),cx=px+side*.023,cy=py+h*.042,size=side*.542;
         ctx.drawImage(image,cx-size*.5,cy-size*.5,size,size);
-        ctx.drawImage(maps.ring,512*.472,256*.06,512*.528,256*.83,px-side*.5,py-h*.5,side,h);
+        const rw=maps.ring.width,rh=maps.ring.height;
+        ctx.drawImage(maps.ring,rw*.472,rh*.06,rw*.528,rh*.83,px-side*.5,py-h*.5,side,h);
         // A sparse stream follows the ring plane; its rear half is hidden by
         // the sphere, rather than shining through it as a flat overlay.
         ctx.save();ctx.translate(cx,cy);ctx.rotate(-.55);ctx.fillStyle='#d4c7ff';
@@ -99,7 +102,7 @@
         ctx.restore();
     }
     function buildWell(image){
-        const side=256,source=canvas(side),ctx=source.getContext('2d');ctx.drawImage(image,0,0,side,side);
+        const side=Math.round(256*(window.PPResolution?.detail() || 1)),source=canvas(side),ctx=source.getContext('2d');ctx.drawImage(image,0,0,side,side);
         const original=ctx.getImageData(0,0,side,side),bands=[];
         // Three shared annuli retain differential flow with fewer translucent
         // blits per well. Their angular density is baked once after decode.
