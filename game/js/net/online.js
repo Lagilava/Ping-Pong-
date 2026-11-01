@@ -1590,7 +1590,8 @@
         const tick = () => {
             const g = window.game;
             if (!g || g.net !== sess || sess.closed) return;
-            if (g.running && !g.introActive) { sess.onIntroDone(); return; }
+            // A first-match How to play card holds the guest's "ready" too.
+            if (g.running && !g.introActive && !g.tutorialHold) { sess.onIntroDone(); return; }
             setTimeout(tick, 100);
         };
         tick();

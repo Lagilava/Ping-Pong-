@@ -79,6 +79,10 @@ class Game {
         this.paused = false;
         this.userPaused = false;
         this.challengePaused = false;
+        // First match in a mode: held still until the How to play card is
+        // confirmed (js/ui/device-controls.js). Separate from challengePaused
+        // so a rules card or wave reward closing can't release it.
+        this.tutorialHold = false;
         this._pausedMediaElements = [];
         this.gameMode = 'classic';
         this.isMultiplayer = false;
@@ -2341,6 +2345,9 @@ class Game {
 
     startIntro() {
         this.ensurePostFx();
+        // A first match in this mode stays frozen until How to play is
+        // confirmed. Armed before the intro so not one physics step runs.
+        window.PPDeviceControls?.armTutorial?.(this);
         // Full cinematic on the first match of a session; a short version after
         // that so rematches get to the action quickly. The intro always plays;
         // Esc, a click or the Skip button ends it.
@@ -2385,6 +2392,7 @@ class Game {
         this.introActive = true;
         this.lastIntroTime = 0;
 
+        window.PPDeviceControls?.armTutorial?.(this);
         this.intro.start();
 
         // Start the intro loop
@@ -2745,6 +2753,9 @@ class Game {
         this._setText(this.rallyDisplay, '0');
         this._setText(this.streakDisplay, this.progression.winStreak);
         this.syncZombieHUD();
+        // Refresh the score HUD's labels too (Zombie's SCORE / LIVES must not
+        // carry into the next mode until its first point).
+        if (this.scores.player === 0 && this.scores.ai === 0) this.updateScoreUI?.();
 
         // Show skip button
         const skipBtn = document.getElementById('skipIntro');
@@ -2766,6 +2777,7 @@ class Game {
 
         // Create fresh Intro instance
         this.intro = new Intro(this);
+        window.PPDeviceControls?.armTutorial?.(this);
         this.intro.start();
 
         // Start the intro loop
@@ -6057,8 +6069,16 @@ class Game {
         this.syncPauseState();
     }
 
+    setTutorialHold(on) {
+        if (this.tutorialHold === !!on) return;
+        this.tutorialHold = !!on;
+        this.lastTime = performance.now() / 1000;
+        this.accumulator = 0;
+        this.syncPauseState();
+    }
+
     syncPauseState() {
-        const nextPaused = !!(this.userPaused || this.challengePaused);
+        const nextPaused = !!(this.userPaused || this.challengePaused || this.tutorialHold);
         const wasPaused = this.paused;
         this.paused = nextPaused;
 
@@ -6097,6 +6117,7 @@ class Game {
             menu.classList.toggle('pp-online-guest', this.net?.role === 'guest');
             set('pauseScoreL', this.scores.player);
             set('pauseScoreR', zombie ? `${Math.max(0, z.hearts)}/${z.maxHearts}` : this.scores.ai);
+            this.renderPauseAchievements();
         }
         this.resetPauseConfirms(menu);
         if (open !== menu.classList.contains('open')) {
@@ -6105,6 +6126,29 @@ class Game {
             if (open) menu.querySelector('[data-act="resume"]')?.focus({ preventScroll: true });
             else if (document.activeElement && menu.contains(document.activeElement)) document.activeElement.blur();
         }
+    }
+
+    // Unlocks earned so far this match, and the collection count.
+    renderPauseAchievements() {
+        const pr = this.progression;
+        if (!pr?.achievements) return;
+        const all = Object.values(pr.achievements);
+        const count = document.getElementById('pauseAchCount');
+        if (count) count.textContent = `${all.filter(a => a.unlocked).length}/${all.length}`;
+        const strip = document.getElementById('pauseAch');
+        const icons = document.getElementById('pauseAchIcons');
+        if (!strip || !icons) return;
+        const list = pr.getRecentlyUnlockedAchievements?.() || [];
+        const key = list.map(a => a.id).join();
+        strip.hidden = !list.length;
+        if (icons.dataset.key === key) return;
+        icons.dataset.key = key;
+        const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+        const label = strip.querySelector('.pause-ach-label');
+        if (label) label.innerHTML = `This match<b>${list.length}</b>`;
+        icons.innerHTML = list.slice(0, 8).map(a => `<span title="${esc(a.title)}">${ppAchievementIcon(a.id)}</span>`).join('') +
+            (list.length === 1 ? `<em>${esc(list[0].title)}</em>` : '');
+        strip.setAttribute('aria-label', `Unlocked this match: ${list.map(a => a.title).join(', ')}`);
     }
 
     bindPauseMenu(menu) {
@@ -6183,6 +6227,9 @@ class Game {
             case 'audio':
                 window.ppOpenPanel?.(action);
                 break;
+            case 'achievements':
+                this.progression?.toggleAchievementSidebar?.(true);
+                break;
             case 'help':
                 if (window.ModeTutorial?.open) window.ModeTutorial.open(this.gameMode, document.activeElement);
                 else window.ppOpenPanel?.('help');
@@ -6219,6 +6266,8 @@ class Game {
         this.resetPauseConfirms();
         this.userPaused = false;
         this.challengePaused = false;
+        this.tutorialHold = false;
+        window.PPDeviceControls?.cancelTutorial?.();
         this.notifications.length = 0;
         this.syncPauseState();
         this.stop();
@@ -6465,6 +6514,7 @@ class Game {
 
         // Create a fresh Intro instance to ensure clean state
         this.intro = new Intro(this);
+        window.PPDeviceControls?.armTutorial?.(this);
         this.intro.start();
 
         // Start the intro loop
@@ -6941,7 +6991,7 @@ class Game {
             // has no size: measure the toasts.
             st.toastBottom = 0;
             st.toastLeft = Infinity;
-            const box = document.querySelector('.achievement-notifications-container');
+            const box = document.querySelector('.pp-ach-stack');
             if (box) for (const toast of box.children) {
                 const r = toast.getBoundingClientRect();
                 if (!r.height) continue;

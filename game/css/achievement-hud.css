@@ -1,0 +1,230 @@
+/* Achievement unlock toast and the in-match achievements views.
+   Loaded after mobile-fit.css. The toast (progression.js showSubtleAchievement)
+   is one slim plate at a time: in a match it docks in the top HUD row right of
+   the MENU button (--ach-left/--ach-top/--ach-h/--ach-w set from its rect),
+   so it never covers the court; on menus it sits top-right. It never takes
+   pointer input and fades while the ball passes under it. */
+
+.pp-ach-stack {
+    --ach-gold: #f8d58c;
+    --ach-gold-deep: #9f824c;
+    position: fixed;
+    z-index: 100004;
+    top: calc(env(safe-area-inset-top) + 16px);
+    right: 16px;
+    width: min(360px, calc(100vw - 32px));
+    pointer-events: none;
+}
+.pp-ach-stack[data-dock="hud"] {
+    top: var(--ach-top);
+    right: auto;
+    left: var(--ach-left);
+    width: min(380px, var(--ach-w));
+}
+
+.pp-ach-toast {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 11px;
+    box-sizing: border-box;
+    min-height: var(--ach-h, 54px);
+    padding: 7px 14px 8px 8px;
+    overflow: hidden;
+    color: #f8fbff;
+    font-family: var(--ad-body, 'Rajdhani', 'Segoe UI', sans-serif);
+    border: 1px solid color-mix(in srgb, var(--ach-gold) 55%, #2a3a50);
+    border-radius: var(--ad-plate, 4px 18px 4px 18px);
+    background:
+        linear-gradient(100deg, rgba(248, 213, 140, .16), transparent 46%),
+        linear-gradient(180deg, rgba(23, 36, 58, .96), rgba(10, 17, 32, .96));
+    box-shadow: inset 0 2px 0 var(--ach-gold), 0 10px 26px rgba(0, 0, 0, .55);
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity .22s ease, transform .3s var(--ad-ease, cubic-bezier(.2, .8, .2, 1));
+}
+.pp-ach-toast.visible { opacity: 1; transform: none; }
+.pp-ach-toast.fading { opacity: 0; transform: translateY(-6px); transition-duration: .26s; }
+/* Ball (or a second ball) passing under it: see the play, not the toast. */
+.pp-ach-toast.visible.dodge { opacity: .22; }
+
+.pp-ach-icon {
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: 38px;
+    height: 38px;
+    padding: 8px;
+    border-radius: 10px;
+    color: #ffda89;
+    background: #463c34;
+    border: 1px solid var(--ach-gold-deep);
+}
+.pp-ach-icon .pp-achievement-svg { width: 100%; height: 100%; }
+.pp-ach-toast.visible .pp-ach-icon { animation: ppAchIcon .5s .1s var(--ad-ease, ease) both; }
+@keyframes ppAchIcon { from { transform: scale(.6) rotate(-12deg); } }
+
+.pp-ach-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.pp-ach-kicker {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--ach-gold);
+    font: 700 9px/1.25 var(--ad-display, 'Orbitron', sans-serif);
+    letter-spacing: .16em;
+    text-transform: uppercase;
+}
+.pp-ach-more { color: #cfe3f2; letter-spacing: .08em; }
+.pp-ach-stack.narrow .pp-ach-long { display: none; }
+.pp-ach-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font: 700 16px/1.15 var(--ad-body, 'Rajdhani', sans-serif);
+    letter-spacing: .02em;
+}
+.pp-ach-desc {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: #b6cadb;
+    font: 500 12.5px/1.25 var(--ad-body, 'Rajdhani', sans-serif);
+}
+.pp-ach-xp {
+    color: var(--ach-gold);
+    font: 800 14px/1 var(--ad-display, 'Orbitron', sans-serif);
+    white-space: nowrap;
+}
+.pp-ach-xp small { margin-left: 2px; font-size: 8px; letter-spacing: .1em; }
+/* Time left before the next one: a thin gold line that runs out. */
+.pp-ach-timer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--ach-gold), rgba(248, 213, 140, .35));
+    transform-origin: left center;
+}
+.pp-ach-toast.visible .pp-ach-timer { animation: ppAchTimer var(--ach-ms, 3800ms) linear forwards; }
+@keyframes ppAchTimer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* Docked in the HUD row: same height as the MENU button, one line of text. */
+.pp-ach-stack[data-dock="hud"] .pp-ach-toast { padding-top: 4px; padding-bottom: 5px; gap: 9px; }
+.pp-ach-stack[data-dock="hud"] .pp-ach-desc { display: none; }
+.pp-ach-stack[data-dock="hud"] .pp-ach-icon {
+    width: calc(min(var(--ach-h, 44px), 52px) - 12px);
+    height: calc(min(var(--ach-h, 44px), 52px) - 12px);
+    padding: 6px;
+}
+.pp-ach-stack[data-dock="hud"] .pp-ach-name { font-size: 15px; }
+
+/* Phones and short landscape windows: tighter still. */
+@media (max-height: 500px), (max-width: 700px) {
+    .pp-ach-stack { width: min(300px, calc(100vw - 24px)); right: 12px; }
+    .pp-ach-toast { gap: 8px; padding-right: 10px; }
+    .pp-ach-kicker { font-size: 8px; letter-spacing: .12em; }
+    .pp-ach-name { font-size: 13.5px; }
+    .pp-ach-desc { display: none; }
+    .pp-ach-xp { font-size: 11px; }
+    .pp-ach-xp small { font-size: 7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pp-ach-toast, .pp-ach-toast.fading { transform: none; transition: opacity .2s linear; }
+    .pp-ach-toast.visible .pp-ach-icon { animation: none; }
+    /* The countdown line is information, not decoration: keep it, but step it. */
+    .pp-ach-toast.visible .pp-ach-timer { animation-timing-function: steps(4, end); }
+}
+
+/* ── Pause menu: this match's unlocks and the way into the collection ── */
+.pause-ach {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 8px 10px;
+    border: 1px solid rgba(248, 213, 140, .32);
+    border-radius: 10px;
+    background: rgba(70, 60, 52, .22);
+}
+.pause-ach[hidden] { display: none; }
+.pause-ach-label {
+    flex: 0 0 auto;
+    color: #f8d58c;
+    font: 700 9px/1.3 var(--ad-display, 'Orbitron', sans-serif);
+    letter-spacing: .16em;
+    text-transform: uppercase;
+}
+.pause-ach-label b {
+    display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 7px; padding: 0 5px;
+    box-sizing: border-box; border-radius: 9px; color: #1a1408; background: #f8d58c; font-size: 10px; letter-spacing: 0;
+}
+.pause-ach-icons { display: flex; gap: 6px; min-width: 0; overflow: hidden; flex: 1; }
+/* More icons than fit: fade the last one out instead of cutting it. */
+.pause-ach-icons:has(> span:nth-of-type(4)) { -webkit-mask-image: linear-gradient(90deg, #000 78%, transparent); mask-image: linear-gradient(90deg, #000 78%, transparent); }
+.pause-ach-icons span {
+    display: grid; place-items: center; flex: 0 0 30px;
+    width: 30px; height: 30px; box-sizing: border-box; padding: 6px;
+    border-radius: 8px; color: #ffda89; background: #463c34; border: 1px solid #9f824c;
+}
+.pause-ach-icons .pp-achievement-svg { width: 100%; height: 100%; }
+.pause-ach-icons em {
+    align-self: center; color: #cfe3f2; font: 700 12px/1 var(--ad-body, sans-serif); font-style: normal; white-space: nowrap;
+}
+.pause-btn .pause-ach-count {
+    display: block;
+    margin-top: 3px;
+    color: #f8d58c;
+    font: 700 10px/1 var(--ad-display, 'Orbitron', sans-serif);
+    letter-spacing: .08em;
+}
+
+/* The collection opens above the pause menu and the results card. */
+body .achievement-sidebar { z-index: 200001; }
+
+/* Short landscape phones: the collection uses the whole screen. Search and
+   filters share a row and the list runs in two columns. */
+@media (max-height: 500px) and (orientation: landscape) {
+    body .achievement-sidebar {
+        width: 100vw; max-width: none; border-left: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        grid-template-areas: "head head" "search filters" "list list" "foot foot";
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+    body .achievement-sidebar .sidebar-header { grid-area: head; padding: 8px 16px; }
+    body .achievement-sidebar .sidebar-header .ui-art { display: none; }
+    body .achievement-sidebar .sidebar-header .header-icon { width: 34px; height: 34px; }
+    body .achievement-sidebar .sidebar-header h3 { font-size: 17px; }
+    body .achievement-sidebar .sidebar-search-container { grid-area: search; padding: 8px 6px 8px 16px; margin: 0; }
+    body .achievement-sidebar .sidebar-search { min-height: 38px; padding-top: 6px; padding-bottom: 6px; }
+    body .achievement-sidebar .achievement-filters { grid-area: filters; padding: 8px 16px 8px 6px; margin: 0; }
+    body .achievement-sidebar .achievement-filters button { min-height: 38px; padding-top: 0; padding-bottom: 0; }
+    body .achievement-sidebar .achievement-list {
+        grid-area: list;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-auto-rows: max-content;
+        align-content: start;
+        gap: 8px;
+        padding: 2px 16px 12px;
+        min-height: 0;
+    }
+    body .achievement-sidebar .achievement-list .sidebar-achievement { margin: 0; padding: 10px 12px; }
+    body .achievement-sidebar .achievement-list .achievement-empty { grid-column: 1 / -1; }
+    body .achievement-sidebar .sidebar-footer { grid-area: foot; padding: 6px 16px 8px; }
+    .pause-ach { margin-bottom: 8px; padding: 6px 8px; }
+    .pause-ach-icons span { width: 26px; height: 26px; flex-basis: 26px; padding: 5px; }
+}
+body .achievement-detail-modal { z-index: 200002; }
+
+/* Out of the way while a full-screen card owns the screen (pause menu lists
+   this match's unlocks itself). */
+body:is(.pp-paused, .pp-controls-tutorial-open, .pp-results-open) .pp-ach-stack { visibility: hidden; }
+
+/* Pause menu: Settings, Audio, Help and Trophies share one row. */
+body .pause-card .pause-row:has([data-act="achievements"]) { grid-template-columns: repeat(4, minmax(0, 1fr)); }

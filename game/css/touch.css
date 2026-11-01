@@ -140,6 +140,14 @@ body.pp-controls-tutorial-open #cyber-menu-btn { visibility: hidden; }
 }
 .pp-ct-kicker { font: 700 .62rem/1 'Orbitron', sans-serif; letter-spacing: .2em; text-transform: uppercase; color: #00eeff; }
 .pp-ct-body h2 { margin: 6px 0 10px; font: 800 1.45rem/1.1 'Orbitron', sans-serif; letter-spacing: .06em; color: #fff; }
+.pp-ct-paused {
+    display: flex; align-items: center; gap: 8px;
+    margin: -2px 0 12px; font: 600 .74rem/1.3 system-ui, sans-serif; color: #ffd98a;
+}
+.pp-ct-paused::before {
+    content: ""; flex: 0 0 auto; width: 9px; height: 10px;
+    border-left: 3px solid currentColor; border-right: 3px solid currentColor; box-sizing: border-box;
+}
 .pp-ct-steps { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
 .pp-ct-steps li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; }
 .pp-ct-n {
@@ -234,6 +242,7 @@ body.pp-controls-tutorial-open #cyber-menu-btn { visibility: hidden; }
     .pp-ct-card { gap: 16px; padding: 14px 16px; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
     .pp-ct-body h2 { font-size: 1.05rem; margin: 4px 0 8px; }
     .pp-ct-steps { gap: 7px; margin-bottom: 10px; }
+    .pp-ct-paused { margin-bottom: 8px; font-size: .66rem; }
     .pp-ct-steps b { font-size: .8rem; }
     .pp-ct-steps p { font-size: .72rem; line-height: 1.3; }
     .pp-ct-go { min-height: 40px; }

@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="css/textures.css">
     <link rel="stylesheet" href="css/achievement-redesign.css">
     <link rel="stylesheet" href="css/main-menu.css">
-    <link rel="stylesheet" href="css/touch.css">
+    <link rel="stylesheet" href="css/touch.css?v=20261101-gate-1">
     <link rel="stylesheet" href="css/ui-art.css">
     <link rel="stylesheet" href="css/zombie-hud.css?v=20261101-mobile-2">
     <link rel="stylesheet" href="css/studio.css?v=20261027-4k-1">
@@ -34,6 +34,7 @@
     <link rel="stylesheet" href="css/replay-broadcast.css?v=20261020-1">
     <link rel="stylesheet" href="css/art-direction.css?v=20261020-1">
     <link rel="stylesheet" href="css/mobile-fit.css?v=20261101-2">
+    <link rel="stylesheet" href="css/achievement-hud.css?v=20261101-1">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js?v=20261027-4k-1"></script>
 </head>
@@ -513,6 +514,10 @@
                 <span class="pause-dash">:</span>
                 <span class="pause-side right"><small id="pauseLabelR">AI</small><b id="pauseScoreR">0</b></span>
             </div>
+            <div class="pause-ach" id="pauseAch" hidden>
+                <span class="pause-ach-label">This match</span>
+                <span class="pause-ach-icons" id="pauseAchIcons"></span>
+            </div>
             <div class="pause-actions">
                 <button type="button" class="pause-btn primary" data-act="resume">Resume <kbd>Esc</kbd></button>
                 <button type="button" class="pause-btn" data-act="restart" data-confirm="Tap again to restart">Restart match <kbd>R</kbd></button>
@@ -520,6 +525,7 @@
                     <button type="button" class="pause-btn small" data-act="settings"><svg class="pause-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"/><circle cx="12" cy="12" r="6.6"/></svg>Settings</button>
                     <button type="button" class="pause-btn small" data-act="audio"><svg class="pause-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>Audio</button>
                     <button type="button" class="pause-btn small" data-act="help"><svg class="pause-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.5"/><circle cx="12" cy="17" r=".6"/></svg>Help</button>
+                    <button type="button" class="pause-btn small" data-act="achievements" id="pauseAchBtn"><svg class="pause-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 4h9v5a4.5 4.5 0 0 1-9 0z"/><path d="M7.5 6H4.5a3 3 0 0 0 3 4M16.5 6h3a3 3 0 0 1-3 4M12 13.5V17M8.5 20h7M10 17h4"/></svg>Trophies<span class="pause-ach-count" id="pauseAchCount"></span></button>
                 </div>
                 <button type="button" class="pause-btn danger" data-act="quit" data-confirm="Tap again to quit">Quit to menu <kbd>Q</kbd></button>
             </div>
@@ -640,23 +646,23 @@
     <script src="js/entities/power-up.js"></script>
     <script src="js/fx/neon-particles.js"></script>
     <script src="js/systems/achievement-icons.js"></script>
-    <script src="js/systems/progression.js"></script>
+    <script src="js/systems/progression.js?v=20261101-ach-1"></script>
     <script src="js/systems/profile.js"></script>
     <script src="js/ui/match-intro.js?v=20261024-intro-pull-1"></script>
     <script src="js/ui/settings-panel.js?v=20261020-visual-quality-1"></script>
     <script src="js/ui/mode-tutorial.js?v=20261024-intro-pull-1"></script>
     <script src="js/ui/results-card.js"></script>
     <script src="js/ui/match-end-transition.js"></script>
-    <script src="js/ui/device-controls.js?v=20261024-gravity-hd-1"></script>
+    <script src="js/ui/device-controls.js?v=20261101-gate-1"></script>
     <script src="js/ai/ai-lines.js"></script>
     <script src="js/ai/ai-lines-modes.js"></script>
     <script src="js/ai/ai-lines-styles.js"></script>
     <script src="js/ai/ai-opponent.js"></script>
-    <script src="js/core/game.js?v=20261101-mobile-2"></script>
+    <script src="js/core/game.js?v=20261101-gate-1"></script>
     <script src="js/vendor/anime.min.js"></script>
     <script src="js/game-enhancements.js"></script>
     <script src="js/game-modes.js?v=20261020-replay-ui-1"></script>
-    <script src="js/net/online.js"></script>
+    <script src="js/net/online.js?v=20261101-gate-1"></script>
     <script src="js/physics/background-wasm.js"></script>
     <script src="js/app/bootstrap.js?v=20261101-1"></script>
     <script src="js/menu/menu-bloom.js"></script>

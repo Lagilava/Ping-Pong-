@@ -12,7 +12,7 @@ const open = async (browser, items) => {
     page.on('pageerror', error => page.errors.push(error.message));
     await page.addInitScript(() => {
         localStorage.setItem('pp-first-launch-shown-v1', '1');
-        localStorage.setItem('pp-controls-tutorial-v1-pc', '1');
+        localStorage.setItem('pp-controls-tutorial-v2-pc-all', '1');
     });
     await page.goto((process.env.GAME_TEST_URL || 'http://127.0.0.1:8080') + '/play.html?from_intro=1');
     await page.waitForFunction(() => window.game);

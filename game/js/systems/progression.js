@@ -704,157 +704,165 @@ class ProgressionSystem {
         }
     }
 
-    // Queue system to show notifications one by one
+    // ── Unlock toasts ─────────────────────────────────────────────────────
+    // One slim toast at a time. In a match it docks in the top HUD row, just
+    // right of the MENU button, so it never sits over the court; elsewhere
+    // it sits in the top-right corner. It is click-through (touch players
+    // steer on the right half of the screen) and fades while the ball passes
+    // underneath. Further unlocks queue behind it ("+2 more"), and the full
+    // list is on the pause menu and the end-of-match rewards card.
     queueNotification(title, description, id = null) {
         this.notificationQueue.push({ title, description, id });
-        this.processNotificationQueue();
+        if (this._toast) this.updateToastMore();
+        else this.processNotificationQueue();
     }
 
     processNotificationQueue() {
-        // Only show if nothing is currently being displayed
-        if (this.activeNotifications.size > 0 || this.notificationQueue.length === 0) return;
-
+        if (this._toast || !this.notificationQueue.length) return;
         const { title, description, id } = this.notificationQueue.shift();
         this.showSubtleAchievement(title, description, id);
     }
 
-    // (container setup removed - enhanced system will handle notifications)
     setupNotificationContainer() {
         if (this.notificationContainer) return;
+        const box = document.createElement('div');
+        box.className = 'pp-ach-stack';
+        box.setAttribute('role', 'status');
+        box.setAttribute('aria-live', 'polite');
+        document.body.appendChild(box);
+        this.notificationContainer = box;
+        window.addEventListener('resize', () => { if (this._toast) this.placeToast(); }, { passive: true });
+    }
 
-        this.notificationContainer = document.createElement('div');
-        this.notificationContainer.className = 'achievement-notifications-container';
-        document.body.appendChild(this.notificationContainer);
+    // Dock beside the MENU button when it is on screen, up to the AI score.
+    placeToast() {
+        const box = this.notificationContainer;
+        if (!box) return;
+        const menu = document.body.classList.contains('pp-in-match') ? document.getElementById('cyber-menu-btn') : null;
+        const r = menu && getComputedStyle(menu).visibility !== 'hidden' ? menu.getBoundingClientRect() : null;
+        if (!r || !r.width) {
+            box.dataset.dock = 'corner';
+            box.classList.remove('narrow');
+            box.style.removeProperty('--ach-left');
+            box.style.removeProperty('--ach-top');
+            box.style.removeProperty('--ach-h');
+            box.style.removeProperty('--ach-w');
+            return;
+        }
+        const left = r.right + 10;
+        let right = innerWidth - 10;
+        // Stop short of whatever else sits in that row on the right: the
+        // right-hand score (label and digits), Zombie's wave plaque.
+        for (const sel of ['#pp-enhanced-hud .ai-side .pp-score-label', '#pp-enhanced-hud .ai-side .pp-score-display', '.zombie-progress-overlay']) {
+            const el = document.querySelector(sel);
+            if (!el || getComputedStyle(el).visibility === 'hidden') continue;
+            const sr = el.getBoundingClientRect();
+            if (sr.width && sr.top < r.bottom && sr.bottom > r.top && sr.left > left) right = Math.min(right, sr.left - 10);
+        }
+        box.dataset.dock = 'hud';
+        box.style.setProperty('--ach-left', `${Math.round(left)}px`);
+        box.style.setProperty('--ach-top', `${Math.round(r.top)}px`);
+        box.style.setProperty('--ach-h', `${Math.round(r.height)}px`);
+        box.style.setProperty('--ach-w', `${Math.max(180, Math.round(right - left))}px`);
+        box.classList.toggle('narrow', right - left < 320);
+    }
+
+    updateToastMore() {
+        const more = this._toast?.querySelector('.pp-ach-more');
+        if (!more) return;
+        const n = this.notificationQueue.length;
+        more.textContent = n ? ` · ${n} more` : '';
     }
 
     showSubtleAchievement(title, description, id = null) {
-
-        // Ensure container exists
-        if (!this.notificationContainer) {
-            this.setupNotificationContainer();
-        }
-
-        // Xbox-style notification implementation
-        const notif = document.createElement('div');
-        notif.className = 'achievement-notification';
-        const nid = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        notif.dataset.id = nid;
-        notif.dataset.timestamp = Date.now().toString();
-
-        notif.innerHTML = `
-            <div class="achievement-notification-inner">
-                <div class="xbox-icon-container">
-                    <div class="xbox-trophy-circle">
-                        ${ppAchievementIcon(id)}
-                    </div>
-                </div>
-                <div class="xbox-text-container">
-                    <div class="xbox-header-text">ACHIEVEMENT UNLOCKED</div>
-                    <div class="xbox-title-text">${title}</div>
-                </div>
-                <div class="xbox-gamerscore">+${ACHIEVEMENT_XP} XP</div>
-            </div>
-        `;
-
-        this.notificationContainer.appendChild(notif);
-        this.activeNotifications.add(nid);
-
-        // Trigger entry animation
+        this.setupNotificationContainer();
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const el = document.createElement('div');
+        el.className = 'pp-ach-toast';
+        if (id) el.dataset.achId = id;
+        // Shorter when more are waiting so a burst doesn't drag on.
+        const ms = this.notificationQueue.length ? 2600 : 3800;
+        el.style.setProperty('--ach-ms', `${ms}ms`);
+        el.innerHTML = `
+            <span class="pp-ach-icon" aria-hidden="true">${ppAchievementIcon(id)}</span>
+            <span class="pp-ach-text">
+                <span class="pp-ach-kicker"><span class="pp-ach-long">Achievement </span>unlocked<span class="pp-ach-more"></span></span>
+                <span class="pp-ach-name">${esc(title)}</span>
+                <span class="pp-ach-desc">${esc(description)}</span>
+            </span>
+            <span class="pp-ach-xp">+${ACHIEVEMENT_XP}<small>XP</small></span>
+            <span class="pp-ach-timer" aria-hidden="true"></span>`;
+        this._toast = el;
+        this.updateToastMore();
+        this.placeToast();
+        this.notificationContainer.appendChild(el);
+        this.watchToastBall();
         requestAnimationFrame(() => {
-            notif.classList.add('visible');
+            el.classList.add('visible');
             this.playAchievementSound();
         });
+        el._timer = setTimeout(() => this.removeNotification(el), ms);
+    }
 
-        // Auto-remove after duration
+    removeNotification(el) {
+        if (!el) return;
+        clearTimeout(el._timer);
+        if (el.classList.contains('fading')) return;
+        el.classList.add('fading');
+        el.classList.remove('visible');
         setTimeout(() => {
-            this.removeNotification(notif);
-        }, this.notificationDuration);
+            el.remove();
+            if (this._toast === el) this._toast = null;
+            if (this.notificationQueue.length) setTimeout(() => this.processNotificationQueue(), 120);
+            else this.stopToastWatch();
+        }, 280);
     }
 
-    removeNotification(notif) {
-        if (!notif?.parentNode) return;
-
-        if (notif.dataset.removeTimeout) {
-            clearTimeout(notif.dataset.removeTimeout);
-        }
-
-        notif.classList.add('fading');
-
-        setTimeout(() => {
-            if (notif.parentNode) {
-                notif.parentNode.removeChild(notif);
-            }
-
-            const nid = notif.dataset.id;
-            this.activeNotifications.delete(nid);
-
-            // Process next in queue after a tiny delay for smoothness
-            setTimeout(() => this.processNotificationQueue(), 300);
-        }, 600);
-    }
-
-    processNotificationQueue() {
-        if (this.activeNotifications.size >= this.maxNotifications) return;
-        if (!this.notificationQueue.length) return;
-
-        const { title, description, id } = this.notificationQueue.shift();
-        this.showSubtleAchievement(title, description, id);
-    }
-
-    handleNotificationStacking() {
-        const items = [...this.notificationContainer.querySelectorAll('.achievement-notification')];
-
-        items.sort((a, b) => {
-            return parseInt(a.dataset.timestamp || '0', 10) - parseInt(b.dataset.timestamp || '0', 10);
-        });
-
-        items.forEach((el, i) => {
-            const offset = i * 35;
-            el.style.transform = `translateY(${offset}px)`;
-            el.style.zIndex = 10000 + (items.length - i);
-        });
-    }
-
-    startAnimationLoop() {
-        const animate = (timestamp) => {
-            if (!this.lastFrameTime) this.lastFrameTime = timestamp;
-            if (timestamp - this.lastFrameTime >= 16.6) {
-                if (this.activeNotifications.size > 0) {
-                    this.handleNotificationStacking();
+    // While a toast is up, check ~8 times a second whether the ball (or the
+    // AI paddle, in a match) is under it and fade it so play stays readable.
+    watchToastBall() {
+        if (this._toastWatch) return;
+        this._toastWatch = setInterval(() => {
+            const el = this._toast, g = window.game;
+            if (!el) return;
+            let under = false;
+            if (g?.canvas && g.ball && document.body.classList.contains('pp-in-match')) {
+                // Both boxes stay put while a toast is up: read them once
+                // (and again after a resize), not on every check.
+                if (!el._rects || el._rectsFor !== innerWidth + 'x' + innerHeight) {
+                    el._rectsFor = innerWidth + 'x' + innerHeight;
+                    el._rects = { c: g.canvas.getBoundingClientRect(), r: el.getBoundingClientRect() };
                 }
-                this.lastFrameTime = timestamp;
+                const { c, r } = el._rects;
+                const sx = c.width / (g.width || 1), sy = c.height / (g.height || 1);
+                const pad = 24;
+                const near = (x, y) => x > r.left - pad && x < r.right + pad && y > r.top - pad && y < r.bottom + pad;
+                const b = g.ball;
+                under = near(c.left + b.pos.x * sx, c.top + b.pos.y * sy);
+                for (const extra of g.additionalBalls || []) if (!under && extra?.pos) under = near(c.left + extra.pos.x * sx, c.top + extra.pos.y * sy);
             }
-            this.animationFrameId = requestAnimationFrame(animate);
-        };
-        this.animationFrameId = requestAnimationFrame(animate);
+            if (under !== el.classList.contains('dodge')) el.classList.toggle('dodge', under);
+        }, 120);
     }
 
-    stopAnimationLoop() {
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
-        }
+    stopToastWatch() {
+        clearInterval(this._toastWatch);
+        this._toastWatch = null;
     }
+
+    // Kept for callers of the old stacked layout; one toast needs no stacking.
+    handleNotificationStacking() { }
+    startAnimationLoop() { }
+    stopAnimationLoop() { }
 
     cleanupNotifications() {
-        this.stopAnimationLoop();
-
-        this.notificationContainer?.querySelectorAll('.achievement-notification').forEach(notif => {
-            if (notif.dataset.removeTimeout) {
-                clearTimeout(notif.dataset.removeTimeout);
-            }
-            notif.remove();
-        });
-
-        this.activeNotifications.clear();
+        this.stopToastWatch();
+        if (this._toast) clearTimeout(this._toast._timer);
+        this._toast = null;
         this.notificationQueue = [];
-
-        if (this.notificationContainer && this.notificationContainer.parentNode) {
-            this.notificationContainer.parentNode.removeChild(this.notificationContainer);
-        }
-        this.notificationContainer = null;
+        this.activeNotifications.clear();
+        if (this.notificationContainer) this.notificationContainer.textContent = '';
     }
-
     showEndGameAchievementSummary() {
         if (!this.recentlyUnlocked.length) return;
 
@@ -1172,8 +1180,16 @@ class ProgressionSystem {
             });
         }
 
-        sidebar.querySelector('.close-sidebar').onclick = () => sidebar.classList.remove('visible');
-        sidebar.onclick = e => { if (e.target === sidebar) sidebar.classList.remove('visible'); };
+        sidebar.querySelector('.close-sidebar').onclick = () => this.toggleAchievementSidebar(false);
+        sidebar.onclick = e => { if (e.target === sidebar) this.toggleAchievementSidebar(false); };
+        // Esc closes the collection first (not the pause menu under it).
+        window.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape' || !sidebar.classList.contains('visible')) return;
+            if (document.querySelector('.achievement-detail-modal')) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            this.toggleAchievementSidebar(false);
+        }, true);
 
         return sidebar;
     }
@@ -1331,11 +1347,21 @@ class ProgressionSystem {
         document.body.appendChild(modal);
     }
 
-    toggleAchievementSidebar() {
+    toggleAchievementSidebar(force) {
         const sidebar = document.querySelector('.achievement-sidebar');
         if (!sidebar) return;
-        sidebar.classList.toggle('visible');
-        if (sidebar.classList.contains('visible') && this._achievementSidebarDirty) this.updateAchievementSidebar();
+        const open = typeof force === 'boolean' ? force : !sidebar.classList.contains('visible');
+        sidebar.classList.toggle('visible', open);
+        if (open) {
+            if (this._achievementSidebarDirty) this.updateAchievementSidebar();
+            // Keyboard / gamepad players land on the panel, and go back to
+            // where they were (e.g. the pause menu) when it closes.
+            this._sidebarReturnFocus = document.activeElement;
+            requestAnimationFrame(() => sidebar.querySelector('.close-sidebar')?.focus({ preventScroll: true }));
+        } else if (this._sidebarReturnFocus?.isConnected) {
+            this._sidebarReturnFocus.focus({ preventScroll: true });
+            this._sidebarReturnFocus = null;
+        }
     }
 
     setupAchievementHotkeys() {
@@ -1418,7 +1444,6 @@ class ProgressionSystem {
 
             // Space toggles visible notifications (existing behavior)
             if (e.key === ' ' && e.target === document.body) {
-                document.querySelectorAll('.achievement-notification.visible').forEach(n => n.click());
                 e.preventDefault();
             }
         });
@@ -1426,17 +1451,23 @@ class ProgressionSystem {
 
     playAchievementSound() {
         try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            // The game's audio context and master volume when it is up; one
+            // shared fallback context otherwise (browsers cap how many exist).
+            const engine = window.game?.audio;
+            const ctx = engine?.ctx || (ProgressionSystem._chimeCtx ||= new (window.AudioContext || window.webkitAudioContext)());
+            if (ctx.state === 'suspended') ctx.resume?.().catch?.(() => {});
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            const viaEngine = !!(engine?.ctx && engine.gain);
+            gain.connect(viaEngine ? engine.gain : ctx.destination);
 
             osc.type = 'sine';
             osc.frequency.setValueAtTime(880, ctx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.09);
 
-            gain.gain.setValueAtTime(0.14, ctx.currentTime);
+            // Through the master bus (~0.3) it needs a higher peak to match.
+            gain.gain.setValueAtTime(viaEngine ? 0.45 : 0.14, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.006, ctx.currentTime + 0.28);
 
             osc.start();

@@ -14,7 +14,15 @@
         get(k) { try { return localStorage.getItem(k); } catch (_) { return null; } },
         set(k, v) { try { localStorage.setItem(k, v); } catch (_) { /* ignore */ } }
     };
-    const TUTORIAL_KEY = `pp-controls-tutorial-v1-${device.kind}`;
+    // One card per mode (its ability step differs), per device kind. The
+    // "-all" key marks every mode as seen (test scripts set it).
+    const TUTORIAL_KEY = (mode) => `pp-controls-tutorial-v2-${device.kind}-${mode}`;
+    const seenModes = new Set();
+    const tutorialSeen = (mode) => {
+        if (seenModes.has(mode)) return true;
+        if (store.get(TUTORIAL_KEY(mode)) === '1' || store.get(TUTORIAL_KEY('all')) === '1') seenModes.add(mode);
+        return seenModes.has(mode);
+    };
     const HINT_KEY = (mode) => `pp-touch-ability-hint-v1-${mode}`;
 
     const ICONS = {
@@ -221,7 +229,9 @@
     function steps(g) {
         const mode = abilityMode(g);
         const info = mode ? ABILITIES[mode] : null;
-        const two = !!g?.isMultiplayer;
+        // Online: each player is on their own device, so the single-player
+        // wording applies.
+        const two = !!g?.isMultiplayer && !g?.net;
         const modeName = MODE_NAMES[g?.gameMode] || 'This mode';
         if (device.touch) {
             const move = two
@@ -250,7 +260,7 @@
         const mode = abilityMode(g);
         if (device.touch) {
             // Two players: a thumb sliding on each half, each moving its paddle.
-            const two = !!g?.isMultiplayer;
+            const two = !!g?.isMultiplayer && !g?.net;
             return `<div class="pp-ct-phone${two ? ' two' : ''}" data-mode="${mode || 'none'}">
                 <i class="pp-ct-paddle"></i><i class="pp-ct-ball"></i><i class="pp-ct-mid"></i>
                 ${two ? '<i class="pp-ct-paddle r"></i><i class="pp-ct-thumb p1"></i><i class="pp-ct-slide p1"></i>'
@@ -291,8 +301,9 @@
             <div class="pp-ct-card">
                 <div class="pp-ct-visual" aria-hidden="true">${visual(g)}</div>
                 <div class="pp-ct-body">
-                    <span class="pp-ct-kicker">${device.touch ? 'Playing on a touch screen' : 'Playing on a computer'}</span>
+                    <span class="pp-ct-kicker">${esc(MODE_NAMES[g.gameMode] || 'First match')} · ${device.touch ? 'touch screen' : 'computer'}</span>
                     <h2 id="ppControlsTutorialTitle">How to play</h2>
+                    <p class="pp-ct-paused">The match is paused and starts when you are ready.${g.net ? ' Your opponent waits for you.' : ''}</p>
                     <ol class="pp-ct-steps">${list.map(([t, d], i) => `<li><span class="pp-ct-n">${i + 1}</span><div><b>${esc(t)}</b><p>${esc(d)}</p></div></li>`).join('')}</ol>
                     <button type="button" class="pp-ct-go" data-ct-close>Got it, let’s play</button>
                 </div>
@@ -305,28 +316,59 @@
             vis.style.backgroundImage = `linear-gradient(180deg, rgba(3, 8, 20, .3), rgba(3, 8, 20, .62)), ${art}`;
         }
         tutorial.hidden = false;
+        tutorialFor = g.gameMode;
         document.body.classList.add('pp-controls-tutorial-open');
-        g.setChallengePaused(true);
+        g.setTutorialHold(true);
         requestAnimationFrame(() => tutorial.querySelector('.pp-ct-go')?.focus({ preventScroll: true }));
+    }
+
+    // The hold is armed when a match starts (Game.startIntro), before the
+    // intro, so no physics step, AI move, serve countdown or online snapshot
+    // can run before the player confirms. The card itself shows once the
+    // intro is over.
+    let armed = false, tutorialFor = '';
+    function armTutorial(g) {
+        if (!g || tutorialSeen(g.gameMode)) { if (armed && !tutorialOpen()) release(g); return; }
+        armed = true;
+        g.setTutorialHold(true);
+    }
+
+    function release(g) {
+        armed = false;
+        tutorialFor = '';
+        g?.setTutorialHold?.(false);
+    }
+
+    // Leaving the match (quit, connection lost) without confirming: hide the
+    // card and keep it for next time.
+    function cancelTutorial() {
+        if (tutorial && !tutorial.hidden) {
+            tutorial.hidden = true;
+            document.body.classList.remove('pp-controls-tutorial-open');
+        }
+        release(game());
     }
 
     function closeTutorial() {
         if (!tutorialOpen()) return;
         tutorial.hidden = true;
         document.body.classList.remove('pp-controls-tutorial-open');
-        store.set(TUTORIAL_KEY, '1');
         const g = game();
-        // A mode's rules card (Zombie, Obstacle) may be waiting underneath and
-        // keeps the match paused until it is dismissed too.
-        if (g && !g._dismissModeBriefing && !g._dismissZombieBriefing) {
-            g.setChallengePaused(false);
-            g.lastTime = performance.now() / 1000;
-        }
+        const mode = tutorialFor || g?.gameMode;
+        store.set(TUTORIAL_KEY(mode), '1');
+        seenModes.add(mode);
+        release(g);
+        if (!g) return;
+        // A beat before the first serve, with the usual telegraph, so the
+        // ball does not leave the moment the card closes. Online the host
+        // holds the serve itself once both players are in.
+        const b = g.ball;
+        if (!g.net && b && !g.pendingServe && !(g.serveHold > 0) && Math.abs(b.vel.x) + Math.abs(b.vel.y) > 1) g.holdServe(1.1);
     }
 
     function maybeShowTutorial(g) {
-        if (tutorialOpen() || store.get(TUTORIAL_KEY) === '1') return;
-        if (g.net || g.introActive || g.userPaused || g.matchEnding || document.body.classList.contains('pp-replaying')) return;
+        if (!armed || tutorialOpen()) return;
+        if (g.introActive || g.matchEnding || document.body.classList.contains('pp-replaying')) return;
         if (!g.running) return;
         showTutorial(g);
     }
@@ -337,9 +379,12 @@
         requestAnimationFrame(frame);
         const g = game();
         const inMatch = !!g && document.body.classList.contains('pp-in-match');
+        // Any path that starts an intro (new mode, rematch, online) arms it.
+        if (inMatch && g.introActive && !armed && !tutorialSeen(g.gameMode)) armTutorial(g);
         if (inMatch) maybeShowTutorial(g);
-        // A rules card closing underneath must not resume the match early.
-        if (tutorialOpen() && g && !g.challengePaused) g.setChallengePaused(true);
+        else if (armed && g && !g.introActive && !g.running) cancelTutorial();
+        // Belt and braces: nothing may unfreeze the match under the card.
+        if ((armed || tutorialOpen()) && g && !g.tutorialHold) g.setTutorialHold(true);
         const live = inMatch && !g.paused && !g.introActive && !g.matchEnding && !tutorialOpen() &&
             !document.body.classList.contains('pp-replaying') && !document.body.classList.contains('pp-results-open');
         if (!live && !buttons.player && !buttons.ai) return;
@@ -347,5 +392,5 @@
     }
     requestAnimationFrame(frame);
 
-    window.PPDeviceControls = { showsButton, abilities: ABILITIES, icons: ICONS, steps, isTutorialOpen: tutorialOpen };
+    window.PPDeviceControls = { showsButton, abilities: ABILITIES, icons: ICONS, steps, isTutorialOpen: tutorialOpen, armTutorial, cancelTutorial, isTutorialArmed: () => armed };
 })();
