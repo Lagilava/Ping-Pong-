@@ -1102,7 +1102,16 @@ class BackgroundRenderer {
                 // Animated backgrounds off: keep the drawn scenery until the
                 // mode, size or quality changes.
                 const held = typeof PerfGovernor !== 'undefined' && PerfGovernor.current.bgFps < 0;
-                if (!held || this._customToneStale || baseCanvas._ppMode !== this.mode) {
+                // Same scenery cadence as the cached path the other modes use
+                // (every frame on desktop High/Ultra, 30 per second on phones).
+                // Custom used to redraw its whole arena on every frame, which
+                // made it the heaviest mode on phones.
+                const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+                // 1 ms slack: a 60 Hz frame lands at 33.32 ms, not 33.34, and would
+                // otherwise wait a third frame (20 per second instead of 30).
+                const due = now - (baseCanvas._ppDrawnAt ?? -Infinity) >= this._getBackgroundFrameMs() - 1;
+                if ((!held && due) || this._customToneStale || baseCanvas._ppMode !== this.mode) {
+                    baseCanvas._ppDrawnAt = now;
                     baseCtx.save();
                     baseCtx.setTransform(1, 0, 0, 1, 0, 0);
                     baseCtx.clearRect(0, 0, w, h);
