@@ -122,18 +122,26 @@
     }
 
     // ── PeerJS loader ──────────────────────────────────────────────────
-    let peerLibPromise = null;
-    function loadPeerLib() {
-        if (window.Peer) return Promise.resolve(window.Peer);
-        if (peerLibPromise) return peerLibPromise;
-        peerLibPromise = new Promise((resolve, reject) => {
+    // js/net/signal-relays.js adds backup matchmaking through public MQTT
+    // brokers, so a slow or unreachable 0.peerjs.com doesn't stop a match.
+    function loadScript(src, ready) {
+        if (ready()) return Promise.resolve();
+        return new Promise((resolve, reject) => {
             const s = document.createElement('script');
-            s.src = 'js/vendor/peerjs.min.js';
+            s.src = src;
             s.async = true;
-            s.onload = () => (window.Peer ? resolve(window.Peer) : reject(new Error('PeerJS did not load')));
-            s.onerror = () => { peerLibPromise = null; reject(new Error('PeerJS did not load')); };
+            s.onload = () => (ready() ? resolve() : reject(new Error(src + ' did not load')));
+            s.onerror = () => reject(new Error(src + ' did not load'));
             document.head.appendChild(s);
         });
+    }
+    let peerLibPromise = null;
+    function loadPeerLib() {
+        if (peerLibPromise) return peerLibPromise;
+        peerLibPromise = Promise.all([
+            loadScript('js/vendor/peerjs.min.js', () => !!window.Peer),
+            loadScript('js/net/signal-relays.js', () => !!window.PPSignal).catch(() => {}),
+        ]).then(() => window.Peer, (e) => { peerLibPromise = null; throw e; });
         return peerLibPromise;
     }
 
@@ -143,11 +151,38 @@
     // carriers, strict routers, UDP blocked) a TURN relay carries the game.
     // js/net/online-config.js lets the owner add their own TURN servers or
     // PeerServer without touching this file.
-    const DEFAULT_ICE = [
-        { urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
-        // PeerJS's free relays, over UDP and, for networks that block UDP, TCP.
-        { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
-        { urls: ['turn:eu-0.turn.peerjs.com:3478?transport=tcp', 'turn:us-0.turn.peerjs.com:3478?transport=tcp'], username: 'peerjs', credential: 'peerjsp' },
+    // (PeerJS's own free TURN relays were shut down in December 2023, so
+    // they are no longer listed: dialling dead relays only slowed joins.)
+    const DEFAULT_STUN = { urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] };
+    // Metered's Open Relay Project: a free public TURN relay on ports 80 and
+    // 443 (TCP and TLS too, so it gets through strict and mobile networks).
+    // It uses the documented public "static auth" secret, from which every
+    // browser makes its own short-lived login (the standard TURN REST scheme).
+    const OPEN_RELAY = {
+        host: 'staticauth.openrelay.metered.ca',
+        secret: 'openrelayprojectsecret',
+    };
+    async function openRelayIce() {
+        try {
+            if (!crypto?.subtle) return [];
+            const username = Math.floor(Date.now() / 1000 + 24 * 3600) + ':ppneon';
+            const enc = new TextEncoder();
+            const key = await crypto.subtle.importKey('raw', enc.encode(OPEN_RELAY.secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+            const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(username)));
+            const credential = btoa(String.fromCharCode(...sig));
+            const h = OPEN_RELAY.host;
+            return [{
+                urls: ['turn:' + h + ':80', 'turn:' + h + ':80?transport=tcp', 'turn:' + h + ':443', 'turns:' + h + ':443?transport=tcp'],
+                username, credential,
+            }];
+        } catch (_) { return []; }
+    }
+    // Free public MQTT brokers that carry the handshake when 0.peerjs.com
+    // can't (see js/net/signal-relays.js). Messages there are encrypted.
+    const DEFAULT_SIGNAL_RELAYS = [
+        'wss://broker.emqx.io:8084/mqtt',
+        'wss://broker.hivemq.com:8884/mqtt',
+        'wss://test.mosquitto.org:8081/mqtt',
     ];
     const ICE_CACHE_KEY = 'pp-ice-servers';
     const ICE_CACHE_MS = 30 * 60 * 1000;
@@ -200,14 +235,22 @@
         }
         if (!opts.config) {
             const own = validIce(cfg.iceServers);
-            const fetched = cfg.iceServersUrl ? await fetchIceServers(String(cfg.iceServersUrl)) : [];
+            const [fetched, openRelay] = await Promise.all([
+                cfg.iceServersUrl ? fetchIceServers(String(cfg.iceServersUrl)) : [],
+                cfg.openRelay === false ? [] : openRelayIce(),
+            ]);
             opts.config = {
-                iceServers: [...fetched, ...own, ...DEFAULT_ICE],
+                iceServers: [DEFAULT_STUN, ...fetched, ...own, ...openRelay],
                 sdpSemantics: 'unified-plan',
             };
             if (cfg.relayOnly) opts.config.iceTransportPolicy = 'relay';
         }
-        return opts;
+        // Backup matchmaking brokers: tests pass their own (or []), the config
+        // can replace the list, otherwise the free public ones.
+        const relays = Array.isArray(opts.relays) ? opts.relays
+            : Array.isArray(cfg.signalRelays) ? cfg.signalRelays : DEFAULT_SIGNAL_RELAYS;
+        delete opts.relays;
+        return { opts, relays };
     }
 
     // ── Session ────────────────────────────────────────────────────────
@@ -283,17 +326,20 @@
         // RECONNECT_MS; the host keeps the room open and lets the same guest
         // (matched by token) back in, even after a page reload.
         async open(code) {
-            const [Peer, opts] = await Promise.all([loadPeerLib(), peerOptions()]);
+            const [Peer, { opts, relays }] = await Promise.all([loadPeerLib(), peerOptions()]);
             if (this.closed) return;
             this.code = code;
-            this.Peer = Peer;
+            this.Peer = window.PPSignal ? window.PPSignal.wrap(Peer, relays) : Peer;
             this.peerOpts = opts;
             this.openPeer();
         }
 
         openPeer() {
             if (this.closed) return;
-            const id = this.role === 'host' ? ID_PREFIX + this.code : undefined;
+            // The guest picks its own id: asking the broker for one is a round
+            // trip that fails outright whenever 0.peerjs.com is unreachable.
+            // A fresh one each time, so a lingering old registration never clashes.
+            const id = this.role === 'host' ? ID_PREFIX + this.code : ID_PREFIX + 'g' + randomToken() + randomToken();
             const peer = new this.Peer(id, { debug: 0, ...this.peerOpts });
             this.peer = peer;
             peer.on('error', (err) => { if (peer === this.peer) this.onPeerError(err); });
@@ -390,6 +436,12 @@
         onPeerError(err) {
             if (this.closed) return;
             const type = err?.type || '';
+            if (type === 'unavailable-id' && this.role === 'guest') {
+                try { this.peer.destroy(); } catch (_) { /* ignore */ }
+                this.peer = null;
+                this.openPeer();
+                return;
+            }
             if (type === 'unavailable-id') {
                 // Code taken. Reopening our own room after a reload: the broker
                 // may not have let go of it yet, so try it a few more times.

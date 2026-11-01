@@ -25,6 +25,14 @@ window.PP_ONLINE_CONFIG = window.PP_ONLINE_CONFIG || {
     // the free 0.peerjs.com. Example: { host: 'peer.example.com', port: 443, path: '/', secure: true, key: 'peerjs' }
     peerServer: null,
 
+    // Backup matchmaking: free public MQTT brokers (wss:// URLs) that carry
+    // the handshake whenever 0.peerjs.com is slow, down or blocked. Leave as
+    // null for the built-in list; [] turns the backup off.
+    signalRelays: null,
+
+    // false: don't use Metered's free Open Relay TURN server.
+    openRelay: true,
+
     // true: always go through a TURN relay (only useful for testing relays).
     relayOnly: false,
 };
