@@ -903,9 +903,14 @@ class Game {
     getDefaultBallRadius() {
         const minBallSize = Math.max(5, Math.min(12, Math.floor(Math.min(this.width, this.height) * 0.008)));
         const maxBallSize = Math.max(15, Math.min(28, Math.floor(Math.min(this.width, this.height) * 0.025)));
-        const size = Math.max(minBallSize, Math.min(maxBallSize, Math.floor(this.height * 0.015)));
+        let size = Math.max(minBallSize, Math.min(maxBallSize, Math.floor(this.height * 0.015)));
+        // Phones: a 390px-tall court made the ball 5px, under a millimetre
+        // on the glass, so a fast ball was hard to follow at all. Touch
+        // screens keep it at least 7px (6px in Obstacle's wide arena).
+        const touch = !!window.PPDevice?.touch;
+        if (touch) size = Math.max(size, 7);
         const k = this.getObjectScale();
-        return k === 1 ? size : Math.max(5, Math.round(size * k));
+        return k === 1 ? size : Math.max(touch ? 6 : 5, Math.round(size * k));
     }
 
     // Re-fit paddles and ball to the current mode's arena scale (setGameMode
@@ -5528,17 +5533,33 @@ class Game {
         let scale = Math.sqrt(currentArea / BASE_AREA);
         // Clamp scale to avoid extreme values on very small/large screens
         scale = Math.max(0.6, Math.min(1.6, scale));
+        // Phones: the area formula bottoms out at 0.6, so the smaller the
+        // phone (or the more browser bar it shows) the faster the ball
+        // crossed it: 1.13 s at base speed on a 640px-wide screen against
+        // 1.36 s on a laptop, and Speed mode reached 0.48 s. Touch screens
+        // scale by court width instead, so the time to cross is the same on
+        // every phone, with ~10% more of it than on a laptop for a thumb on
+        // a small screen. Keyboard/mouse devices keep the tuning above.
+        const touchPace = !!window.PPDevice?.touch;
+        const TOUCH_PACE = 0.9;
+        if (touchPace) scale = Math.max(0.3, Math.min(1.6, (this.width / 1280) * TOUCH_PACE));
 
         const scaledBase = Math.max(300, Math.round(config.ballBase * scale));
         const scaledMax = Math.max(scaledBase + 200, Math.round(config.ballMax * scale));
         const scaledMin = Math.max(200, Math.round(config.ballBase * 0.35 * scale));
         // Enforce a sensible floor so the game never gets too slow on large screens
-        const GLOBAL_MIN_BALL_SPEED = 420; // editable constant — keeps pace
+        const GLOBAL_MIN_BALL_SPEED = touchPace ? Math.round(420 * scale) : 420; // editable constant — keeps pace
         // Ensure min is not higher than base (use 90% of base as safety)
         const allowedMin = Math.min(Math.max(scaledMin, GLOBAL_MIN_BALL_SPEED), Math.round(scaledBase * 0.9));
 
-        const paddleScale = Math.max(0.7, Math.min(1.8, this.height / 720));
-        const scaledPaddleMax = Math.max(300, Math.round(config.paddleMax * paddleScale));
+        // Phones: the 0.7 floor let the computer's paddle cover a short
+        // screen in 0.46-0.59 s instead of the laptop's 0.77 s. Touch drags
+        // follow the finger regardless of this cap (followPointerTarget).
+        const paddleScale = touchPace
+            ? Math.max(0.3, Math.min(1.8, this.height / 720))
+            : Math.max(0.7, Math.min(1.8, this.height / 720));
+        const scaledPaddleMax = Math.max(touchPace ? 150 : 300, Math.round(config.paddleMax * paddleScale));
+        this._modePaddleMax = scaledPaddleMax;
 
         this.ball.baseSpeed = scaledBase;
         this.ball.maxSpeed = scaledMax;
@@ -6702,8 +6723,11 @@ class Game {
                 if (this.powerUpTimers[type] <= 0) {
                     // Deactivate all active powerups
                     if (type === 'fastPaddle') {
+                        // Back to this screen's scaled cap (the raw table value
+                        // is the 1280x720 one: too fast on phones).
                         const config = this.modeSpeeds[this.gameMode] || this.modeSpeeds.classic;
-                        this.player.maxSpeed = config.paddleMax;
+                        this.player.maxSpeed = this._modePaddleMax || config.paddleMax;
+                        if (this.isMultiplayer && this._modePaddleMax) this.aiPaddle.maxSpeed = this._modePaddleMax;
                     }
                     if (type === 'bigPaddle') {
                         this.player.resetSize();
