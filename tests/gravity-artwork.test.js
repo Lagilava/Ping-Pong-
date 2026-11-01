@@ -38,7 +38,7 @@ async function main() {
     assert.equal(blits,120*8,'one backdrop, two planets and one image draw per well');
     assert.equal(dots,120*88,'72 stars plus eight simple cross sparkles have a fixed budget');
     assert.equal(images.length,3,'warm frames do not create new images');
-    assert.equal(bakes,1,'warm frames reuse the lit planet atlas');
+    assert.equal(bakes,2,'warm frames reuse the lit planet atlas and the one sky plate resampled for this size');
     assert.equal(shades,2,'warm frames never rebuild lighting gradients');
     positions.length=rotations.length=0;
     art.drawBackground(ctx,1920,1080,0);

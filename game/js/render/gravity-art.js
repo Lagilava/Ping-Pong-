@@ -82,7 +82,24 @@
         const fit = Math.max(w / assets.scene.naturalWidth, h / assets.scene.naturalHeight) * 1.03;
         const iw = assets.scene.naturalWidth * fit, ih = assets.scene.naturalHeight * fit;
         const focus = w < h ? .055 : .5;
-        ctx.drawImage(assets.scene, (w - iw) * focus + lean * w * .009,
+        // The sky is a 3840x2162 image. Shrinking all of it on every scenery
+        // redraw (24-30 a second) is the heaviest draw in Gravity on phones,
+        // whose scenery cache is ~768px wide. It is resampled once per size
+        // into a plate at the target's own pixel size and copied 1:1 after.
+        const m = ctx.getTransform?.(), px = (m && Math.hypot(m.a, m.b)) || 1;
+        const pw = Math.max(1, Math.round(w * px)), ph = Math.max(1, Math.round(h * px));
+        const plateKey = `${pw}x${ph}|${focus}`;
+        if (assets.plateKey !== plateKey && pw * ph <= 3840 * 2160) {
+            const plate = assets.plate || (assets.plate = document.createElement('canvas'));
+            plate.width = pw; plate.height = ph;
+            const pc = plate.getContext('2d');
+            pc.imageSmoothingEnabled = true; pc.imageSmoothingQuality = 'high';
+            pc.setTransform(px, 0, 0, px, 0, 0);
+            pc.drawImage(assets.scene, (w - iw) * focus, (h - ih) * .5, iw, ih);
+            assets.plateKey = plateKey;
+        }
+        if (assets.plateKey === plateKey) ctx.drawImage(assets.plate, 0, 0, w, h);
+        else ctx.drawImage(assets.scene, (w - iw) * focus + lean * w * .009,
             (h - ih) * .5 + 0, iw, ih);
         if (assets.planets) {
             const atlas = assets.planets;
