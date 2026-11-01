@@ -27,6 +27,43 @@
     window.addEventListener('pp-returned-to-menu', () => {
         try { screen.orientation?.unlock?.(); } catch (e) { /* ignore */ }
     });
+
+    // iOS Safari ignores user-scalable=no: a two-finger pinch (easy to do by
+    // accident with both thumbs on the screen) zoomed the whole game.
+    ['gesturestart', 'gesturechange'].forEach((type) => {
+        document.addEventListener(type, (e) => {
+            if (!e.target?.closest?.('input, textarea, [contenteditable]')) e.preventDefault();
+        }, { passive: false });
+    });
+
+    // iPhone Safari has no fullscreen for web pages; its address and tab bars
+    // take a fifth of a landscape screen. Added to the Home Screen the game
+    // opens full screen (manifest.webmanifest + apple-mobile-web-app-capable),
+    // so iPhone players get a one-time tip saying how.
+    const ua = navigator.userAgent || '';
+    const ios = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+    let installed = false;
+    try {
+        installed = navigator.standalone === true
+            || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+    } catch (e) { /* ignore */ }
+    root.classList.toggle('pp-installed', installed);
+    if (!ios || installed) return;
+    const TIP_KEY = 'pp-ios-home-screen-tip-v1';
+    const rotateNote = document.querySelector('.pp-rotate-block small');
+    if (rotateNote) rotateNote.textContent = 'The match is paused. Play in landscape. For full screen, add the game to your Home Screen.';
+    try { if (localStorage.getItem(TIP_KEY)) return; } catch (e) { return; }
+    const hud = document.getElementById('cards-hud');
+    if (!hud) return;
+    const tip = document.createElement('div');
+    tip.className = 'pp-install-tip';
+    tip.setAttribute('role', 'note');
+    tip.innerHTML = '<span><b>Play full screen:</b> tap <svg viewBox="0 0 16 16" aria-label="Share" role="img"><path d="M8 1.5v8.5M5 4.5 8 1.5l3 3M4 7H3v7.5h10V7h-1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> then <b>Add to Home Screen</b></span><button type="button" aria-label="Hide tip">&times;</button>';
+    tip.querySelector('button').addEventListener('click', () => {
+        tip.remove();
+        try { localStorage.setItem(TIP_KEY, '1'); } catch (e) { /* ignore */ }
+    });
+    hud.appendChild(tip);
 })();
 
 (function init() {
@@ -49,7 +86,7 @@
 
         audioEnhancementsLoadPromise = new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = 'js/audio/audio-enhancements.js';
+            script.src = 'js/audio/audio-enhancements.js?v=20261101-1';
             script.async = true;
             script.onload = () => {
                 window.__ppAudioEnhancementsReady = true;

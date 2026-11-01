@@ -4,7 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Ping Pong - Neon Edition</title>
-    <link rel="icon" href="data:,">
+    <meta name="theme-color" content="#05060f">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Ping Pong">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
     <link rel="stylesheet" href="css/fonts.css">
     <link rel="stylesheet" href="css/game.css">
     <link rel="stylesheet" href="css/achievement-toasts.css">
@@ -26,7 +33,7 @@
     <link rel="stylesheet" href="css/ui-refresh.css">
     <link rel="stylesheet" href="css/replay-broadcast.css?v=20261020-1">
     <link rel="stylesheet" href="css/art-direction.css?v=20261020-1">
-    <link rel="stylesheet" href="css/mobile-fit.css?v=20261022-1">
+    <link rel="stylesheet" href="css/mobile-fit.css?v=20261101-1">
     <script src="js/vendor/three.min.js"></script>
     <script src="js/core/boot.js?v=20261027-4k-1"></script>
 </head>
@@ -603,11 +610,11 @@
     <script src="js/render/classic-art.js?v=20261026-arena-motion-5"></script>
     <script src="js/render/gravity-materials.js?v=20261027-4k-1"></script>
     <script src="js/render/gravity-art.js?v=20261027-4k-1"></script>
-    <script src="js/render/background-renderer.js?v=20261027-4k-1"></script>
+    <script src="js/render/background-renderer.js?v=20261101-mobile-1"></script>
     <script src="js/render/post-fx.js"></script>
     <script src="js/fx/particles.js"></script>
     <script src="js/audio/laser-shot.js"></script>
-    <script src="js/audio/audio-engine.js"></script>
+    <script src="js/audio/audio-engine.js?v=20261101-1"></script>
     <script src="js/audio/music-links.js"></script>
     <script src="js/entities/gravity-well.js?v=20261026-gravity-flow-4"></script>
     <script src="js/modes/gravity-wormhole.js?v=20261027-ability-vfx-1"></script>
@@ -645,13 +652,13 @@
     <script src="js/ai/ai-lines-modes.js"></script>
     <script src="js/ai/ai-lines-styles.js"></script>
     <script src="js/ai/ai-opponent.js"></script>
-    <script src="js/core/game.js?v=20261027-4k-1"></script>
+    <script src="js/core/game.js?v=20261101-mobile-1"></script>
     <script src="js/vendor/anime.min.js"></script>
     <script src="js/game-enhancements.js"></script>
     <script src="js/game-modes.js?v=20261020-replay-ui-1"></script>
     <script src="js/net/online.js"></script>
     <script src="js/physics/background-wasm.js"></script>
-    <script src="js/app/bootstrap.js"></script>
+    <script src="js/app/bootstrap.js?v=20261101-1"></script>
     <script src="js/menu/menu-bloom.js"></script>
     <script src="js/menu/menu-surface-art.js?v=20261027-4k-1"></script>
     <script src="js/menu/menu.js?v=20261026-scene-depth-3"></script>

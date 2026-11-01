@@ -253,3 +253,82 @@ html.pp-mobile body.zombie-mode .zombie-progress-overlay { top: auto; height: au
     html.pp-mobile body.zombie-mode #pp-enhanced-hud .pp-score-display { font-size: 26px; min-width: 0; padding-inline: 8px; }
     html.pp-mobile body.zombie-mode #pp-enhanced-hud .pp-score-label { font-size: 10px; letter-spacing: .14em; }
 }
+
+/* ---------- Touch: no text selection or zoom while playing ---------- */
+/* A long press on the court selected HUD text and opened the iOS loupe;
+   form fields keep normal selection. */
+html.pp-touch body { -webkit-user-select: none; user-select: none; }
+html.pp-touch body :is(input, textarea, [contenteditable]) { -webkit-user-select: text; user-select: text; }
+
+/* ---------- iPhone: "add to Home Screen" tip (bootstrap.js) ---------- */
+html body .pp-install-tip {
+    position: absolute;
+    bottom: 100%;
+    right: max(16px, env(safe-area-inset-right));
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 4px 4px 4px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 255, 214, .35);
+    background: rgba(4, 12, 28, .82);
+    color: #d6f6ff;
+    font: 500 12px/1.3 var(--ad-body, system-ui), system-ui, sans-serif;
+    letter-spacing: .02em;
+    z-index: 3;
+}
+html body .pp-install-tip b { color: #fff; font-weight: 700; }
+html body .pp-install-tip svg { width: 14px; height: 14px; vertical-align: -2px; color: #00ffd6; }
+html body .pp-install-tip button {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #9fb8c8;
+    font-size: 20px;
+    line-height: 1;
+}
+/* Portrait: the tip sits above the swipe hint instead of beside it. */
+@media (orientation: portrait) {
+    html body .pp-install-tip { right: auto; left: max(16px, env(safe-area-inset-left)); margin-bottom: 32px; }
+}
+
+/* ---------- Mode picker on short landscape screens ---------- */
+/* With Safari's or Chrome's address bar showing, a landscape phone has
+   300-340px of height and the picker's Start match button sat below the fold
+   (the box scrolled, but nothing said so). The action row now stays pinned to
+   the bottom of the box and the rest compacts around it. */
+@media (orientation: landscape) and (max-height: 500px) {
+    html.pp-mobile body #modal .modal-box { padding-bottom: 0; }
+    html.pp-mobile body #modal .modal-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        margin-top: 10px;
+        padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+        background: #0a0d1c;
+        box-shadow: 0 -14px 14px -4px #0a0d1c;
+    }
+}
+@media (orientation: landscape) and (max-height: 400px) {
+    html.pp-mobile body #modal .modal-box { padding-top: 12px; }
+    html.pp-mobile body #modal .modal-title { margin-bottom: 4px; }
+    html.pp-mobile body #modal #modeBrief { margin-bottom: 8px; font-size: .78rem; line-height: 1.3; }
+    html.pp-mobile body #modal .opts { gap: 8px; }
+    html.pp-mobile body #modal .opts .opt { padding: 8px 10px; min-height: 0; }
+    html.pp-mobile body #modal .opts .opt-icon-large { display: none; }
+    html.pp-mobile body #modal .opts .opt { display: block; text-align: center; }
+    html.pp-mobile body #modal .modal-actions { display: flex; flex-wrap: nowrap; gap: 8px; }
+    html.pp-mobile body #modal .modal-actions button { flex: 1 1 0; min-width: 0; min-height: 40px; margin: 0; padding: 8px 6px; white-space: nowrap; }
+    html.pp-mobile body #modal .modal-actions .btn-go { flex-grow: 1.5; }
+}
+
+/* Narrow landscape phones (640-720px wide): the menu subtitle ran under the
+   level panel on the right; it wraps before reaching it instead. */
+@media (orientation: landscape) and (max-width: 720px) {
+    html.pp-mobile #overlay .hdr p { max-width: calc(100vw - 280px); }
+}
