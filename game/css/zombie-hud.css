@@ -240,28 +240,41 @@ body.zombie-mode:has(#zombieBriefing.visible, #zombieWaveChoice.visible) :is(#pp
 #zombieBriefing .zombie-briefing-rules li { font-size: clamp(13px, .9vw, 16px); }
 body.zombie-mode .pause-card { max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow-y: auto; }
 body.zombie-mode .ppres-box { box-sizing: border-box; max-width: calc(100vw - 32px); }
-/* Touch controls already expose Pull energy: retain just wave/bonus status
-   between the two thumb zones instead of duplicating the desktop controls. */
+/* Phones: the wave readout joins the scoreboard as one top line (score and
+   lives left, MENU centre, wave right) instead of an illustrated plaque over
+   the bottom of the court where the zombies walk. Touch controls already show
+   Pull energy, so the Pull meter stays hidden. */
 html.pp-mobile body.zombie-mode .zombie-progress-overlay {
     display: flex !important;
-    left: 50%; right: auto;
-    bottom: max(8px, env(safe-area-inset-bottom));
-    transform: translateX(-50%);
-    width: min(60vw, 320px);
-    max-width: calc(100vw - 24px);
+    flex-direction: column;
+    align-items: flex-end;
+    top: max(10px, env(safe-area-inset-top));
+    bottom: auto;
+    left: auto;
+    right: max(14px, env(safe-area-inset-right));
+    transform: none;
+    width: auto;
+    max-width: 40vw;
+    height: auto;
     min-height: 0;
-    padding: 10px 12px 10px clamp(48px, 17vw, 88px);
-    gap: 4px;
-    background: #060e14;
-    border: 1px solid #91a19a55;
-    border-radius: 4px;
+    padding: 0;
+    gap: 3px;
+    background: none;
+    border: 0;
+    border-radius: 0;
     box-shadow: none;
+    overflow: visible;
+    pointer-events: none;
 }
+html.pp-mobile .zombie-progress-overlay .zombie-hud-emblem { display: none; }
 html.pp-mobile .zombie-progress-overlay #zombiePullPill { display: none; }
-html.pp-mobile .zombie-progress-overlay strong { font-size: 18px; }
-html.pp-mobile .zombie-progress-overlay .zombie-wave-status { flex-basis: auto; margin-left: 4px; font-size: 10px; }
-html.pp-mobile .zombie-progress-overlay .zombie-wave-label { font-size: 9px; }
-html.pp-mobile #zombieProgressBoosts { font-size: 9px; }
+html.pp-mobile .zombie-progress-overlay .zombie-progress-pill { text-shadow: 0 1px 2px #000, 0 0 3px #000, 0 0 10px #000c; }
+html.pp-mobile .zombie-progress-overlay #zombieProgressWave { flex-wrap: nowrap; justify-content: flex-end; gap: 6px; }
+html.pp-mobile .zombie-progress-overlay strong { font-size: 20px; }
+html.pp-mobile .zombie-progress-overlay .zombie-wave-status { flex-basis: auto; margin-left: 2px; font-size: 11px; }
+html.pp-mobile .zombie-progress-overlay .zombie-wave-label { font-size: 10px; letter-spacing: .14em; }
+html.pp-mobile #zombieProgressBoosts { font-size: 9px; justify-content: flex-end; }
+html.pp-mobile #zombieProgressBoosts .zombie-boost .zombie-powerup-art { width: 18px; height: 18px; }
 @media (max-width: 700px), (max-height: 520px) {
     :is(#zombieBriefing, #zombieWaveChoice) .zombie-wave-choice-panel { max-height: calc(100dvh - 36px); }
 }

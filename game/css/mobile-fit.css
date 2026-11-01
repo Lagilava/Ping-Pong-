@@ -206,10 +206,9 @@ html body .pause-card:has(> .pause-confirm:not([hidden])) > .pause-actions { dis
     }
 }
 
-/* ---------- Zombie wave plaque ---------- */
-/* On tablets a desktop "top" rule still applied, so the plaque stretched
-   from the top of the screen to the bottom over the court. */
-html.pp-mobile body.zombie-mode .zombie-progress-overlay { top: auto; height: auto; }
+/* ---------- Zombie wave readout ---------- */
+/* Phones and tablets show it top right in the scoreboard line; see
+   css/zombie-hud.css (html.pp-mobile body.zombie-mode .zombie-progress-overlay). */
 
 /* ---------- Instant replay ---------- */
 /* Landscape phones: the clip got about 160px of a 390px screen. The rally
@@ -248,7 +247,7 @@ html.pp-mobile body.zombie-mode .zombie-progress-overlay { top: auto; height: au
 /* ---------- Zombie scoreboard ---------- */
 /* Score and lives sit left-aligned in Zombie; on narrow phones the lives
    count ran under the centred MENU button. */
-@media (max-width: 760px) {
+@media (max-width: 760px), (max-height: 500px) {
     html.pp-mobile body.zombie-mode #pp-enhanced-hud { gap: 12px; }
     html.pp-mobile body.zombie-mode #pp-enhanced-hud .pp-score-display { font-size: 26px; min-width: 0; padding-inline: 8px; }
     html.pp-mobile body.zombie-mode #pp-enhanced-hud .pp-score-label { font-size: 10px; letter-spacing: .14em; }
