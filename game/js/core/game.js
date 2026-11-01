@@ -1653,16 +1653,26 @@ class Game {
                 });
             }
         });
-        ['keydown', 'mousedown', 'touchstart'].forEach(ev => {
-            document.addEventListener(ev, () => {
-                try {
-                    if (this.audio && typeof this.audio.resume === 'function') {
-                        this.audio.resume();
-                    }
-                } catch (error) {
-                    console.error('Failed to resume audio context:', error);
+        // Browsers only let a page start sound from a "user activation"
+        // event: keydown, mousedown, a non-mouse pointerup, touchend or click.
+        // touchstart is not one, so on phones the first touch (often a swipe
+        // through the mode cards) used to spend a one-shot listener on a
+        // resume() the browser refused. Keep listening until the audio is
+        // actually running; iOS also parks it as 'interrupted' after a call
+        // or switching apps, which needs the same tap to come back.
+        const resumeAudioOnGesture = () => {
+            const ctx = this.audio?.ctx;
+            if (ctx && ctx.state === 'running') return;
+            try {
+                if (this.audio && typeof this.audio.resume === 'function') {
+                    Promise.resolve(this.audio.resume()).catch(() => { });
                 }
-            }, { once: true, passive: true });
+            } catch (error) {
+                console.error('Failed to resume audio context:', error);
+            }
+        };
+        ['keydown', 'mousedown', 'pointerup', 'touchend', 'click'].forEach(ev => {
+            document.addEventListener(ev, resumeAudioOnGesture, { capture: true, passive: true });
         });
         const startBtn = document.getElementById('startBtn');
         const overlay = document.getElementById('overlay');

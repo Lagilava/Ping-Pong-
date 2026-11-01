@@ -938,6 +938,11 @@ class EnhancedAudioEngine {
                 return;
             }
 
+            // iPhone: Web Audio is silenced by the ring/silent switch while the
+            // music (media elements) is not, so the match played its music with
+            // no hits or effects. 'playback' treats the game like a media app:
+            // everything follows the volume buttons and the in-game Sound switch.
+            try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) { }
             this.ctx = new (window.AudioContext || window.webkitAudioContext)();
 
             // Create advanced audio graph
@@ -1060,15 +1065,18 @@ class EnhancedAudioEngine {
     }
 
     ensureContext() {
+        // iOS reports 'interrupted' (not 'suspended') after a phone call, Siri
+        // or switching apps; both need resume() from a tap to make sound again.
+        const needsResume = () => this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed';
         if (!this.initialized) {
             return this.init().then(() => {
-                if (this.ctx && this.ctx.state === 'suspended') {
+                if (needsResume()) {
                     return this.ctx.resume();
                 }
             });
         }
 
-        if (this.ctx && this.ctx.state === 'suspended') {
+        if (needsResume()) {
             return this.ctx.resume();
         }
 
@@ -2459,9 +2467,15 @@ class EnhancedAudioEngine {
     enable() {
         if (this.userDisabled) return Promise.resolve(this);
         if (this.isMobile && !this.initialized) {
-            return Promise.resolve().then(() => {
-                return this.init();
-            });
+            // init() has no awaits, so the context is created and resumed
+            // synchronously inside the tap. Deferring it to a microtask (as
+            // before) loses the tap on iOS Safari and the context stays
+            // suspended: no sound until some later tap happened to resume it.
+            const ready = this.init();
+            if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') {
+                this.ctx.resume().catch(() => { });
+            }
+            return ready;
         }
 
         this.enabled = true;

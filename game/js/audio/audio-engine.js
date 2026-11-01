@@ -30,7 +30,8 @@ class AudioEngine {
     }
     resume() {
         if (!this.ctx) this.ensure();
-        if (this.ctx && this.ctx.state === 'suspended') return this.ctx.resume();
+        // 'interrupted' is iOS after a call or app switch; it needs resume() too.
+        if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') return this.ctx.resume();
     }
     createOscillatorSound(freq, type = 'square', duration = 0.08, vol = 0.5) {
         this.ensure();
