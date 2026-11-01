@@ -512,6 +512,8 @@ physics/                  C++ source for the physics engine + build scripts
 tests/                    Node and Playwright tests
 tools/serve.ps1           Zero-dependency local web server used by the .bat files
 tools/share.ps1           Cloudflare quick tunnel for "Share Online"
+tools/build-offline-assets.js  Regenerates game/offline-assets.json (rerun after adding/removing files in game/)
+android/                  Play Store (Trusted Web Activity) config for Bubblewrap
 docs/                     Design notes; docs/images holds the screenshots in this README
 ```
 
@@ -537,6 +539,7 @@ This regenerates `game/js/physics/physics-binary.js`. See
 
 ## Further docs
 
+- [Mobile app and Play Store launch](docs/mobile-app.md)
 - [Online play and TURN relays](docs/online-play.md)
 - [Art direction](docs/art-direction.md)
 - [4K artwork and rendering](docs/4k-rendering.md)

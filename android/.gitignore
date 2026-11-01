@@ -1,0 +1,18 @@
+# Bubblewrap output and secrets: never commit the signing key.
+*.keystore
+*.jks
+*.apk
+*.aab
+*.idsig
+app/
+build/
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+settings.gradle
+build.gradle
+gradle.properties
+local.properties
+manifest-checksum.txt
+store_icon.png
