@@ -27,11 +27,17 @@
     // Always fullscreen and landscape: the first tap anywhere enters both, and
     // if the player leaves fullscreen (back gesture, notification shade) the
     // next tap goes back in. Home Screen / TWA installs are already there.
+    // One request per tap (pointerup), not one per pointerup, touchend and click,
+    // and none while a request is still settling or after a refusal.
+    let immersiveBusy = 0;
     const alwaysImmersive = () => {
         if (root.classList.contains('pp-installed') || document.fullscreenElement) return;
+        const now = performance.now();
+        if (now - immersiveBusy < 1500) return;
+        immersiveBusy = now;
         window.ppEnterMobilePlay();
     };
-    ['pointerup', 'touchend', 'click'].forEach((t) => document.addEventListener(t, alwaysImmersive, true));
+    document.addEventListener('pointerup', alwaysImmersive, true);
     document.addEventListener('fullscreenchange', () => {
         if (document.fullscreenElement) { try { screen.orientation?.lock?.('landscape').catch(() => { }); } catch (e) { /* ignore */ } }
     });

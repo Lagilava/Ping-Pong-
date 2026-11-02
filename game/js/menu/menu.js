@@ -1506,6 +1506,8 @@
             const clock = new THREE.Clock();
 
             const menuOverlayEl = document.getElementById('overlay');
+            const menuCustomOverlayEl = document.getElementById('customiseOverlay');
+            let menuCovered = false, menuCoverCheck = 0;
 
             // Hold the menu at 60 fps on any device: if it averages below ~55
             // fps, step down resolution, then bloom, then shadows (one step
@@ -1538,6 +1540,14 @@
                 // The menu scene is only visible behind the overlay; skip all work
                 // (including the GPU render) while a match is being played.
                 if (document.hidden || !menuOverlayEl || menuOverlayEl.classList.contains('hidden')) {
+                    clock.getDelta();
+                    return;
+                }
+                // The Custom screen is a solid full-screen page: nothing of the
+                // scene shows through, so don't spend the GPU on it. Checked
+                // every 10th frame (a class lookup per frame is not free).
+                if ((menuCoverCheck++ % 10) === 0) menuCovered = !!menuCustomOverlayEl?.classList.contains('active');
+                if (menuCovered) {
                     clock.getDelta();
                     return;
                 }
@@ -1801,11 +1811,22 @@
             animateMenu();
 
             // Resize handler
+            // Entering fullscreen or a phone's address bar sliding away fires a
+            // burst of resizes; reallocating the render targets for each one
+            // froze the menu. Coalesce them to one per frame and skip no-ops.
+            let menuResizeRaf = 0, menuSizeKey = '';
             window.addEventListener('resize', () => {
-                fitMenuCamera();
-                menuRenderer.setPixelRatio(MENU_CONFIG.renderer.pixelRatio);
-                menuBloom?.setSize(innerWidth, innerHeight);
-                menuRenderer.setSize(innerWidth, innerHeight);
+                if (menuResizeRaf) return;
+                menuResizeRaf = requestAnimationFrame(() => {
+                    menuResizeRaf = 0;
+                    const key = `${innerWidth}x${innerHeight}@${MENU_CONFIG.renderer.pixelRatio}`;
+                    if (key === menuSizeKey) return;
+                    menuSizeKey = key;
+                    fitMenuCamera();
+                    menuRenderer.setPixelRatio(MENU_CONFIG.renderer.pixelRatio);
+                    menuBloom?.setSize(innerWidth, innerHeight);
+                    menuRenderer.setSize(innerWidth, innerHeight);
+                });
             }, false);
 
             // Mouse tracking
