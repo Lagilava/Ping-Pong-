@@ -994,6 +994,8 @@
             name.textContent = tool?.label || (active ? `Placing: ${active.label}` : 'Select an object');
             hint.textContent = this.selected?.t === 'portal' ? this.portalHint(this.selected)
                 : (tool?.hint || (active ? `${active.hint} Choose an object on the court to edit it.` : 'Choose any object on the court to edit it.'));
+            // Phones have no R key and no pointer to "choose" with.
+            if (window.PPDevice?.touch) hint.textContent = hint.textContent.replace(/R turns it\./, 'Tap Turn to rotate it.').replace(/Choose (an|any) object on the court/, 'Tap $1 object on the court');
             position.textContent = this.selected ? `Position ${Math.round(this.selected.x * 100)}%, ${Math.round(this.selected.y * 100)}%` : '';
             size.textContent = this.selected && SIZE_RANGE[this.selected.t] ? `Size ${Math.round(this.selected.s * 100)}%` : '';
             this.el.querySelectorAll('.forge-inspector-actions button').forEach(button => {

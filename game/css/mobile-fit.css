@@ -380,3 +380,22 @@ html.pp-mobile body #overlay .card::after { transition: opacity .16s ease; }
     html body .ppres-side strong { font-size: 26px; }
     html body .ppres-btn { min-height: 40px; padding: 8px 12px; }
 }
+
+/* ---------- Forge editor on a phone (Nov 2) ---------- */
+/* Palette labels were 7.5px; with the bar-free 844px phones now the norm the
+   tiles can be bigger and still keep seven rows in view. */
+@media (orientation: landscape) and (max-height: 500px) {
+    html.pp-touch body .forge-editor .forge-palette { width: 132px; }
+    html.pp-touch body .forge-editor .forge-palette .forge-tool { min-height: 38px; padding: 3px 2px; font-size: 9.5px; }
+    html.pp-touch body .forge-editor .forge-palette .forge-tool canvas { width: 26px; height: 26px; }
+    html.pp-touch body .forge-editor-hint { font-size: 11px; }
+}
+@media (orientation: landscape) and (max-height: 340px) {
+    html body .forge-editor { gap: 4px; }
+    html body .forge-editor-top { padding: 4px 10px; gap: 6px; }
+    html body .forge-editor-title h2 { font-size: 17px; }
+    html body .forge-editor .forge-commit-actions button { min-height: 36px; padding: 6px 10px; }
+    html body .forge-editor-actions button { min-height: 36px; padding: 4px 9px; }
+    html body .forge-editor-body { padding: 4px 8px; }
+    html body .forge-editor-hint { padding: 4px 12px; }
+}

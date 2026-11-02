@@ -222,7 +222,7 @@
     .studio-ball .panel-head { padding: 14px 16px; }
     .studio-ball :is(input[type="text"], select, textarea) { font-size: 16px; }
 }
-@media (max-height: 600px) and (min-width: 641px) {
+@media (max-height: 600px) and (orientation: landscape) {
     .forge-editor-top { gap: 8px; padding: 8px 12px; }
     .forge-editor-title h2 { font-size: 20px; }
     .forge-editor-title .studio-eyebrow, .forge-name-wrap > span { display: none; }
@@ -236,7 +236,7 @@
     .forge-stage { min-height: 80px; }
 }
 /* A short landscape viewport needs its canvas beside the tools, not below them. */
-@media (max-height: 600px) and (min-width: 641px) {
+@media (max-height: 600px) and (orientation: landscape) {
     .forge-editor-body { flex-direction: row; padding: 8px; gap: 8px; }
     .forge-editor .forge-palette { flex-direction: column; width: 84px; overflow-x: hidden; overflow-y: auto; }
     .forge-editor .forge-tool { flex: 0 0 auto; min-width: 0; }
@@ -259,7 +259,7 @@
     .forge-editor .forge-tool { padding: 5px 3px 4px; gap: 2px; }
     .forge-editor .forge-tool canvas { width: 28px; height: 28px; }
 }
-@media (max-height: 600px) and (min-width: 641px) {
+@media (max-height: 600px) and (orientation: landscape) {
     .forge-editor .forge-palette { display: grid; grid-template-columns: 1fr 1fr; align-content: start; width: 118px; grid-auto-rows: max-content; overflow-y: auto; gap: 4px; padding: 4px; mask-image: linear-gradient(#000 calc(100% - 18px), transparent); -webkit-mask-image: linear-gradient(#000 calc(100% - 18px), transparent); padding-bottom: 16px; }
     .forge-editor .forge-palette .forge-tool { min-height: 0; padding: 3px 1px 2px; gap: 1px; font-size: 7.5px; letter-spacing: 0; white-space: nowrap; overflow: hidden; }
     .forge-editor .forge-palette .forge-tool span { flex-shrink: 0; line-height: 1.25; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
