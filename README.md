@@ -325,7 +325,7 @@ point a **▶ REPLAY** chip shows for a few seconds.
 
 <p align="center"><img src="docs/images/mobile.jpg" alt="Local 1v1 on a phone with two ability buttons" width="80%" /></p>
 
-<p align="center"><img src="docs/images/touch-pad.jpg" alt="Zombie mode on a phone with the thumb pad in the bottom-right corner, and the Touch layout editor with the pad moved to the left and the ability button to the right" width="100%" /></p>
+<p align="center"><img src="docs/images/touch-pad.jpg" alt="Zombie mode on a phone with the ability button bottom left and the thumb pad bottom right, and the Touch layout editor showing the default layout" width="100%" /></p>
 <p align="center"><sub>Left: the thumb pad in a match (its knob shows where your paddle is). Right: Settings &gt; Controls &gt; Touch layout.</sub></p>
 
 ## Settings
