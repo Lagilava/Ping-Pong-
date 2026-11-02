@@ -1,4 +1,4 @@
-// Phones: going into a match from a tap goes fullscreen and, where the
+// Phones: the first tap anywhere goes fullscreen and, where the
 // browser allows it (Android Chrome/Edge), locks landscape. iOS Safari has
 // neither, so it gets the "turn your phone" card from css/mobile.css instead.
 (function mobileImmersive() {
@@ -24,8 +24,16 @@
     document.addEventListener('click', (e) => {
         if (e.target.closest?.('#btnGo, #customStartMatchBtn, .pp-rotate-block button')) window.ppEnterMobilePlay();
     }, true);
-    window.addEventListener('pp-returned-to-menu', () => {
-        try { screen.orientation?.unlock?.(); } catch (e) { /* ignore */ }
+    // Always fullscreen and landscape: the first tap anywhere enters both, and
+    // if the player leaves fullscreen (back gesture, notification shade) the
+    // next tap goes back in. Home Screen / TWA installs are already there.
+    const alwaysImmersive = () => {
+        if (root.classList.contains('pp-installed') || document.fullscreenElement) return;
+        window.ppEnterMobilePlay();
+    };
+    ['pointerup', 'touchend', 'click'].forEach((t) => document.addEventListener(t, alwaysImmersive, true));
+    document.addEventListener('fullscreenchange', () => {
+        if (document.fullscreenElement) { try { screen.orientation?.lock?.('landscape').catch(() => { }); } catch (e) { /* ignore */ } }
     });
 
     // iOS Safari ignores user-scalable=no: a two-finger pinch (easy to do by

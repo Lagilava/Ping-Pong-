@@ -331,3 +331,12 @@ html body .pp-install-tip button {
 @media (orientation: landscape) and (max-width: 720px) {
     html.pp-mobile #overlay .hdr p { max-width: calc(100vw - 280px); }
 }
+
+/* ---------- Simpler phone flow (Nov 2) ---------- */
+/* Portrait picker: Start match leads as one wide button; Settings, Tutorial
+   and Back become a quiet row of three under it. */
+@media (orientation: portrait) {
+    html.pp-mobile body #modal .modal-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    html.pp-mobile body #modal .modal-actions .btn-go { grid-column: 1 / -1; order: -1; min-height: 52px; font-size: 1rem; }
+    html.pp-mobile body #modal .modal-actions button:not(.btn-go) { min-height: 42px; padding: 8px 4px; font-size: .72rem; white-space: nowrap; }
+}

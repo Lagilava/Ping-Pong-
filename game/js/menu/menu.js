@@ -601,14 +601,8 @@
                         updateMenuCards();
                         return;
                     }
-                    // A second tap on the artwork can close a preview. Only
-                    // the revealed action launches a mode on a touch screen.
-                    if (!event.target.closest('.card-badge')) {
-                        menuActiveIdx = null;
-                        el.blur();
-                        updateMenuCards();
-                        return;
-                    }
+                    // A second tap anywhere on the previewed card opens it: the small
+                    // Play badge was an easy target to miss on a phone.
                 }
                 menuSelected = m.id;
                 if (m.id === 'customise') {
