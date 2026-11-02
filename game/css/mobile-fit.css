@@ -340,3 +340,16 @@ html body .pp-install-tip button {
     html.pp-mobile body #modal .modal-actions .btn-go { grid-column: 1 / -1; order: -1; min-height: 52px; font-size: 1rem; }
     html.pp-mobile body #modal .modal-actions button:not(.btn-go) { min-height: 42px; padding: 8px 4px; font-size: .72rem; white-space: nowrap; }
 }
+
+/* ---------- Card preview without a layout animation (Nov 2) ---------- */
+/* Tapping a mode card grew it over 0.24s by animating grid-template-rows,
+   max-height, margin and the artwork's height: layout and style recalculation
+   on every frame, on top of the live 3D menu behind. On a phone the card now
+   opens in one step and only the cheap parts (opacity, colour) fade, and the
+   big glow no longer repaints through a box-shadow transition. */
+html.pp-mobile body #overlay .card { transition: transform .12s ease, border-color .12s ease; contain: layout style; }
+html.pp-mobile body #overlay .card .card-top,
+html.pp-mobile body #overlay .card .card-details,
+html.pp-mobile body #overlay .card .card-icon.card-scene { transition: opacity .16s ease; }
+html.pp-mobile body #overlay .card::before,
+html.pp-mobile body #overlay .card::after { transition: opacity .16s ease; }

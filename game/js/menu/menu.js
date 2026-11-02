@@ -651,6 +651,7 @@
         return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${alpha})`;
     }
 
+    let fitCheckRaf = 0;
     function updateMenuCards() {
         const row = document.getElementById('cardRow');
         const ch = row?.children || [];
@@ -660,7 +661,16 @@
             ch[i].setAttribute('aria-expanded', String(expanded));
             ch[i].querySelector('.card-details')?.setAttribute('aria-hidden', String(!expanded));
         }
-        // Hide the scroll arrows when every card is already on screen.
+        // Hide the scroll arrows when every card is already on screen. That
+        // needs a measurement, which forces layout, so it waits for the next
+        // frame instead of stalling the tap that opened the preview.
+        if (fitCheckRaf) return;
+        fitCheckRaf = requestAnimationFrame(updateCardsFit);
+    }
+    function updateCardsFit() {
+        fitCheckRaf = 0;
+        const row = document.getElementById('cardRow');
+        const ch = row?.children || [];
         const hud = document.getElementById('cards-hud');
         if (row && hud && ch.length) {
             const first = ch[0].getBoundingClientRect(), last = ch[ch.length - 1].getBoundingClientRect();
