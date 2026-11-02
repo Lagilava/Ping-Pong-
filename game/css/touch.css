@@ -352,3 +352,183 @@ html.pp-mobile #overlay .card { backdrop-filter: none; -webkit-backdrop-filter: 
 /* The MENU button would sit on the rules cards' headings (as it does for the
    wave reward, see mobile.css); the card has its own start button. */
 body:has(.zombie-briefing.visible) #cyber-menu-btn { visibility: hidden; }
+
+/* ---------- Thumb pad (js/ui/touch-pad.js) ----------
+   Marks where the steering thumb rests. Touches pass through to the court
+   canvas (which does the steering), so the pad never eats a touch. */
+.pp-ability-btn.placed { right: auto; bottom: auto; }
+.pp-thumb-pad,
+.pp-te-pad {
+    --tp-c: 124, 244, 255;
+    position: fixed;
+    z-index: 100000;
+    box-sizing: border-box;
+    border-radius: 999px;
+    border: 1.5px solid rgba(var(--tp-c), .34);
+    background:
+        linear-gradient(180deg, rgba(var(--tp-c), .08), rgba(var(--tp-c), .02) 50%, rgba(var(--tp-c), .08)),
+        rgba(3, 13, 29, .26);
+    box-shadow: inset 0 0 18px rgba(var(--tp-c), .08);
+    pointer-events: none;
+    opacity: .6;
+    transition: opacity .25s ease, border-color .25s ease;
+}
+.pp-thumb-pad[hidden] { display: none; }
+.pp-thumb-pad.intro { opacity: 1; border-color: rgba(var(--tp-c), .6); animation: ppTpIntro 1.6s ease-in-out 2; }
+/* The thumb covers it while steering; just a faint outline then. */
+.pp-thumb-pad.active { opacity: .28; }
+body.pp-paused .pp-thumb-pad { display: none; }
+.pp-tp-track {
+    position: absolute;
+    left: 50%; top: 22%; bottom: 22%;
+    width: 2px;
+    margin-left: -1px;
+    border-radius: 2px;
+    background: rgba(var(--tp-c), .28);
+}
+.pp-tp-chev {
+    position: absolute;
+    left: 50%;
+    width: 9px; height: 9px;
+    margin-left: -5px;
+    border-left: 2px solid rgba(var(--tp-c), .7);
+    border-top: 2px solid rgba(var(--tp-c), .7);
+}
+.pp-tp-chev.up { top: 10px; transform: rotate(45deg); }
+.pp-tp-chev.down { bottom: 10px; transform: rotate(225deg); }
+/* Where your paddle is, top to bottom of the court. */
+.pp-tp-knob {
+    --f: .5;
+    position: absolute;
+    left: 50%;
+    top: calc(22% + (56% * var(--f)));
+    width: 46%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 2px solid rgba(var(--tp-c), .75);
+    background: radial-gradient(circle, rgba(var(--tp-c), .35), rgba(var(--tp-c), .06) 70%);
+    transform: translate(-50%, -50%);
+}
+@keyframes ppTpIntro { 50% { box-shadow: inset 0 0 18px rgba(var(--tp-c), .2), 0 0 18px rgba(var(--tp-c), .45); } }
+
+/* ---------- Touch layout editor ---------- */
+.pp-touch-editor {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483200;
+    background: radial-gradient(ellipse at 50% 40%, #0b1a33, #030712 75%);
+    color: #e8f7ff;
+    font: 500 .85rem/1.35 system-ui, sans-serif;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
+}
+.pp-touch-editor[hidden] { display: none; }
+.pp-te-court { position: absolute; inset: 0; pointer-events: none; }
+.pp-te-court i { position: absolute; display: block; }
+.pp-te-mid { left: 50%; top: 8%; bottom: 8%; border-left: 2px dashed rgba(124, 244, 255, .16); }
+.pp-te-paddle { top: 42%; width: 10px; height: 16%; border-radius: 4px; }
+.pp-te-paddle.l { left: 4%; background: #00f0ff; box-shadow: 0 0 10px #00f0ff; }
+.pp-te-paddle.r { right: 4%; background: #ff2d75; box-shadow: 0 0 10px #ff2d75; }
+.pp-te-ball { left: 38%; top: 48%; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px #fff; }
+.pp-te-bar {
+    position: absolute;
+    top: max(8px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(640px, calc(100vw - 24px));
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid rgba(124, 244, 255, .3);
+    border-radius: 14px;
+    background: rgba(4, 14, 30, .9);
+    z-index: 2;
+}
+.pp-te-title b { display: block; font: 800 .78rem/1.2 'Orbitron', sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #7cf4ff; }
+.pp-te-title span { font-size: .72rem; color: rgba(215, 236, 255, .7); }
+.pp-te-size label { display: flex; justify-content: space-between; gap: 8px; font-size: .74rem; font-weight: 700; }
+.pp-te-size output { color: #7cf4ff; }
+.pp-te-size input { width: 100%; margin: 4px 0 2px; accent-color: #00e6c3; }
+.pp-te-size small { display: block; font-size: .66rem; color: rgba(215, 236, 255, .62); }
+.pp-te-actions { display: flex; gap: 6px; }
+.pp-te-btn {
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid rgba(124, 244, 255, .4);
+    border-radius: 10px;
+    background: rgba(10, 26, 50, .9);
+    color: #e8f7ff;
+    font: 700 .68rem/1 'Orbitron', sans-serif;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.pp-te-btn.primary { border: 0; background: linear-gradient(90deg, #00e6c3, #00b4ff); color: #021018; }
+.pp-te-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.pp-te-item { position: absolute; z-index: 1; cursor: grab; touch-action: none; }
+.pp-te-item:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.pp-te-item.selected { outline: 2px dashed rgba(255, 255, 255, .85); outline-offset: 5px; }
+.pp-te-pad { pointer-events: auto; opacity: 1; }
+.pp-te-item > span {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(3, 13, 29, .8);
+    font: 700 .5rem/1.2 'Orbitron', sans-serif;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: #dff6ff;
+}
+.pp-te-ab {
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 3px solid #7cf4ff;
+    background: rgba(3, 13, 29, .7);
+}
+.pp-te-ab svg { width: 36%; height: 36%; fill: #7cf4ff; }
+.pp-te-rotate { display: none; }
+@media (orientation: portrait) {
+    .pp-te-rotate {
+        position: absolute; inset: 0; z-index: 3;
+        display: grid; place-content: center; gap: 8px;
+        padding: 24px; text-align: center;
+        background: rgba(3, 7, 18, .96);
+    }
+    .pp-te-rotate b { font: 800 1rem/1.3 'Orbitron', sans-serif; color: #7cf4ff; }
+    .pp-te-rotate span { color: rgba(215, 236, 255, .75); }
+    .pp-te-rotate .pp-te-btn { justify-self: center; margin-top: 10px; }
+}
+@media (max-width: 700px) and (orientation: landscape) {
+    .pp-te-bar { grid-template-columns: 1fr auto; }
+    .pp-te-title { display: none; }
+}
+
+/* Tutorial picture: one thumb on the corner pad, short slides. */
+.pp-ct-pad {
+    right: 3.5%; bottom: 6%;
+    width: 9%; height: 44%;
+    border-radius: 999px;
+    border: 2px solid rgba(124, 244, 255, .55);
+    background: rgba(124, 244, 255, .07);
+}
+.pp-ct-padknob { left: 50%; top: 50%; width: 60%; aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(124, 244, 255, .8); transform: translate(-50%, -50%); }
+.pp-ct-thumb.pad { right: -1%; bottom: 13%; animation: ppCtThumbShort 2.4s ease-in-out infinite; }
+.pp-ct-phone.pad .pp-ct-paddle { animation-name: ppCtPaddle; }
+@keyframes ppCtThumbShort { 0%, 100% { transform: translateY(-38%); } 50% { transform: translateY(38%); } }
+/* Pad on the left: mirror the picture's controls (not the court). */
+.pp-ct-phone.mirror .pp-ct-pad { right: auto; left: 3.5%; }
+.pp-ct-phone.mirror .pp-ct-thumb.pad { right: auto; left: -1%; }
+.pp-ct-phone.mirror .pp-ct-abtn { left: auto; right: 14%; }
+.pp-ct-phone.mirror .pp-ct-thumb.left { left: auto; right: 13%; }
+@media (prefers-reduced-motion: reduce) {
+    .pp-thumb-pad.intro { animation: none; }
+}

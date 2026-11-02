@@ -2,7 +2,7 @@
 
 Human movement now has a time-based response shared by keyboard and gamepad in solo, local two-player and online play. Acceleration uses a 40/s exponential response; reversal uses 64/s and braking 60/s. At full input a stationary paddle reaches 90% speed in about 58 ms. Maximum speeds, settings multipliers, analog stick range and power-up multipliers remain as configured. Opposite keyboard directions cancel.
 
-Pointer tracking uses an exact exponential approach at 32/s with the existing 2600 px/s speed cap. Integrating its requested velocity approaches the target without crossing it or oscillating around it. Touch drag offsets and paddle bounds remain in place.
+Pointer tracking uses an exact exponential approach at 32/s with the existing 2600 px/s speed cap. Integrating its requested velocity approaches the target without crossing it or oscillating around it. Touch drags are relative and carry a gain: on touch-down the paddle keeps its place, and each finger movement moves the target by the movement times (court range ÷ thumb-pad travel), clamped to the court, so a slide the height of the thumb pad (js/ui/touch-pad.js) crosses the whole court and the thumb never sweeps over the play. The gain is never below 1. Mouse keeps absolute tracking.
 
 Offline hit-stop slows the ball and world while human control uses the unslowed input timestep. Intentional time-warp powers retain their previous scale. AI movement continues to use the world timestep. Online play does not apply cosmetic hit-stop to physics: local, remote and ball movement stay on the same simulation clock. Existing impact audio, recoil and squash still communicate contact.
 

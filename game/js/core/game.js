@@ -1125,14 +1125,35 @@ class Game {
     updatePointerControlledPaddle(target, canvasY) {
         const paddle = target === 'ai' ? this.aiPaddle : this.player;
         if (!paddle) return;
-        const offset = this.touchDragOffset?.[target] || 0;
         const half = paddle.h / 2;
-        // Clamp to the reachable range so a long drag doesn't wind up a
-        // target the paddle then has to "unwind" before it responds.
-        paddle.pointerTargetY = Math.max(half, Math.min(this.height - half, canvasY + offset));
-        if (offset && paddle.pointerTargetY !== canvasY + offset) {
-            this.touchDragOffset[target] = paddle.pointerTargetY - canvasY;
+        const clamp = (y) => Math.max(half, Math.min(this.height - half, y));
+        const drag = this.touchDrag?.[target];
+        if (drag) {
+            // Touch moves relatively and with gain: the thumb only slides
+            // over the thumb pad's height (see js/ui/touch-pad.js) while
+            // the paddle covers the whole court, so it can rest in a corner
+            // instead of sweeping across the play. Clamping the running
+            // target means a long slide never winds up a dead zone.
+            const dy = canvasY - drag.lastY;
+            drag.lastY = canvasY;
+            paddle.pointerTargetY = clamp(paddle.pointerTargetY + dy * drag.gain);
+            return;
         }
+        // Mouse: the paddle centres on the pointer.
+        paddle.pointerTargetY = clamp(canvasY);
+    }
+
+    // How far the paddle moves per unit of thumb travel. A slide the
+    // height of the thumb pad crosses the whole court; never slower than
+    // the finger itself.
+    getTouchDragGain(paddle, clientX) {
+        const travelPx = window.PPTouchPad?.travelPx?.() || Math.max(120, (window.innerHeight || 400) * 0.42);
+        const a = this.getCanvasPoint(clientX, 0);
+        const b = this.getCanvasPoint(clientX, travelPx);
+        const travel = a && b ? Math.abs(b.y - a.y) : 0;
+        const range = Math.max(1, this.height - (paddle?.h || 0));
+        if (!(travel > 1)) return 1;
+        return Math.max(1, Math.min(6, range / travel));
     }
 
     followPointerTarget(paddle, dt) {
@@ -5892,13 +5913,17 @@ class Game {
             }
 
             // Touch drags relatively: the paddle keeps its place on touch-down
-            // and follows the finger's movement, so the finger never has to
-            // cover the paddle (or the ball) and nothing jumps.
+            // and follows the finger's movement (with the thumb pad's gain),
+            // so the finger never has to cover the paddle or the ball and
+            // nothing jumps.
             const paddle = target === 'ai' ? this.aiPaddle : this.player;
-            this.touchDragOffset = this.touchDragOffset || { player: 0, ai: 0 };
-            this.touchDragOffset[target] = (e.pointerType === 'touch' && paddle)
-                ? (paddle.pos.y + paddle.h / 2) - point.y
-                : 0;
+            this.touchDrag = this.touchDrag || { player: null, ai: null };
+            if (e.pointerType === 'touch' && paddle) {
+                paddle.pointerTargetY = paddle.pos.y + paddle.h / 2;
+                this.touchDrag[target] = { lastY: point.y, gain: this.getTouchDragGain(paddle, e.clientX) };
+            } else {
+                this.touchDrag[target] = null;
+            }
             this.updatePointerControlledPaddle(target, point.y);
             if (e.pointerType !== 'mouse') {
                 e.preventDefault();
@@ -5930,9 +5955,11 @@ class Game {
             if (this.pointerControls.player === e.pointerId) {
                 this.pointerControls.player = null;
                 this.touch.active = false;
+                if (this.touchDrag) this.touchDrag.player = null;
             }
             if (this.pointerControls.ai === e.pointerId) {
                 this.pointerControls.ai = null;
+                if (this.touchDrag) this.touchDrag.ai = null;
             }
         };
         this.canvas.addEventListener('pointerup', releasePointer);

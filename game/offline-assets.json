@@ -1,5 +1,5 @@
 {
- "hash": "204e97906624750b",
+ "hash": "db93fcb26f5dea61",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -173,6 +173,7 @@
   "js/ui/results-card.js",
   "js/ui/rule-icons.js",
   "js/ui/settings-panel.js",
+  "js/ui/touch-pad.js",
   "js/vendor/anime.min.js",
   "js/vendor/peerjs.min.js",
   "js/vendor/three.min.js",

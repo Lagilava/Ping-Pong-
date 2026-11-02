@@ -293,7 +293,7 @@ link** opens the share sheet.
 
 | Action | Keyboard / mouse | Gamepad | Touch |
 |---|---|---|---|
-| Move left paddle | **W / S**, or hold the mouse button and drag | Left stick or d-pad (analog) | Drag anywhere on your half |
+| Move left paddle | **W / S**, or hold the mouse button and drag | Left stick or d-pad (analog) | Slide a thumb on the thumb pad (bottom right); a short slide crosses the court |
 | Move right paddle (local 1v1) | **↑ / ↓** | Second pad | Drag on the right half |
 | Laser / arena ability | **Space** (P2 **Enter**), right mouse button | **A** | Second finger or on-screen button |
 | Pause | **Esc** | **Start** | Menu button |
@@ -312,12 +312,21 @@ link** opens the share sheet.
 then Add to Home Screen; the menu shows a one-time tip) and it opens full
 screen in landscape with its own icon. Play in landscape (the match pauses if you turn the
 phone upright; Android goes fullscreen and locks landscape when a match
-starts). Your paddle follows your finger's movement, so your finger never
-covers the ball. Abilities have on-screen buttons, there are touch tutorials
+starts). You steer with one thumb on the **thumb pad**, a small marked strip
+in the bottom-right corner: your paddle follows the thumb's movement, and a
+slide the height of the pad moves it across the whole court, so the thumb
+rests in the corner instead of sweeping over the play. Touches elsewhere on
+the screen still steer the same way. **Settings > Controls > Touch layout**
+moves and resizes the pad and the ability button (drag them, pick one and set
+its size, or *Swap sides* for left-handed play); a smaller pad means a faster
+paddle. Abilities have on-screen buttons, there are touch tutorials
 on the first match, and instant replays never interrupt a match: after a great
 point a **▶ REPLAY** chip shows for a few seconds.
 
 <p align="center"><img src="docs/images/mobile.jpg" alt="Local 1v1 on a phone with two ability buttons" width="80%" /></p>
+
+<p align="center"><img src="docs/images/touch-pad.jpg" alt="Zombie mode on a phone with the thumb pad in the bottom-right corner, and the Touch layout editor with the pad moved to the left and the ability button to the right" width="100%" /></p>
+<p align="center"><sub>Left: the thumb pad in a match (its knob shows where your paddle is). Right: Settings &gt; Controls &gt; Touch layout.</sub></p>
 
 ## Settings
 
@@ -329,7 +338,7 @@ and the Custom screen, and saves as you change it.
 | **Profile** | Your name, level and match stats, with played, win rate and time for each mode. |
 | **Gameplay** | Computer skill, points to win, power-ups on the court, instant replays (Auto / Offer / Off), AI trash talk, pause when you switch away. |
 | **Paddles** | A paddle design for each mode, for your paddle and your opponent's, with live previews. |
-| **Controls** | Paddle speed, key rebinding for both players, controller and phone vibration. |
+| **Controls** | Paddle speed, touch layout (thumb pad and ability button position and size, on phones), key rebinding for both players, controller and phone vibration. |
 | **Display** | Visual quality, effect switches, Noir theme, screen shake, impact flash, particles, scoreboard size, FPS counter. |
 | **Audio** | Master, music, sound effects and voice volumes; sound, music and voice switches; mute in the background. |
 | **Accessibility** | Reduce motion, high-visibility ball, menu text size. |

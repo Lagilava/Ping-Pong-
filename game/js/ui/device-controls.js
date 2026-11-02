@@ -1,9 +1,11 @@
 // Touch ability buttons and the first-match controls tutorial.
 //
 // PPDevice (js/core/boot.js) decides once, at start, whether this is a touch
-// device (phone/tablet) or a PC. Touch players move with the right thumb
-// (drag anywhere on the right side: the paddle follows the slide) and use the
-// mode's ability with the left thumb on a button in the bottom-left corner.
+// device (phone/tablet) or a PC. Touch players steer with one thumb on the
+// thumb pad (js/ui/touch-pad.js; bottom right by default, a short slide
+// crosses the court) and use the mode's ability with the other thumb on a
+// round button (bottom left by default). Both can be moved and resized in
+// Settings → Controls → Touch layout.
 // PC players keep the keyboard/mouse controls. Each kind gets its own
 // tutorial the first time a match starts on that kind of device.
 (() => {
@@ -118,8 +120,23 @@
         apply(value);
     }
 
-    // Right of the paddle lane, so the button never covers your own paddle.
+    // Right of the paddle lane, so the button never covers your own paddle,
+    // unless the player placed it themselves (single player and online).
     function place(b, side, g) {
+        const custom = side === 'player' && !(g.isMultiplayer && !g.net) ? window.PPTouchPad?.abilityRect() : null;
+        const st = b.el.style;
+        if (custom) {
+            b.el.classList.add('placed');
+            st.left = `${Math.round(custom.left)}px`;
+            st.top = `${Math.round(custom.top)}px`;
+            st.setProperty('--ab-size', `${custom.size}px`);
+            return;
+        }
+        if (b.el.classList.contains('placed')) {
+            b.el.classList.remove('placed');
+            st.left = st.top = '';
+            st.removeProperty('--ab-size');
+        }
         const rect = g.canvas.getBoundingClientRect();
         const paddle = side === 'player' ? g.player : g.aiPaddle;
         if (!paddle || !rect.width) return;
@@ -186,7 +203,7 @@
             set(b, 'status', status, (v) => { b.status.textContent = v; });
             set(b, 'tone', tone, (v) => { b.el.dataset.tone = v; });
         }
-        const key = `${innerWidth}x${innerHeight}|${g?.width}x${g?.height}|${sides.join()}`;
+        const key = `${innerWidth}x${innerHeight}|${g?.width}x${g?.height}|${sides.join()}|${JSON.stringify(window.PPSettings?.get('touchLayout') || '')}|${!!g?.isMultiplayer}`;
         if (sides.length && key !== placedFor) {
             placedFor = key;
             for (const side of sides) place(buttons[side], side, g);
@@ -206,10 +223,12 @@
         hintEl.className = 'pp-ability-hint';
         hintEl.dataset.mode = mode;
         hintEl.setAttribute('role', 'status');
-        hintEl.innerHTML = `<b>${esc(info.name)}</b> ${esc(info.hold ? 'Hold with your left thumb.' : 'Tap with your left thumb.')}<span>${esc(info.touch)}</span>`;
-        const btn = buttons.player.el;
-        hintEl.style.left = btn.style.getPropertyValue('--ab-x');
-        hintEl.style.bottom = `calc(${btn.style.getPropertyValue('--ab-bottom')} + 104px)`;
+        const thumb = `${otherSide()} thumb`;
+        hintEl.innerHTML = `<b>${esc(info.name)}</b> ${esc(info.hold ? `Hold with your ${thumb}.` : `Tap with your ${thumb}.`)}<span>${esc(info.touch)}</span>`;
+        const r = buttons.player.el.getBoundingClientRect();
+        if (r.left + r.width / 2 > innerWidth / 2) hintEl.style.right = `${Math.max(8, Math.round(innerWidth - r.right))}px`;
+        else hintEl.style.left = `${Math.max(8, Math.round(r.left))}px`;
+        hintEl.style.bottom = `${Math.round(innerHeight - r.top + 30)}px`;
         document.body.appendChild(hintEl);
         hintTimer = setTimeout(hideHint, 7000);
     }
@@ -221,6 +240,21 @@
         el.classList.add('out');
         setTimeout(() => el.remove(), 250);
     }
+
+    // Which thumb steers (the pad's side) and which taps the button.
+    const padSide = () => window.PPTouchPad?.padSide?.() || 'right';
+    const otherSide = () => {
+        const a = window.PPTouchPad?.abilityRect?.();
+        if (a) return a.cx >= innerWidth / 2 ? 'right' : 'left';
+        return padSide() === 'right' ? 'left' : 'right';
+    };
+    const abilityWhere = () => {
+        const a = window.PPTouchPad?.abilityRect?.();
+        if (!a) return 'in the bottom-left corner';
+        const v = a.cy > innerHeight * 0.6 ? 'bottom' : a.cy < innerHeight * 0.4 ? 'top' : 'middle';
+        const h = a.cx >= innerWidth / 2 ? 'right' : 'left';
+        return v === 'middle' ? `on the ${h} side` : `in the ${v}-${h} corner`;
+    };
 
     // ── First-match controls tutorial ───────────────────────────────────────
     let tutorial = null;
@@ -236,9 +270,9 @@
         if (device.touch) {
             const move = two
                 ? ['Each player takes a half', 'Player 1 slides a thumb up and down on the left half of the screen, player 2 on the right half. Each paddle follows its thumb’s slide.']
-                : ['Move with your right thumb', 'Rest your right thumb anywhere on the right side of the screen and slide it up and down. Your paddle follows the slide, so your thumb never covers it or the ball.'];
+                : [`Steer with your ${padSide()} thumb on the pad`, `Rest your thumb on the thumb pad in the bottom-${padSide()} corner and slide it up and down. A short slide moves your paddle across the whole court, so your thumb stays out of the play. Move or resize it in Settings → Controls → Touch layout.`];
             const ability = info
-                ? [`${info.hold ? 'Hold' : 'Tap'} ${info.name} with your left thumb`, `${two ? 'Each player has a button in their bottom corner; player 1’s is bottom left.' : 'The round button sits in the bottom-left corner.'} ${info.touch}`]
+                ? [`${info.hold ? 'Hold' : 'Tap'} ${info.name} with your ${two ? 'left' : otherSide()} thumb`, `${two ? 'Each player has a button in their bottom corner; player 1’s is bottom left.' : `The round button sits ${abilityWhere()}.`} ${info.touch}`]
                 : [`${modeName} has no ability button`, two
                     ? 'If either player catches a Laser power-up, they tap their half with a second finger to fire it.'
                     : 'It is just you and the ball. If you catch a Laser power-up, tap the screen with a second finger to fire it.'];
@@ -261,11 +295,19 @@
         if (device.touch) {
             // Two players: a thumb sliding on each half, each moving its paddle.
             const two = !!g?.isMultiplayer && !g?.net;
-            return `<div class="pp-ct-phone${two ? ' two' : ''}" data-mode="${mode || 'none'}">
+            if (two) {
+                return `<div class="pp-ct-phone two" data-mode="${mode || 'none'}">
+                    <i class="pp-ct-paddle"></i><i class="pp-ct-ball"></i><i class="pp-ct-mid"></i>
+                    <i class="pp-ct-paddle r"></i><i class="pp-ct-thumb p1"></i><i class="pp-ct-slide p1"></i>
+                    <i class="pp-ct-thumb right"></i><i class="pp-ct-slide"></i>
+                </div>`;
+            }
+            // One player: a short slide on the corner pad sweeps the paddle
+            // across the whole court.
+            return `<div class="pp-ct-phone pad${padSide() === 'left' ? ' mirror' : ''}" data-mode="${mode || 'none'}">
                 <i class="pp-ct-paddle"></i><i class="pp-ct-ball"></i><i class="pp-ct-mid"></i>
-                ${two ? '<i class="pp-ct-paddle r"></i><i class="pp-ct-thumb p1"></i><i class="pp-ct-slide p1"></i>'
-                    : (mode ? `<i class="pp-ct-abtn">${ICONS[mode]}</i><i class="pp-ct-thumb left"></i>` : '')}
-                <i class="pp-ct-thumb right"></i><i class="pp-ct-slide"></i>
+                ${mode ? `<i class="pp-ct-abtn">${ICONS[mode]}</i><i class="pp-ct-thumb left"></i>` : ''}
+                <i class="pp-ct-pad"><i class="pp-ct-padknob"></i></i><i class="pp-ct-thumb pad"></i>
             </div>`;
         }
         const fire = keyLabel('p1Fire', ' ');
@@ -387,6 +429,7 @@
         if ((armed || tutorialOpen()) && g && !g.tutorialHold) g.setTutorialHold(true);
         const live = inMatch && !g.paused && !g.introActive && !g.matchEnding && !tutorialOpen() &&
             !document.body.classList.contains('pp-replaying') && !document.body.classList.contains('pp-results-open');
+        window.PPTouchPad?.update(g, live);
         if (!live && !buttons.player && !buttons.ai) return;
         updateButtons(g, live);
     }

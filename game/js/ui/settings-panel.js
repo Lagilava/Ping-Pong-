@@ -41,10 +41,13 @@
         ],
         controls: [
             { type: 'slider', key: 'paddleSpeed', label: 'Paddle speed', help: 'Keyboard and gamepad. Mouse and touch follow your pointer.', min: 60, max: 150, step: 5, unit: '%' },
+            { type: 'actions', id: 'touchLayout', label: 'Touch layout', touchOnly: true,
+                help: 'Move and resize the thumb pad and the ability button. A smaller pad gives a faster paddle; a larger one, finer control.',
+                buttons: [{ id: 'touchLayout', text: 'Edit layout', run: () => window.PPTouchPad?.openEditor() }] },
             { type: 'keys', label: 'Keys', help: 'Click a key, then press the new one. Esc cancels.', pcOnly: true },
             { type: 'toggle', key: 'padRumble', label: 'Controller vibration', help: 'Gamepads rumble on hits and goals.' },
             { type: 'toggle', key: 'phoneVibrate', label: 'Phone vibration', help: 'Phones buzz when a point is scored.' },
-            { type: 'note', html: '<p><b>Mouse</b><br>Hold and drag on your half of the court.</p><p><b>Touch</b><br>Slide to move. In local 1v1, stay on your half. Use the round ability button; tap with a second finger to fire a laser.</p><p><b>Gamepad</b><br>Left stick moves · A fires · Start pauses.</p>' },
+            { type: 'note', html: '<p><b>Mouse</b><br>Hold and drag on your half of the court.</p><p><b>Touch</b><br>Rest your thumb on the thumb pad and slide: a short slide crosses the whole court. In local 1v1, each player slides on their own half. Use the round ability button; tap with a second finger to fire a laser.</p><p><b>Gamepad</b><br>Left stick moves · A fires · Start pauses.</p>' },
         ],
         display: [
             { type: 'seg', key: 'graphics', label: 'Visual quality', help: 'Trade effects for frame rate.',
@@ -233,7 +236,7 @@
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
     function rowShell(row, control) {
-        return `<div class="ppset-row" data-row="${esc(row.key || row.id || row.type)}">
+        return `<div class="ppset-row${row.touchOnly ? ' pp-touch-only' : ''}" data-row="${esc(row.key || row.id || row.type)}">
             <div class="ppset-text"><div class="ppset-label">${esc(row.label)}</div>${row.help ? `<div class="ppset-help">${esc(row.help)}</div>` : ''}</div>
             <div class="ppset-control">${control}</div>
         </div>`;

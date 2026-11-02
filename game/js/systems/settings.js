@@ -25,6 +25,7 @@
         bindings: DEFAULT_BINDINGS,
         padRumble: true,          // controller vibration
         phoneVibrate: true,       // phone vibration on points
+        touchLayout: null,        // thumb pad + ability button place/size (js/ui/touch-pad.js); null = default
         // Display
         graphics: 'auto',         // visual quality: auto | low | medium | high | ultra
         fxBloom: true,            // WebGL bloom, colour grade and ripples
