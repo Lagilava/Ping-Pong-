@@ -353,3 +353,30 @@ html.pp-mobile body #overlay .card .card-details,
 html.pp-mobile body #overlay .card .card-icon.card-scene { transition: opacity .16s ease; }
 html.pp-mobile body #overlay .card::before,
 html.pp-mobile body #overlay .card::after { transition: opacity .16s ease; }
+
+/* ---------- Settings: room for every tab (Nov 2) ---------- */
+/* On a landscape phone the rail needed a scroll to reach Audio and
+   Accessibility, which looked like those tabs did not exist. Tabs keep their
+   44px touch height; instead the bottom bar moves up beside the title (Done
+   replaces the close X), which hands the page 55px more height. */
+@media (max-height: 500px) and (orientation: landscape) {
+    html body .ppset-box { grid-template: auto minmax(0, 1fr) / 148px minmax(0, 1fr); }
+    html body .ppset-head,
+    html body .ppset-head.has-ui-art { grid-column: 1; grid-row: 1; padding: 8px 12px 8px 16px; border-right: 1px solid rgba(120, 220, 255, 0.12); }
+    html body .ppset-close { display: none; }
+    html body .ppset-foot { grid-column: 2; grid-row: 1; padding: 4px 12px; border-top: 0; border-bottom: 1px solid rgba(120, 220, 255, 0.12); }
+    html body .ppset-tabs { grid-row: 2; gap: 0; padding: 4px 8px; }
+}
+
+/* ---------- Results card on very short landscape screens (Nov 2) ---------- */
+/* Browser bars leave 300px or so; the card scrolled and its buttons sat at the
+   edge. Tighter rows keep Play again in view without a scroll. */
+@media (orientation: landscape) and (max-height: 340px) {
+    html body .ppres-box { padding: 8px 20px 10px; }
+    html body .ppres-box.has-art { padding-top: 40px; }
+    html body .ppres-art { height: 70px; }
+    html body .ppres-title { margin: 2px 0 4px; font-size: 20px; }
+    html body .ppres-lines { margin-bottom: 6px; padding: 4px 10px; font-size: 13px; line-height: 1.3; }
+    html body .ppres-side strong { font-size: 26px; }
+    html body .ppres-btn { min-height: 40px; padding: 8px 12px; }
+}
