@@ -14,6 +14,7 @@
     --mm-ink-2: rgba(190, 228, 255, 0.78);
     --mm-line: rgba(106, 227, 255, 0.2);
 }
+.menu-icon-caption { display: none; }
 
 /* ── Title block ─────────────────────────────────────────────────────── */
 html:not(.pp-mobile) #overlay .hdr {

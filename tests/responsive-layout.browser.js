@@ -51,6 +51,24 @@ const sizes = [
             assert.equal(await page.locator('#menuToggleBtn').count(), 0, `${name} legacy menu toggle`);
             assert.equal(await page.locator('#menuProgressPanel [data-open-panel="settings"]').count(), 0,
                 `${name} duplicate settings icon`);
+            const pass = await page.locator('#menuProgressPanel').boundingBox();
+            assert.ok(pass && pass.x >= 0 && pass.y >= 0 && pass.x + pass.width <= width + 2,
+                `${name} player progress outside screen`);
+            for (const selector of ['[data-open-panel="profile"]', '[data-open-achievements]']) {
+                const button = await page.locator(`#menuProgressPanel ${selector}`).boundingBox();
+                assert.ok(button && button.x >= pass.x && button.y >= pass.y &&
+                    button.x + button.width <= pass.x + pass.width + 1 &&
+                    button.y + button.height <= pass.y + pass.height + 1,
+                `${name} player action outside progress card`);
+                if (mobile) assert.ok(button.width >= 44 && button.height >= 44,
+                    `${name} player action too small`);
+            }
+            await page.locator('#menuProgressPanel [data-open-panel="profile"]').click();
+            await page.locator('#pp-settings').waitFor({ state: 'visible' });
+            await page.evaluate(() => ppCloseOpenPanel());
+            await page.locator('#menuProgressPanel [data-open-achievements]').click();
+            await page.locator('.achievement-sidebar.visible').waitFor();
+            await page.locator('.achievement-sidebar .close-sidebar').click();
             await page.locator('.main-menu-settings').click();
             await page.locator('#pp-settings').waitFor({ state: 'visible' });
             await check('#pp-settings .ppset-box', 'menu-settings');

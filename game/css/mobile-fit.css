@@ -79,15 +79,100 @@ html.pp-mobile :is(button, [role="button"], select, input):focus-visible {
     html.pp-mobile #overlay .pp-install-tip { position: relative; inset: auto; margin: 0 16px 8px; }
 }
 
-/* ---------- Main menu: level/XP chip ---------- */
-/* art-direction.css sets the XP line to 14px, which wrapped "To level 2"
-   under the level number on phones. */
-html.pp-mobile #overlay .menu-progress-meter { flex: 1; min-width: 0; }
-html.pp-mobile #overlay .menu-progress-meta { font-size: 11px; gap: 8px; white-space: nowrap; }
-html.pp-mobile #overlay .menu-progress-meta span:first-child { overflow: hidden; text-overflow: ellipsis; }
-html.pp-mobile #overlay .menu-progress-level { flex: 0 0 auto; }
-@media (orientation: landscape) {
-    html.pp-mobile .menu-right-panel { width: 236px; }
+/* A compact player pass: level, XP and two named actions share one row.
+   Static gradients keep the treatment cheap on phone GPUs. */
+html.pp-mobile #overlay .menu-right-panel { width: 280px; }
+html.pp-mobile #overlay .menu-progress-panel {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) 116px;
+    grid-template-rows: 50px 6px;
+    align-items: center;
+    gap: 9px 8px;
+    padding: 10px;
+    border: 1px solid rgba(107, 225, 250, .42);
+    border-radius: 17px;
+    background: linear-gradient(135deg, #112b41 0%, #0a1b30 48%, #0b1427 100%);
+    box-shadow: inset 0 1px 0 rgba(193, 253, 255, .3), 0 7px 22px rgba(0, 0, 0, .4);
+}
+html.pp-mobile #overlay .menu-progress-panel::before {
+    background: radial-gradient(circle at 14% 0, rgba(64, 226, 255, .16), transparent 54%);
+    opacity: 1;
+}
+html.pp-mobile #overlay :is(.menu-progress-head, .menu-progress-row, .menu-progress-meter) { display: contents; }
+html.pp-mobile #overlay .menu-progress-label { display: none; }
+html.pp-mobile #overlay .menu-progress-level {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    width: 56px;
+    height: 50px;
+    border: 1px solid rgba(112, 239, 255, .56);
+    border-radius: 12px;
+    background: linear-gradient(155deg, #205573, #0d3048 60%, #10263b);
+    box-shadow: inset 0 1px 0 rgba(204, 255, 255, .25);
+}
+html.pp-mobile #overlay .menu-progress-kicker { color: #b6eefa; font-size: 9px; line-height: 1.1; letter-spacing: .1em; }
+html.pp-mobile #overlay .menu-progress-value { color: #fff; font-size: 23px; line-height: 1.05; letter-spacing: 0; text-shadow: 0 0 12px rgba(77, 228, 255, .45); }
+html.pp-mobile #overlay .menu-progress-meta {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    white-space: nowrap;
+    line-height: 1.1;
+}
+html.pp-mobile #overlay .menu-progress-meta span:first-child { max-width: 100%; overflow: hidden; color: #bad3e1; font-size: 10px; letter-spacing: .03em; text-overflow: ellipsis; }
+html.pp-mobile #overlay .menu-progress-meta span:last-child { max-width: 100%; overflow: hidden; color: #f1fdff; font: 700 12px/1.1 'Share Tech Mono', monospace; letter-spacing: 0; text-overflow: ellipsis; }
+html.pp-mobile #overlay .menu-progress-bar-shell {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    height: 6px;
+    border: 0;
+    background: #203c50;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, .45);
+}
+html.pp-mobile #overlay .menu-icon-btns { grid-column: 3; grid-row: 1; display: flex; gap: 4px; }
+html.pp-mobile #overlay .menu-icon-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 56px;
+    height: 50px;
+    padding: 3px;
+    border-color: rgba(99, 214, 237, .4);
+    border-radius: 11px;
+    background: linear-gradient(155deg, #1b4055, #10283e);
+    color: #dcfaff;
+}
+html.pp-mobile #overlay .menu-icon-btn[data-open-achievements] { border-color: rgba(245, 203, 106, .48); background: linear-gradient(155deg, #493d30, #2c2930); color: #ffe5a6; }
+html.pp-mobile #overlay .menu-icon-btn svg { width: 18px; height: 18px; flex: none; }
+html.pp-mobile #overlay .menu-icon-caption { display: block; font: 700 10px/1 'Share Tech Mono', monospace; letter-spacing: 0; text-transform: uppercase; }
+html.pp-mobile #overlay .menu-icon-btn:active { filter: brightness(1.2); }
+@media (orientation: portrait) and (max-width: 620px) {
+    html.pp-mobile #overlay .menu-right-panel {
+        left: max(12px, env(safe-area-inset-left));
+        right: max(12px, env(safe-area-inset-right));
+        width: auto;
+    }
+}
+@media (min-width: 700px) {
+    html.pp-mobile #overlay .menu-right-panel { width: 320px; }
+}
+@media (min-width: 621px) and (orientation: portrait) {
+    html.pp-mobile #overlay .menu-right-panel {
+        left: auto;
+        right: max(16px, env(safe-area-inset-right));
+    }
 }
 
 /* Tablets: the phone card strip is sized for a 390px screen and left most
