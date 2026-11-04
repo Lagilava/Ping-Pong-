@@ -280,24 +280,6 @@ body.pp-controls-tutorial-open #cyber-menu-btn { visibility: hidden; }
     html.pp-mobile #modal .opts .opt-sub { letter-spacing: .08em; }
 }
 
-/* Mode tutorial on a landscape phone: the header took most of the height and
-   left two lines for the guide. */
-@media (max-height: 500px) {
-    .mode-tutorial-card { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); }
-    .mode-tutorial-head { padding-block: 10px !important; gap: 12px !important; }
-    .mode-tutorial-visual,
-    .mode-tutorial-fact,
-    .mode-tutorial-head p { display: none !important; }
-    .mode-tutorial-heading h2 { font-size: 1.3rem !important; margin: 2px 0 0 !important; }
-    .mode-tutorial-eyebrow { font-size: .58rem !important; }
-    .mode-tutorial-foot { padding-block: 8px !important; }
-    .mode-tutorial-goal { padding: 10px 14px !important; }
-    .mode-tutorial-goal p { font-size: .85rem !important; line-height: 1.35 !important; margin-top: 4px !important; }
-    .mode-tutorial-step h3 { font-size: .85rem !important; }
-    .mode-tutorial-step p { font-size: .75rem !important; line-height: 1.35 !important; }
-    .mode-tutorial-foot button { min-height: 40px; padding-block: 8px !important; }
-}
-
 /* Mode rules cards (Zombie, Obstacle) on a landscape phone: two columns of
    rules so the start button is on screen without scrolling. */
 @media (max-height: 500px) {

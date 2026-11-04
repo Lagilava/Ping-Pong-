@@ -365,7 +365,7 @@ html body .pause-card:has(> .pause-confirm:not([hidden])) > .pause-actions { dis
 }
 
 /* ---------- Zombie wave readout ---------- */
-/* Phones and tablets show it top right in the scoreboard line; see
+/* Phones and tablets show it below the lives card; see
    css/zombie-hud.css (html.pp-mobile body.zombie-mode .zombie-progress-overlay). */
 
 /* ---------- Instant replay ---------- */
@@ -570,7 +570,7 @@ html.pp-mobile body.pp-in-match #pp-enhanced-hud {
         max(12px, env(safe-area-inset-left));
     align-items: flex-start;
     gap: 58px;
-    background: linear-gradient(180deg, rgba(2, 8, 20, .74), rgba(2, 8, 20, 0));
+    background: none;
     border: 0;
 }
 html.pp-mobile body.pp-in-match #pp-enhanced-hud .pp-score-wrap {
@@ -586,10 +586,10 @@ html.pp-mobile body.pp-in-match #pp-enhanced-hud .pp-score-wrap {
     height: 52px;
     padding: 6px 11px 6px 15px;
     overflow: hidden;
-    border: 1px solid rgba(137, 213, 233, .26);
+    border: 1px solid rgba(137, 213, 233, .48);
     border-radius: 13px;
-    background: linear-gradient(145deg, rgba(16, 35, 53, .96), rgba(5, 15, 29, .96));
-    box-shadow: inset 0 1px 0 rgba(225, 250, 255, .15), 0 5px 16px rgba(0, 0, 0, .28);
+    background: rgba(5, 18, 32, .32);
+    box-shadow: inset 0 1px 0 rgba(225, 250, 255, .12), 0 2px 8px rgba(0, 0, 0, .2);
 }
 html.pp-mobile body.pp-in-match #pp-enhanced-hud .ai-side { --score-ink: #ff9cbd; }
 html.pp-mobile body.pp-in-match #pp-enhanced-hud .pp-score-wrap::before {
@@ -617,7 +617,7 @@ html.pp-mobile body.pp-in-match #pp-enhanced-hud .pp-score-display {
     font: 800 clamp(25px, 4vw, 34px)/1 system-ui, sans-serif;
     font-variant-numeric: tabular-nums;
     letter-spacing: -.04em;
-    text-shadow: none;
+    text-shadow: 0 1px 3px #03101b, 0 0 8px #03101b;
 }
 html.pp-mobile body.pp-in-match #pp-enhanced-hud .pp-score-divider { display: none; }
 html.pp-mobile body.pp-in-match #cyber-menu-btn {
@@ -629,9 +629,9 @@ html.pp-mobile body.pp-in-match #cyber-menu-btn {
     justify-content: center;
     border: 1px solid rgba(128, 229, 230, .45);
     border-radius: 13px;
-    background: linear-gradient(155deg, #194554, #0a2535);
+    background: rgba(5, 22, 35, .32);
     color: #d5fbf9;
-    box-shadow: inset 0 1px 0 rgba(225, 255, 255, .28), 0 5px 16px rgba(0, 0, 0, .3);
+    box-shadow: inset 0 1px 0 rgba(225, 255, 255, .15), 0 2px 8px rgba(0, 0, 0, .2);
 }
 html.pp-mobile body.pp-in-match #cyber-menu-btn svg { width: 20px; height: 20px; }
 html.pp-mobile body.pp-in-match #cyber-menu-btn .menu-label { display: none; }
@@ -646,11 +646,11 @@ html.pp-mobile body.pp-in-match.zombie-mode #pp-enhanced-hud {
 html.pp-mobile body.pp-in-match.zombie-mode #pp-enhanced-hud .player-side { --score-ink: #b6d2bc; }
 html.pp-mobile body.pp-in-match.zombie-mode #pp-enhanced-hud .ai-side { --score-ink: #e0aa98; }
 html.pp-mobile body.pp-in-match.zombie-mode #pp-enhanced-hud .pp-score-wrap {
-    background: linear-gradient(145deg, #1c3439, #0b1b25);
+    background: rgba(8, 24, 29, .32);
     border-color: #91a19a66;
 }
-html.pp-mobile body.pp-in-match.zombie-mode #pp-enhanced-hud :is(.pp-score-label, .pp-score-display) { text-shadow: none; }
-html.pp-mobile body.pp-in-match.zombie-mode #cyber-menu-btn { background: linear-gradient(145deg, #263f42, #10222b); }
+html.pp-mobile body.pp-in-match.zombie-mode #pp-enhanced-hud :is(.pp-score-label, .pp-score-display) { text-shadow: 0 1px 3px #041015, 0 0 8px #041015; }
+html.pp-mobile body.pp-in-match.zombie-mode #cyber-menu-btn { background: rgba(8, 24, 29, .32); }
 
 @media (orientation: landscape) and (max-height: 340px) {
     html.pp-mobile body.pp-in-match #pp-enhanced-hud { height: calc(57px + env(safe-area-inset-top)); padding-top: calc(5px + env(safe-area-inset-top)); gap: 48px; }

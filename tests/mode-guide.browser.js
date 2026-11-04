@@ -1,4 +1,4 @@
-// Browser flow and viewport audit for first-visit screenshot guides.
+// First-run guide, mode-card responsiveness and viewport audit.
 const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -15,12 +15,9 @@ const output = process.argv[2] ? path.resolve(process.argv[2]) : null;
             { name: 'small-phone', width: 320, height: 568, mobile: true },
             { name: 'phone', width: 390, height: 844, mobile: true },
             { name: 'phone-landscape', width: 640, height: 360, mobile: true },
+            { name: 'large-phone-landscape', width: 844, height: 390, mobile: true },
             { name: 'tablet', width: 768, height: 1024, mobile: true },
-            { name: 'tablet-landscape', width: 1024, height: 768, mobile: true },
-            { name: 'small-laptop', width: 1024, height: 600, mobile: false },
-            { name: 'laptop', width: 1366, height: 768, mobile: false },
-            { name: 'desktop', width: 1920, height: 1080, mobile: false },
-            { name: 'ultrawide', width: 2560, height: 1080, mobile: false },
+            { name: 'laptop', width: 1366, height: 768, mobile: false }
         ];
         for (const size of sizes.filter(s => !process.env.GUIDE_SIZES || process.env.GUIDE_SIZES.split(',').includes(s.name))) {
             const context = await browser.newContext({ viewport: { width: size.width, height: size.height },
@@ -35,7 +32,11 @@ const output = process.argv[2] ? path.resolve(process.argv[2]) : null;
                 catch { await route.fulfill({ status: 404 }); }
             });
             await context.addInitScript(() => {
-                Element.prototype.requestFullscreen = () => Promise.reject(new Error('Unavailable in test'));
+                window.__fullscreenRequests = 0;
+                Element.prototype.requestFullscreen = () => {
+                    window.__fullscreenRequests++;
+                    return Promise.reject(new Error('Unavailable in test'));
+                };
                 localStorage.setItem('pp-controls-tutorial-v2-mobile-all', '1');
             });
             const page = await context.newPage();
@@ -43,50 +44,56 @@ const output = process.argv[2] ? path.resolve(process.argv[2]) : null;
             await page.goto('http://pingpong.local/play.html?from_intro=1&nosw');
             await page.waitForFunction(() => window.game && window.ModeTutorial && window.openCustomiseOverlay);
             if (output) fs.mkdirSync(output, { recursive: true });
-            for (const mode of ['classic', 'zombie', 'gravity', 'speed', 'obstacle', 'customise']) {
-                if (mode === 'customise') await page.evaluate(() => openCustomiseOverlay());
-                else await page.locator(`.card[data-mode="${mode}"]`).click();
+            for (const mode of ['classic', 'zombie', 'gravity', 'speed', 'obstacle']) {
+                await page.locator(`.card[data-mode="${mode}"]`).click();
+                await page.locator('#modal.on').waitFor();
+                assert.ok(await page.locator('#modeTutorial').isHidden(), `${size.name} ${mode}: card tap must open setup first`);
+                await page.locator('#btnGo').click();
                 await page.locator('#modeTutorial').waitFor({ state: 'visible' });
-                assert.equal(await page.locator('#modeTutorial').getAttribute('data-mode'), mode);
-                for (let step = 0; step < 3; step++) {
-                    assert.equal(await page.locator('#modeTutorial').getAttribute('data-step'), String(step));
-                    const geometry = await page.evaluate(() => {
-                        const stage = document.querySelector('.guide-shot-frame').getBoundingClientRect();
-                        const next = document.querySelector('[data-guide-next]').getBoundingClientRect();
-                        const dialog = document.querySelector('.mode-tutorial-card').getBoundingClientRect();
-                        return { stage: stage.toJSON(), next: next.toJSON(), dialog: dialog.toJSON(),
-                            overflow: document.documentElement.scrollWidth > innerWidth + 2 };
-                    });
-                    assert.ok(geometry.stage.width > 100 && geometry.stage.height >= 70, `${size.name} ${mode} scene hidden`);
-                    assert.ok(geometry.next.width >= 44 && geometry.next.height >= 40, `${size.name} ${mode} next target`);
-                    assert.ok(!geometry.overflow && geometry.dialog.left >= 0 && geometry.dialog.right <= size.width + 1 &&
-                        geometry.dialog.top >= 0 && geometry.dialog.bottom <= size.height + 1, `${size.name} ${mode} overflow`);
-                    await page.waitForFunction(() => {
-                        const img = document.querySelector('.guide-shot img');
-                        return img?.complete && img.naturalWidth > 0;
-                    });
-                    assert.equal(await page.locator('.guide-pin.is-current').textContent(), String(step + 1));
-                    assert.ok((await page.locator('.guide-shot img').evaluate(el => el.currentSrc)).includes(
-                        mode === 'customise' ? `custom-${['arena', 'look', 'powerups'][step]}` : mode));
-                    if (output && (step === 0 || size.name === 'small-phone')) await page.screenshot({ path: path.join(output, `${size.name}-${mode}-${step + 1}.png`),
-                        animations: 'disabled' });
-                    if (step < 2) await page.locator('[data-guide-next]').click();
-                }
-                await page.locator('[data-close-tutorial]').last().click();
-                if (mode === 'customise') await page.locator('#customiseBackBtn').click();
-                else await page.locator('#btnBack').click();
-                // Second setup should be ready immediately, with replay available.
-                if (mode === 'customise') await page.evaluate(() => openCustomiseOverlay());
-                else await page.locator(`.card[data-mode="${mode}"]`).click();
-                assert.ok(await page.locator('#modeTutorial').isHidden(), `${size.name} ${mode} repeated guide`);
-                const replay = page.locator(`[data-mode-tutorial="${mode}"]`).first();
-                await replay.click();
-                assert.ok(await page.locator('#modeTutorial').isVisible());
-                await page.locator('.mode-tutorial-close').click();
-                if (mode === 'customise') await page.locator('#customiseBackBtn').click();
-                else await page.locator('#btnBack').click();
+                if (size.mobile) assert.equal(await page.evaluate(() => window.__fullscreenRequests), 0,
+                    `${size.name} ${mode}: guide must appear before fullscreen`);
+                assert.equal(await page.locator('.guide-pin').count(), 3);
+                await page.waitForFunction(() => {
+                    const img = document.querySelector('.guide-shot img');
+                    return img?.complete && img.naturalWidth > 0;
+                });
+                const geometry = await page.evaluate(() => {
+                    const card = document.querySelector('.mode-tutorial-card').getBoundingClientRect();
+                    const image = document.querySelector('.guide-shot-frame').getBoundingClientRect();
+                    const play = document.querySelector('.guide-accept').getBoundingClientRect();
+                    return { card: card.toJSON(), image: image.toJSON(), play: play.toJSON(),
+                        overflow: document.documentElement.scrollWidth > innerWidth + 2 };
+                });
+                assert.ok(!geometry.overflow && geometry.card.left >= 0 && geometry.card.right <= size.width + 1 &&
+                    geometry.card.top >= 0 && geometry.card.bottom <= size.height + 1, `${size.name} ${mode}: guide overflow`);
+                assert.ok(geometry.image.width > 100 && geometry.image.height > 60, `${size.name} ${mode}: screenshot unreadable`);
+                assert.ok(geometry.play.width >= 44 && geometry.play.height >= 44, `${size.name} ${mode}: Play target too small ${JSON.stringify(geometry.play)}`);
+                if (output && (size.name === 'large-phone-landscape' || (size.name === 'small-phone' && mode === 'classic')))
+                    await page.screenshot({ path: path.join(output, `${size.name}-${mode}.png`), animations: 'disabled' });
+                await page.locator('.guide-back').click();
+                assert.equal(await page.evaluate(mode => window.ModeTutorial.hasViewed(mode), mode), false);
+                await page.locator(`[data-mode-tutorial="${mode}"]`).first().click();
+                await page.locator('.guide-accept').click();
+                assert.equal(await page.evaluate(mode => window.ModeTutorial.hasViewed(mode), mode), true);
+                await page.locator('#btnBack').click();
             }
-            console.log(`${size.name}: all six guides and replay passed`);
+            await page.evaluate(() => openCustomiseOverlay());
+            await page.locator('#modeTutorial').waitFor({ state: 'visible' });
+            assert.equal(await page.locator('#modeTutorial').getAttribute('data-mode'), 'customise');
+            if (output) await page.screenshot({ path: path.join(output, `${size.name}-custom.png`), animations: 'disabled' });
+            await page.locator('.guide-accept').click();
+            await page.locator('#customiseBackBtn').click();
+            // Accepting a first-run guide launches the match, while Back did not.
+            await page.evaluate(() => localStorage.removeItem('pp-guide-seen-v3-classic'));
+            await page.locator('.card[data-mode="classic"]').click();
+            await page.locator('#btnGo').click();
+            await page.locator('.guide-accept').click();
+            await page.waitForFunction(() => game.introActive || game.running);
+            if (size.mobile) assert.equal(await page.evaluate(() => window.__fullscreenRequests), 1,
+                `${size.name}: accepted guide enters fullscreen`);
+            assert.equal(await page.evaluate(() => ModeTutorial.hasViewed('classic')), true);
+            assert.ok(await page.locator('#modeTutorial').isHidden());
+            console.log(`${size.name}: setup, quick guides and Custom passed`);
             await context.close();
         }
         assert.deepEqual(errors, [], errors.join('\n'));

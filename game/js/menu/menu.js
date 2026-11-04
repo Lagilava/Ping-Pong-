@@ -781,7 +781,6 @@
             m.classList.add('on');
             const sel = m.querySelector('.opt.sel:not([hidden])') || m.querySelector('.opt:not([hidden])');
             sel?.focus({ preventScroll: true });
-            window.ModeTutorial?.firstTime?.(menuSelected, m.querySelector('[data-mode-tutorial]'));
         });
     }
 
@@ -1909,19 +1908,26 @@
             document.getElementById('btnBack')?.addEventListener('click', closeMenuModal, false);
             document.getElementById('btnGo')?.addEventListener('click', () => {
                 if (window.game && menuSelected) {
-                    closeMenuModal();
-                    const overlay = document.getElementById('overlay');
-                    if (overlay) { overlay.classList.remove('visible'); overlay.classList.add('hidden'); }
-                    document.body.classList.remove('has-overlay');
-                    rememberLastMode(menuSelected);
-                    if (menuSelected === 'customise') {
-                        window.game.setGameMode?.('customise');
-                    } else {
-                        window.game.isMultiplayer = menuIsMP;
-                        window.game.setGameMode?.(menuSelected);
-                    }
-                    if (typeof window.game.startIntro === 'function') window.game.startIntro();
-                    if (typeof window.game.startMatchMusic === 'function') window.game.startMatchMusic();
+                    const chosenMode = menuSelected;
+                    const chosenMultiplayer = menuIsMP;
+                    const start = () => {
+                        window.ppEnterMobilePlay?.();
+                        closeMenuModal();
+                        const overlay = document.getElementById('overlay');
+                        if (overlay) { overlay.classList.remove('visible'); overlay.classList.add('hidden'); }
+                        document.body.classList.remove('has-overlay');
+                        rememberLastMode(chosenMode);
+                        if (chosenMode === 'customise') {
+                            window.game.setGameMode?.('customise');
+                        } else {
+                            window.game.isMultiplayer = chosenMultiplayer;
+                            window.game.setGameMode?.(chosenMode);
+                        }
+                        if (typeof window.game.startIntro === 'function') window.game.startIntro();
+                        if (typeof window.game.startMatchMusic === 'function') window.game.startMatchMusic();
+                    };
+                    if (window.ModeTutorial?.beforeStart) window.ModeTutorial.beforeStart(chosenMode, start, document.getElementById('btnGo'));
+                    else start();
                 }
             }, false);
 
@@ -2278,7 +2284,9 @@
             }
 
             startCustomBallPreview();
-            window.ModeTutorial?.firstTime?.('customise', document.querySelector('#customiseOverlay [data-mode-tutorial]'));
+            // Let the workshop paint before its first-use guide loads an image.
+            requestAnimationFrame(() => setTimeout(() => window.ModeTutorial?.firstTime?.(
+                'customise', document.querySelector('#customiseOverlay [data-mode-tutorial]')), 0));
 
             if (openBallStudioBtn && openBallStudioBtn.dataset.ppBallStudioBound !== '1') {
                 openBallStudioBtn.addEventListener('click', () => {

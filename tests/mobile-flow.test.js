@@ -20,8 +20,10 @@ vm.runInContext(read('game/js/app/bootstrap.js').split('(function init()')[0], c
 assert.equal(listeners.pointerup, undefined, 'ordinary taps must not force immersive mode');
 listeners.click({ target: { closest: () => null } });
 assert.equal(requests, 0, 'browsing leaves fullscreen alone');
-listeners.click({ target: { closest: () => ({ id: 'btnGo' }) } });
-assert.equal(requests, 1, 'starting a match still requests fullscreen');
+listeners.click({ target: { closest: selector => selector.includes('#btnGo') ? ({ id: 'btnGo' }) : null } });
+assert.equal(requests, 0, 'the first Start tap leaves room for the guide');
+listeners.click({ target: { closest: selector => selector.includes('#customStartMatchBtn') ? ({ id: 'customStartMatchBtn' }) : null } });
+assert.equal(requests, 1, 'Custom match launch requests fullscreen');
 
 // Exercise the actual frame gate before its expensive animation/render body.
 // Test high refresh rates and small timestamp jitter, which can accidentally

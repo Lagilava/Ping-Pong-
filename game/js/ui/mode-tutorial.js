@@ -72,12 +72,21 @@
         .replace(/\bHold Space\b/g, 'Hold the Pull button')
         .replace(/\bPress Space\b/g, `Tap ${mode === 'gravity' ? 'Wormhole' : mode === 'speed' ? 'Overcharge' : 'Lucky Dice'}`);
 
+    const quickGoals = {
+        classic: 'Send the ball past the other paddle to score.',
+        zombie: 'Survive ten waves and defeat the final boss.',
+        gravity: 'Curve shots around black holes and score.',
+        speed: 'Keep up with the ball and time Overcharge.',
+        obstacle: 'Navigate hazards and score past your opponent.',
+        customise: 'Choose your court and rules, then start a match.'
+    };
+
     // Positions refer to the actual captured screens (touch 844x390, PC
     // 1366x768). The marker stays attached to the image as it scales.
     const targets = {
         classic: [
             ['Thumb pad and paddle', [95, 75], [3, 50], 'Slide the right thumb pad to move your cyan paddle at the left.', 'Use W/S or drag on your half to move your cyan paddle.'],
-            ['Ball contact', [50, 50], [50, 50], 'Meet the ball near a paddle edge to angle it.', 'Meet the ball near a paddle edge to angle it.'],
+            ['Your paddle', [4, 50], [3, 50], 'Meet the ball near a paddle edge to angle it.', 'Meet the ball near a paddle edge to angle it.'],
             ['Score', [16, 8], [12, 5], 'Send the ball past the other paddle.', 'Send the ball past the other paddle.']
         ],
         zombie: [
@@ -106,50 +115,32 @@
             ['Start or play online', [12, 82], [74, 96], 'Select power-ups, then start locally or play online.', 'Select power-ups, then start locally or play online.']
         ]
     };
-    const shot = (mode, step, kind) => `assets/images/tutorial/${mode === 'customise' ? 'custom-' + ['arena', 'look', 'powerups'][step] : mode}-${kind}.jpg`;
-
-    let dialog;
-    let returnFocus;
-    let currentMode;
-    let currentStep = 0;
-    const seenKey = mode => `pp-guide-seen-v2-${mode}`;
+    // One annotated screenshot gets players started. Detailed rules are optional.
+    const shot = (mode, kind) => `assets/images/tutorial/${mode === 'customise' ? 'custom-arena' : mode}-${kind}.jpg`;
+    const seenKey = mode => `pp-guide-seen-v3-${mode}`;
     const hasViewed = mode => { try { return localStorage.getItem(seenKey(mode)) === '1'; } catch (_) { return false; } };
-    function firstTime(mode, trigger) {
-        if (!guides[mode]) return;
-        if (hasViewed(mode)) return;
-        open(mode, trigger);
-    }
-    function setStep(step) {
-        currentStep = Math.max(0, Math.min(2, step));
-        dialog.dataset.step = String(currentStep);
-        dialog.querySelectorAll('.mode-tutorial-step').forEach((el, i) => {
-            el.classList.toggle('is-current', i === currentStep);
-            el.setAttribute('aria-current', i === currentStep ? 'step' : 'false');
-        });
-        dialog.querySelector('.guide-demo-title').textContent = guides[currentMode].steps[currentStep][0];
-        dialog.querySelector('.guide-demo-count').textContent = `${currentStep + 1} / 3`;
-        dialog.querySelector('[data-guide-prev]').disabled = currentStep === 0;
-        dialog.querySelector('[data-guide-next]').textContent = currentStep === 2 ? 'Replay' : 'Next';
-        const source = dialog.querySelector('.guide-shot source');
-        const img = dialog.querySelector('.guide-shot img');
-        source.srcset = shot(currentMode, currentStep, 'touch');
-        img.src = shot(currentMode, currentStep, 'desktop');
-        img.alt = `${guides[currentMode].name} ${currentMode === 'customise' ? 'setup' : 'match'} screenshot showing ${targets[currentMode][currentStep][0]}`;
-        dialog.querySelector('.guide-callout-title').textContent = currentMode === 'classic' && currentStep === 0
-            ? (window.PPDevice?.touch ? 'Thumb pad' : 'Your paddle') : targets[currentMode][currentStep][0];
-        dialog.querySelector('.guide-callout-copy').textContent = window.PPDevice?.touch
-            ? targets[currentMode][currentStep][3] : targets[currentMode][currentStep][4];
-        dialog.querySelectorAll('.guide-pin').forEach((el, i) => el.classList.toggle('is-current', i === currentStep));
-        dialog.querySelector('.mode-tutorial-content').scrollTop = 0;
-    }
-    function close() {
+    let dialog, returnFocus, currentMode, pendingStart;
+
+    function close(accepted = false) {
         if (!dialog || dialog.hidden) return;
         dialog.hidden = true;
-        try { localStorage.setItem(seenKey(currentMode), '1'); } catch (_) { }
-        returnFocus?.focus();
+        if (accepted) { try { localStorage.setItem(seenKey(currentMode), '1'); } catch (_) { } }
+        const start = accepted ? pendingStart : null;
+        pendingStart = null;
+        if (start) start();
+        else returnFocus?.focus({ preventScroll: true });
     }
 
-    function open(mode, trigger) {
+    function firstTime(mode, trigger) {
+        if (guides[mode] && !hasViewed(mode)) open(mode, trigger);
+    }
+
+    function beforeStart(mode, start, trigger) {
+        if (!guides[mode] || hasViewed(mode)) { start(); return; }
+        open(mode, trigger, start);
+    }
+
+    function open(mode, trigger, start = null) {
         const guide = guides[mode];
         if (!guide) return;
         if (!dialog) {
@@ -160,71 +151,71 @@
             dialog.setAttribute('aria-modal', 'true');
             dialog.setAttribute('aria-labelledby', 'modeTutorialTitle');
             document.body.appendChild(dialog);
-            dialog.addEventListener('click', (event) => {
+            dialog.addEventListener('click', event => {
                 if (event.target === dialog || event.target.closest('[data-close-tutorial]')) close();
-                if (event.target.closest('[data-guide-prev]')) setStep(currentStep - 1);
-                if (event.target.closest('[data-guide-next]')) setStep(currentStep === 2 ? 0 : currentStep + 1);
-                const selected = event.target.closest('[data-guide-step]');
-                if (selected) setStep(Number(selected.dataset.guideStep));
+                if (event.target.closest('[data-guide-accept]')) close(true);
             });
         }
         currentMode = mode;
+        pendingStart = start;
         returnFocus = trigger || document.activeElement;
-        // Phones and tablets get the touch controls (PPDevice, js/core/boot.js).
         const touch = !!window.PPDevice?.touch;
-        const ability = window.PPDeviceControls?.abilities?.[mode] || null;
+        const points = targets[mode];
+        const backLabel = document.getElementById('pauseMenu')?.classList.contains('open')
+            ? 'Back to pause' : mode === 'customise' ? 'Back to Custom' : 'Back to setup';
         dialog.style.setProperty('--tutorial-accent', guide.color);
         dialog.dataset.mode = mode;
         dialog.innerHTML = `
             <article class="mode-tutorial-card">
                 <header class="mode-tutorial-head">
-                    <div class="mode-tutorial-heading"><span class="mode-tutorial-eyebrow">FIELD GUIDE / ${guide.number}</span>
-                        <h2 id="modeTutorialTitle">${guide.name} <span>tutorial</span></h2>
-                        <p>${guide.tagline}</p><span class="mode-tutorial-fact">${guide.fact}</span></div>
-                    <button type="button" class="mode-tutorial-close" data-close-tutorial aria-label="Close tutorial">&times;</button>
-                </header>
-                <div class="mode-tutorial-content" role="region" aria-label="Tutorial details" tabindex="0">
-                    <div class="guide-demo">
-                        <div class="guide-shot-frame">
-                            <picture class="guide-shot"><source media="(pointer: coarse)" srcset="${shot(mode, 0, 'touch')}"><img src="${shot(mode, 0, 'desktop')}" alt="${guide.name} screenshot" width="1366" height="768"></picture>
-                            ${targets[mode].map(([label, touchAt, pcAt], i) => `<span class="guide-pin${i === 0 ? ' is-current' : ''}" style="--touch-x:${touchAt[0]}%;--touch-y:${touchAt[1]}%;--pc-x:${pcAt[0]}%;--pc-y:${pcAt[1]}%" aria-hidden="true">${i + 1}</span>`).join('')}
-                        </div>
-                        <div class="guide-callout"><span class="guide-callout-number">LOOK HERE</span><strong class="guide-callout-title"></strong><span class="guide-callout-copy"></span></div>
+                    <div class="mode-tutorial-heading">
+                        <span class="mode-tutorial-eyebrow">${start ? 'BEFORE YOU PLAY' : 'QUICK GUIDE'} / ${guide.number}</span>
+                        <h2 id="modeTutorialTitle">${guide.name}</h2>
+                        <p>${guide.tagline}</p>
                     </div>
-                    <section class="mode-tutorial-goal"><span class="mode-tutorial-label">Your objective</span><p>${guide.goal}</p></section>
-                    <div class="mode-tutorial-section-title"><span class="mode-tutorial-label">How to play</span><span>01 — 03</span></div>
-                    <section class="mode-tutorial-steps" aria-label="How to play">
-                        ${guide.steps.map(([title, description], index) => `<button type="button" class="mode-tutorial-step" data-guide-step="${index}"><span class="mode-tutorial-step-number">0${index + 1}</span><span><strong>${title}</strong><span>${touch ? touchText(description, mode) : description}</span></span></button>`).join('')}
-                    </section>
-                    <aside class="mode-tutorial-tip"><span class="mode-tutorial-label">Pro tip</span><p>${touch && guide.touchTip ? guide.touchTip : guide.tip}</p></aside>
-                    ${touch ? `<div class="mode-tutorial-controls"><span class="mode-tutorial-label">Touch controls</span><span>Right thumb: slide up and down on the right side to move</span>${ability ? `<span class="mode-tutorial-action">Left thumb: ${ability.hold ? 'hold' : 'tap'} the ${ability.name} button (bottom left)</span>` : '<span>No ability button in this mode</span>'}<span>Local 1v1: each player slides on their own half</span></div>
-                    <p class="mode-tutorial-rebind">Tap MENU at the top to pause.</p>`
-                    : `<div class="mode-tutorial-controls"><span class="mode-tutorial-label">Quick controls</span><span><kbd>W</kbd> <kbd>S</kbd> Player 1</span><span><kbd>↑</kbd> <kbd>↓</kbd> Player 2</span><span>Mouse: hold and drag on your half</span>${guide.action ? `<span class="mode-tutorial-action">${guide.action}</span>` : ''}</div>
-                    <p class="mode-tutorial-rebind">Keys can be changed in Settings → Controls.</p>`}
+                    <button type="button" class="mode-tutorial-close" data-close-tutorial aria-label="${backLabel}">&times;</button>
+                </header>
+                <div class="mode-tutorial-content">
+                    <div class="guide-shot-frame">
+                        <picture class="guide-shot">
+                            <source media="(pointer: coarse)" srcset="${shot(mode, 'touch')}">
+                            <img src="${shot(mode, 'desktop')}" alt="${guide.name} screen with three numbered areas explained beside it" width="1366" height="768">
+                        </picture>
+                        ${points.map(([label, touchAt, pcAt], i) => `<span class="guide-pin" style="--touch-x:${touchAt[0]}%;--touch-y:${touchAt[1]}%;--pc-x:${pcAt[0]}%;--pc-y:${pcAt[1]}%" aria-hidden="true">${i + 1}</span>`).join('')}
+                    </div>
+                    <div class="guide-instructions">
+                        <p class="guide-objective">${quickGoals[mode]}</p>
+                        <ol>${points.map(([label, , , touchCopy, pcCopy], i) => `<li><b>${i + 1}</b><span><strong>${label}</strong>${touch ? touchCopy : pcCopy}</span></li>`).join('')}</ol>
+                        <details class="guide-more">
+                            <summary>More tips and rules</summary>
+                            <p>${guide.goal}</p>
+                            <ul>${guide.steps.map(([title, description]) => `<li><strong>${title}:</strong> ${touch ? touchText(description, mode) : description}</li>`).join('')}</ul>
+                            <p>${touch && guide.touchTip ? guide.touchTip : guide.tip}</p>
+                        </details>
+                    </div>
                 </div>
-                <footer class="mode-tutorial-foot"><button type="button" data-close-tutorial>Back to setup</button><span class="guide-demo-count">1 / 3</span><strong class="guide-demo-title"></strong><div class="guide-demo-buttons"><button type="button" data-guide-prev aria-label="Previous guide step">Back</button><button type="button" data-guide-next>Next</button></div></footer>
+                <footer class="mode-tutorial-foot">
+                    <button type="button" class="guide-back" data-close-tutorial>${backLabel}</button>
+                    <button type="button" class="guide-accept" data-guide-accept>${start ? 'Got it — play now' : 'Got it'}</button>
+                </footer>
             </article>`;
         dialog.hidden = false;
-        setStep(0);
-        if (document.getElementById('pauseMenu')?.classList.contains('open')) {
-            dialog.querySelector('[data-close-tutorial]:not(.mode-tutorial-close)').textContent = 'Back to pause';
-        }
-        dialog.querySelector('.mode-tutorial-close').focus();
+        dialog.querySelector('.guide-accept').focus({ preventScroll: true });
     }
 
-    window.ModeTutorial = { open, close, firstTime, hasViewed };
+    window.ModeTutorial = { open, close, firstTime, beforeStart, hasViewed };
 
-    document.addEventListener('click', (event) => {
+    document.addEventListener('click', event => {
         const trigger = event.target.closest?.('[data-mode-tutorial]');
         if (!trigger) return;
         event.preventDefault();
         open(trigger.dataset.modeTutorial, trigger);
     });
-    document.addEventListener('keydown', (event) => {
+    document.addEventListener('keydown', event => {
         if (!dialog || dialog.hidden) return;
         if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); close(); }
         if (event.key !== 'Tab') return;
-        const focusable = [...dialog.querySelectorAll('button, [tabindex="0"]')];
+        const focusable = [...dialog.querySelectorAll('button, summary')];
         const first = focusable[0], last = focusable[focusable.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }

@@ -22,7 +22,7 @@
     }
 
     document.addEventListener('click', (e) => {
-        if (e.target.closest?.('#btnGo, #customStartMatchBtn, .pp-rotate-block button')) window.ppEnterMobilePlay();
+        if (e.target.closest?.('#customStartMatchBtn, .pp-rotate-block button')) window.ppEnterMobilePlay();
     }, true);
     // Browsing settings or choosing an arena must not rotate the page or
     // reclaim fullscreen after the player deliberately leaves it.

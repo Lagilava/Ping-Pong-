@@ -74,8 +74,10 @@ const sizes = [
             await check('#pp-settings .ppset-box', 'menu-settings');
             await page.evaluate(() => ppCloseOpenPanel());
             await page.locator('.card[data-mode="classic"]').click();
+            assert.ok(await page.locator('#modeTutorial').isHidden(), `${name} mode card stalled on guide`);
+            await page.locator('[data-mode-tutorial="classic"]').first().click();
             await page.locator('#modeTutorial').waitFor({ state: 'visible' });
-            await page.evaluate(() => ModeTutorial.close());
+            await page.locator('.guide-accept').click();
             await check('#modal .modal-box', 'setup');
             await page.evaluate(() => ppOpenPanel('settings'));
             await page.locator('#pp-settings').waitFor({ state: 'visible' });
@@ -101,7 +103,7 @@ const sizes = [
                 await page.evaluate(() => document.getElementById('cyber-menu-btn').click());
                 assert.equal(await page.evaluate(() => game.userPaused &&
                     document.getElementById('pauseMenu').classList.contains('open')), true,
-                `${name} in-match Menu did not pause`);
+                `${name} in-match Pause did not pause`);
                 await page.evaluate(() => game.setUserPaused(false));
             }
             if (mobile) {

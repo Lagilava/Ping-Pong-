@@ -240,15 +240,13 @@ body.zombie-mode:has(#zombieBriefing.visible, #zombieWaveChoice.visible) :is(#pp
 #zombieBriefing .zombie-briefing-rules li { font-size: clamp(13px, .9vw, 16px); }
 body.zombie-mode .pause-card { max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); box-sizing: border-box; overflow-y: auto; }
 body.zombie-mode .ppres-box { box-sizing: border-box; max-width: calc(100vw - 32px); }
-/* Phones: the wave readout joins the scoreboard as one top line (score and
-   lives left, MENU centre, wave right) instead of an illustrated plaque over
-   the bottom of the court where the zombies walk. Touch controls already show
-   Pull energy, so the Pull meter stays hidden. */
+/* Phones: keep wave progress below the lives card, clear of the Pause control.
+   Touch controls already show Pull energy, so the Pull meter stays hidden. */
 html.pp-mobile body.zombie-mode .zombie-progress-overlay {
     display: flex !important;
     flex-direction: column;
     align-items: flex-end;
-    top: max(10px, env(safe-area-inset-top));
+    top: calc(64px + env(safe-area-inset-top));
     bottom: auto;
     left: auto;
     right: max(14px, env(safe-area-inset-right));

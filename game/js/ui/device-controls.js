@@ -279,7 +279,7 @@
                 : [`${modeName} has no ability button`, two
                     ? 'If either player catches a Laser power-up, they tap their half with a second finger to fire it.'
                     : 'It is just you and the ball. If you catch a Laser power-up, tap the screen with a second finger to fire it.'];
-            const pause = ['Pause any time', 'Tap MENU at the top of the screen. Turning your phone upright also pauses the match.'];
+            const pause = ['Pause any time', 'Tap Pause at the top of the screen. Turning your phone upright also pauses the match.'];
             return [move, ability, pause];
         }
         const up = keyLabel('p1Up', 'w'), down = keyLabel('p1Down', 's'), fire = keyLabel('p1Fire', ' ');

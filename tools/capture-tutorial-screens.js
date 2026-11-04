@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..', 'game');
 const output = path.join(root, 'assets', 'images', 'tutorial');
-const modes = ['classic', 'zombie', 'gravity', 'speed', 'obstacle'];
+const modes = (process.env.CAPTURE_MODES || 'classic,zombie,gravity,speed,obstacle').split(',');
 
 (async () => {
     fs.mkdirSync(output, { recursive: true });
@@ -15,7 +15,7 @@ const modes = ['classic', 'zombie', 'gravity', 'speed', 'obstacle'];
         for (const device of [
             { name: 'touch', viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true },
             { name: 'desktop', viewport: { width: 1366, height: 768 }, isMobile: false, hasTouch: false },
-        ]) {
+        ].filter(d => !process.env.CAPTURE_DEVICE || d.name === process.env.CAPTURE_DEVICE)) {
             const context = await browser.newContext({ ...device, deviceScaleFactor: 1 });
             await context.route('**/*', async route => {
                 const url = new URL(route.request().url());
@@ -27,7 +27,7 @@ const modes = ['classic', 'zombie', 'gravity', 'speed', 'obstacle'];
             await context.addInitScript(() => {
                 Element.prototype.requestFullscreen = () => Promise.reject(new Error('Unavailable while capturing'));
                 for (const mode of ['classic', 'zombie', 'gravity', 'speed', 'obstacle', 'customise'])
-                    localStorage.setItem(`pp-guide-seen-v2-${mode}`, '1');
+                    localStorage.setItem(`pp-guide-seen-v3-${mode}`, '1');
                 localStorage.setItem('pp-controls-tutorial-v2-mobile-all', '1');
                 localStorage.setItem('pp-controls-tutorial-v2-pc-all', '1');
                 localStorage.setItem('pp-first-launch-shown-v1', '1');
@@ -72,13 +72,15 @@ const modes = ['classic', 'zombie', 'gravity', 'speed', 'obstacle'];
                 await page.waitForTimeout(250);
                 console.log(`${device.name}: ${mode}`);
             }
-            await page.evaluate(() => openCustomiseOverlay());
-            for (const tab of ['arena', 'look', 'powerups']) {
-                await page.locator(`[data-custom-tab="${tab}"]`).click();
-                await page.waitForTimeout(200);
-                await page.screenshot({ path: path.join(output, `custom-${tab}-${device.name}.jpg`),
-                    type: 'jpeg', quality: 78 });
-                console.log(`${device.name}: custom ${tab}`);
+            if (!process.env.CAPTURE_MODES) {
+                await page.evaluate(() => openCustomiseOverlay());
+                for (const tab of ['arena']) {
+                    await page.locator(`[data-custom-tab="${tab}"]`).click();
+                    await page.waitForTimeout(200);
+                    await page.screenshot({ path: path.join(output, `custom-${tab}-${device.name}.jpg`),
+                        type: 'jpeg', quality: 78 });
+                    console.log(`${device.name}: custom ${tab}`);
+                }
             }
             await context.close();
         }
