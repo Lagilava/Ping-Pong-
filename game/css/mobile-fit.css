@@ -46,7 +46,7 @@ html.pp-mobile :is(button, [role="button"], select, input):focus-visible {
     html.pp-mobile #overlay .hdr p { font-size: 10px; letter-spacing: .12em; }
     html.pp-mobile #cards-hud {
         display: block;
-        top: calc(max(12px, env(safe-area-inset-top)) + 188px);
+        top: calc(max(12px, env(safe-area-inset-top)) + 230px);
         bottom: 0;
         overflow-y: auto;
         overflow-x: hidden;

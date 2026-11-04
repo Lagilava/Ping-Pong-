@@ -21,6 +21,9 @@
     const TUTORIAL_KEY = (mode) => `pp-controls-tutorial-v2-${device.kind}-${mode}`;
     const seenModes = new Set();
     const tutorialSeen = (mode) => {
+        // The pre-match screenshot guide already shows the real controls.
+        // Keep this in-match card only for paths that bypass match setup.
+        if (window.ModeTutorial?.hasViewed?.(mode)) return true;
         if (seenModes.has(mode)) return true;
         if (store.get(TUTORIAL_KEY(mode)) === '1' || store.get(TUTORIAL_KEY('all')) === '1') seenModes.add(mode);
         return seenModes.has(mode);

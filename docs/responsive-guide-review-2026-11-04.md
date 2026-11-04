@@ -1,25 +1,19 @@
-# Responsive and first-match guide review — 2026-11-04
+# Responsive and tutorial review — 2026-11-04
 
-## Scope
+## Player flow
 
-The first-visit guide opens over setup for Classic, Zombie, Gravity, Speed and Obstacle, and over the Custom workshop for Custom matches. It has three selectable, animated examples, a visible objective and focused step text. Closing it returns to setup; later visits open setup directly. The Tutorial button replays it. The separate first-match touch-controls hold remains in place after the intro.
+Classic, Zombie, Gravity, Speed, Obstacle and Custom each open a three-step guide during first setup. The guide uses screenshots captured from the running game, with numbered markers on controls and device-specific callouts. Custom uses separate screenshots for its arena, appearance and power-up/start screens. Back returns to setup; the Tutorial button replays the guide. Its seen key was advanced so players who saw the earlier animated version receive the screenshot guide once.
 
-The animation uses CSS transforms on a few small elements and stops when the dialog is hidden. Reduced-motion preferences show a static scene. The menu's WebGL loop pauses while the guide covers it.
+During code review, the Speed guide's old save-challenge instructions were removed because the current game does not load that feature. It now teaches the live Overcharge window, Sonic Return and cooldown. Screenshot capture waits for and dismisses first-run mode briefings before recording the court.
 
-## Viewport checks
+The older decorative animation was removed. The 16 JPEG screenshots total about 1.2 MB and are included in offline caching. After the screenshot guide, the duplicate first-match controls card is skipped. A direct match path that bypasses setup still has that card. The menu's WebGL renderer pauses while a guide covers it.
 
-Browser automation exercised the six guides and replay at 320×568, 390×844, 640×360, 768×1024, 1024×768, 1024×600, 1366×768, 1920×1080 and 2560×1080. It checked scene visibility, navigation target sizes, dialog bounds, page overflow and first-visit persistence. It also checked that the animation changes position at 320×568.
+The main menu has a dedicated Settings action by the title. The duplicate Settings icon beside Achievements and a hidden legacy Menu toggle were removed. The actual in-match Menu/pause control remains available.
 
-At the same nine sizes, a second browser pass checked menu, Classic setup, settings, Custom workshop, reachable Custom start and match canvas. The earlier mobile review contains all settings tabs, six mode screens, gameplay, pause, online lobby, Forge and results at phone orientations. Screenshots are in the downloadable review bundle.
+## Viewports and verification
 
-## Mobile rendering changes
+Browser automation checks all six guides and replay at 320×568, 390×844, 640×360, 768×1024, 1024×768, 1024×600, 1366×768, 1920×1080 and 2560×1080. It checks image loading, active markers, navigation target sizes, dialog bounds, page overflow and first-visit persistence.
 
-- Automatic phone/tablet canvas tiers use 1× or 1.25× CSS resolution, with the explicit Ultra setting retaining 2×. Decorative scenery is capped at 768×432 pixels for most modes and 1024×576 for Gravity. The ball, paddles and HUD keep their normal draw path.
-- Automatic mobile scenery runs at 20–30 updates per second depending on tier. Ability button labels and rings update at 30 Hz; touch steering and the thumb pad still update every display frame.
-- The thumb-pad rectangle is reused until settings or viewport dimensions change. The responsive browser check verifies reuse and invalidation.
+The responsive browser pass checks the menu Settings action, setup, settings, Custom workshop, reachable Custom start and match canvas at the same sizes. It confirms the old toggle and duplicate Settings icon are gone, and that no second controls card interrupts a match after the guide. The earlier mobile screenshot review covers settings tabs, all mode screens, gameplay, pause, online lobby, Forge and results at phone orientations.
 
-These are pixel-work and update-budget reductions, not measured real-device frame-rate claims. Playwright ran in installed Chrome on a desktop host. Real iOS Safari, Android hardware, browser zoom, and a networked peer match remain device-level checks before claiming universal compatibility.
-
-## Code review and verification
-
-All 30 `*.test.js` scripts passed. `mode-guide.browser.js` and `responsive-layout.browser.js` passed their viewport flows. The offline asset manifest check and `git diff --check` passed. The render-resolution test confirms the new mobile scenery ceiling for every mode and unchanged desktop high-quality resolution. The menu-frame test confirms the covered guide suspends GPU menu work.
+All 30 `*.test.js` scripts, both browser suites, offline asset validation and whitespace validation passed. Rendering budget tests confirm the mobile scenery ceiling for every mode and unchanged desktop high-quality resolution. These are desktop-hosted Chrome tests; real Safari/Android hardware and a live networked peer match remain outside this pass.

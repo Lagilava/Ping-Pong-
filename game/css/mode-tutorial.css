@@ -1,184 +1,92 @@
-/* Mode guides sit over either the opponent picker or the Custom setup screen. */
+/* Screenshot-led guides over match setup and the Custom workshop. */
 .mode-tutorial[hidden] { display: none; }
-.mode-tutorial {
-    position: fixed;
-    inset: 0;
-    z-index: 100040;
-    display: grid;
-    place-items: center;
-    padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
-    background: rgba(2, 6, 16, .82);
-    backdrop-filter: blur(12px);
-}
-.mode-tutorial-card {
-    width: min(820px, 100%);
-    max-height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    color: #eefaff;
-    background: radial-gradient(circle at 88% 0, color-mix(in srgb, var(--tutorial-accent) 16%, transparent), transparent 40%), linear-gradient(155deg, #14223a, #080f20 65%);
-    border: 1px solid color-mix(in srgb, var(--tutorial-accent) 55%, #426078);
-    border-radius: 24px;
-    box-shadow: 0 30px 100px rgba(0, 0, 0, .7), 0 0 42px color-mix(in srgb, var(--tutorial-accent) 18%, transparent);
-    font-family: 'Rajdhani', sans-serif;
-}
-.mode-tutorial-head { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 210px; align-items: center; gap: 20px; padding: 28px 72px 25px 32px; border-bottom: 1px solid rgba(173, 227, 255, .14); }
-.mode-tutorial-eyebrow, .mode-tutorial-label { display: block; color: var(--tutorial-accent); font: 700 12px/1.2 'Share Tech Mono', monospace; letter-spacing: .16em; text-transform: uppercase; }
-.mode-tutorial-head h2 { margin: 9px 0 5px; color: #fff; font: 900 clamp(25px, 4vw, 37px)/1.1 'Orbitron', sans-serif; letter-spacing: .025em; text-transform: uppercase; }
+.mode-tutorial { position: fixed; inset: 0; z-index: 100040; display: grid; place-items: center; padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom)); background: rgba(2, 6, 16, .92); }
+.mode-tutorial-card { width: min(900px, 100%); max-height: 100%; display: flex; flex-direction: column; overflow: hidden; color: #eefaff; background: #0b1526; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 55%, #426078); border-radius: 18px; box-shadow: 0 24px 65px rgba(0,0,0,.65); font-family: 'Rajdhani', sans-serif; }
+.mode-tutorial-head { position: relative; padding: 16px 66px 12px 22px; border-bottom: 1px solid rgba(173,227,255,.16); }
+.mode-tutorial-eyebrow, .mode-tutorial-label { display: block; color: var(--tutorial-accent); font: 700 11px/1.2 'Share Tech Mono',monospace; letter-spacing: .12em; text-transform: uppercase; }
+.mode-tutorial-head h2 { margin: 5px 0 2px; color: white; font: 900 clamp(20px,3vw,30px)/1.1 'Orbitron',sans-serif; text-transform: uppercase; }
 .mode-tutorial-head h2 span { color: var(--tutorial-accent); }
-.mode-tutorial-head p { margin: 0; color: #b8cedd; font-size: 19px; }
-.mode-tutorial-fact { display: inline-block; margin-top: 17px; padding: 7px 10px; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 45%, transparent); border-radius: 7px; background: color-mix(in srgb, var(--tutorial-accent) 12%, transparent); color: var(--tutorial-accent); font: 700 11px/1.2 'Share Tech Mono', monospace; letter-spacing: .08em; }
-.mode-tutorial button { font-family: 'Rajdhani', sans-serif; letter-spacing: 0; text-transform: none; }
-.mode-tutorial-close { position: absolute; top: 24px; right: 24px; width: 42px; height: 42px; padding: 0; border: 1px solid rgba(166, 219, 247, .35); border-radius: 12px; background: rgba(255,255,255,.04); color: #e4f4ff; font-size: 28px; line-height: 1; }
-.mode-tutorial-close:hover, .mode-tutorial-close:focus-visible { border-color: var(--tutorial-accent); background: rgba(255,255,255,.1); }
-.mode-tutorial-visual { min-width: 0; aspect-ratio: 1.7; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 32%, transparent); border-radius: 14px; background: radial-gradient(circle at 50% 55%, color-mix(in srgb, var(--tutorial-accent) 13%, transparent), transparent 65%), repeating-linear-gradient(0deg, transparent 0 15px, rgba(130,210,240,.05) 16px), #080f1d; box-shadow: inset 0 0 25px rgba(0,0,0,.45); }
-.mode-tutorial-court { position: relative; width: 86%; height: 70%; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 60%, transparent); border-radius: 4px; box-shadow: 0 0 12px color-mix(in srgb, var(--tutorial-accent) 20%, transparent), inset 0 0 18px rgba(0,0,0,.4); overflow: hidden; }
-.mode-tutorial-midline { position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px dashed color-mix(in srgb, var(--tutorial-accent) 45%, transparent); }
-.mode-tutorial-paddle { position: absolute; width: 5px; height: 32%; top: 34%; border-radius: 4px; background: var(--tutorial-accent); box-shadow: 0 0 10px var(--tutorial-accent); }
-.mode-tutorial-paddle.left { left: 7%; }.mode-tutorial-paddle.right { right: 7%; top: 22%; }
-.mode-tutorial-ball { position: absolute; width: 10px; height: 10px; top: 47%; left: 55%; border-radius: 50%; background: #fff; box-shadow: 0 0 12px 4px var(--tutorial-accent); }
-.mode-tutorial-effect { position: absolute; }
-.mode-tutorial[data-mode="zombie"] .mode-tutorial-effect { left: 65%; top: 14%; width: 12px; height: 12px; border: 2px solid var(--tutorial-accent); border-radius: 50%; box-shadow: 0 0 10px var(--tutorial-accent); }
-.mode-tutorial[data-mode="zombie"] .mode-tutorial-effect.second { left: 78%; top: 67%; }
-.mode-tutorial[data-mode="gravity"] .mode-tutorial-effect { left: 35%; top: 22%; width: 38px; height: 38px; border: 2px solid var(--tutorial-accent); border-radius: 50%; box-shadow: 0 0 14px var(--tutorial-accent), inset 0 0 15px color-mix(in srgb, var(--tutorial-accent) 40%, transparent); }
-.mode-tutorial[data-mode="gravity"] .mode-tutorial-effect.second { left: 68%; top: 56%; width: 24px; height: 24px; }
-.mode-tutorial[data-mode="speed"] .mode-tutorial-effect { left: 27%; top: 45%; width: 18%; border-top: 2px solid var(--tutorial-accent); box-shadow: 0 0 10px var(--tutorial-accent); transform: skewY(-15deg); }
-.mode-tutorial[data-mode="speed"] .mode-tutorial-effect.second { top: 60%; left: 32%; width: 13%; }
-.mode-tutorial[data-mode="obstacle"] .mode-tutorial-effect { top: 12%; left: 37%; width: 6px; height: 42%; border-radius: 5px; background: var(--tutorial-accent); box-shadow: 0 0 10px var(--tutorial-accent); }
-.mode-tutorial[data-mode="obstacle"] .mode-tutorial-effect.second { top: 47%; left: 70%; }
-.mode-tutorial[data-mode="customise"] .mode-tutorial-effect { top: 16%; left: 30%; width: 28%; height: 58%; border: 1px dashed var(--tutorial-accent); border-radius: 7px; transform: rotate(-13deg); }
-.mode-tutorial[data-mode="customise"] .mode-tutorial-effect.second { left: 52%; transform: rotate(13deg); }
-.mode-tutorial-content { overflow-y: auto; padding: 26px 32px 22px; }
+.mode-tutorial-head p { margin: 0; color: #b8cedd; font-size: 16px; }
+.mode-tutorial-fact { display: inline-block; margin-top: 6px; color: var(--tutorial-accent); font: 700 10px 'Share Tech Mono',monospace; }
+.mode-tutorial button { font-family: 'Rajdhani',sans-serif; letter-spacing: 0; text-transform: none; cursor: pointer; }
+.mode-tutorial-close { position: absolute; top: 12px; right: 14px; width: 44px; height: 44px; padding: 0; border: 1px solid #59748b; border-radius: 10px; background: #12243a; color: white; font-size: 26px; }
+.mode-tutorial button:focus-visible { outline: 2px solid var(--tutorial-accent); outline-offset: 2px; }
+.mode-tutorial-content { min-height: 0; overflow-y: auto; padding: 16px 22px 20px; overscroll-behavior: contain; }
 .mode-tutorial-content:focus-visible { outline: 2px solid var(--tutorial-accent); outline-offset: -3px; }
-.mode-tutorial-goal { padding: 20px 23px; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 35%, transparent); border-left: 4px solid var(--tutorial-accent); border-radius: 14px; background: color-mix(in srgb, var(--tutorial-accent) 9%, transparent); }
-.mode-tutorial-goal p { margin: 8px 0 0; font-size: 21px; font-weight: 600; line-height: 1.35; }
-.mode-tutorial-section-title { display: flex; align-items: center; justify-content: space-between; margin-top: 23px; color: rgba(180, 215, 232, .55); font: 700 12px/1 'Share Tech Mono', monospace; letter-spacing: .12em; }
-.mode-tutorial-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 11px 0 16px; }
-.mode-tutorial-step { display: flex; gap: 12px; padding: 17px 16px; border: 1px solid rgba(139, 197, 225, .17); border-radius: 14px; background: rgba(255,255,255,.035); color: #c8dce8; text-align: left; cursor: pointer; }
-.mode-tutorial-step > span:last-child { display: grid; gap: 6px; }
-.mode-tutorial-step strong { color: #fff; font: 800 18px/1.2 'Rajdhani', sans-serif; }
-.mode-tutorial-step > span:last-child > span { display: none; font-size: 16px; line-height: 1.4; }
-.mode-tutorial-step.is-current { grid-column: 1 / -1; grid-row: 1; border-color: var(--tutorial-accent); background: color-mix(in srgb, var(--tutorial-accent) 12%, #0d1b2b); }
-.mode-tutorial-step.is-current > span:last-child > span { display: block; }
-.mode-tutorial-step:focus-visible { outline: 2px solid var(--tutorial-accent); outline-offset: 2px; }
-.mode-tutorial-step-number { color: var(--tutorial-accent); font: 700 13px/1.5 'Share Tech Mono', monospace; }
-.mode-tutorial-step h3 { margin: 0 0 6px; color: #fff; font: 800 18px/1.2 'Rajdhani', sans-serif; }
-.mode-tutorial-step p, .mode-tutorial-tip p, .mode-tutorial-controls { margin: 0; color: #c8dce8; font-size: 16px; line-height: 1.4; }
-.mode-tutorial-tip { padding: 15px 18px; border-radius: 12px; background: rgba(116, 172, 211, .09); }
-.mode-tutorial-tip p { margin-top: 5px; }
-.mode-tutorial-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 15px; margin-top: 20px; padding-top: 17px; border-top: 1px solid rgba(173, 227, 255, .14); color: #c3d8e4; font-size: 15px; }
-.mode-tutorial-controls .mode-tutorial-label { width: 100%; margin-bottom: 2px; }
-.mode-tutorial-controls kbd { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 4px; margin-right: 2px; border: 1px solid rgba(173,227,255,.36); border-bottom-width: 2px; border-radius: 5px; background: rgba(255,255,255,.06); color: #fff; font: 700 12px/1 'Share Tech Mono', monospace; }
-.mode-tutorial-action { color: var(--tutorial-accent); }
-.mode-tutorial-rebind { margin: 8px 0 0; color: #819dad; font: 500 13px/1.3 'Rajdhani', sans-serif; }
-.mode-tutorial-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 32px; border-top: 1px solid rgba(173, 227, 255, .14); color: #a9c1d0; font-size: 16px; }
-.mode-tutorial-scroll-hint.has-more { color: var(--tutorial-accent); }
-.mode-tutorial-foot button { padding: 10px 18px; border: 0; border-radius: 10px; background: var(--tutorial-accent); color: #061322; font-size: 17px; font-weight: 800; }
-.mode-tutorial-foot button:hover, .mode-tutorial-foot button:focus-visible { filter: brightness(1.1); box-shadow: 0 0 18px color-mix(in srgb, var(--tutorial-accent) 45%, transparent); }
-.mode-tutorial-foot button span { margin-left: 10px; }
 
-/* Keep all setup actions visible and balanced across desktop and phones. */
+.guide-demo { border: 1px solid color-mix(in srgb, var(--tutorial-accent) 50%, #34485a); border-radius: 12px; overflow: hidden; background: #06101c; }
+.guide-shot-frame { position: relative; aspect-ratio: 1366 / 768; background: #050b16; }
+.guide-shot, .guide-shot img { display: block; width: 100%; height: 100%; }
+.guide-shot img { object-fit: fill; }
+.guide-pin { position: absolute; left: var(--pc-x); top: var(--pc-y); display: grid; place-items: center; width: clamp(24px, 3vw, 38px); height: clamp(24px, 3vw, 38px); transform: translate(-50%,-50%); border: 2px solid white; border-radius: 50%; background: #0b182c; color: white; box-shadow: 0 0 0 3px #07101cd9, 0 0 14px #000; font: 800 17px 'Rajdhani',sans-serif; opacity: .78; pointer-events: none; }
+.guide-pin.is-current { z-index: 1; border-color: white; background: var(--tutorial-accent); color: #091322; box-shadow: 0 0 0 5px #07101ce0, 0 0 0 8px var(--tutorial-accent); opacity: 1; }
+.mode-tutorial[data-mode="customise"] .guide-pin:not(.is-current) { display: none; }
+.guide-callout { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 12px; padding: 9px 13px; border-top: 1px solid rgba(173,227,255,.18); font-size: 16px; line-height: 1.25; }
+.guide-callout-number { color: var(--tutorial-accent); font: 700 10px 'Share Tech Mono',monospace; }
+.guide-callout-title { color: white; font-size: 18px; }
+.guide-callout-copy { color: #c9e0ed; }
+.mode-tutorial-goal { margin-top: 14px; padding: 11px 14px; border-left: 3px solid var(--tutorial-accent); border-radius: 8px; background: #14243a; }
+.mode-tutorial-goal p { margin: 5px 0 0; font-size: 17px; line-height: 1.3; }
+.mode-tutorial-section-title { display: flex; justify-content: space-between; margin-top: 16px; color: #99adbd; font: 700 11px 'Share Tech Mono',monospace; }
+.mode-tutorial-steps { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 8px 0 12px; }
+.mode-tutorial-step { display: flex; align-items: start; gap: 10px; min-height: 42px; padding: 10px 12px; border: 1px solid #334b62; border-radius: 8px; background: #101d30; color: #c8dce8; text-align: left; }
+.mode-tutorial-step > span:last-child { display: grid; gap: 4px; }
+.mode-tutorial-step strong { color: white; font: 800 16px/1.15 'Rajdhani',sans-serif; }
+.mode-tutorial-step > span:last-child > span { display: none; font-size: 15px; line-height: 1.3; }
+.mode-tutorial-step.is-current { grid-column: 1 / -1; grid-row: 1; border-color: var(--tutorial-accent); background: #1a3145; }
+.mode-tutorial-step.is-current > span:last-child > span { display: block; }
+.mode-tutorial-step-number { color: var(--tutorial-accent); font: 700 12px/1.3 'Share Tech Mono',monospace; }
+.mode-tutorial-tip { padding: 10px 13px; border-radius: 8px; background: #15273a; }
+.mode-tutorial-tip p { margin: 5px 0 0; color: #c8dce8; font-size: 15px; line-height: 1.3; }
+.mode-tutorial-controls { display: flex; flex-wrap: wrap; gap: 7px 14px; margin-top: 15px; padding-top: 13px; border-top: 1px solid #34495b; color: #c8dce8; font-size: 14px; }
+.mode-tutorial-controls .mode-tutorial-label { width: 100%; }
+.mode-tutorial-controls kbd { display: inline-grid; place-items: center; min-width: 23px; padding: 3px; border: 1px solid #7292a3; border-radius: 4px; color: white; font: 700 11px 'Share Tech Mono',monospace; }
+.mode-tutorial-action { color: var(--tutorial-accent); }
+.mode-tutorial-rebind { margin: 8px 0 0; color: #9bb7c7; font-size: 13px; }
+.mode-tutorial-foot { display: flex; align-items: center; gap: 12px; padding: 10px 22px; border-top: 1px solid #334b62; }
+.mode-tutorial-foot > button { min-height: 44px; padding: 8px 12px; border: 1px solid #638293; border-radius: 8px; background: #12243a; color: white; font-weight: 700; }
+.guide-demo-count { color: var(--tutorial-accent); font: 700 11px 'Share Tech Mono',monospace; white-space: nowrap; }
+.guide-demo-title { font-size: 16px; color: #e7f7ff; }
+.guide-demo-buttons { display: flex; gap: 7px; margin-left: auto; }
+.guide-demo-buttons button { min-width: 44px; min-height: 44px; padding: 8px 13px; border: 1px solid var(--tutorial-accent); border-radius: 8px; background: var(--tutorial-accent); color: #061322; font-weight: 800; }
+.guide-demo-buttons button:disabled { opacity: .4; }
+
+/* The setup actions remain reachable when the guide closes. */
 .modal .btns { flex-wrap: wrap; align-items: stretch; gap: 10px; }
 .modal .btns button { min-height: 44px; padding: 10px 16px; }
-.modal .btn-tutorial, .customise-overlay-tutorial-btn { border: 1px solid rgba(124, 222, 255, .52); color: #d9f8ff; background: rgba(26, 120, 159, .16); }
-.modal .btn-tutorial:hover, .customise-overlay-tutorial-btn:hover { border-color: #b7f0ff; box-shadow: 0 0 20px rgba(84, 210, 255, .22); }
+.modal .btn-tutorial, .customise-overlay-tutorial-btn { border: 1px solid rgba(124,222,255,.52); color: #d9f8ff; background: rgba(26,120,159,.16); }
 .modal .btn-go { min-width: 120px; }
 .customise-overlay-tutorial-btn::before { display: none !important; }
 
+@media (pointer: coarse) {
+    .guide-shot-frame { aspect-ratio: 844 / 390; }
+    .guide-pin { left: var(--touch-x); top: var(--touch-y); }
+}
 @media (max-width: 680px) {
-    .mode-tutorial { padding: 9px; }
-    .mode-tutorial-card { border-radius: 16px; }
-    .mode-tutorial-head { grid-template-columns: minmax(0, 1fr) 105px; gap: 10px; padding: 20px 61px 17px 19px; }
-    .mode-tutorial-head h2 { font-size: clamp(20px, 5vw, 28px); }
-    .mode-tutorial-head p { font-size: 16px; }
-    .mode-tutorial-fact { margin-top: 10px; font-size: 9px; }
-    .mode-tutorial-close { top: 17px; right: 14px; width: 36px; height: 36px; }
-    .mode-tutorial-content { padding: 18px 19px; }
-    .mode-tutorial-steps { grid-template-columns: 1fr; gap: 8px; }
-    .mode-tutorial-step { padding: 11px 13px; }
-    .mode-tutorial-step.is-current { grid-column: 1; }
-    .mode-tutorial-goal p { font-size: 18px; }
-    .mode-tutorial-foot { padding: 12px 19px; }
-    .modal .btns button { flex: 1 1 calc(50% - 5px); padding: 10px 8px; }
+    .mode-tutorial { padding: 6px; }
+    .mode-tutorial-head { padding: 10px 54px 8px 13px; }
+    .mode-tutorial-head h2 { font-size: clamp(18px,5vw,24px); }
+    .mode-tutorial-head p, .mode-tutorial-fact { display: none; }
+    .mode-tutorial-close { top: 8px; right: 8px; }
+    .mode-tutorial-content { padding: 9px 12px 13px; }
+    .mode-tutorial-steps { grid-template-columns: 1fr 1fr; }
+    .mode-tutorial-foot { display: grid; grid-template-columns: auto 1fr auto; gap: 5px 9px; padding: 7px 12px; }
+    .mode-tutorial-foot > button { grid-column: 1; grid-row: 2; }
+    .guide-demo-count { grid-column: 1; grid-row: 1; }
+    .guide-demo-title { grid-column: 2 / -1; grid-row: 1; }
+    .guide-demo-buttons { grid-column: 2 / -1; grid-row: 2; }
+    .modal .btns button { flex: 1 1 calc(50% - 5px); }
 }
 @media (max-width: 430px) {
-    .mode-tutorial-head { grid-template-columns: 1fr; }
-    .mode-tutorial-visual { display: none; }
-    .mode-tutorial-foot { flex-direction: column; align-items: stretch; gap: 7px; }
-    .mode-tutorial-scroll-hint { text-align: center; font-size: 13px; }
-    .mode-tutorial-scroll-hint:not(.has-more) { display: none; }
-    .mode-tutorial-foot button { width: 100%; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .mode-tutorial-card, .mode-tutorial button { animation: none; transition: none; }
-}
-
-/* A small transform-only teaching loop. The real game renderer stays asleep. */
-.mode-tutorial-head { grid-template-columns: 1fr; padding-bottom: 16px; }
-html.pp-mobile .mode-tutorial { backdrop-filter: none; }
-.guide-demo { padding: 10px 32px 12px; border-bottom: 1px solid rgba(173,227,255,.14); }
-.guide-demo-scene { position: relative; height: 140px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--tutorial-accent) 45%, #304258); border-radius: 12px; background: #091322; }
-.guide-court { position: absolute; inset: 12px 8%; border: 1px solid var(--tutorial-accent); overflow: hidden; background: radial-gradient(circle, #13243a, #07101f); }
-.guide-midline { position: absolute; left: 50%; top: 0; height: 100%; border-left: 1px dashed #7092a4; }
-.guide-paddle { position: absolute; top: 37%; height: 27%; width: 7px; border-radius: 5px; background: var(--tutorial-accent); box-shadow: 0 0 8px var(--tutorial-accent); animation: guide-paddle 2.4s ease-in-out infinite alternate; }
-.guide-paddle.left { left: 4%; }.guide-paddle.right { right: 4%; animation-delay: -1s; }
-.guide-ball { position: absolute; left: 9%; top: 43%; width: 100%; height: 12px; animation: guide-rally 2.4s linear infinite; }
-.guide-ball::before { content: ''; display: block; width: 12px; height: 12px; border-radius: 50%; background: white; box-shadow: 0 0 12px var(--tutorial-accent); }
-.guide-object { display: none; position: absolute; }
-.guide-score { position: absolute; right: 14%; top: 12%; color: var(--tutorial-accent); font: 800 18px 'Orbitron',sans-serif; opacity: 0; animation: guide-score 2.4s linear infinite; }
-.guide-ability { position: absolute; bottom: 7%; left: 9%; padding: 3px 7px; border: 1px solid var(--tutorial-accent); border-radius: 5px; color: var(--tutorial-accent); font: 700 10px 'Share Tech Mono',monospace; opacity: 0; }
-.mode-tutorial[data-step="1"] .guide-ability { opacity: 1; animation: guide-pulse 2.4s ease-in-out infinite; }
-.mode-tutorial[data-mode="zombie"] .guide-object { display: block; width: 16px; height: 16px; border: 2px solid #9bea78; border-radius: 50%; right: 27%; top: 28%; box-shadow: 0 0 10px #9bea78; }
-.mode-tutorial[data-mode="zombie"] .guide-object.two { right: 40%; top: 62%; }
-.mode-tutorial[data-mode="gravity"] .guide-object { display: block; width: 35px; height: 35px; border: 2px solid #72b4ff; border-radius: 50%; left: 35%; top: 20%; box-shadow: 0 0 12px #72b4ff; }
-.mode-tutorial[data-mode="gravity"] .guide-object.two { left: 65%; top: 55%; }
-.mode-tutorial[data-mode="obstacle"] .guide-object { display: block; width: 9px; height: 45%; left: 40%; top: 8%; border-radius: 4px; background: #ffab6e; }
-.mode-tutorial[data-mode="obstacle"] .guide-object.two { left: 68%; top: 55%; height: 28%; }
-.mode-tutorial[data-mode="speed"] .guide-ball { animation-duration: 1.2s; }
-.mode-tutorial[data-mode="speed"] .guide-score { animation-duration: 1.2s; }
-.mode-tutorial[data-step="2"] .guide-score { color: #fff; }
-.guide-workshop { display: none; height: 100%; align-items: center; justify-content: space-evenly; gap: 8px; padding: 15px; }
-.guide-workshop span, .guide-workshop em { position: relative; display: grid; place-items: center; width: 26%; min-height: 65px; border: 1px solid #558b8a; border-radius: 8px; color: #d6fffa; font: 700 12px 'Share Tech Mono',monospace; text-align: center; font-style: normal; }
-.guide-workshop em { background: var(--tutorial-accent); color: #091322; }
-.guide-workshop-cursor { position: absolute; left: 10%; top: 62%; width: 100%; color: white; font-size: 18px; filter: drop-shadow(0 0 5px var(--tutorial-accent)); animation: guide-build 3s ease-in-out infinite; }
-.mode-tutorial[data-mode="customise"] .guide-court { display: none; }
-.mode-tutorial[data-mode="customise"] .guide-workshop { display: flex; }
-.mode-tutorial[data-mode="customise"][data-step="1"] .guide-workshop-cursor { animation-name: guide-style; }
-.mode-tutorial[data-mode="customise"][data-step="2"] .guide-workshop-cursor { animation-name: guide-start; }
-.guide-demo-controls { display: flex; align-items: center; gap: 12px; padding-top: 9px; min-height: 42px; }
-.guide-demo-count { color: var(--tutorial-accent); font: 700 11px 'Share Tech Mono',monospace; white-space: nowrap; }
-.guide-demo-title { color: #f5fbff; font-size: 17px; }
-.guide-demo-buttons { display: flex; gap: 7px; margin-left: auto; }
-.guide-demo-buttons button { min-width: 44px; min-height: 40px; padding: 4px 12px; border: 1px solid var(--tutorial-accent); border-radius: 7px; background: #14243a; color: #fff; font-weight: 700; }
-.guide-demo-buttons button:disabled { opacity: .35; }
-@keyframes guide-rally { 0% { transform: translate(0, 0); } 45% { transform: translate(78%, -36px); } 52% { transform: translate(82%, -28px); } 95% { transform: translate(0, 24px); } 100% { transform: translate(0, 0); } }
-@keyframes guide-paddle { to { transform: translateY(65%); } }
-@keyframes guide-score { 0%, 76% { opacity: 0; transform: translateY(8px); } 82%, 95% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
-@keyframes guide-pulse { 50% { box-shadow: 0 0 13px var(--tutorial-accent); } }
-@keyframes guide-build { 50% { transform: translate(15%, -28px); } }
-@keyframes guide-style { 50% { transform: translate(42%, -28px); } }
-@keyframes guide-start { 50% { transform: translate(80%, -28px); } }
-@media (max-width: 680px) {
-    .guide-demo { padding: 8px 19px; }
-    .guide-demo-scene { height: 112px; }
-    .mode-tutorial-head { padding-bottom: 12px; }
-}
-@media (max-width: 430px) {
-    .guide-demo-scene { height: 96px; }
-    .guide-workshop span, .guide-workshop em { min-height: 52px; font-size: 9px; }
-    .guide-demo-title { font-size: 15px; }
-    .guide-demo-controls { gap: 7px; }
+    .mode-tutorial-head h2 { font-size: 18px; }
+    .guide-callout { font-size: 13px; padding: 7px 9px; }
+    .guide-callout-title { font-size: 15px; }
+    .mode-tutorial-step.is-current { grid-column: 1 / -1; }
+    .mode-tutorial-foot { grid-template-columns: 1fr 1fr; }
+    .mode-tutorial-foot > button { font-size: 13px; }
+    .guide-demo-buttons button { padding: 7px 10px; }
 }
 @media (max-height: 500px) {
-    .mode-tutorial-head { padding-top: 10px; padding-bottom: 8px; }
-    .mode-tutorial-head p, .mode-tutorial-fact { display: none; }
-    .guide-demo-scene { height: 76px; }
-    .guide-demo-controls { min-height: 35px; padding-top: 4px; }
-    .mode-tutorial-content { padding-top: 10px; padding-bottom: 10px; }
-    .mode-tutorial-foot { padding-top: 6px; padding-bottom: 6px; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .guide-ball, .guide-paddle, .guide-score, .guide-ability, .guide-workshop-cursor { animation: none !important; }
-    .guide-score { opacity: 1; }
+    .mode-tutorial-head { padding-top: 7px; padding-bottom: 5px; }
+    .mode-tutorial-foot { padding-top: 5px; padding-bottom: 5px; }
 }

@@ -1633,22 +1633,6 @@ class Game {
             restartBtn.addEventListener('click', () => this.handlePauseAction('restart'));
         }
 
-        // Menu toggle button - opens cyberbar and pauses game
-        const menuToggleBtn = document.getElementById('menuToggleBtn');
-        if (menuToggleBtn && typeof this.togglePause === 'function') {
-            menuToggleBtn.addEventListener('click', () => {
-                this.togglePause();
-                const cyberBar = document.getElementById('cyber-control-bar');
-                if (cyberBar) {
-                    const isVisible = cyberBar.style.opacity === '1';
-                    cyberBar.style.opacity = isVisible ? '0' : '1';
-                    cyberBar.style.transform = isVisible ? 'translateX(-50%) scale(0.95)' : 'translateX(-50%) scale(1)';
-                    cyberBar.style.pointerEvents = isVisible ? 'none' : 'auto';
-                    menuToggleBtn.classList.toggle('active', !isVisible);
-                }
-            });
-        }
-
         const pauseBtn = document.getElementById('pause');
         if (pauseBtn && typeof this.togglePause === 'function') {
             pauseBtn.addEventListener('click', () => this.togglePause());

@@ -34,15 +34,15 @@
             touchTip: 'Tap Wormhole as the ball passes a black hole. A dashed ring shows the hole that will take it; arrows mark where it will come out.'
         },
         speed: {
-            name: 'Speed', number: '04', color: '#ffd16b', tagline: 'Keep up with the pace', fact: 'TIMED SAVE CHALLENGES', action: 'Space: Overcharge · click save-challenge targets',
-            goal: 'Win the rally as the ball keeps accelerating. In solo play, a timed target challenge can give you another chance after a miss.',
+            name: 'Speed', number: '04', color: '#ffd16b', tagline: 'Keep up with the pace', fact: 'TIMED SONIC RETURNS', action: 'Space: Overcharge near your paddle',
+            goal: 'Win the rally as the ball keeps accelerating. Time an Overcharge to turn a close return into a faster shot.',
             steps: [
                 ['Stay ahead', 'The ball speeds up during play, so start moving before it crosses the center line.'],
-                ['Earn saves', 'Clear every target in a challenge to earn a save charge. Winning two points also earns one.'],
-                ['Cancel a point', 'When the computer scores and you have a save, clear the timed targets to cancel that point.']
+                ['Time Overcharge', 'Press Space when the ball approaches your paddle. The button says PRESS NOW when it is in range.'],
+                ['Land a Sonic Return', 'Meet the ball during the brief Overcharge window to send it back faster. The ability recharges after 2.3 seconds.']
             ],
-            tip: 'Solo: click or tap all real targets before time runs out; later rounds add movement and decoys. Local 1v1: press the shown key combo during the challenge.',
-            touchTip: 'Overcharge: tap the button just before the ball reaches you for a faster Sonic Return. Save challenges: tap every real target before time runs out; later rounds add movement and decoys.'
+            tip: 'Wait for the ball to come toward your paddle before pressing Space. An early press will not start Overcharge.',
+            touchTip: 'Tap Overcharge when the ball is close to your paddle, then meet it for a faster Sonic Return.'
         },
         obstacle: {
             name: 'Obstacle', number: '05', color: '#ffab6e', tagline: 'Play the course', fact: 'COINS = 1 GOAL SHIELD', action: 'Space / Enter rolls the Lucky Dice',
@@ -68,16 +68,55 @@
     };
 
     // Step copy names keys; on touch the same actions are on-screen buttons.
-    const touchText = (text) => text.replace(/\bHold Space\b/g, 'Hold the Pull button').replace(/\btap Space\b/g, 'tap the Lucky Dice button');
+    const touchText = (text, mode) => text
+        .replace(/\bHold Space\b/g, 'Hold the Pull button')
+        .replace(/\bPress Space\b/g, `Tap ${mode === 'gravity' ? 'Wormhole' : mode === 'speed' ? 'Overcharge' : 'Lucky Dice'}`);
+
+    // Positions refer to the actual captured screens (touch 844x390, PC
+    // 1366x768). The marker stays attached to the image as it scales.
+    const targets = {
+        classic: [
+            ['Thumb pad and paddle', [95, 75], [3, 50], 'Slide the right thumb pad to move your cyan paddle at the left.', 'Use W/S or drag on your half to move your cyan paddle.'],
+            ['Ball contact', [50, 50], [50, 50], 'Meet the ball near a paddle edge to angle it.', 'Meet the ball near a paddle edge to angle it.'],
+            ['Score', [16, 8], [12, 5], 'Send the ball past the other paddle.', 'Send the ball past the other paddle.']
+        ],
+        zombie: [
+            ['Lives and wave', [25, 8], [24, 5], 'Watch your remaining lives and wave.', 'Watch your remaining lives and wave.'],
+            ['Pull button', [9, 82], [87, 6], 'Hold Pull when a zombie is near your side.', 'Hold Space or the right mouse button to pull.'],
+            ['Hit the zombies', [50, 52], [50, 50], 'Hit zombies and glowing orbs with the ball, then choose a reward.', 'Hit zombies and glowing orbs with the ball, then choose a reward.']
+        ],
+        gravity: [
+            ['Black hole', [75, 66], [35, 54], 'Track the ball as gravity bends it.', 'Track the ball as gravity bends it.'],
+            ['Wormhole', [9, 83], [12, 94], 'Tap Wormhole as the ball passes a black hole.', 'Press Space as the ball passes a black hole.'],
+            ['Point value', [16, 8], [12, 5], 'Warps add up to two bonus points to the next goal.', 'Warps add up to two bonus points to the next goal.']
+        ],
+        speed: [
+            ['Middle line', [50, 50], [50, 50], 'Start moving before the ball crosses the middle.', 'Start moving before the ball crosses the middle.'],
+            ['Overcharge', [9, 83], [12, 94], 'Tap Overcharge just before a return.', 'Press Space just before a return.'],
+            ['Your paddle', [3, 51], [3, 50], 'Meet the ball during Overcharge for a Sonic Return.', 'Meet the ball during Overcharge for a Sonic Return.']
+        ],
+        obstacle: [
+            ['Checkpoints', [38, 50], [50, 20], 'Guide the ball through checkpoints in order.', 'Guide the ball through checkpoints in order.'],
+            ['Coins and boosts', [20, 86], [28, 80], 'Collect coins for a one-goal shield.', 'Collect coins for a one-goal shield.'],
+            ['Lucky Dice', [9, 83], [12, 94], 'Tap Lucky Dice during a rally.', 'Press Space to roll (Enter for player two).']
+        ],
+        customise: [
+            ['Arena and rules', [36, 25], [25, 20], 'Choose a court, then scroll down for Forge and rules.', 'Choose a court, then open Forge or set rules below.'],
+            ['Look and sound', [12, 35], [8, 18], 'Use the tabs for paddles, music and background.', 'Use the tabs for paddles, music and background.'],
+            ['Start or play online', [12, 82], [74, 96], 'Select power-ups, then start locally or play online.', 'Select power-ups, then start locally or play online.']
+        ]
+    };
+    const shot = (mode, step, kind) => `assets/images/tutorial/${mode === 'customise' ? 'custom-' + ['arena', 'look', 'powerups'][step] : mode}-${kind}.jpg`;
 
     let dialog;
     let returnFocus;
     let currentMode;
     let currentStep = 0;
-    const seenKey = mode => `pp-guide-seen-v1-${mode}`;
+    const seenKey = mode => `pp-guide-seen-v2-${mode}`;
+    const hasViewed = mode => { try { return localStorage.getItem(seenKey(mode)) === '1'; } catch (_) { return false; } };
     function firstTime(mode, trigger) {
         if (!guides[mode]) return;
-        try { if (localStorage.getItem(seenKey(mode))) return; } catch (_) { }
+        if (hasViewed(mode)) return;
         open(mode, trigger);
     }
     function setStep(step) {
@@ -91,6 +130,17 @@
         dialog.querySelector('.guide-demo-count').textContent = `${currentStep + 1} / 3`;
         dialog.querySelector('[data-guide-prev]').disabled = currentStep === 0;
         dialog.querySelector('[data-guide-next]').textContent = currentStep === 2 ? 'Replay' : 'Next';
+        const source = dialog.querySelector('.guide-shot source');
+        const img = dialog.querySelector('.guide-shot img');
+        source.srcset = shot(currentMode, currentStep, 'touch');
+        img.src = shot(currentMode, currentStep, 'desktop');
+        img.alt = `${guides[currentMode].name} ${currentMode === 'customise' ? 'setup' : 'match'} screenshot showing ${targets[currentMode][currentStep][0]}`;
+        dialog.querySelector('.guide-callout-title').textContent = currentMode === 'classic' && currentStep === 0
+            ? (window.PPDevice?.touch ? 'Thumb pad' : 'Your paddle') : targets[currentMode][currentStep][0];
+        dialog.querySelector('.guide-callout-copy').textContent = window.PPDevice?.touch
+            ? targets[currentMode][currentStep][3] : targets[currentMode][currentStep][4];
+        dialog.querySelectorAll('.guide-pin').forEach((el, i) => el.classList.toggle('is-current', i === currentStep));
+        dialog.querySelector('.mode-tutorial-content').scrollTop = 0;
     }
     function close() {
         if (!dialog || dialog.hidden) return;
@@ -133,18 +183,18 @@
                         <p>${guide.tagline}</p><span class="mode-tutorial-fact">${guide.fact}</span></div>
                     <button type="button" class="mode-tutorial-close" data-close-tutorial aria-label="Close tutorial">&times;</button>
                 </header>
-                <div class="guide-demo">
-                    <div class="guide-demo-scene" aria-hidden="true">
-                        <div class="guide-court"><i class="guide-midline"></i><i class="guide-paddle left"></i><i class="guide-paddle right"></i><i class="guide-ball"></i><i class="guide-object one"></i><i class="guide-object two"></i><i class="guide-score">+1</i><i class="guide-ability">ABILITY</i></div>
-                        <div class="guide-workshop"><span>ARENA &amp; RULES</span><span>LOOK</span><span>POWER-UPS</span><b class="guide-workshop-cursor">●</b><em>START MATCH ▸</em></div>
-                    </div>
-                    <div class="guide-demo-controls"><span class="guide-demo-count">1 / 3</span><strong class="guide-demo-title"></strong><div class="guide-demo-buttons"><button type="button" data-guide-prev aria-label="Previous guide step">←</button><button type="button" data-guide-next>Next</button></div></div>
-                </div>
                 <div class="mode-tutorial-content" role="region" aria-label="Tutorial details" tabindex="0">
+                    <div class="guide-demo">
+                        <div class="guide-shot-frame">
+                            <picture class="guide-shot"><source media="(pointer: coarse)" srcset="${shot(mode, 0, 'touch')}"><img src="${shot(mode, 0, 'desktop')}" alt="${guide.name} screenshot" width="1366" height="768"></picture>
+                            ${targets[mode].map(([label, touchAt, pcAt], i) => `<span class="guide-pin${i === 0 ? ' is-current' : ''}" style="--touch-x:${touchAt[0]}%;--touch-y:${touchAt[1]}%;--pc-x:${pcAt[0]}%;--pc-y:${pcAt[1]}%" aria-hidden="true">${i + 1}</span>`).join('')}
+                        </div>
+                        <div class="guide-callout"><span class="guide-callout-number">LOOK HERE</span><strong class="guide-callout-title"></strong><span class="guide-callout-copy"></span></div>
+                    </div>
                     <section class="mode-tutorial-goal"><span class="mode-tutorial-label">Your objective</span><p>${guide.goal}</p></section>
                     <div class="mode-tutorial-section-title"><span class="mode-tutorial-label">How to play</span><span>01 — 03</span></div>
                     <section class="mode-tutorial-steps" aria-label="How to play">
-                        ${guide.steps.map(([title, description], index) => `<button type="button" class="mode-tutorial-step" data-guide-step="${index}"><span class="mode-tutorial-step-number">0${index + 1}</span><span><strong>${title}</strong><span>${touch ? touchText(description) : description}</span></span></button>`).join('')}
+                        ${guide.steps.map(([title, description], index) => `<button type="button" class="mode-tutorial-step" data-guide-step="${index}"><span class="mode-tutorial-step-number">0${index + 1}</span><span><strong>${title}</strong><span>${touch ? touchText(description, mode) : description}</span></span></button>`).join('')}
                     </section>
                     <aside class="mode-tutorial-tip"><span class="mode-tutorial-label">Pro tip</span><p>${touch && guide.touchTip ? guide.touchTip : guide.tip}</p></aside>
                     ${touch ? `<div class="mode-tutorial-controls"><span class="mode-tutorial-label">Touch controls</span><span>Right thumb: slide up and down on the right side to move</span>${ability ? `<span class="mode-tutorial-action">Left thumb: ${ability.hold ? 'hold' : 'tap'} the ${ability.name} button (bottom left)</span>` : '<span>No ability button in this mode</span>'}<span>Local 1v1: each player slides on their own half</span></div>
@@ -152,26 +202,17 @@
                     : `<div class="mode-tutorial-controls"><span class="mode-tutorial-label">Quick controls</span><span><kbd>W</kbd> <kbd>S</kbd> Player 1</span><span><kbd>↑</kbd> <kbd>↓</kbd> Player 2</span><span>Mouse: hold and drag on your half</span>${guide.action ? `<span class="mode-tutorial-action">${guide.action}</span>` : ''}</div>
                     <p class="mode-tutorial-rebind">Keys can be changed in Settings → Controls.</p>`}
                 </div>
-                <footer class="mode-tutorial-foot"><span class="mode-tutorial-scroll-hint">Ready to play?</span><button type="button" data-close-tutorial>Back to setup <span aria-hidden="true">→</span></button></footer>
+                <footer class="mode-tutorial-foot"><button type="button" data-close-tutorial>Back to setup</button><span class="guide-demo-count">1 / 3</span><strong class="guide-demo-title"></strong><div class="guide-demo-buttons"><button type="button" data-guide-prev aria-label="Previous guide step">Back</button><button type="button" data-guide-next>Next</button></div></footer>
             </article>`;
         dialog.hidden = false;
         setStep(0);
         if (document.getElementById('pauseMenu')?.classList.contains('open')) {
             dialog.querySelector('[data-close-tutorial]:not(.mode-tutorial-close)').textContent = 'Back to pause';
         }
-        const content = dialog.querySelector('.mode-tutorial-content');
-        const hint = dialog.querySelector('.mode-tutorial-scroll-hint');
-        const updateHint = () => {
-            const moreBelow = content.scrollHeight - content.scrollTop - content.clientHeight > 8;
-            hint.textContent = moreBelow ? 'Scroll for steps and controls ↓' : 'Ready to play?';
-            hint.classList.toggle('has-more', moreBelow);
-        };
-        content.addEventListener('scroll', updateHint, { passive: true });
-        updateHint();
         dialog.querySelector('.mode-tutorial-close').focus();
     }
 
-    window.ModeTutorial = { open, close, firstTime };
+    window.ModeTutorial = { open, close, firstTime, hasViewed };
 
     document.addEventListener('click', (event) => {
         const trigger = event.target.closest?.('[data-mode-tutorial]');

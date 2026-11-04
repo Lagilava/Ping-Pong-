@@ -28,6 +28,33 @@ html:not(.pp-mobile) #overlay .hdr p {
     line-height: 1.7;
 }
 
+#overlay .hdr .main-menu-settings {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 44px;
+    margin-top: 14px;
+    padding: 8px 16px;
+    border: 1px solid rgba(126, 227, 255, .58);
+    border-radius: 10px;
+    background: #0c2335;
+    color: #e1faff;
+    font: 700 13px/1 'Share Tech Mono', monospace;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    pointer-events: auto;
+    cursor: pointer;
+}
+#overlay .hdr .main-menu-settings svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+#overlay .hdr .main-menu-settings:is(:hover, :focus-visible) { border-color: #9df5ff; background: #15405a; outline: 2px solid #9df5ff; outline-offset: 2px; }
+@media (max-height: 500px) {
+    html.pp-mobile #overlay .hdr .main-menu-settings { margin-top: 8px; min-height: 40px; }
+}
+@media (orientation: portrait) and (max-width: 620px) {
+    html.pp-mobile #overlay .hdr .main-menu-settings { margin-top: 8px; }
+}
+
 /* Scroll hint now sits in the title block's flow, so it never collides
    with the title on narrow windows. */
 #overlay .hdr .hint {

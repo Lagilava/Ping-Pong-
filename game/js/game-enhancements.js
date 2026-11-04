@@ -272,6 +272,10 @@
                     e.preventDefault();
                     e.stopPropagation();
                     const game = state.game || window.game;
+                    if (!game?.isInMatch?.()) {
+                        window.ppOpenPanel?.('settings');
+                        return;
+                    }
                     if (game?.userPaused) game.setUserPaused(false);
                     else openPauseMenu();
                 });

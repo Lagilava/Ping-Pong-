@@ -1,4 +1,4 @@
-// Browser flow and viewport audit for the first-visit animated guides.
+// Browser flow and viewport audit for first-visit screenshot guides.
 const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -51,7 +51,7 @@ const output = process.argv[2] ? path.resolve(process.argv[2]) : null;
                 for (let step = 0; step < 3; step++) {
                     assert.equal(await page.locator('#modeTutorial').getAttribute('data-step'), String(step));
                     const geometry = await page.evaluate(() => {
-                        const stage = document.querySelector('.guide-demo-scene').getBoundingClientRect();
+                        const stage = document.querySelector('.guide-shot-frame').getBoundingClientRect();
                         const next = document.querySelector('[data-guide-next]').getBoundingClientRect();
                         const dialog = document.querySelector('.mode-tutorial-card').getBoundingClientRect();
                         return { stage: stage.toJSON(), next: next.toJSON(), dialog: dialog.toJSON(),
@@ -61,13 +61,13 @@ const output = process.argv[2] ? path.resolve(process.argv[2]) : null;
                     assert.ok(geometry.next.width >= 44 && geometry.next.height >= 40, `${size.name} ${mode} next target`);
                     assert.ok(!geometry.overflow && geometry.dialog.left >= 0 && geometry.dialog.right <= size.width + 1 &&
                         geometry.dialog.top >= 0 && geometry.dialog.bottom <= size.height + 1, `${size.name} ${mode} overflow`);
-                    if (size.name === 'small-phone' && step === 0) {
-                        const animated = mode === 'customise' ? '.guide-workshop-cursor' : '.guide-ball';
-                        const before = await page.locator(animated).evaluate(el => getComputedStyle(el).transform);
-                        await page.waitForTimeout(240);
-                        const after = await page.locator(animated).evaluate(el => getComputedStyle(el).transform);
-                        assert.notEqual(after, before, `${mode} scene does not animate`);
-                    }
+                    await page.waitForFunction(() => {
+                        const img = document.querySelector('.guide-shot img');
+                        return img?.complete && img.naturalWidth > 0;
+                    });
+                    assert.equal(await page.locator('.guide-pin.is-current').textContent(), String(step + 1));
+                    assert.ok((await page.locator('.guide-shot img').evaluate(el => el.currentSrc)).includes(
+                        mode === 'customise' ? `custom-${['arena', 'look', 'powerups'][step]}` : mode));
                     if (output && (step === 0 || size.name === 'small-phone')) await page.screenshot({ path: path.join(output, `${size.name}-${mode}-${step + 1}.png`),
                         animations: 'disabled' });
                     if (step < 2) await page.locator('[data-guide-next]').click();

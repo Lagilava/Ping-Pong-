@@ -48,6 +48,13 @@ const sizes = [
                 }
             };
             await check('#overlay', 'menu');
+            assert.equal(await page.locator('#menuToggleBtn').count(), 0, `${name} legacy menu toggle`);
+            assert.equal(await page.locator('#menuProgressPanel [data-open-panel="settings"]').count(), 0,
+                `${name} duplicate settings icon`);
+            await page.locator('.main-menu-settings').click();
+            await page.locator('#pp-settings').waitFor({ state: 'visible' });
+            await check('#pp-settings .ppset-box', 'menu-settings');
+            await page.evaluate(() => ppCloseOpenPanel());
             await page.locator('.card[data-mode="classic"]').click();
             await page.locator('#modeTutorial').waitFor({ state: 'visible' });
             await page.evaluate(() => ModeTutorial.close());
@@ -68,6 +75,17 @@ const sizes = [
             await page.locator('#btnGo').click();
             await page.waitForFunction(() => document.body.classList.contains('pp-in-match'));
             await check('#c', 'match');
+            await page.evaluate(() => game.skipIntro());
+            await page.waitForTimeout(150);
+            assert.equal(await page.locator('#ppControlsTutorial:not([hidden])').count(), 0,
+                `${name} duplicate controls tutorial after screenshot guide`);
+            if (!mobile || width > height) {
+                await page.evaluate(() => document.getElementById('cyber-menu-btn').click());
+                assert.equal(await page.evaluate(() => game.userPaused &&
+                    document.getElementById('pauseMenu').classList.contains('open')), true,
+                `${name} in-match Menu did not pause`);
+                await page.evaluate(() => game.setUserPaused(false));
+            }
             if (mobile) {
                 const budget = await page.evaluate(() => {
                     const first = PPTouchPad.padRect();
