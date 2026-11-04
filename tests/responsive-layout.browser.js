@@ -117,7 +117,19 @@ const sizes = [
                 assert.ok(budget.reused && budget.invalidated, `${name} touch layout cache`);
                 assert.ok(budget.scale <= 1.25 && budget.bgFps <= 30, `${name} mobile render budget`);
             }
-            console.log(`${name}: menu, setup, settings, Custom, match passed`);
+            await page.evaluate(() => game.finishMatch(true, { delayMs: 0 }));
+            await page.locator('#pp-results.open').waitFor();
+            assert.equal(await page.locator('#cyber-menu-btn').isVisible(), false,
+                `${name} in-match Menu visible on results`);
+            assert.equal(await page.evaluate(() => document.body.classList.contains('pp-in-match')), false,
+                `${name} match class persisted after results`);
+            const summary = page.locator('.achievement-summary-modal.show .summary-continue');
+            if (await summary.count()) await summary.click();
+            await page.locator('#pp-results [data-res]').filter({ hasText: 'Main menu' }).click();
+            await page.locator('#overlay:not(.hidden)').waitFor();
+            assert.equal(await page.locator('#cyber-menu-btn').isVisible(), false,
+                `${name} in-match Menu visible on main menu`);
+            console.log(`${name}: menu, setup, settings, Custom, match, results passed`);
             await context.close();
         }
     } finally { await browser.close(); }

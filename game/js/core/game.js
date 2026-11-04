@@ -8213,6 +8213,9 @@ class Game {
         }
 
         this.matchEnding = true;
+        // The gameplay loop stops for the result transition, so clear its UI
+        // state here instead of waiting for another frame that will not run.
+        this.syncMatchUiState();
         const net = this.net;
         if (net) net.onMatchEnd(playerWon);
 
