@@ -144,10 +144,8 @@ html.pp-mobile .all-unlocked-overlay { position: fixed; inset: 0; padding: 16px;
 html.pp-mobile .all-unlocked-message { font-size: clamp(.9rem, 3.6vw, 1.1rem) !important; line-height: 1.45; max-width: 560px; }
 html.pp-mobile .all-unlocked-message p { margin: 0 0 .7em; }
 
-/* ---------- Portrait blocker (menus and matches) ---------- */
-/* The game is landscape-only on phones: in portrait this card covers the menus,
-   and a match pauses behind it until the phone is turned (see
-   Game.syncOrientationPause). */
+/* ---------- Portrait blocker (matches only) ---------- */
+/* Menus remain usable upright; the court pauses until the phone is turned. */
 html.pp-mobile .rotate-hint { display: none !important; }
 html.pp-mobile .pp-rotate-block {
     position: fixed;
@@ -188,7 +186,7 @@ html.pp-mobile .pp-rotate-block button {
     55%, 100% { transform: rotate(-90deg); }
 }
 @media (orientation: portrait) {
-    html.pp-mobile body .pp-rotate-block { display: flex; }
+    html.pp-mobile body.pp-in-match .pp-rotate-block { display: flex; }
 }
 
 /* ---------- In match: HUD sizing ---------- */

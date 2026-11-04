@@ -596,13 +596,10 @@
                 const touch = event.pointerType === 'touch' || (event.detail > 0 && window.matchMedia('(hover: none)').matches);
                 if (touch) {
                     if (touchMoved) return;
-                    if (menuActiveIdx !== i) {
-                        menuActiveIdx = i;
-                        updateMenuCards();
-                        return;
-                    }
-                    // A second tap anywhere on the previewed card opens it: the small
-                    // Play badge was an easy target to miss on a phone.
+                    // Setup already provides the preview and explicit Start
+                    // action. One tap chooses the arena; swipes never launch it.
+                    menuActiveIdx = i;
+                    updateMenuCards();
                 }
                 menuSelected = m.id;
                 if (m.id === 'customise') {
@@ -1519,9 +1516,9 @@
             const menuCustomOverlayEl = document.getElementById('customiseOverlay');
             let menuCovered = false, menuCoverCheck = 0;
 
-            // Hold the menu at 60 fps on any device: if it averages below ~55
-            // fps, step down resolution, then bloom, then shadows (one step
-            // per ~1.5 s of measurement, never back up during the session).
+            // Match the scenery target (30fps mobile, 60fps desktop). If it
+            // falls short, reduce resolution, bloom, then shadows after each
+            // 90-frame sample; never climb back during this session.
             function adaptMenuQuality(delta) {
                 if (!(delta > 0) || delta > 0.25) return;
                 if (window.PerfGovernor && window.PerfGovernor.preset !== 'auto') return;
@@ -1531,7 +1528,7 @@
                 const avg = menuFrameSum / menuFrameCount;
                 menuFrameSum = 0;
                 menuFrameCount = 0;
-                if (avg <= 1 / 55 || menuQualityStep >= 3) return;
+                if (avg <= 1 / (MENU_MOBILE ? 28 : 55) || menuQualityStep >= 3) return;
                 menuQualityStep++;
                 if (menuQualityStep === 1 && menuRenderer.getPixelRatio() > 1) {
                     MENU_CONFIG.renderer.pixelRatio = 1;
@@ -1545,7 +1542,8 @@
                     menuRenderer.shadowMap.enabled = false;
                 }
             }
-            function animateMenu() {
+            let menuLastFrameMs = 0;
+            function animateMenu(now = performance.now()) {
                 requestAnimationFrame(animateMenu);
                 // The menu scene is only visible behind the overlay; skip all work
                 // (including the GPU render) while a match is being played.
@@ -1553,14 +1551,24 @@
                     clock.getDelta();
                     return;
                 }
-                // The Custom screen is a solid full-screen page: nothing of the
-                // scene shows through, so don't spend the GPU on it. Checked
+                // Reading panels hold the scenery still; Custom covers it
+                // completely. Neither needs background GPU work. Checked
                 // every 10th frame (a class lookup per frame is not free).
-                if ((menuCoverCheck++ % 10) === 0) menuCovered = !!menuCustomOverlayEl?.classList.contains('active');
+                if ((menuCoverCheck++ % 10) === 0) menuCovered = !!menuCustomOverlayEl?.classList.contains('active')
+                    || document.body.classList.contains('pp-panel-open')
+                    || document.body.classList.contains('pp-results-open');
                 if (menuCovered) {
                     clock.getDelta();
+                    menuLastFrameMs = 0;
                     return;
                 }
+                // Scenery needs less frequent frames than the ball. Keep the
+                // mobile menu alive at 30fps without spending a full WebGL
+                // render on every 60/90/120Hz display tick. Gameplay is separate.
+                const interval = MENU_MOBILE ? 1000 / 30 : 0;
+                const elapsed = now - menuLastFrameMs;
+                if (interval && elapsed < interval - 0.5) return;
+                menuLastFrameMs = interval ? now - (Math.max(0, elapsed - interval) % interval) : now;
                 const delta = clock.getDelta();
                 adaptMenuQuality(delta);
                 const time = clock.getElapsedTime();

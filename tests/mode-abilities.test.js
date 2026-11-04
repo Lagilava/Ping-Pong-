@@ -189,7 +189,7 @@ const settle = ability => { for (let i = 0; i < 70; i++) ability.update(1 / 60);
     const g = obstacleGame(), ability = new ModeAbilities(g);
     assert.equal(ability.trigger('player'), true, 'the dice can be rolled at any point in a rally');
     assert.equal(ability.trigger('player'), false, 'cooldown blocks a second roll');
-    assert.equal(ability.dice.status('player').text, 'ROLLING.');
+    assert.equal(ability.dice.status('player').text, 'ROLLING…');
     assert.equal(ability.trigger('ai'), false, 'the computer opponent never rolls');
 }
 

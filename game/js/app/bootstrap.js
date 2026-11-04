@@ -1,4 +1,4 @@
-// Phones: the first tap anywhere goes fullscreen and, where the
+// Phones: starting a match goes fullscreen and, where the
 // browser allows it (Android Chrome/Edge), locks landscape. iOS Safari has
 // neither, so it gets the "turn your phone" card from css/mobile.css instead.
 (function mobileImmersive() {
@@ -24,20 +24,8 @@
     document.addEventListener('click', (e) => {
         if (e.target.closest?.('#btnGo, #customStartMatchBtn, .pp-rotate-block button')) window.ppEnterMobilePlay();
     }, true);
-    // Always fullscreen and landscape: the first tap anywhere enters both, and
-    // if the player leaves fullscreen (back gesture, notification shade) the
-    // next tap goes back in. Home Screen / TWA installs are already there.
-    // One request per tap (pointerup), not one per pointerup, touchend and click,
-    // and none while a request is still settling or after a refusal.
-    let immersiveBusy = 0;
-    const alwaysImmersive = () => {
-        if (root.classList.contains('pp-installed') || document.fullscreenElement) return;
-        const now = performance.now();
-        if (now - immersiveBusy < 1500) return;
-        immersiveBusy = now;
-        window.ppEnterMobilePlay();
-    };
-    document.addEventListener('pointerup', alwaysImmersive, true);
+    // Browsing settings or choosing an arena must not rotate the page or
+    // reclaim fullscreen after the player deliberately leaves it.
     document.addEventListener('fullscreenchange', () => {
         if (document.fullscreenElement) { try { screen.orientation?.lock?.('landscape').catch(() => { }); } catch (e) { /* ignore */ } }
     });

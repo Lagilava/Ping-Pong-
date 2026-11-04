@@ -11,3 +11,5 @@ Thumbs.db
 server.log
 physics/physics.wasm
 tools/bin/
+# Reproducible browser audit output (screenshots are delivered separately).
+docs/mobile-review/

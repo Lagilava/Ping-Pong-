@@ -50,7 +50,7 @@ context.navigator = { getGamepads: () => [pad] };
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../game/js/core/game.js'), 'utf8'), context);
 const input = Object.create(context.window.Game.prototype);
 let abilities = 0;
-Object.assign(input, { player: p, aiPaddle: game.aiPaddle, keys: {}, modeAbilities: { trigger() { abilities++; return true; } } });
+Object.assign(input, { player: p, aiPaddle: game.aiPaddle, keys: {}, modeAbilities: { request() { abilities++; return true; } } });
 p.activateLaser();
 pad.buttons[0].pressed = true;
 input.pollGamepads();
