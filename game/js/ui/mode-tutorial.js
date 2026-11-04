@@ -72,9 +72,30 @@
 
     let dialog;
     let returnFocus;
+    let currentMode;
+    let currentStep = 0;
+    const seenKey = mode => `pp-guide-seen-v1-${mode}`;
+    function firstTime(mode, trigger) {
+        if (!guides[mode]) return;
+        try { if (localStorage.getItem(seenKey(mode))) return; } catch (_) { }
+        open(mode, trigger);
+    }
+    function setStep(step) {
+        currentStep = Math.max(0, Math.min(2, step));
+        dialog.dataset.step = String(currentStep);
+        dialog.querySelectorAll('.mode-tutorial-step').forEach((el, i) => {
+            el.classList.toggle('is-current', i === currentStep);
+            el.setAttribute('aria-current', i === currentStep ? 'step' : 'false');
+        });
+        dialog.querySelector('.guide-demo-title').textContent = guides[currentMode].steps[currentStep][0];
+        dialog.querySelector('.guide-demo-count').textContent = `${currentStep + 1} / 3`;
+        dialog.querySelector('[data-guide-prev]').disabled = currentStep === 0;
+        dialog.querySelector('[data-guide-next]').textContent = currentStep === 2 ? 'Replay' : 'Next';
+    }
     function close() {
         if (!dialog || dialog.hidden) return;
         dialog.hidden = true;
+        try { localStorage.setItem(seenKey(currentMode), '1'); } catch (_) { }
         returnFocus?.focus();
     }
 
@@ -91,8 +112,13 @@
             document.body.appendChild(dialog);
             dialog.addEventListener('click', (event) => {
                 if (event.target === dialog || event.target.closest('[data-close-tutorial]')) close();
+                if (event.target.closest('[data-guide-prev]')) setStep(currentStep - 1);
+                if (event.target.closest('[data-guide-next]')) setStep(currentStep === 2 ? 0 : currentStep + 1);
+                const selected = event.target.closest('[data-guide-step]');
+                if (selected) setStep(Number(selected.dataset.guideStep));
             });
         }
+        currentMode = mode;
         returnFocus = trigger || document.activeElement;
         // Phones and tablets get the touch controls (PPDevice, js/core/boot.js).
         const touch = !!window.PPDevice?.touch;
@@ -105,16 +131,20 @@
                     <div class="mode-tutorial-heading"><span class="mode-tutorial-eyebrow">FIELD GUIDE / ${guide.number}</span>
                         <h2 id="modeTutorialTitle">${guide.name} <span>tutorial</span></h2>
                         <p>${guide.tagline}</p><span class="mode-tutorial-fact">${guide.fact}</span></div>
-                    <div class="mode-tutorial-visual" aria-hidden="true">
-                        <div class="mode-tutorial-court"><i class="mode-tutorial-midline"></i><i class="mode-tutorial-paddle left"></i><i class="mode-tutorial-paddle right"></i><i class="mode-tutorial-ball"></i><i class="mode-tutorial-effect"></i><i class="mode-tutorial-effect second"></i></div>
-                    </div>
                     <button type="button" class="mode-tutorial-close" data-close-tutorial aria-label="Close tutorial">&times;</button>
                 </header>
+                <div class="guide-demo">
+                    <div class="guide-demo-scene" aria-hidden="true">
+                        <div class="guide-court"><i class="guide-midline"></i><i class="guide-paddle left"></i><i class="guide-paddle right"></i><i class="guide-ball"></i><i class="guide-object one"></i><i class="guide-object two"></i><i class="guide-score">+1</i><i class="guide-ability">ABILITY</i></div>
+                        <div class="guide-workshop"><span>ARENA &amp; RULES</span><span>LOOK</span><span>POWER-UPS</span><b class="guide-workshop-cursor">●</b><em>START MATCH ▸</em></div>
+                    </div>
+                    <div class="guide-demo-controls"><span class="guide-demo-count">1 / 3</span><strong class="guide-demo-title"></strong><div class="guide-demo-buttons"><button type="button" data-guide-prev aria-label="Previous guide step">←</button><button type="button" data-guide-next>Next</button></div></div>
+                </div>
                 <div class="mode-tutorial-content" role="region" aria-label="Tutorial details" tabindex="0">
                     <section class="mode-tutorial-goal"><span class="mode-tutorial-label">Your objective</span><p>${guide.goal}</p></section>
                     <div class="mode-tutorial-section-title"><span class="mode-tutorial-label">How to play</span><span>01 — 03</span></div>
                     <section class="mode-tutorial-steps" aria-label="How to play">
-                        ${guide.steps.map(([title, description], index) => [title, touch ? touchText(description) : description]).map(([title, description], index) => `<div class="mode-tutorial-step"><span class="mode-tutorial-step-number">0${index + 1}</span><div><h3>${title}</h3><p>${description}</p></div></div>`).join('')}
+                        ${guide.steps.map(([title, description], index) => `<button type="button" class="mode-tutorial-step" data-guide-step="${index}"><span class="mode-tutorial-step-number">0${index + 1}</span><span><strong>${title}</strong><span>${touch ? touchText(description) : description}</span></span></button>`).join('')}
                     </section>
                     <aside class="mode-tutorial-tip"><span class="mode-tutorial-label">Pro tip</span><p>${touch && guide.touchTip ? guide.touchTip : guide.tip}</p></aside>
                     ${touch ? `<div class="mode-tutorial-controls"><span class="mode-tutorial-label">Touch controls</span><span>Right thumb: slide up and down on the right side to move</span>${ability ? `<span class="mode-tutorial-action">Left thumb: ${ability.hold ? 'hold' : 'tap'} the ${ability.name} button (bottom left)</span>` : '<span>No ability button in this mode</span>'}<span>Local 1v1: each player slides on their own half</span></div>
@@ -125,6 +155,7 @@
                 <footer class="mode-tutorial-foot"><span class="mode-tutorial-scroll-hint">Ready to play?</span><button type="button" data-close-tutorial>Back to setup <span aria-hidden="true">→</span></button></footer>
             </article>`;
         dialog.hidden = false;
+        setStep(0);
         if (document.getElementById('pauseMenu')?.classList.contains('open')) {
             dialog.querySelector('[data-close-tutorial]:not(.mode-tutorial-close)').textContent = 'Back to pause';
         }
@@ -132,7 +163,7 @@
         const hint = dialog.querySelector('.mode-tutorial-scroll-hint');
         const updateHint = () => {
             const moreBelow = content.scrollHeight - content.scrollTop - content.clientHeight > 8;
-            hint.textContent = moreBelow ? 'Scroll for controls ↓' : 'Ready to play?';
+            hint.textContent = moreBelow ? 'Scroll for steps and controls ↓' : 'Ready to play?';
             hint.classList.toggle('has-more', moreBelow);
         };
         content.addEventListener('scroll', updateHint, { passive: true });
@@ -140,7 +171,7 @@
         dialog.querySelector('.mode-tutorial-close').focus();
     }
 
-    window.ModeTutorial = { open, close };
+    window.ModeTutorial = { open, close, firstTime };
 
     document.addEventListener('click', (event) => {
         const trigger = event.target.closest?.('[data-mode-tutorial]');

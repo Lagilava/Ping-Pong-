@@ -33,7 +33,7 @@ const gate = menu.slice(start, end) + 'rendered++; }';
 for (const hz of [60, 90, 120]) {
     const state = vm.createContext({ MENU_MOBILE: true, rendered: 0,
         performance: { now: () => 0 }, requestAnimationFrame() {},
-        document: { hidden: false, body: { classList: { contains: () => false } } },
+        document: { hidden: false, querySelector: () => null, body: { classList: { contains: () => false } } },
         menuOverlayEl: { classList: { contains: () => false } }, menuCustomOverlayEl: null,
         menuCoverCheck: 0, menuCovered: false, clock: { getDelta() {} } });
     vm.runInContext(gate, state);
@@ -44,6 +44,10 @@ for (const hz of [60, 90, 120]) {
     const covered = state.rendered;
     for (let i = 1; i <= 30; i++) vm.runInContext(`animateMenu(${2400 + i * 20})`, state);
     assert.equal(state.rendered, covered, 'opaque panels stop menu render work');
+    state.document.body.classList.contains = () => false;
+    state.document.querySelector = () => ({});
+    for (let i = 1; i <= 30; i++) vm.runInContext(`animateMenu(${3100 + i * 20})`, state);
+    assert.equal(state.rendered, covered, 'guide stops menu render work');
     state.document.hidden = true;
     vm.runInContext('animateMenu(4000)', state);
     assert.equal(state.rendered, covered, 'hidden page does no menu work');

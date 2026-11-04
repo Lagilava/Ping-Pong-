@@ -417,7 +417,8 @@
 
     // ── Loop ────────────────────────────────────────────────────────────────
     // One light check per frame; DOM is only written when something changes.
-    function frame() {
+    let lastButtonUpdate = -Infinity, wasLive = false;
+    function frame(now = performance.now()) {
         requestAnimationFrame(frame);
         const g = game();
         const inMatch = !!g && document.body.classList.contains('pp-in-match');
@@ -431,6 +432,11 @@
             !document.body.classList.contains('pp-replaying') && !document.body.classList.contains('pp-results-open');
         window.PPTouchPad?.update(g, live);
         if (!live && !buttons.player && !buttons.ai) return;
+        // Steering remains on every display frame. Cooldown labels/rings need
+        // only 30Hz; visibility transitions are immediate, including pause.
+        if (live === wasLive && now - lastButtonUpdate < 1000 / 30) return;
+        wasLive = live;
+        lastButtonUpdate = now;
         updateButtons(g, live);
     }
     requestAnimationFrame(frame);

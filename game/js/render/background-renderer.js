@@ -945,9 +945,11 @@ class BackgroundRenderer {
     }
 
     _getBackgroundRenderScale(w, h) {
-        const nativeMobile = typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile
-            && ['classic', 'obstacle', 'customise'].includes(this.mode);
-        if (window.PPResolution && !nativeMobile) return window.PPResolution.scale(w, h,
+        if (typeof PerfGovernor !== 'undefined' && PerfGovernor.isMobile) {
+            const cap = this.mode === 'gravity' ? 1024 : 768;
+            return Math.min(1, cap / w, (cap * 9 / 16) / h);
+        }
+        if (window.PPResolution) return window.PPResolution.scale(w, h,
             this.mode === 'gravity' ? 1024 : 768, this.mode === 'gravity' ? 576 : 432);
         // Bound decorative fill/blend work independently of display resolution.
         // Gameplay entities and HUD are drawn later at native resolution.

@@ -48,12 +48,19 @@
     function layout() { return clean(S()?.get('touchLayout')); }
 
     // The pad in CSS px, kept on screen.
-    function padRect(l = layout()) {
+    let cachedPad = null, cachedRaw, cachedWidth = 0, cachedHeight = 0;
+    function padRect(l) {
+        const useCache = l === undefined;
+        const raw = useCache ? S()?.get('touchLayout') : null;
+        if (useCache && cachedPad && raw === cachedRaw && cachedWidth === vw() && cachedHeight === vh()) return cachedPad;
+        if (useCache) l = clean(raw);
         const h = clamp(l.pad.h * vh(), 90, vh() - 16);
         const w = padWidth(h);
         const cx = clamp(l.pad.x * vw(), w / 2 + 4, vw() - w / 2 - 4);
         const cy = clamp(l.pad.y * vh(), h / 2 + 4, vh() - h / 2 - 4);
-        return { left: cx - w / 2, top: cy - h / 2, width: w, height: h, cx, cy };
+        const rect = { left: cx - w / 2, top: cy - h / 2, width: w, height: h, cx, cy };
+        if (useCache) { cachedPad = rect; cachedRaw = raw; cachedWidth = vw(); cachedHeight = vh(); }
+        return rect;
     }
 
     // The ability button in CSS px, or null for the default spot.
@@ -275,7 +282,7 @@
     }
 
     if (device.touch) {
-        S()?.on((key) => { if (key === 'touchLayout' || key === '*') st.rect = ''; });
+        S()?.on((key) => { if (key === 'touchLayout' || key === '*') { st.rect = ''; cachedPad = null; } });
         window.addEventListener('resize', () => { st.rect = ''; });
     }
 

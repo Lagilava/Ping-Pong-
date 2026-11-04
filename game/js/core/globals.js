@@ -47,13 +47,12 @@ const PerfGovernor = {
         { name: 'potato', glow: 0.0,  glowFx: 0.0,  particles: 0.25, scale: 0.75, fx: 3, bgFps: 24 },
     ],
     // Phones/tablets get their own ladder: canvas glow (shadowBlur) is far too
-    // expensive on mobile GPUs, render at CSS resolution or below, and only the
-    // top mobile tier runs the (single-level) bloom pass.
+    // expensive on mobile GPUs. Keep automatic tiers at 1–1.25x and reserve
+    // shader bloom for the explicit Ultra preset.
     MOBILE_TIERS: [
-        // Phone screens are 2-3x DPR; below ~1.25x the court lines and HUD
-        // text go visibly soft, so even the bottom tier stays at 1x.
-        { name: 'mobile-high', glow: 0, glowFx: 0, particles: 0.5,  scale: 1.5,  fx: 1, bgFps: 30 },
-        { name: 'mobile',      glow: 0, glowFx: 0, particles: 0.35, scale: 1.25, fx: 3, bgFps: 30 },
+        // Never go below CSS resolution. DOM labels remain at screen density.
+        { name: 'mobile-high', glow: 0, glowFx: 0, particles: 0.5,  scale: 1.25, fx: 3, bgFps: 30 },
+        { name: 'mobile',      glow: 0, glowFx: 0, particles: 0.35, scale: 1.0,  fx: 3, bgFps: 24 },
         { name: 'mobile-low',  glow: 0, glowFx: 0, particles: 0.2,  scale: 1.0,  fx: 3, bgFps: 20 },
     ],
     // Settings > Display > Visual quality > Ultra: above the adaptive ladder,

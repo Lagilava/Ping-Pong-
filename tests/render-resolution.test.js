@@ -20,4 +20,17 @@ sandbox.PerfGovernor.isMobile = true;
 assert.ok(resolution.scale(844, 390, 768, 432) * 844 <= 768);
 assert.equal(resolution.detail(), 1);
 assert.equal(resolution.spriteLimit(), 384);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../game/js/render/background-renderer.js'), 'utf8') +
+    '\nwindow.BackgroundRendererUnderTest = BackgroundRenderer;', sandbox);
+const scenicScale = sandbox.window.BackgroundRendererUnderTest.prototype._getBackgroundRenderScale;
+for (const mode of ['classic', 'speed', 'gravity', 'zombie', 'obstacle', 'customise']) {
+    const scale = scenicScale.call({ mode }, 1920, 1080);
+    const cap = mode === 'gravity' ? 1024 : 768;
+    assert.ok(scale * 1920 <= cap && scale * 1080 <= cap * 9 / 16,
+        `${mode} decorative layer stays within mobile budget`);
+}
+sandbox.PerfGovernor.isMobile = false;
+sandbox.PerfGovernor.current = { name: 'high', bgFps: 60 };
+assert.equal(scenicScale.call({ mode: 'classic' }, 1920, 1080), 1,
+    'desktop high quality keeps its resolution');
 console.log('4K, high-DPI, 8K ceiling, quality tiers and mobile scenery budgets passed.');

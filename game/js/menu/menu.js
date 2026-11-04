@@ -781,6 +781,7 @@
             m.classList.add('on');
             const sel = m.querySelector('.opt.sel:not([hidden])') || m.querySelector('.opt:not([hidden])');
             sel?.focus({ preventScroll: true });
+            window.ModeTutorial?.firstTime?.(menuSelected, m.querySelector('[data-mode-tutorial]'));
         });
     }
 
@@ -1556,7 +1557,8 @@
                 // every 10th frame (a class lookup per frame is not free).
                 if ((menuCoverCheck++ % 10) === 0) menuCovered = !!menuCustomOverlayEl?.classList.contains('active')
                     || document.body.classList.contains('pp-panel-open')
-                    || document.body.classList.contains('pp-results-open');
+                    || document.body.classList.contains('pp-results-open')
+                    || !!document.querySelector('#modeTutorial:not([hidden])');
                 if (menuCovered) {
                     clock.getDelta();
                     menuLastFrameMs = 0;
@@ -2276,6 +2278,7 @@
             }
 
             startCustomBallPreview();
+            window.ModeTutorial?.firstTime?.('customise', document.querySelector('#customiseOverlay [data-mode-tutorial]'));
 
             if (openBallStudioBtn && openBallStudioBtn.dataset.ppBallStudioBound !== '1') {
                 openBallStudioBtn.addEventListener('click', () => {
