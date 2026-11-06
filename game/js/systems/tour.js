@@ -183,7 +183,13 @@
         return `<span class="pptour-stars" role="img" aria-label="${esc(label || `${n} of 3 stars`)}">${s}</span>`;
     }
 
-    function stageCard(stage) {
+    // The first stage that can be played and has no stars yet.
+    function nextUpId() {
+        const s = STAGES.find((st) => lockInfo(st).state === 'open');
+        return s ? s.id : 0;
+    }
+
+    function stageCard(stage, nextUp) {
         const info = lockInfo(stage);
         const rec = data.stages[stage.id];
         const mode = MODES[stage.mode];
@@ -200,9 +206,9 @@
         const locked = info.state === 'locked';
         const label = locked ? 'Locked' : (stars > 0 ? 'Play again' : 'Play');
         return `
-            <article class="pptour-card ${info.state}${stage.boss ? ' boss' : ''}" style="--c:${mode.hex}" data-stage="${stage.id}">
+            <article class="pptour-card ${info.state}${stage.boss ? ' boss' : ''}${stage.id === nextUp ? ' next' : ''}" style="--c:${mode.hex}" data-stage="${stage.id}" data-mode="${stage.mode}">
                 <div class="pptour-card-top">
-                    <span class="pptour-stage">Stage ${stage.id}</span>
+                    <span class="pptour-stage">Stage ${stage.id}${stage.id === nextUp ? ' &middot; Next up' : ''}</span>
                     <span class="pptour-tier">${esc(tier.name)}${stage.boss ? ' &middot; Rival' : ''}</span>
                 </div>
                 <h3 class="pptour-rival">${esc(stage.rival)}</h3>
@@ -221,14 +227,34 @@
         ensure();
         const total = totalStars();
         const next = nextTierNeed();
-        const stageHtml = STAGES.map(stageCard).join('');
+        const nextUp = nextUpId();
+        const stageHtml = STAGES.map((st) => stageCard(st, nextUp)).join('');
         root.querySelector('.pptour-total b').textContent = String(total);
         root.querySelector('.pptour-total span').textContent = `/ ${MAX_STARS}`;
         const hint = data.completed
             ? 'Tour complete. Replay any stage for a perfect three stars.'
-            : (next ? `${next.name} stages open at ${next.need} stars.` : 'Every tier is open.');
+            : (next ? `${next.name} stages open at ${next.need} stars (you have ${total}).` : 'Every tier is open.');
         root.querySelector('.pptour-hint').textContent = hint;
         root.querySelector('.pptour-grid').innerHTML = stageHtml;
+        // The arena's own artwork (the same scenes as the menu cards) fills the top of each card.
+        root.querySelectorAll('.pptour-card').forEach((card) => {
+            const mode = card.dataset.mode;
+            const art = window.ModeArt?.url(mode);
+            if (!art) return;
+            card.style.setProperty('--art', art);
+            card.style.setProperty('--art-pos', `center ${window.ModeArt.focus?.(mode) || '40%'}`);
+            card.classList.add('has-art');
+        });
+        // Progress toward the next tier, so the star count always has a goal.
+        const bar = root.querySelector('.pptour-progress');
+        const fill = bar.querySelector('i');
+        if (next) {
+            const prev = [...TIERS].reverse().find((t) => t.need <= total) || TIERS[0];
+            const span = Math.max(1, next.need - prev.need);
+            fill.style.width = `${Math.max(0, Math.min(100, ((total - prev.need) / span) * 100))}%`;
+            bar.hidden = false;
+            bar.setAttribute('aria-label', `${total} of ${next.need} stars for the ${next.name} tier`);
+        } else bar.hidden = true;
     }
 
     function build() {
@@ -247,7 +273,10 @@
                         <p class="pptour-kicker">Solo career</p>
                         <h2 id="pptourTitle">The Tour</h2>
                     </div>
-                    <p class="pptour-hint" aria-live="polite"></p>
+                    <div class="pptour-hintbox">
+                        <p class="pptour-hint" aria-live="polite"></p>
+                        <div class="pptour-progress" role="img"><i></i></div>
+                    </div>
                     <div class="pptour-total" aria-label="Stars earned"><b>0</b><span>/ ${MAX_STARS}</span><i aria-hidden="true">&#9733;</i></div>
                     <button type="button" class="pptour-close" aria-label="Close the Tour">&times;</button>
                 </header>

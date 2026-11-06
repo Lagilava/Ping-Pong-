@@ -38,7 +38,12 @@ body.pp-reduce-motion .pptour.open { animation: none; }
 }
 .pptour-kicker { margin: 0; font: 600 11px/1.4 'Share Tech Mono', monospace; letter-spacing: .24em; text-transform: uppercase; color: rgba(150, 230, 255, .7); }
 .pptour-head h2 { margin: 2px 0 0; font: 900 clamp(22px, 3.4vw, 30px)/1.1 'Orbitron', sans-serif; letter-spacing: .05em; color: #fff; }
+.pptour-hintbox { min-width: 0; display: grid; gap: 7px; }
 .pptour-hint { margin: 0; font-size: 14px; line-height: 1.4; color: #b0c5d5; }
+.pptour-progress { height: 6px; max-width: 320px; border-radius: 99px; background: rgba(160, 200, 225, .18); overflow: hidden; }
+.pptour-progress[hidden] { display: none; }
+.pptour-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffbe00, #ffe08a); transition: width .4s ease; }
+body.pp-reduce-motion .pptour-progress i { transition: none; }
 .pptour-total { display: inline-flex; align-items: baseline; gap: 5px; padding: 8px 14px; border: 1px solid rgba(255, 205, 100, .5); border-radius: 12px; background: rgba(43, 33, 8, .8); white-space: nowrap; }
 .pptour-total b { font: 700 24px/1 'Share Tech Mono', monospace; color: #ffd37a; }
 .pptour-total span { font-size: 13px; color: #d9c391; }
@@ -67,10 +72,25 @@ body.pp-reduce-motion .pptour.open { animation: none; }
     border-radius: 14px;
     background: linear-gradient(170deg, color-mix(in srgb, var(--c) 14%, #0c1626), #0a111e);
 }
+.pptour-card > * { position: relative; z-index: 1; }
+/* Arena artwork across the top of the card, fading into the card colour. */
+.pptour-card.has-art::before {
+    content: '';
+    position: absolute; z-index: 0; inset: 0 0 auto 0; height: 118px;
+    border-radius: 11px 11px 0 0;
+    background-image: linear-gradient(180deg, rgba(8, 14, 26, .35), rgba(8, 14, 26, .86) 78%, #0a111e), var(--art);
+    background-size: cover;
+    background-position: center, var(--art-pos, center);
+    opacity: .95;
+    pointer-events: none;
+}
+.pptour-card.locked.has-art::before { opacity: .6; }
+.pptour-card.next { box-shadow: 0 0 0 2px var(--c), 0 0 28px color-mix(in srgb, var(--c) 35%, transparent); }
 .pptour-card.boss { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent), 0 0 24px color-mix(in srgb, var(--c) 14%, transparent); }
 .pptour-card.locked { filter: saturate(.55) brightness(.92); }
 .pptour-card-top { display: flex; justify-content: space-between; gap: 8px; font: 600 11px/1.3 'Share Tech Mono', monospace; letter-spacing: .14em; text-transform: uppercase; }
-.pptour-stage { color: var(--c); }
+.pptour-stage { color: var(--c); text-shadow: 0 1px 6px #000c; }
+.pptour-card.next .pptour-stage { color: #fff; }
 .pptour-tier { color: rgba(190, 225, 245, .7); text-align: right; }
 .pptour-rival { margin: 0; font: 900 22px/1.15 'Orbitron', sans-serif; letter-spacing: .04em; color: #fff; overflow-wrap: anywhere; }
 .pptour-style { margin: -4px 0 0; font-size: 13px; line-height: 1.4; color: #b9cbd8; }
@@ -103,7 +123,7 @@ body.pp-reduce-motion .pptour.open { animation: none; }
 @media (max-width: 1099px) {
     .pptour-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .pptour-head { grid-template-columns: minmax(0, 1fr) auto auto; }
-    .pptour-hint { grid-column: 1 / -1; grid-row: 2; }
+    .pptour-hintbox { grid-column: 1 / -1; grid-row: 2; }
 }
 @media (max-width: 619px) {
     .pptour { padding: 0; }
@@ -127,6 +147,7 @@ body.pp-reduce-motion .pptour.open { animation: none; }
     .pptour-card { gap: 6px; padding: 10px 12px 10px; }
     .pptour-rival { font-size: 18px; }
     .pptour-style { display: none; }
+    .pptour-card.has-art::before { height: 84px; }
     .pptour-goals { font-size: 12px; gap: 3px; }
     .pptour-play { min-height: 40px; }
 }
