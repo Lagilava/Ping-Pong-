@@ -126,7 +126,7 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
                     await page.evaluate(() => { game.scores.player = 12; game.scores.ai = 10; game.updateScoreUI(); });
                     await page.locator('#pp-results .ppres-box').waitFor({ timeout: 60000 });
                     assert.match(await page.locator('#pp-results').innerText(), /Tour is complete/i);
-                    assert.match(await page.locator('#pp-results').innerText(), /New paddle unlocked: Crypt Lord/i);
+                    assert.match(await page.locator('#pp-results').innerText(), /New paddle unlocked: Magma Demon/i);
                     await page.evaluate(() => PPResults.hide());
                 }
                 if (id === 7) {
@@ -134,9 +134,15 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
                     assert.equal(await spawn(), 0, 'no power-ups on the no power-up stage even with the setting on');
                 }
             }
+            // Pause summary shows the stage and goals; reset erases stars and rewards.
+            const ps = await page.evaluate(() => PPTour.pauseSummary(game));
+            assert.match(ps, /Tour/); assert.match(ps, /First to 11/);
+            const rs = await page.evaluate(() => { PPTour.resetProgress(); return { stars: PPTour.totalStars(), locked: PPTour.paddleLocked('tourMagmaDemon') }; });
+            assert.equal(rs.stars, 0); assert.equal(rs.locked, true);
+            await page.evaluate(() => { for (let i = 1; i <= 8; i++) PPTour.recordResult({ stageId: i, won: true, playerScore: 11, aiScore: 0, rally: 99 }); });
             // Paddle rewards: all four earned after the full Tour, all four locked on a fresh save.
             const rw = await page.evaluate(() => {
-                const ids = ['tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion', 'tourCryptLord'];
+                const ids = ['tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion', 'tourMagmaDemon'];
                 const earned = ids.map((i) => PPTour.paddleLocked(i));
                 PPTour.equip('tourChampion');
                 const eq = PPSettings.getPaddle('classic', 'left');

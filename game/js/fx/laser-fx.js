@@ -5,6 +5,8 @@
     const TAU = Math.PI * 2;
     function palette(p) {
         const g = window.game;
+        const theme = p.getTheme?.();
+        if (theme) return theme.main;
         return p === g?.player || (!g && !p.isAI) ? '#ff513c' : '#53dfff';
     }
     function sprite(color) {
@@ -229,7 +231,7 @@
     // across the arena behind the shot.
     function shots(ctx, p) {
         const color = palette(p), glow = sprite(color);
-        const other = color === '#ff513c' ? '#53dfff' : '#ff513c';
+        const other = color === '#ff513c' ? '#53dfff' : color === '#53dfff' ? '#ff513c' : (p.getTheme?.()?.hot || '#fff4da');
         const motion = !reduced(), detail = !lowDetail();
         const t = now();
         ctx.save();

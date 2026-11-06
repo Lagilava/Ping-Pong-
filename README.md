@@ -211,6 +211,19 @@ Some stages add a twist (power-ups always on, no power-ups, or win by two).
   number of stars (4, 8 and 12) before its stages open.
 - **Your settings stay as they are:** a stage uses its own skill and points for
   that match only. Starting a normal match from the menu leaves the Tour.
+- **Venues:** Club stages in Classic play in a sunlit sports hall and World
+  stages in a championship final arena
+  ([`tour-venues.js`](game/js/render/tour-venues.js)); other stages keep their
+  mode's arena with the tier's colour grade. A title card opens each stage and
+  the pause menu shows the rival and live goal progress.
+- **Rewards:** clearing both stages of a tier earns a paddle design (Sunbeam,
+  Voltage, Afterglow, Champion), and beating all eight stages earns the
+  Magma Demon, the Zombie boss's paddle. Equip them in Settings > Paddles. Lasers,
+  hit sparks and the Speed shield pick up the colours of paddles that have their
+  own (Magma, Sunbeam, Champion, Afterglow, Magma Demon).
+- **Controller:** press **Y** on the menu to open the Tour; the d-pad moves
+  between stages, **A** plays and **B** closes. *Reset Tour progress* at the
+  bottom of the Tour screen starts the career again.
 - Progress is saved in the browser (`pp-tour-v1`). Stage data lives in
   [`game/js/systems/tour.js`](game/js/systems/tour.js).
 

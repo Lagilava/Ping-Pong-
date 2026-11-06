@@ -29,7 +29,7 @@
         { id: 'tourVoltage', name: 'Voltage', blurb: 'A copper coil with a plasma arc that forks on every hit', tourTier: 1 },
         { id: 'tourAfterglow', name: 'Afterglow', blurb: 'A dusk sky in glass: striped sun, drifting lines, twinkling stars', tourTier: 2 },
         { id: 'tourChampion', name: 'Champion', blurb: 'A gold trophy bar with crowns, pulsing gems and floodlight sparkle', tourTier: 3 },
-        { id: 'tourCryptLord', name: 'Crypt Lord', blurb: 'The Zombie boss\'s own paddle: bone armour, burning eyes, dripping goo', tourComplete: true },
+        { id: 'tourMagmaDemon', name: 'Magma Demon', blurb: 'The Zombie boss\'s own paddle: obsidian plates, lava veins, eyes that follow the ball', tourComplete: true },
     ];
     const IDS = LIST.map((d) => d.id);
     const PAD = 22;                 // logical px of room around the paddle for glow
@@ -1772,92 +1772,113 @@
         },
     };
 
-    // Crypt Lord (earned by beating the whole Tour): the Zombie boss's own
-    // paddle. Rotting hull, bone spikes and plates, red eyes that burn and
-    // veins that pulse. Goo drips from the foot of it and a hit flushes it green.
-    const cryptLord = {
+    // Magma Demon (earned by beating the whole Tour): the Zombie boss's own
+    // paddle, built the same way as the boss. Obsidian chevron plates, horns,
+    // lava veins that breathe with a heartbeat, a pair of eyes that follow the
+    // ball and a glowing seam for a mouth. A hit flares the veins white hot;
+    // a lost point lets them cool.
+    const magmaDemon = {
         bake(c, w, h, s) {
-            const hw = w / 2, hh = h / 2, sp = clamp(w * 0.55, 6, 11);
-            const body = sprite(w, h, s), g = body.ctx;
-            const r = rng(1313);
-            // Sickly halo.
+            const hw = w / 2, hh = h / 2;
+            const body = sprite(w, h, s), veins = sprite(w, h, s);
+            const g = body.ctx, v = veins.ctx, r = rng(4401);
+            const n = Math.max(6, Math.round(h / 15)), segH = h / n;
+            // Hellish under-glow.
             g.save();
-            g.shadowColor = 'rgba(80,255,90,0.9)'; g.shadowBlur = 15 * s;
-            g.fillStyle = 'rgba(70,200,80,0.28)'; roundRect(g, -hw, -hh, w, h, Math.min(hw, 4)); g.fill();
+            g.shadowColor = 'rgba(255,70,15,0.9)'; g.shadowBlur = 16 * s;
+            g.fillStyle = 'rgba(120,24,0,0.5)'; g.fillRect(-hw, -hh, w, h);
             g.restore();
-            // Hull: lumpy edges, mouldy gradient.
-            const hull = g.createLinearGradient(-hw, 0, hw, 0);
-            hull.addColorStop(0, '#4c7a46'); hull.addColorStop(0.45, '#2d5030'); hull.addColorStop(1, '#0d180e');
-            g.fillStyle = hull; g.beginPath();
-            g.moveTo(-hw + 2, -hh);
-            g.bezierCurveTo(-hw - 1.5, -hh * 0.5, -hw + 1.5, hh * 0.3, -hw + 1, hh);
-            g.lineTo(hw - 1, hh);
-            g.bezierCurveTo(hw - 1.5, hh * 0.3, hw + 1.5, -hh * 0.5, hw - 2, -hh);
-            g.closePath(); g.fill();
-            // Rot patches.
-            g.fillStyle = 'rgba(8,12,8,0.55)';
-            for (let i = 0; i < 7; i++) { g.beginPath(); g.ellipse((r() * 2 - 1) * hw * 0.5, (r() * 2 - 1) * hh * 0.8, hw * (0.3 + r() * 0.4), 3 + r() * 6, r(), 0, TAU); g.fill(); }
-            // Bone plates strapped across the body.
-            const plates = [-0.34, 0.06, 0.44];
-            for (const f of plates) {
-                const y = hh * f, ph = Math.max(5, h * 0.06);
-                const bg2 = g.createLinearGradient(0, y, 0, y + ph);
-                bg2.addColorStop(0, '#efe3cc'); bg2.addColorStop(1, '#a89878');
-                g.fillStyle = bg2; roundRect(g, -hw - 1.2, y, w + 2.4, ph, 2); g.fill();
-                g.strokeStyle = 'rgba(70,52,30,0.7)'; g.lineWidth = 0.7; g.stroke();
-                g.strokeStyle = 'rgba(70,52,30,0.55)'; g.lineWidth = 0.6;
-                for (let k = -1; k <= 1; k++) { g.beginPath(); g.moveTo(k * hw * 0.5 - 1, y + 1); g.lineTo(k * hw * 0.5 + 1, y + ph - 1); g.stroke(); }
-            }
-            // Bone spikes along the top and the foot.
-            g.fillStyle = '#eadfc8'; g.strokeStyle = 'rgba(100,80,50,0.7)'; g.lineWidth = 0.6;
+            // Horns: charred bone curving out of the top and the foot.
             for (const dir of [-1, 1]) {
-                for (let i = 0; i < 3; i++) {
-                    const x = (i - 1) * hw * 0.62, len = sp * (i === 1 ? 1.25 : 0.9), y0 = dir * (hh - 1);
-                    g.beginPath(); g.moveTo(x - hw * 0.26, y0); g.lineTo(x, y0 + dir * len); g.lineTo(x + hw * 0.26, y0); g.closePath(); g.fill(); g.stroke();
-                }
+                const yb = dir * (hh - 1);
+                const hg = g.createLinearGradient(0, yb, 0, yb + dir * 16);
+                hg.addColorStop(0, '#140807'); hg.addColorStop(0.6, '#3d2621'); hg.addColorStop(1, '#c2aa92');
+                g.fillStyle = hg; g.beginPath();
+                g.moveTo(-hw * 0.9, yb); g.quadraticCurveTo(-hw - 5, yb + dir * 7, -hw - 3.5, yb + dir * 15);
+                g.quadraticCurveTo(-hw * 0.2, yb + dir * 9, hw * 0.4, yb);
+                g.closePath(); g.fill();
+                g.beginPath();
+                g.moveTo(hw * 0.9, yb); g.quadraticCurveTo(hw + 5, yb + dir * 7, hw + 3.5, yb + dir * 15);
+                g.quadraticCurveTo(hw * 0.2, yb + dir * 9, -hw * 0.4, yb);
+                g.closePath(); g.fill();
             }
-            // Eye sockets.
-            const ey = -hh + h * 0.14;
-            g.fillStyle = '#0b0b0b';
-            for (const sx of [-1, 1]) { g.beginPath(); g.arc(sx * hw * 0.42, ey, Math.max(2.4, hw * 0.34), 0, TAU); g.fill(); }
-            return { body: body.canvas, hw, hh, ey, plates, sp };
+            // Carapace: chevron plates.
+            for (let i = 0; i < n; i++) {
+                const y0 = -hh + i * segH, y1 = y0 + segH, notch = Math.min(3, segH * 0.22);
+                const pg = g.createLinearGradient(-hw, 0, hw, 0);
+                pg.addColorStop(0, '#2c1612'); pg.addColorStop(0.5, '#170a08'); pg.addColorStop(1, '#070303');
+                g.fillStyle = pg; g.beginPath();
+                g.moveTo(-hw, y0 + notch); g.lineTo(0, y0 + 0.4); g.lineTo(hw, y0 + notch);
+                g.lineTo(hw, y1 - 0.4); g.lineTo(0, y1 - 1.2); g.lineTo(-hw, y1 - 0.4);
+                g.closePath(); g.fill();
+                g.strokeStyle = 'rgba(255,190,160,0.17)'; g.lineWidth = 0.6;
+                g.beginPath(); g.moveTo(-hw, y0 + notch + 0.6); g.lineTo(0, y0 + 1); g.lineTo(hw, y0 + notch + 0.6); g.stroke();
+                v.strokeStyle = 'rgba(255,120,20,1)'; v.lineWidth = 1.1;
+                v.beginPath(); v.moveTo(-hw, y1 - 0.2); v.lineTo(0, y1 - 1); v.lineTo(hw, y1 - 0.2); v.stroke();
+            }
+            // Lava cracks, with a dark bed under the glow.
+            const cracks = [];
+            for (let m = 0; m < 6; m++) {
+                const up = m % 2 ? -1 : 1;
+                let x = (r() - 0.5) * w * 0.6, y = up * (4 + r() * 6);
+                const pts = [[x, y]];
+                for (let i = 0; i < 6; i++) { x = clamp(x + (r() - 0.5) * w * 0.7, -hw + 1.5, hw - 1.5); y += up * (5 + r() * 8); if (Math.abs(y) > hh - 4) break; pts.push([x, y]); }
+                cracks.push(pts);
+            }
+            g.strokeStyle = 'rgba(0,0,0,0.8)'; g.lineWidth = 1.6; g.lineCap = 'round'; g.lineJoin = 'round';
+            for (const pts of cracks) { g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(([x, y]) => g.lineTo(x, y)); g.stroke(); }
+            v.save(); v.lineCap = 'round'; v.lineJoin = 'round';
+            v.shadowColor = 'rgba(255,90,0,1)'; v.shadowBlur = 6 * s;
+            v.strokeStyle = 'rgba(255,160,40,1)'; v.lineWidth = 1.3;
+            for (const pts of cracks) { v.beginPath(); v.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(([x, y]) => v.lineTo(x, y)); v.stroke(); }
+            v.restore();
+            // Mouth seam and tusk-like fangs at the centre.
+            g.fillStyle = '#050101'; g.fillRect(-hw + 1, -2.4, w - 2, 4.8);
+            v.strokeStyle = 'rgba(255,175,45,1)'; v.lineWidth = 1; v.beginPath();
+            for (let i = 0; i <= 6; i++) { const x = -hw + 1 + ((w - 2) * i) / 6, y = i % 2 ? 1.2 : -1.2; v[i ? 'lineTo' : 'moveTo'](x, y); }
+            v.stroke();
+            g.fillStyle = '#efe2cc';
+            for (const dir of [-1, 1]) for (const k of [-0.4, 0.4]) { g.beginPath(); g.moveTo(k * hw - 1.2, dir * 2.4); g.lineTo(k * hw, dir * 5.6); g.lineTo(k * hw + 1.2, dir * 2.4); g.closePath(); g.fill(); }
+            // Eye sockets above and below the mouth.
+            const eyeY = Math.min(hh - 14, 17);
+            g.fillStyle = '#020000';
+            for (const dir of [-1, 1]) { g.beginPath(); g.ellipse(0, dir * eyeY, Math.max(3, hw * 0.52), 4, 0, 0, TAU); g.fill(); }
+            return { body: body.canvas, veins: veins.canvas, hw, hh, eyeY };
         },
         draw(ctx, p, k, t, hitGlow) {
-            const { w, h } = k, { hw, hh, ey } = k.sprites;
+            const { w, h, s } = k, { hw, hh, eyeY } = k.sprites;
             const m = p.motion, win = reactEnv(m, 'win'), lose = reactEnv(m, 'lose');
             drawSprite(ctx, k.sprites.body, w, h);
             const seed = p._seed || 0;
+            // Two-beat heartbeat drives the veins and the glow behind the body.
+            const hb = (ph) => Math.exp(-ph * 9);
+            const ph = (t * 0.9 + seed * 0.1) % 1;
+            const beat = hb(ph) + 0.6 * hb(Math.abs(ph - 0.22));
+            const heat = clamp(0.4 + beat * 0.45 + hitGlow * 0.9 + win * 0.6 + (m?.ant || 0) * 0.3 - lose * 0.35, 0.12, 1.5);
             ctx.save();
             ctx.globalCompositeOperation = 'lighter';
-            // Eyes burn brighter as the ball closes in and when a point lands.
-            const burn = clamp(0.62 + 0.25 * Math.sin(t * 3.4 + seed) + (m?.ant || 0) * 0.4 + hitGlow * 0.6 + win * 0.5 - lose * 0.4, 0.15, 1.4);
-            for (const sx of [-1, 1]) {
-                const x = sx * hw * 0.42, er = Math.max(1.6, hw * 0.26);
-                ctx.fillStyle = 'rgba(255,60,40,1)';
-                ctx.globalAlpha = burn * 0.28; ctx.beginPath(); ctx.arc(x, ey, er * 2.6, 0, TAU); ctx.fill();
-                ctx.globalAlpha = Math.min(1, burn); ctx.beginPath(); ctx.arc(x, ey, er, 0, TAU); ctx.fill();
-                ctx.fillStyle = '#ffd9c8'; ctx.globalAlpha = burn * 0.8; ctx.beginPath(); ctx.arc(x, ey, er * 0.4, 0, TAU); ctx.fill();
+            ctx.globalAlpha = Math.min(1, heat);
+            drawSprite(ctx, k.sprites.veins, w, h);
+            if (hitGlow > 0.05 || win > 0.05) {
+                ctx.globalAlpha = clamp(hitGlow * 0.5 + win * 0.35, 0, 0.6);
+                ctx.fillStyle = 'rgba(255,230,160,1)'; ctx.fillRect(-hw, -hh, w, h);
             }
-            // Veins creeping across the body.
-            ctx.lineCap = 'round'; ctx.lineWidth = 0.9;
-            const vp = 0.35 + 0.35 * Math.sin(t * 2.6 + seed * 2) + hitGlow * 0.5;
-            ctx.strokeStyle = 'rgba(255,90,70,1)'; ctx.globalAlpha = clamp(vp, 0.1, 0.9);
-            for (const [y0, y1, a] of [[-0.62, -0.38, 1], [0.18, 0.38, -1], [0.55, 0.78, 1]]) {
-                ctx.beginPath(); ctx.moveTo(-a * hw * 0.5, hh * y0);
-                ctx.quadraticCurveTo(a * hw * 0.35, hh * (y0 + y1) / 2, -a * hw * 0.3, hh * y1); ctx.stroke();
+            // Eyes follow the ball.
+            const ball = window.game?.ball;
+            const look = ball ? clamp((ball.pos.y - (p.pos.y + p.h / 2)) / (p.h * 0.5), -1, 1) : 0;
+            for (const dir of [-1, 1]) {
+                const y = dir * eyeY + look * 1.6, er = Math.max(1.5, hw * 0.34);
+                ctx.fillStyle = 'rgba(255,90,25,1)';
+                ctx.globalAlpha = clamp(0.45 + heat * 0.4, 0, 1) * 0.35; ctx.beginPath(); ctx.arc(0, y, er * 2.4, 0, TAU); ctx.fill();
+                ctx.globalAlpha = clamp(0.6 + heat * 0.4, 0, 1); ctx.beginPath(); ctx.arc(0, y, er, 0, TAU); ctx.fill();
+                ctx.fillStyle = '#fff3d4'; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(0, y, er * 0.42, 0, TAU); ctx.fill();
             }
-            // A hit flushes the whole body toward poison green.
-            if (hitGlow > 0.02 || win > 0.02) {
-                ctx.fillStyle = 'rgba(90,255,100,1)'; ctx.globalAlpha = clamp(hitGlow * 0.38 + win * 0.25, 0, 0.5);
-                roundRect(ctx, -hw, -hh, w, h, Math.min(hw, 4)); ctx.fill();
-            }
-            // Goo drips off the foot, on two staggered loops.
-            ctx.fillStyle = 'rgba(120,255,110,1)';
-            for (let i = 0; i < 2; i++) {
-                const u = ((t * 0.55 + i * 0.5 + seed * 0.1) % 1);
-                const x = (i ? 0.35 : -0.3) * hw, y = hh + 2 + u * 15;
-                ctx.globalAlpha = (1 - u) * 0.85;
-                ctx.beginPath(); ctx.ellipse(x, y, 1.1, 1.1 + u * 1.8, 0, 0, TAU); ctx.fill();
+            // Embers lifting off the body.
+            ctx.fillStyle = 'rgba(255,170,60,1)';
+            for (let i = 0; i < 4; i++) {
+                const u = (t * 0.45 + i * 0.25 + seed * 0.07) % 1;
+                ctx.globalAlpha = (1 - u) * 0.8;
+                ctx.fillRect(Math.sin(i * 9.1 + seed) * hw * 0.8, hh * 0.7 - u * h * 0.9, 1.2, 1.2);
             }
             ctx.restore();
         },
@@ -1866,7 +1887,7 @@
     const DESIGNS = {
         neonBlade: satelliten, shieldWall: worldShield, arcadeBlock: aiRebel, prismGlass: prizma,
         riptide, magmaCore: magma, bassline,
-        tourSunbeam: sunbeam, tourVoltage: voltage, tourAfterglow: afterglow, tourChampion: champion, tourCryptLord: cryptLord,
+        tourSunbeam: sunbeam, tourVoltage: voltage, tourAfterglow: afterglow, tourChampion: champion, tourMagmaDemon: magmaDemon,
     };
 
     // Pixel scale of the current transform, in quarter steps so a little
@@ -1900,5 +1921,19 @@
         return true;
     }
 
-    window.PaddleDesigns = { LIST, IDS, render, pixelScale, normalize: (id) => (IDS.includes(id) ? id : 'classic') };
+    // Designs with a colour identity of their own tell lasers, hit sparks and
+    // paddle-side abilities what to glow with, so the whole paddle reads as
+    // one thing instead of a custom skin with default cyan and red effects.
+    // main = the glow, hot = hot highlights and sparks. Designs that follow the
+    // player's colour (Voltage, Prizma, ...) return null and keep the default.
+    const EMBER = { main: '#ff6a2a', hot: '#ffc060' };
+    const THEMES = {
+        magmaCore: EMBER, tourMagmaDemon: EMBER,
+        tourSunbeam: { main: '#ffc94d', hot: '#fff0b8' },
+        tourChampion: { main: '#ffd45c', hot: '#fff6d0' },
+        tourAfterglow: { main: '#ff6f91', hot: '#ffd36a' },
+    };
+    const theme = (id) => THEMES[id] || null;
+
+    window.PaddleDesigns = { LIST, IDS, theme, render, pixelScale, normalize: (id) => (IDS.includes(id) ? id : 'classic') };
 })();

@@ -710,14 +710,25 @@ class Paddle {
         ctx.restore();
     }
 
+    // Colour identity of the paddle's design (or the Zombie boss), or null to
+    // use the player's own colour.
+    getTheme() {
+        const D = window.PaddleDesigns;
+        if (!D?.theme) return null;
+        if (this.isZombieBoss) return D.theme('tourMagmaDemon');
+        return D.theme(this.paddleStyle);
+    }
+
     addHitParticles(x, y, speed = 800) {
-        const hitColor = this.isZombieBoss ? '#44ff44' : this.color;
+        const theme = this.getTheme();
+        const hitColor = theme ? theme.hot : this.isZombieBoss ? '#44ff44' : this.color;
         this.particleSystem.spawnGodTierHit(x, y, hitColor, speed);
 
         if (this.isZombieBoss) {
             // extra goo droplets
-            this.particleSystem.spawnSparkle(x, y, '#00ff00', 2, 0.4);
-            this.particleSystem.spawnSparkle(x, y, '#88ff88', 1.2, 0.3);
+            const t = this.getTheme();
+            this.particleSystem.spawnSparkle(x, y, t ? t.main : '#00ff00', 2, 0.4);
+            this.particleSystem.spawnSparkle(x, y, t ? t.hot : '#88ff88', 1.2, 0.3);
         }
 
         this.lastHitTime = Date.now();
@@ -1539,7 +1550,7 @@ class Paddle {
 
 // Fragment system for destructible obstacle rendering
 
-Paddle.STYLES = ['classic', 'neonBlade', 'shieldWall', 'arcadeBlock', 'prismGlass', 'riptide', 'magmaCore', 'bassline', 'tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion', 'tourCryptLord'];
+Paddle.STYLES = ['classic', 'neonBlade', 'shieldWall', 'arcadeBlock', 'prismGlass', 'riptide', 'magmaCore', 'bassline', 'tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion', 'tourMagmaDemon'];
 
 // Motion timing clock (falls back to Date.now outside a browser).
 Paddle.now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());

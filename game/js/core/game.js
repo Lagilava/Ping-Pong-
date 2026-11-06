@@ -6136,6 +6136,12 @@ class Game {
             menu.classList.toggle('pp-online-guest', this.net?.role === 'guest');
             set('pauseScoreL', this.scores.player);
             set('pauseScoreR', zombie ? `${Math.max(0, z.hearts)}/${z.maxHearts}` : this.scores.ai);
+            const tourBox = document.getElementById('pauseTour');
+            if (tourBox) {
+                const html = window.PPTour?.pauseSummary?.(this) || '';
+                tourBox.innerHTML = html;
+                tourBox.hidden = !html;
+            }
             this.renderPauseAchievements();
         }
         this.resetPauseConfirms(menu);

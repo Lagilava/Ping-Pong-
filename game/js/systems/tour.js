@@ -464,11 +464,18 @@
                     <div class="pptour-total" aria-label="Stars earned"><b>0</b><span>/ ${MAX_STARS}</span><i aria-hidden="true">&#9733;</i></div>
                     <button type="button" class="pptour-close" aria-label="Close the Tour">&times;</button>
                 </header>
-                <div class="pptour-body"><section class="pptour-rewards" aria-label="Paddle rewards"></section><div class="pptour-grid"></div></div>
+                <div class="pptour-body"><section class="pptour-rewards" aria-label="Paddle rewards"></section><div class="pptour-grid"></div><footer class="pptour-foot"><button type="button" class="pptour-reset">Reset Tour progress</button></footer></div>
             </div>`;
         document.body.appendChild(root);
         root.addEventListener('click', (e) => {
             if (e.target === root || e.target.closest('.pptour-close')) { close(); return; }
+            const rs = e.target.closest('.pptour-reset');
+            if (rs) {
+                if (rs.dataset.armed) { delete rs.dataset.armed; resetProgress(); return; }
+                rs.dataset.armed = '1'; rs.textContent = 'Tap again to erase stars and rewards';
+                setTimeout(() => { if (rs.isConnected) { delete rs.dataset.armed; rs.textContent = 'Reset Tour progress'; } }, 4000);
+                return;
+            }
             const btn = e.target.closest('[data-play]');
             if (btn && !btn.disabled) launch(Number(btn.dataset.play));
         });
@@ -626,6 +633,26 @@
         };
     }
 
+    // Pause menu: who you are playing and how the stage's goals are going.
+    function pauseSummary(game) {
+        const ctx = game?.getTourContext?.();
+        const stage = ctx ? byId(ctx.stageId) : null;
+        if (!stage) return '';
+        const sc = game.scores || {};
+        const live = { playerScore: sc.player || 0, aiScore: sc.ai || 0, rally: game.maxRally || 0 };
+        const rows = [`<li>First to ${stage.points}${stage.twist === 'winBy2' ? ' (win by 2)' : ''}</li>`]
+            .concat(stage.goals.map((g) => `<li class="${goalMet(g, live) ? 'done' : ''}">${goalMet(g, live) ? '\u2713' : '\u25CB'} ${esc(g.text)}</li>`));
+        return `<p class="pause-tour-head">Tour \u00B7 stage ${stage.id} \u00B7 vs ${esc(stage.rival)}</p><ul>${rows.join('')}</ul>`;
+    }
+
+    // Start the career again; the paddle rewards lock again with it.
+    function resetProgress() {
+        data = blank();
+        save();
+        updateMenuButton();
+        if (root) render();
+    }
+
     // Put a reward on the player's own side in every mode.
     function equip(id) {
         const S = window.PPSettings;
@@ -635,7 +662,7 @@
     }
 
     window.PPTour = {
-        venueFor, tierCleared, rewardOf, paddleLocked, paddleLockText, equip,
+        pauseSummary, resetProgress, venueFor, tierCleared, rewardOf, paddleLocked, paddleLockText, equip,
         STAGES, TIERS, MAX_STARS, byId, lockInfo, isPlayable, totalStars, starsOf,
         recordResult, resultCard, applyTierLook, syncLook, launch, clear, open, close, isOpen, updateMenuButton,
         reload: () => { data = null; load(); },

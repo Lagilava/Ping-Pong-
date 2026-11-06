@@ -156,6 +156,13 @@ class ModeAbilities {
         const g = this.game, paddle = this.paddle(side);
         if (!paddle) return;
         const dir = side === 'player' ? 1 : -1;
+        // A paddle with its own colour identity (Magma, Sunbeam, ...) tints its
+        // shield to match; everything else keeps the cyan the ability ships with.
+        const th = paddle.getTheme?.();
+        const rgb = (hex) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+        const m1 = th ? rgb(th.main) : [82, 231, 255], m2 = th ? m1.map((v) => Math.round(v * 0.75)) : [62, 164, 255];
+        const hi = th ? rgb(th.hot) : [173, 250, 255];
+        const cMain = th ? th.main : '#49baff', cHot = th ? th.hot : '#d5ffff', cGlow = th ? th.main : '#69e9ff', cArc = th ? th.hot : '#baffff';
         const cx = paddle.pos.x + paddle.w / 2, cy = paddle.pos.y + paddle.h / 2;
         const reach = Math.max(72, this.speedReach(side));
         const fade = Math.min(1, s.active / 0.09);
@@ -163,9 +170,9 @@ class ModeAbilities {
         // A shallow corridor keeps the effect attached to the paddle instead
         // of tinting the whole court when time slows.
         const field = ctx.createLinearGradient(cx, cy, cx + dir * reach, cy);
-        field.addColorStop(0, `rgba(82, 231, 255, ${0.20 * fade})`);
-        field.addColorStop(0.55, `rgba(62, 164, 255, ${0.07 * fade})`);
-        field.addColorStop(1, 'rgba(62, 164, 255, 0)');
+        field.addColorStop(0, `rgba(${m1}, ${0.20 * fade})`);
+        field.addColorStop(0.55, `rgba(${m2}, ${0.07 * fade})`);
+        field.addColorStop(1, `rgba(${m2}, 0)`);
         ctx.fillStyle = field;
         ctx.beginPath();
         ctx.moveTo(cx, cy - paddle.h * 0.7);
@@ -173,8 +180,8 @@ class ModeAbilities {
         ctx.lineTo(cx + dir * reach, cy + paddle.h * 1.06);
         ctx.lineTo(cx, cy + paddle.h * 0.7);
         ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = `rgba(173, 250, 255, ${0.7 * fade})`;
-        ctx.shadowColor = '#69e9ff'; ctx.shadowBlur = 18;
+        ctx.strokeStyle = `rgba(${hi}, ${0.7 * fade})`;
+        ctx.shadowColor = cGlow; ctx.shadowBlur = 18;
         for (let i = 0; i < 3; i++) {
             const rx = paddle.w * (2.2 + i * 0.75);
             const ry = paddle.h * (0.72 + i * 0.17);
@@ -196,7 +203,7 @@ class ModeAbilities {
         ctx.shadowBlur = 0;
         for (let i = 0; i < 6; i++) {
             const a = i * Math.PI / 3 + (motion ? this.clock * dir * 4 : 0);
-            ctx.strokeStyle = i % 2 ? '#49baff' : '#d5ffff';
+            ctx.strokeStyle = i % 2 ? cMain : cHot;
             ctx.lineWidth = i % 2 ? 2 : 3;
             ctx.beginPath();
             ctx.ellipse(cx, cy, 24 + charge * 10, paddle.h * 0.82, 0, a, a + 0.52);
@@ -210,7 +217,7 @@ class ModeAbilities {
             const y = cy + Math.sin(a) * paddle.h * 0.78;
             if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
         }
-        ctx.strokeStyle = '#baffff'; ctx.lineWidth = 2.2; ctx.stroke();
+        ctx.strokeStyle = cArc; ctx.lineWidth = 2.2; ctx.stroke();
         if (motion) {
             ctx.shadowBlur = 0;
             for (let i = 0; i < 9; i++) {

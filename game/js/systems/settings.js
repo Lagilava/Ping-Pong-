@@ -51,7 +51,7 @@
     };
 
     const PADDLE_MODES = ['classic', 'zombie', 'gravity', 'speed', 'obstacle', 'customise'];
-    const PADDLE_IDS = ['classic', 'neonBlade', 'shieldWall', 'arcadeBlock', 'prismGlass', 'riptide', 'magmaCore', 'bassline', 'tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion', 'tourCryptLord'];
+    const PADDLE_IDS = ['classic', 'neonBlade', 'shieldWall', 'arcadeBlock', 'prismGlass', 'riptide', 'magmaCore', 'bassline', 'tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion', 'tourMagmaDemon'];
     const defaultPaddles = () => Object.fromEntries(PADDLE_MODES.map((m) => [m, { left: 'classic', right: 'classic' }]));
     function cleanPaddles(raw) {
         const out = defaultPaddles();
