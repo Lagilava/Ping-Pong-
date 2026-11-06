@@ -2617,7 +2617,8 @@ class Game {
         PerfGovernor.fxActive = !!this.postFx?.active;
         this.arenaReveal = null;
         this.arenaRevealZoom = 1;
-        this.postFx?.setGrade(Game.MODE_GRADES[mode] || Game.MODE_GRADES.classic);
+        this.postFx?.setGrade(this.getModeGrade(mode));
+        window.PPTour?.syncLook(this);
         if (mode === 'customise') {
             this.isMultiplayer = true;
         } else {
@@ -7089,7 +7090,8 @@ class Game {
         PerfGovernor.fxActive = !!this.postFx;
         if (this.postFx) {
             this.postFx.setQuality(['zombie', 'gravity'].includes(this.gameMode) ? 3 : PerfGovernor.current.fx);
-            this.postFx.setGrade(Game.MODE_GRADES[this.gameMode] || Game.MODE_GRADES.classic);
+            this.postFx.setGrade(this.getModeGrade(this.gameMode));
+            window.PPTour?.syncLook(this);
         }
         return this.postFx;
     }
@@ -7958,6 +7960,14 @@ class Game {
     getTourContext() {
         const c = this.tourContext;
         return c && c.active && !this.isMultiplayer && c.mode === this.gameMode ? c : null;
+    }
+
+    // The colour grade for a mode, with the Tour tier's look on top when a
+    // Tour stage is being played.
+    getModeGrade(mode) {
+        const base = Game.MODE_GRADES[mode] || Game.MODE_GRADES.classic;
+        const tour = this.getTourContext();
+        return tour && window.PPTour ? window.PPTour.applyTierLook(base, tour.stageId) : base;
     }
 
     // Settings > Gameplay > Computer skill, 0 (Rookie) .. 4 (Insane).

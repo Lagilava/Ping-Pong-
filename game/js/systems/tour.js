@@ -13,11 +13,44 @@
     const KEY = 'pp-tour-v1';
 
     // `need` is the total stars required before the tier's stages open.
+    // Each tier is its own occasion in the same arena, set by two things:
+    //  look: a colour-grade change laid over the mode's own grade (see
+    //        applyTierLook; shader uniforms, so no frame cost)
+    //  veil: one static translucent layer over the court (sun shafts, dusk
+    //        glow, floodlights, a frame), see syncLook. `tint` is a flat wash
+    //        that stands in for the grade in Gravity, where the post-process
+    //        shader is off.
+    // The court, ball and paddles are never covered, so play stays readable.
     const TIERS = [
-        { id: 'club', name: 'Club', need: 0 },
-        { id: 'regional', name: 'Regional', need: 4 },
-        { id: 'national', name: 'National', need: 8 },
-        { id: 'world', name: 'World', need: 12 },
+        { id: 'club', name: 'Club', need: 0, mood: 'Sunlit open', accent: '#ffd37a',
+            look: { sat: 0.95, contrast: 1.02, tint: [1.07, 1.035, 0.93], shadow: [0.04, 0.032, 0.016], highlight: [0.034, 0.022, 0.0] },
+            veil: {
+                layers: [
+                    'linear-gradient(106deg, transparent 4%, rgba(255, 244, 210, .24) 14%, transparent 28%, transparent 46%, rgba(255, 244, 210, .16) 56%, transparent 70%)',
+                    'linear-gradient(180deg, rgba(255, 236, 180, .22), transparent 38%)',
+                    'linear-gradient(0deg, rgba(255, 190, 120, .16), transparent 32%)',
+                ],
+                tint: [255, 222, 150, 0.12], frame: '' } },
+        { id: 'regional', name: 'Regional', need: 4, mood: 'Evening league', accent: '#5ee7ff', look: null, veil: null },
+        { id: 'national', name: 'National', need: 8, mood: 'Dusk finals', accent: '#ff7a9c',
+            look: { sat: 1.14, contrast: 1.08, tint: [1.08, 0.95, 0.95], shadow: [0.03, -0.01, 0.036], highlight: [0.046, 0.012, -0.012] },
+            veil: {
+                layers: [
+                    'linear-gradient(0deg, rgba(255, 104, 56, .52), transparent 52%)',
+                    'linear-gradient(180deg, rgba(84, 18, 140, .56), transparent 46%)',
+                    'radial-gradient(ellipse at center, transparent 44%, rgba(28, 4, 36, .5) 100%)',
+                ],
+                tint: [255, 96, 140, 0.12], frame: '' } },
+        { id: 'world', name: 'World', need: 12, mood: 'Floodlit final', accent: '#ffe08a',
+            look: { sat: 1.04, contrast: 1.18, tint: [0.97, 0.99, 1.07], shadow: [-0.012, -0.006, 0.012], highlight: [0.02, 0.026, 0.046] },
+            veil: {
+                layers: [
+                    'linear-gradient(158deg, rgba(222, 242, 255, .42), transparent 30%)',
+                    'linear-gradient(202deg, rgba(222, 242, 255, .42), transparent 30%)',
+                    'radial-gradient(ellipse at center, transparent 30%, rgba(0, 2, 14, .86) 100%)',
+                ],
+                tint: [40, 70, 210, 0.1],
+                frame: 'inset 0 0 0 3px rgba(255, 214, 120, .75), inset 0 0 90px rgba(255, 200, 90, .24)' } },
     ];
     const SKILLS = ['Rookie', 'Easy', 'Normal', 'Hard', 'Insane'];
     const MODES = {
@@ -56,6 +89,86 @@
 
     const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
     const byId = (id) => STAGES.find((s) => s.id === Number(id)) || null;
+
+    // Mode grade + the tier's look. `look.tint/shadow/highlight` multiply
+    // (tint) or add to the base; sat and contrast multiply.
+    function applyTierLook(base, stageId) {
+        const stage = byId(stageId);
+        const look = stage && TIERS[stage.tier].look;
+        if (!look || !base) return base;
+        const mul3 = (a, b) => [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
+        const add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+        return {
+            sat: (base.sat ?? 1) * look.sat,
+            contrast: (base.contrast ?? 1) * look.contrast,
+            tint: mul3(base.tint || [1, 1, 1], look.tint),
+            shadow: add3(base.shadow || [0, 0, 0], look.shadow),
+            highlight: add3(base.highlight || [0, 0, 0], look.highlight),
+        };
+    }
+
+    // The veil: one static translucent element over the court, plus a title
+    // card at the start of each stage. No blend modes and nothing animates
+    // while play is running, so it adds no per-frame work. Called whenever a
+    // match is set up.
+    let veil = null;
+    let cardTimer = 0;
+    function syncLook(game) {
+        window.clearInterval(cardTimer);
+        document.getElementById('ppTourCard')?.remove();
+        const ctx = game?.getTourContext?.();
+        const stage = ctx ? byId(ctx.stageId) : null;
+        const spec = stage ? TIERS[stage.tier].veil : null;
+        if (!veil) {
+            veil = document.createElement('div');
+            veil.id = 'ppTourVeil';
+            veil.setAttribute('aria-hidden', 'true');
+            // Same layer as the canvases (z-index 1) but later in the page, so it sits just above them and under the HUD.
+            veil.style.cssText = 'position:fixed;inset:0;z-index:1;pointer-events:none;';
+        }
+        if (stage) scheduleCard(game, stage);
+        if (!spec) { veil.style.display = 'none'; return; }
+        const host = document.getElementById('fx') || document.getElementById('c');
+        if (host && host.nextElementSibling !== veil) host.after(veil);
+        const layers = spec.layers.slice();
+        // The flat tint carries the tier's colour where there is no grade, and
+        // adds a little under the grade elsewhere; it goes last so it sits underneath.
+        if (spec.tint) {
+            const [r, g, b, a] = spec.tint;
+            const k = game.postFx?.active ? 0.6 : 1.5;
+            layers.push(`linear-gradient(rgba(${r}, ${g}, ${b}, ${(a * k).toFixed(3)}), rgba(${r}, ${g}, ${b}, ${(a * k).toFixed(3)}))`);
+        }
+        veil.style.background = layers.join(', ');
+        veil.style.boxShadow = spec.frame || 'none';
+        veil.style.display = '';
+    }
+    window.addEventListener('pp-returned-to-menu', () => {
+        window.clearInterval(cardTimer);
+        document.getElementById('ppTourCard')?.remove();
+        if (veil) veil.style.display = 'none';
+    });
+
+    // "Stage 5 / Dusk finals / vs Juno" for three seconds once the intro is over.
+    function scheduleCard(game, stage) {
+        const tier = TIERS[stage.tier];
+        let waited = 0;
+        cardTimer = window.setInterval(() => {
+            waited += 250;
+            if (waited > 30000) { window.clearInterval(cardTimer); return; }
+            if (!game.running || game.introActive || game.paused || game.matchEnding) return;
+            window.clearInterval(cardTimer);
+            const host = document.querySelector('.game-container') || document.body;
+            const card = document.createElement('div');
+            card.id = 'ppTourCard';
+            card.className = 'pptour-title';
+            card.setAttribute('aria-hidden', 'true');
+            card.style.setProperty('--tier', tier.accent);
+            card.innerHTML = `<small>Tour &middot; stage ${stage.id}</small><b>vs ${esc(stage.rival)}</b><span>${esc(tier.name)} &middot; ${esc(tier.mood)}</span>`;
+            host.appendChild(card);
+            card.addEventListener('animationend', () => card.remove());
+            window.setTimeout(() => card.remove(), 5000);
+        }, 250);
+    }
 
     // ── Save data ────────────────────────────────────────────────────────
     let data = null;
@@ -393,7 +506,7 @@
 
     window.PPTour = {
         STAGES, TIERS, MAX_STARS, byId, lockInfo, isPlayable, totalStars, starsOf,
-        recordResult, resultCard, launch, clear, open, close, isOpen, updateMenuButton,
+        recordResult, resultCard, applyTierLook, syncLook, launch, clear, open, close, isOpen, updateMenuButton,
         reload: () => { data = null; load(); },
     };
 })();
