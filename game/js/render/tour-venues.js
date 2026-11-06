@@ -350,10 +350,409 @@
         }
     }
 
+
+    // ════════════════════════════════════════════════════════════════════
+    // DOCK (Regional, Gravity): a station viewport over a ringed gas giant
+    // ════════════════════════════════════════════════════════════════════
+    function stars(x, w, h, n, seed, maxY) {
+        const r = rng(seed);
+        for (let i = 0; i < n; i++) {
+            const a = 0.25 + r() * 0.75;
+            x.fillStyle = `rgba(${200 + Math.floor(r() * 55)},${215 + Math.floor(r() * 40)},255,${a})`;
+            const sz = r() < 0.08 ? 2 : 1;
+            x.fillRect(r() * w, r() * maxY, sz, sz);
+        }
+    }
+
+    function bake_dock(x, w, h, S) {
+        const fy = S.fy, r = rng(31);
+        let g = x.createLinearGradient(0, 0, 0, fy);
+        g.addColorStop(0, '#02030a'); g.addColorStop(0.7, '#070c24'); g.addColorStop(1, '#14143c');
+        x.fillStyle = g; x.fillRect(0, 0, w, fy + 1);
+        stars(x, w, h, 260, 9, fy);
+        // The planet: a banded gas giant with a ring, lit from the upper left.
+        const pr = h * 0.2, pcx = w * 0.76, pcy = h * 0.3;
+        S.planet = { r: pr, cx: pcx, cy: pcy };
+        const ringPath = (front) => { x.beginPath(); x.ellipse(pcx, pcy, pr * 1.9, pr * 0.42, -0.22, front ? 0 : Math.PI, front ? Math.PI : TAU); };
+        for (const [rw, col] of [[pr * 0.34, 'rgba(200,170,255,0.18)'], [pr * 0.14, 'rgba(255,230,200,0.3)'], [pr * 0.06, 'rgba(120,200,255,0.4)']]) {
+            x.strokeStyle = col; x.lineWidth = rw * 0.5;
+            x.save(); x.translate(0, 0); x.beginPath(); x.ellipse(pcx, pcy, pr * (1.55 + rw / pr * 0.5), pr * (0.34 + rw / pr * 0.1), -0.22, Math.PI, TAU); x.stroke(); x.restore();
+        }
+        // Texture strip for the planet (scrolled live to turn it).
+        const tw = Math.ceil(pr * 4), th = Math.ceil(pr * 2);
+        const [tc, tx] = canvas(tw, th, S.sx, S.sy);
+        const bands = ['#2a1b6a', '#4a2f9a', '#7a4fc4', '#c97ad0', '#f0a0b8', '#6fa0e0', '#3a2a8a'];
+        let by = 0;
+        while (by < th) { const bh = th * (0.05 + r() * 0.11); tx.fillStyle = bands[Math.floor(r() * bands.length)]; tx.fillRect(0, by, tw, bh + 1); by += bh; }
+        tx.globalAlpha = 0.25; tx.fillStyle = '#fff';
+        for (let i = 0; i < 40; i++) { tx.beginPath(); tx.ellipse(r() * tw, r() * th, 6 + r() * 30, 1 + r() * 3, 0, 0, TAU); tx.fill(); }
+        S.planetTex = { c: tc, w: tw, h: th };
+        // Planet body is drawn live (texture scroll) over this baked shadow disc.
+        const [sc, sx2] = canvas(pr * 2, pr * 2, S.sx, S.sy);
+        const sh = sx2.createRadialGradient(pr * 0.65, pr * 0.6, pr * 0.1, pr, pr, pr * 1.05);
+        sh.addColorStop(0, 'rgba(255,255,255,0.0)'); sh.addColorStop(0.55, 'rgba(10,6,40,0.25)'); sh.addColorStop(1, 'rgba(2,2,14,0.92)');
+        sx2.fillStyle = sh; sx2.beginPath(); sx2.arc(pr, pr, pr, 0, TAU); sx2.fill();
+        S.planetShade = sc;
+        // Atmosphere glow around the limb.
+        const ag = x.createRadialGradient(pcx, pcy, pr * 0.95, pcx, pcy, pr * 1.35);
+        ag.addColorStop(0, 'rgba(150,120,255,0.35)'); ag.addColorStop(1, 'rgba(150,120,255,0)');
+        x.fillStyle = ag; x.fillRect(pcx - pr * 1.4, pcy - pr * 1.4, pr * 2.8, pr * 2.8);
+        // Station frame: a heavy viewport with struts and a lower sill.
+        x.fillStyle = '#0a0d1a'; x.fillRect(0, 0, w, h * 0.055);
+        x.fillStyle = '#161c34'; x.fillRect(0, h * 0.055, w, 3);
+        for (const f of [0.0, 0.31, 0.69, 1.0]) {
+            const sx3 = w * f, sw = w * (f === 0 || f === 1 ? 0.05 : 0.028);
+            const sg = x.createLinearGradient(sx3 - sw, 0, sx3 + sw, 0);
+            sg.addColorStop(0, '#0b1020'); sg.addColorStop(0.5, '#2a3558'); sg.addColorStop(1, '#0b1020');
+            x.fillStyle = sg; x.fillRect(sx3 - sw / 2, 0, sw, fy);
+            x.fillStyle = 'rgba(160,190,255,0.5)';
+            for (let yy = h * 0.09; yy < fy - 6; yy += h * 0.07) { x.beginPath(); x.arc(sx3, yy, 1.4, 0, TAU); x.fill(); }
+        }
+        // Docking gantry in the corner.
+        x.strokeStyle = '#1b2442'; x.lineWidth = 5;
+        x.beginPath(); x.moveTo(w * 0.05, h * 0.055); x.lineTo(w * 0.05, h * 0.2); x.lineTo(w * 0.17, h * 0.27); x.stroke();
+        x.lineWidth = 2; x.strokeStyle = '#2d3a66';
+        for (let i = 0; i < 6; i++) { x.beginPath(); x.moveTo(w * 0.05, h * (0.075 + i * 0.02)); x.lineTo(w * (0.07 + i * 0.016), h * (0.095 + i * 0.02)); x.stroke(); }
+        // Deck: dark plating with glowing lane lines running to the horizon.
+        g = x.createLinearGradient(0, fy, 0, h);
+        g.addColorStop(0, '#0e1430'); g.addColorStop(0.3, '#080c20'); g.addColorStop(1, '#03040c');
+        x.fillStyle = g; x.fillRect(0, fy, w, h - fy);
+        x.fillStyle = '#1b2442'; x.fillRect(0, fy - 4, w, 6);
+        x.fillStyle = '#05070f'; x.fillRect(0, fy + 2, w, 3);
+        const vx = w * 0.5, vy = h * 0.12;
+        S.lanes = [];
+        for (let i = -9; i <= 9; i++) {
+            const bx = w * 0.5 + i * (w / 12);
+            S.lanes.push([vx + (bx - vx) * (fy - vy) / (h - vy), fy, bx, h]);
+            x.strokeStyle = 'rgba(70,90,160,0.28)'; x.lineWidth = 1;
+            x.beginPath(); x.moveTo(S.lanes[S.lanes.length - 1][0], fy); x.lineTo(bx, h); x.stroke();
+        }
+        for (let yy = fy + 6, k = 1; yy < h; k++, yy += 5 + k * 3.4) { x.strokeStyle = 'rgba(70,90,160,0.18)'; x.beginPath(); x.moveTo(0, yy); x.lineTo(w, yy); x.stroke(); }
+        // The planet reflected faintly in the polished deck.
+        x.save(); x.globalCompositeOperation = 'lighter';
+        const rg = x.createRadialGradient(pcx, fy + (h - fy) * 0.3, 0, pcx, fy + (h - fy) * 0.3, w * 0.3);
+        rg.addColorStop(0, 'rgba(150,110,240,0.22)'); rg.addColorStop(1, 'rgba(150,110,240,0)');
+        x.fillStyle = rg; x.fillRect(0, fy, w, h - fy); x.restore();
+        S.beacons = [0.31, 0.69].flatMap((f) => [0.12, 0.28, 0.44].map((yy) => ({ x: w * f, y: h * yy })));
+        S.rear = { x: pcx, y: pcy };
+    }
+
+    function frame_dock(ctx, w, h, S, st) {
+        const t = S.t, cheer = S.cheer, calm = reduced() ? 0 : 1, P = S.planet;
+        // Planet turning: texture scrolls under a fixed terminator.
+        ctx.save();
+        ctx.beginPath(); ctx.arc(P.cx, P.cy, P.r, 0, TAU); ctx.clip();
+        const off = (t * 9 * calm) % S.planetTex.w;
+        for (let px = -off; px < P.r * 2; px += S.planetTex.w) ctx.drawImage(S.planetTex.c, P.cx - P.r + px, P.cy - P.r, S.planetTex.w, P.r * 2);
+        ctx.drawImage(S.planetShade, P.cx - P.r, P.cy - P.r, P.r * 2, P.r * 2);
+        ctx.restore();
+        // Front half of the ring crosses the planet.
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        for (const [k, a, wd] of [[1.55, 0.34, 8], [1.78, 0.22, 4], [1.95, 0.4, 2]]) {
+            ctx.strokeStyle = `rgba(230,205,255,${a + cheer * 0.35})`; ctx.lineWidth = wd * (P.r / 140);
+            ctx.beginPath(); ctx.ellipse(P.cx, P.cy, P.r * k, P.r * (0.34 + (k - 1.55) * 0.1), -0.22, 0, Math.PI); ctx.stroke();
+        }
+        // A freighter crossing the view.
+        const sp = ((t * 0.018 * calm) % 1);
+        const sx = w * (1.05 - sp * 1.2), sy = h * 0.19 + Math.sin(sp * 6) * 4;
+        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fillRect(sx, sy, 3, 2);
+        ctx.fillStyle = 'rgba(255,90,90,0.9)'; ctx.fillRect(sx + 8, sy + 1, 2, 2);
+        ctx.fillStyle = 'rgba(90,255,160,0.9)'; ctx.fillRect(sx - 8, sy + 1, 2, 2);
+        // Strut beacons blink in sequence, all at once on a point.
+        S.beacons.forEach((b, i) => {
+            const on = cheer > 0.3 || Math.floor(t * 1.6 * calm + i * 0.5) % 3 === 0;
+            ctx.globalAlpha = on ? 1 : 0.25; ctx.fillStyle = i % 2 ? '#7fe8ff' : '#ff6f91';
+            ctx.fillRect(b.x - 2, b.y - 2, 4, 4);
+            if (on) { ctx.globalAlpha = 0.5; ctx.drawImage(S.glowA, b.x - 18, b.y - 18, 36, 36); }
+        });
+        // Light pulses racing along the deck lanes toward the viewport.
+        ctx.globalAlpha = 0.8 + cheer * 0.2;
+        ctx.strokeStyle = '#7fb4ff'; ctx.lineWidth = 2;
+        S.lanes.forEach((l, i) => {
+            const u = ((t * 0.35 * calm + i * 0.137) % 1);
+            const x0 = l[2] + (l[0] - l[2]) * u, y0 = l[3] + (l[1] - l[3]) * u;
+            const u2 = Math.min(1, u + 0.05), x1 = l[2] + (l[0] - l[2]) * u2, y1 = l[3] + (l[1] - l[3]) * u2;
+            ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        });
+        ctx.restore();
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // YARD (Regional, Obstacle): a container port at dusk
+    // ════════════════════════════════════════════════════════════════════
+    const BOX_COLORS = ['#b8432c', '#2f6f8f', '#c99a2a', '#3e7a4a', '#7a3e6a', '#c9c2b0', '#a8552a'];
+    function bake_yard(x, w, h, S) {
+        const fy = S.fy, r = rng(808);
+        let g = x.createLinearGradient(0, 0, 0, fy);
+        g.addColorStop(0, '#14123a'); g.addColorStop(0.45, '#6a2a5a'); g.addColorStop(0.8, '#e0663a'); g.addColorStop(1, '#ffb455');
+        x.fillStyle = g; x.fillRect(0, 0, w, fy + 1);
+        stars(x, w, h, 60, 4, h * 0.2);
+        // Low sun behind the harbour.
+        const sg = x.createRadialGradient(w * 0.5, fy, 0, w * 0.5, fy, w * 0.4);
+        sg.addColorStop(0, 'rgba(255,220,140,0.85)'); sg.addColorStop(0.3, 'rgba(255,150,80,0.35)'); sg.addColorStop(1, 'rgba(255,100,60,0)');
+        x.fillStyle = sg; x.fillRect(0, h * 0.2, w, fy - h * 0.2);
+        // Far skyline of stacks and a chimney.
+        x.fillStyle = '#2a1636';
+        for (let px = 0; px < w; px += w * 0.035) { const bh = h * (0.06 + r() * 0.08); x.fillRect(px, fy - bh - h * 0.04, w * 0.034, bh); }
+        x.fillRect(w * 0.84, fy - h * 0.3, w * 0.014, h * 0.26);
+        S.chimney = { x: w * 0.847, y: fy - h * 0.3 };
+        // Near container stacks left and right, drawn as ribbed boxes.
+        const box = (bx, by, bw, bh, col) => {
+            x.fillStyle = col; x.fillRect(bx, by, bw, bh);
+            x.fillStyle = 'rgba(0,0,0,0.3)';
+            for (let k = 2; k < bw - 2; k += Math.max(3, bw / 11)) x.fillRect(bx + k, by + 2, 1.2, bh - 4);
+            x.fillStyle = 'rgba(255,255,255,0.18)'; x.fillRect(bx, by, bw, 2);
+            x.fillStyle = 'rgba(0,0,0,0.45)'; x.fillRect(bx, by + bh - 2, bw, 2);
+        };
+        const bw = w * 0.07, bh = h * 0.05;
+        for (const side of [0, 1]) {
+            for (let col = 0; col < 3; col++) {
+                const stack = 3 + Math.floor(r() * 3) - col * 0 ;
+                for (let row = 0; row < stack - col; row++) {
+                    const bx = side ? w - (col + 1) * bw - 2 : col * bw + 2;
+                    box(bx, fy - h * 0.025 - (row + 1) * bh, bw - 2, bh - 1, BOX_COLORS[Math.floor(r() * BOX_COLORS.length)]);
+                }
+            }
+        }
+        // Gantry crane across the top; the hoist is animated live.
+        x.fillStyle = '#1a0f24';
+        x.fillRect(0, h * 0.075, w, h * 0.014);
+        for (const f of [0.22, 0.78]) { x.fillRect(w * f - 4, h * 0.075, 8, fy - h * 0.1); x.fillRect(w * f - 12, fy - h * 0.03, 24, 6); }
+        x.strokeStyle = '#1a0f24'; x.lineWidth = 2;
+        for (let px = 0; px < w; px += w * 0.03) { x.beginPath(); x.moveTo(px, h * 0.089); x.lineTo(px + w * 0.015, h * 0.075); x.stroke(); }
+        S.crane = { y: h * 0.089, minX: w * 0.3, maxX: w * 0.7 };
+        // Floodlight towers.
+        S.lights = [];
+        for (const f of [0.32, 0.68]) {
+            const lx = w * f, ly = h * 0.2;
+            x.fillStyle = '#1a0f24'; x.fillRect(lx - 2, ly, 4, fy - ly);
+            x.fillRect(lx - 14, ly - 6, 28, 8);
+            S.lights.push({ x: lx, y: ly - 2 });
+        }
+        // Concrete apron, hazard line at the kerb, wet patches.
+        g = x.createLinearGradient(0, fy, 0, h);
+        g.addColorStop(0, '#3a3040'); g.addColorStop(0.4, '#2a2230'); g.addColorStop(1, '#14101a');
+        x.fillStyle = g; x.fillRect(0, fy, w, h - fy);
+        const hz = Math.max(8, h * 0.018);
+        x.save(); x.beginPath(); x.rect(0, fy, w, hz); x.clip();
+        x.fillStyle = '#e8b422'; x.fillRect(0, fy, w, hz);
+        x.fillStyle = '#16121a';
+        for (let px = -hz; px < w + hz; px += hz * 2) { x.beginPath(); x.moveTo(px, fy + hz); x.lineTo(px + hz, fy); x.lineTo(px + hz * 2, fy); x.lineTo(px + hz, fy + hz); x.closePath(); x.fill(); }
+        x.restore();
+        x.strokeStyle = 'rgba(0,0,0,0.35)'; x.lineWidth = 1;
+        for (let i = -12; i <= 12; i++) { const bx = w * 0.5 + i * (w / 9); x.beginPath(); x.moveTo(w * 0.5 + (bx - w * 0.5) * 0.35, fy + hz); x.lineTo(bx, h); x.stroke(); }
+        x.save(); x.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 9; i++) {
+            const px = r() * w, py = fy + (h - fy) * (0.15 + r() * 0.8), pw = w * (0.05 + r() * 0.09);
+            const pg = x.createLinearGradient(0, py, 0, py + 8);
+            pg.addColorStop(0, 'rgba(255,170,100,0.22)'); pg.addColorStop(1, 'rgba(255,170,100,0)');
+            x.fillStyle = pg; x.beginPath(); x.ellipse(px, py, pw, 6, 0, 0, TAU); x.fill();
+        }
+        x.restore();
+        const vg = x.createRadialGradient(w / 2, h * 0.55, h * 0.3, w / 2, h * 0.55, w * 0.75);
+        vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(10,2,20,0.5)');
+        x.fillStyle = vg; x.fillRect(0, 0, w, h);
+    }
+
+    function frame_yard(ctx, w, h, S, st, dt) {
+        const t = S.t, cheer = S.cheer, calm = reduced() ? 0 : 1, C = S.crane;
+        // Trolley rides the gantry; the hoisted container swings on its cable.
+        const u = 0.5 + 0.5 * Math.sin(t * 0.22 * calm);
+        const tx = C.minX + (C.maxX - C.minX) * u;
+        const drop = h * (0.1 + 0.05 * Math.sin(t * 0.45 * calm + 1));
+        const swing = Math.sin(t * 0.9 * calm) * (4 + cheer * 10) * 0.01;
+        ctx.save();
+        ctx.fillStyle = '#120a1c'; ctx.fillRect(tx - 10, C.y, 20, 8);
+        ctx.strokeStyle = '#120a1c'; ctx.lineWidth = 1.5;
+        ctx.translate(tx, C.y + 8); ctx.rotate(swing);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, drop); ctx.stroke();
+        ctx.fillStyle = BOX_COLORS[2]; ctx.fillRect(-w * 0.03, drop, w * 0.06, h * 0.04);
+        ctx.fillStyle = 'rgba(0,0,0,0.35)'; for (let k = 3; k < w * 0.06 - 2; k += 5) ctx.fillRect(-w * 0.03 + k, drop + 2, 1, h * 0.04 - 4);
+        ctx.restore();
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        // Floodlights with a slow flicker and a spill of light onto the apron.
+        S.lights.forEach((l, i) => {
+            const fl = 0.85 + 0.15 * Math.sin(t * 7 * calm + i * 3) * (Math.sin(t * 0.4) > 0.9 ? 1 : 0.2) + cheer * 0.2;
+            ctx.globalAlpha = fl; ctx.drawImage(S.glowA, l.x - 90, l.y - 70, 180, 180);
+            ctx.globalAlpha = fl * 0.55;
+            ctx.drawImage(S.beamSoft, l.x - h * 0.14, l.y, h * 0.28, (S.fy - l.y) + (h - S.fy) * 0.5);
+        });
+        // Crane beacon.
+        ctx.globalAlpha = Math.floor(t * 1.4 * calm) % 2 ? 1 : 0.2; ctx.fillStyle = '#ff4030';
+        ctx.fillRect(C.minX - 4, C.y - 4, 5, 5);
+        // Chimney smoke drifting off to the left.
+        ctx.fillStyle = 'rgba(60,40,70,1)';
+        for (let i = 0; i < 7; i++) {
+            const uu = ((t * 0.07 * calm + i / 7) % 1);
+            ctx.globalAlpha = (1 - uu) * 0.35;
+            ctx.beginPath(); ctx.arc(S.chimney.x - uu * w * 0.12, S.chimney.y - uu * h * 0.12, 5 + uu * 26, 0, TAU); ctx.fill();
+        }
+        // Welding sparks when a point is won.
+        if (S.burst) { S.burst = false; for (let i = 0; i < 30; i++) S.sparks.push({ x: w * (i % 2 ? 0.12 : 0.88), y: S.fy - h * 0.06, vx: (Math.random() - 0.5) * 260, vy: -80 - Math.random() * 200, life: 1 }); }
+        if (S.sparks.length) {
+            ctx.fillStyle = '#ffd37a'; let keep = 0;
+            for (const sp of S.sparks) {
+                sp.life -= dt * 1.4; if (sp.life <= 0) continue;
+                sp.vy += 520 * dt; sp.x += sp.vx * dt; sp.y += sp.vy * dt; S.sparks[keep++] = sp;
+                ctx.globalAlpha = sp.life; ctx.fillRect(sp.x, sp.y, 2, 2);
+            }
+            S.sparks.length = keep;
+        }
+        ctx.restore();
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // TUNNEL (National, Speed): a ring-lit wind tunnel
+    // ════════════════════════════════════════════════════════════════════
+    function bake_tunnel(x, w, h, S) {
+        const fy = S.fy;
+        S.vp = { x: w * 0.5, y: h * 0.4 };
+        const g = x.createRadialGradient(S.vp.x, S.vp.y, 0, S.vp.x, S.vp.y, w * 0.7);
+        g.addColorStop(0, '#2a1a05'); g.addColorStop(0.18, '#120a1c'); g.addColorStop(1, '#030208');
+        x.fillStyle = g; x.fillRect(0, 0, w, h);
+        // The far end: a bright exit that rings rush out of.
+        const eg = x.createRadialGradient(S.vp.x, S.vp.y, 0, S.vp.x, S.vp.y, h * 0.2);
+        eg.addColorStop(0, 'rgba(255,240,200,1)'); eg.addColorStop(0.25, 'rgba(255,190,60,0.7)'); eg.addColorStop(1, 'rgba(255,120,0,0)');
+        x.fillStyle = eg; x.fillRect(0, 0, w, h);
+        // Floor and ceiling panels converge on the exit.
+        x.strokeStyle = 'rgba(255,170,40,0.12)'; x.lineWidth = 1;
+        for (let i = 0; i < 28; i++) {
+            const a = (i / 28) * TAU, ex = S.vp.x + Math.cos(a) * w, ey = S.vp.y + Math.sin(a) * w;
+            x.beginPath(); x.moveTo(S.vp.x + Math.cos(a) * h * 0.06, S.vp.y + Math.sin(a) * h * 0.06); x.lineTo(ex, ey); x.stroke();
+        }
+        // Glossy floor gets a reflection of the exit light.
+        const fg = x.createLinearGradient(0, fy, 0, h);
+        fg.addColorStop(0, 'rgba(255,170,50,0)'); fg.addColorStop(0.25, 'rgba(255,170,50,0.16)'); fg.addColorStop(1, 'rgba(255,170,50,0)');
+        x.fillStyle = fg; x.fillRect(0, fy, w, h - fy);
+        const vg = x.createRadialGradient(w / 2, h * 0.5, h * 0.25, w / 2, h * 0.5, w * 0.8);
+        vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,6,0.7)');
+        x.fillStyle = vg; x.fillRect(0, 0, w, h);
+    }
+
+    function frame_tunnel(ctx, w, h, S, st, dt) {
+        const calm = reduced() ? 0 : 1, vp = S.vp;
+        // Speed rises with the rally and surges on a point.
+        const target = 0.32 + Math.min(0.6, (st.rally || 0) * 0.035) + S.cheer * 0.5;
+        S.speed += (target - S.speed) * Math.min(1, dt * 2.5);
+        S.phase = (S.phase + dt * S.speed * calm) % 1;
+        const N = 15, buckets = [new Path2D(), new Path2D(), new Path2D()];
+        for (let i = 0; i < N; i++) {
+            const u = ((i + S.phase) / N);
+            const k = Math.pow(u, 2.6);
+            const rw = w * (0.04 + k * 1.2), rh = h * (0.03 + k * 0.95);
+            const b = k < 0.25 ? 0 : k < 0.6 ? 1 : 2;
+            const p = buckets[b];
+            const rx = vp.x - rw / 2, ry = vp.y - rh / 2 + k * h * 0.06, rr = Math.min(rw, rh) * 0.2;
+            p.moveTo(rx + rr, ry); p.lineTo(rx + rw - rr, ry); p.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rr);
+            p.lineTo(rx + rw, ry + rh - rr); p.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rr, ry + rh);
+            p.lineTo(rx + rr, ry + rh); p.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rr);
+            p.lineTo(rx, ry + rr); p.quadraticCurveTo(rx, ry, rx + rr, ry); p.closePath();
+        }
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        [[1.2, 'rgba(255,180,60,0.35)', 0.55], [2.4, 'rgba(255,196,80,0.6)', 0.8], [4.2, 'rgba(255,225,150,0.9)', 1]].forEach(([lw, col, a], i) => {
+            ctx.lineWidth = lw; ctx.strokeStyle = col; ctx.globalAlpha = a; ctx.stroke(buckets[i]);
+        });
+        // Speed streaks radiating from the exit; they lengthen with speed.
+        ctx.strokeStyle = 'rgba(255,230,170,0.8)'; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.5 + S.speed * 0.4;
+        const streaks = new Path2D();
+        for (let i = 0; i < 46; i++) {
+            const a = (i * 2.399) % TAU, ph2 = ((i * 0.173) + S.phase * (1.5 + (i % 3) * 0.4)) % 1;
+            const r0 = Math.pow(ph2, 2) * w * 0.9, r1 = r0 + (6 + S.speed * 70) * (0.2 + ph2);
+            streaks.moveTo(vp.x + Math.cos(a) * r0, vp.y + Math.sin(a) * r0 * 0.75);
+            streaks.lineTo(vp.x + Math.cos(a) * r1, vp.y + Math.sin(a) * r1 * 0.75);
+        }
+        ctx.stroke(streaks);
+        // Floor chevrons rushing toward the player.
+        ctx.strokeStyle = 'rgba(255,190,60,0.9)'; ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+            const u = ((i + S.phase) / 6), k = Math.pow(u, 2);
+            const y = S.fy + (h - S.fy) * k, hw = w * (0.03 + k * 0.2), dh = (h - S.fy) * (0.03 + k * 0.1);
+            ctx.globalAlpha = 0.15 + k * 0.5;
+            ctx.beginPath(); ctx.moveTo(w * 0.5 - hw, y + dh); ctx.lineTo(w * 0.5, y); ctx.lineTo(w * 0.5 + hw, y + dh); ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // MIRAGE (National, Gravity): an eclipse over a mirror-flat salt pan
+    // ════════════════════════════════════════════════════════════════════
+    function bake_mirage(x, w, h, S) {
+        const fy = S.fy, r = rng(66);
+        let g = x.createLinearGradient(0, 0, 0, fy);
+        g.addColorStop(0, '#0a0620'); g.addColorStop(0.45, '#3a1c6a'); g.addColorStop(0.8, '#c0507a'); g.addColorStop(1, '#ffc27a');
+        x.fillStyle = g; x.fillRect(0, 0, w, fy + 1);
+        stars(x, w, h, 120, 12, h * 0.3);
+        S.sun = { x: w * 0.5, y: h * 0.26, r: h * 0.085 };
+        S.stones = [];
+        for (let i = 0; i < 6; i++) {
+            const f = [0.14, 0.27, 0.4, 0.62, 0.76, 0.88][i], sw = w * (0.018 + r() * 0.012), sh = h * (0.07 + r() * 0.06);
+            S.stones.push({ x: w * f, y: h * (0.3 + r() * 0.12), w: sw, h: sh, p: r() * TAU });
+        }
+        // Distant mesas.
+        x.fillStyle = '#26104a';
+        for (let px = 0; px < w; px += w * 0.08) { const mh = h * (0.015 + r() * 0.03); x.fillRect(px, fy - mh, w * 0.07, mh); }
+        // The salt pan: a mirror of the sky, dimmer and wavering.
+        g = x.createLinearGradient(0, fy, 0, h);
+        g.addColorStop(0, '#f0b080'); g.addColorStop(0.15, '#a85a8a'); g.addColorStop(0.6, '#32195a'); g.addColorStop(1, '#0c0620');
+        x.fillStyle = g; x.fillRect(0, fy, w, h - fy);
+        // Hex salt crust fading into the distance.
+        x.strokeStyle = 'rgba(255,255,255,0.08)'; x.lineWidth = 1;
+        for (let k = 1; k < 14; k++) {
+            const y = fy + (h - fy) * Math.pow(k / 14, 1.7), cw = w * 0.03 * (1 + k * 0.5);
+            for (let px = -cw; px < w + cw; px += cw * 1.5) { x.beginPath(); x.moveTo(px, y); x.lineTo(px + cw * 0.5, y - cw * 0.12); x.lineTo(px + cw, y); x.stroke(); }
+        }
+        const vg = x.createRadialGradient(w / 2, h * 0.55, h * 0.3, w / 2, h * 0.55, w * 0.75);
+        vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(6,0,16,0.55)');
+        x.fillStyle = vg; x.fillRect(0, 0, w, h);
+    }
+
+    function frame_mirage(ctx, w, h, S) {
+        const t = S.t, cheer = S.cheer, calm = reduced() ? 0 : 1, sun = S.sun;
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        // Corona: breathing glow and slow rotating rays.
+        const pulse = 0.85 + 0.15 * Math.sin(t * 1.1 * calm) + cheer * 0.5;
+        ctx.globalAlpha = pulse; ctx.drawImage(S.corona, sun.x - sun.r * 3, sun.y - sun.r * 3, sun.r * 6, sun.r * 6);
+        ctx.strokeStyle = 'rgba(255,214,150,0.55)'; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.6 + cheer * 0.3;
+        const rays = new Path2D();
+        for (let i = 0; i < 24; i++) {
+            const a = i * TAU / 24 + t * 0.05 * calm, len = sun.r * (1.5 + (i % 3) * 0.55 + Math.sin(t * 1.4 * calm + i) * 0.15);
+            rays.moveTo(sun.x + Math.cos(a) * sun.r * 1.1, sun.y + Math.sin(a) * sun.r * 1.1);
+            rays.lineTo(sun.x + Math.cos(a) * len * 1.6, sun.y + Math.sin(a) * len * 1.6);
+        }
+        ctx.stroke(rays);
+        ctx.restore();
+        // The black disc of the eclipse.
+        ctx.fillStyle = '#05010c'; ctx.beginPath(); ctx.arc(sun.x, sun.y, sun.r, 0, TAU); ctx.fill();
+        // Floating stones and their wavering reflections in the pan.
+        const horizon = S.fy;
+        for (const st2 of S.stones) {
+            const bob = Math.sin(t * 0.7 * calm + st2.p) * 6, y = st2.y + bob;
+            ctx.fillStyle = '#12082a';
+            ctx.beginPath(); ctx.moveTo(st2.x - st2.w, y + st2.h); ctx.lineTo(st2.x - st2.w * 0.6, y); ctx.lineTo(st2.x + st2.w * 0.7, y + 3); ctx.lineTo(st2.x + st2.w, y + st2.h); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = 'rgba(255,190,140,0.35)'; ctx.fillRect(st2.x - st2.w * 0.6, y, 2, st2.h * 0.9);
+            // Reflection, mirrored about the horizon, dimmed and rippling.
+            const ry = horizon + (horizon - (y + st2.h)), wob = Math.sin(t * 2.3 * calm + st2.p) * 3;
+            ctx.save(); ctx.globalAlpha = 0.4; ctx.fillStyle = '#12082a';
+            ctx.beginPath(); ctx.moveTo(st2.x - st2.w + wob, ry); ctx.lineTo(st2.x - st2.w * 0.6 + wob, ry + st2.h); ctx.lineTo(st2.x + st2.w * 0.7 + wob, ry + st2.h - 3); ctx.lineTo(st2.x + st2.w + wob, ry); ctx.closePath(); ctx.fill();
+            ctx.restore();
+        }
+        ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#05010c';
+        const ry = horizon + (horizon - sun.y);
+        ctx.beginPath(); ctx.ellipse(sun.x + Math.sin(t * 1.7 * calm) * 3, ry, sun.r, sun.r * 0.8, 0, 0, TAU); ctx.fill();
+        // Shimmer lines sliding over the pan.
+        ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,220,180,0.1)';
+        for (let i = 0; i < 9; i++) {
+            const y = horizon + 4 + Math.pow(((i / 9) + t * 0.02 * calm) % 1, 1.6) * (S.h - horizon);
+            const x0 = ((i * 211 + t * 12 * calm) % (S.w * 1.2)) - S.w * 0.1;
+            ctx.fillRect(x0, y, S.w * 0.22, 1.2);
+        }
+        ctx.restore();
+    }
+
     // ════════════════════════════════════════════════════════════════════
     class TourVenue {
         constructor(kind) {
-            this.kind = kind === 'final' ? 'final' : 'hall';
+            this.kind = ['hall', 'final', 'dock', 'yard', 'tunnel', 'mirage'].includes(kind) ? kind : 'hall';
             this.key = ''; this.t = 0; this.cheer = 0; this._score = -1;
         }
         _bake(ctx, w, h) {
@@ -362,9 +761,20 @@
             const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}`;
             if (key === this.key) return;
             this.key = key;
-            const S = this.S = { sx, sy, fy: Math.round(h * FLOOR), t: this.t, cheer: 0, conf: [] };
+            const S = this.S = { sx, sy, w, h, fy: Math.round(h * FLOOR), t: this.t, cheer: 0, conf: [], sparks: [], speed: 0.3, phase: 0 };
             const [bc, bx] = canvas(w, h, sx, sy);
-            if (this.kind === 'hall') {
+            if (this.kind === 'dock') { bake_dock(bx, w, h, S); S.glowA = glow('150,200,255', 64); }
+            else if (this.kind === 'yard') {
+                bake_yard(bx, w, h, S);
+                S.glowA = glow('255,200,120', 128);
+                const [bs, bsx] = canvas(1, 1, 1, 1); bs.width = 64; bs.height = 256; bsx.setTransform(1, 0, 0, 1, 0, 0);
+                const bg = bsx.createLinearGradient(0, 0, 0, 256); bg.addColorStop(0, 'rgba(255,214,150,0.45)'); bg.addColorStop(1, 'rgba(255,214,150,0)');
+                bsx.fillStyle = bg; bsx.beginPath(); bsx.moveTo(26, 0); bsx.lineTo(38, 0); bsx.lineTo(64, 256); bsx.lineTo(0, 256); bsx.closePath(); bsx.fill();
+                S.beamSoft = bs;
+            }
+            else if (this.kind === 'tunnel') bake_tunnel(bx, w, h, S);
+            else if (this.kind === 'mirage') { bake_mirage(bx, w, h, S); S.corona = glow('255,170,120', 256); }
+            else if (this.kind === 'hall') {
                 bake_hall(bx, w, h, S);
                 S.warm = glow('255,214,150', 128);
                 S.shaftH = h * 0.62;
@@ -415,9 +825,13 @@
             if (this._score >= 0 && st.score !== this._score) { this.cheer = 1; S.burst = true; }
             this._score = st.score;
             this.cheer = Math.max(0, this.cheer - dt * 0.4);
-            S.t = this.t; S.cheer = this.cheer;
+            S.t = this.t; S.cheer = this.cheer; S.rally = st.rally;
             ctx.drawImage(this.base, 0, 0, w, h);
-            if (this.kind === 'hall') frame_hall(ctx, w, h, S, st);
+            if (this.kind === 'dock') frame_dock(ctx, w, h, S, st);
+            else if (this.kind === 'yard') frame_yard(ctx, w, h, S, st, dt);
+            else if (this.kind === 'tunnel') frame_tunnel(ctx, w, h, S, st, dt);
+            else if (this.kind === 'mirage') frame_mirage(ctx, w, h, S);
+            else if (this.kind === 'hall') frame_hall(ctx, w, h, S, st);
             else frame_final(ctx, w, h, S, st, dt);
         }
     }

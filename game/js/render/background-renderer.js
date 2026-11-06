@@ -1008,7 +1008,23 @@ class BackgroundRenderer {
         }
     }
 
+    // Tour stages play in venues of their own (tour-venues.js) instead of the
+    // mode's usual arena. Returns true when one was drawn.
+    _renderTourVenue(ctx, w, h) {
+        const g = typeof window !== 'undefined' ? window.game : null;
+        const venue = window.PPTour?.venueFor?.(g);
+        if (!venue || typeof TourVenue !== 'function') return false;
+        const venues = this._tourVenues || (this._tourVenues = {});
+        const art = venues[venue] || (venues[venue] = new TourVenue(venue));
+        const prev = this._tourVenueLast ?? this.time;
+        const dt = Math.max(0, Math.min(0.1, this.time - prev));
+        this._tourVenueLast = this.time;
+        art.draw(ctx, w, h, { dt, rally: g?.rallyCount || 0, score: g?.scores ? (g.scores.player || 0) + (g.scores.ai || 0) : 0 });
+        return true;
+    }
+
     _renderModeBackground(ctx, w, h) {
+        if (this.mode !== 'zombie' && this.mode !== 'customise' && this._renderTourVenue(ctx, w, h)) return;
         switch (this.mode) {
             case 'classic': this.renderClassic(ctx, w, h); break;
             case 'zombie': this.renderZombie(ctx, w, h); break;
@@ -1378,18 +1394,6 @@ class BackgroundRenderer {
     // ------------------------------------------------------------------
     // The packed arena from the Classic key art (classic-art.js).
     renderClassic(ctx, w, h) {
-        // Tour stages in the Club and World tiers play in venues of their own.
-        const venue = typeof window !== 'undefined' ? window.PPTour?.venueFor?.(window.game) : null;
-        if (venue && typeof TourVenue === 'function') {
-            const venues = this._tourVenues || (this._tourVenues = {});
-            const art = venues[venue] || (venues[venue] = new TourVenue(venue));
-            const g = window.game;
-            const prev = this._tourVenueLast ?? this.time;
-            const dt = Math.max(0, Math.min(0.1, this.time - prev));
-            this._tourVenueLast = this.time;
-            art.draw(ctx, w, h, { dt, score: g?.scores ? (g.scores.player || 0) + (g.scores.ai || 0) : 0 });
-            return;
-        }
         if (!this._classicArt && typeof ClassicArt === 'function') this._classicArt = new ClassicArt();
         if (!this._classicArt) {
             this._renderSynthwaveBackground(ctx, w, h);

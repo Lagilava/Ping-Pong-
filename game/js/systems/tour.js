@@ -27,14 +27,7 @@
             veil: null },
         { id: 'regional', name: 'Regional', need: 4, mood: 'Evening league', accent: '#5ee7ff', look: null, veil: null },
         { id: 'national', name: 'National', need: 8, mood: 'Dusk finals', accent: '#ff7a9c',
-            look: { sat: 1.14, contrast: 1.08, tint: [1.08, 0.95, 0.95], shadow: [0.03, -0.01, 0.036], highlight: [0.046, 0.012, -0.012] },
-            veil: {
-                layers: [
-                    'linear-gradient(0deg, rgba(255, 104, 56, .52), transparent 52%)',
-                    'linear-gradient(180deg, rgba(84, 18, 140, .56), transparent 46%)',
-                    'radial-gradient(ellipse at center, transparent 44%, rgba(28, 4, 36, .5) 100%)',
-                ],
-                tint: [255, 96, 140, 0.12], frame: '' } },
+            look: null, veil: null },
         { id: 'world', name: 'World', need: 12, mood: 'Floodlit final', accent: '#ffe08a',
             look: { sat: 1.04, contrast: 1.18, tint: [0.97, 0.99, 1.07], shadow: [-0.012, -0.006, 0.012], highlight: [0.02, 0.026, 0.046] },
             veil: { layers: [], tint: null, frame: 'inset 0 0 0 3px rgba(255, 214, 120, .75), inset 0 0 90px rgba(255, 200, 90, .24)' } },
@@ -100,12 +93,12 @@
     // match is set up.
     let veil = null;
     let cardTimer = 0;
-    // Club and World Classic stages get their own venue scene (tour-venues.js).
+    // Every stage plays in a venue of its own (tour-venues.js).
+    const VENUES = { 1: 'hall', 2: 'hall', 3: 'dock', 4: 'yard', 5: 'tunnel', 6: 'mirage', 7: 'final', 8: 'final' };
     function venueFor(game) {
         const ctx = game?.getTourContext?.();
-        if (!ctx || ctx.mode !== 'classic') return null;
-        const tier = byId(ctx.stageId)?.tier;
-        return tier === 0 ? 'hall' : tier === 3 ? 'final' : null;
+        if (!ctx) return null;
+        return VENUES[ctx.stageId] || null;
     }
 
     function syncLook(game) {

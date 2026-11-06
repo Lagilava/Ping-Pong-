@@ -119,7 +119,7 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
                 const st = await page.evaluate((n) => PPTour.byId(n), id);
                 assert.equal(info.mode, st.mode); assert.equal(info.max, st.points); assert.equal(info.lvl, st.level);
                 assert.equal(info.style, st.style, `stage ${id} style`);
-                assert.equal(await page.evaluate(() => PPTour.venueFor(game)), id >= 7 ? 'final' : null, `stage ${id} venue`);
+                assert.equal(await page.evaluate(() => PPTour.venueFor(game)), ({ 3: 'dock', 4: 'yard', 5: 'tunnel', 6: 'mirage', 7: 'final', 8: 'final' })[id], `stage ${id} venue`);
                 if (id === 8) {
                     const res = await page.evaluate(() => { game.scores.player = 11; game.scores.ai = 10; game.updateScoreUI(); return game.matchEnding; });
                     assert.equal(res, false, 'win by 2: 11-10 keeps playing');

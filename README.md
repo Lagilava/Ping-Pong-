@@ -211,10 +211,12 @@ Some stages add a twist (power-ups always on, no power-ups, or win by two).
   number of stars (4, 8 and 12) before its stages open.
 - **Your settings stay as they are:** a stage uses its own skill and points for
   that match only. Starting a normal match from the menu leaves the Tour.
-- **Venues:** Club stages in Classic play in a sunlit sports hall and World
-  stages in a championship final arena
-  ([`tour-venues.js`](game/js/render/tour-venues.js)); other stages keep their
-  mode's arena with the tier's colour grade. A title card opens each stage and
+- **Venues:** every stage plays in a scene of its own
+  ([`tour-venues.js`](game/js/render/tour-venues.js)): a sunlit sports hall
+  (Club), a station viewport over a ringed planet and a container port at dusk
+  (Regional), a ring-lit wind tunnel that speeds up with the rally and an
+  eclipse over a mirror-flat salt pan (National), and the championship final
+  (World). A title card opens each stage and
   the pause menu shows the rival and live goal progress.
 - **Rewards:** clearing both stages of a tier earns a paddle design (Sunbeam,
   Voltage, Afterglow, Champion), and beating all eight stages earns the
