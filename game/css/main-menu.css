@@ -56,6 +56,49 @@ html:not(.pp-mobile) #overlay .hdr p {
     html.pp-mobile #overlay .hdr .main-menu-settings { margin-top: 8px; }
 }
 
+/* Settings and the Tour sit side by side under the title. The row owns the
+   spacing above it, so the buttons themselves carry no top margin. */
+#overlay .hdr .menu-hdr-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+    pointer-events: none;
+}
+html #overlay .hdr .menu-hdr-actions > button,
+html.pp-mobile #overlay .hdr .menu-hdr-actions > button { margin-top: 0; }
+@media (max-height: 500px), (orientation: portrait) and (max-width: 620px) {
+    html.pp-mobile #overlay .hdr .menu-hdr-actions { margin-top: 8px; }
+}
+#overlay .hdr .main-menu-tour {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 44px;
+    padding: 8px 16px;
+    border: 1px solid rgba(255, 205, 100, .7);
+    border-radius: 10px;
+    background: #2b2108;
+    color: #fff1cf;
+    font: 700 13px/1 'Share Tech Mono', monospace;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    pointer-events: auto;
+    cursor: pointer;
+}
+#overlay .hdr .main-menu-tour svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#overlay .hdr .main-menu-tour small { font: 700 11px/1 'Share Tech Mono', monospace; letter-spacing: .04em; color: #ffd37a; padding-left: 9px; border-left: 1px solid rgba(255, 205, 100, .4); }
+#overlay .hdr .main-menu-tour small::after { content: ' \2605'; line-height: 0; }
+#overlay .hdr .main-menu-tour { box-sizing: border-box; height: 44px; }
+@media (max-height: 500px) {
+    html.pp-mobile #overlay .hdr .main-menu-tour { height: 40px; }
+}
+#overlay .hdr .main-menu-tour:is(:hover, :focus-visible) { border-color: #ffe0a0; background: #43330c; outline: 2px solid #ffe0a0; outline-offset: 2px; }
+@media (max-height: 500px) {
+    html.pp-mobile #overlay .hdr .main-menu-tour { min-height: 40px; }
+}
+
 /* Scroll hint now sits in the title block's flow, so it never collides
    with the title on narrow windows. */
 #overlay .hdr .hint {
@@ -291,4 +334,22 @@ html.pp-mobile #overlay .preview-touch { display: inline; }
 }
 @media (prefers-reduced-motion: reduce) {
     #overlay .card-details, #overlay .card .card-icon.card-scene, #overlay .card .card-top { transition: none; }
+}
+
+/* Very narrow phones: keep Settings and the Tour on one row. */
+@media (max-width: 359px) {
+    #overlay .hdr .menu-hdr-actions { gap: 8px; }
+    #overlay .hdr .main-menu-settings,
+    #overlay .hdr .main-menu-tour { gap: 6px; padding: 8px 10px; letter-spacing: .05em; font-size: 12px; }
+    #overlay .hdr .main-menu-tour small { padding-left: 6px; }
+}
+
+/* Small landscape phones (568 x 320 and similar): the progress panel takes
+   the right side, so Settings shrinks to its icon and the star count hides. */
+@media (max-height: 360px) and (max-width: 620px) {
+    html.pp-mobile #overlay .hdr .main-menu-settings { font-size: 0; gap: 0; padding: 8px 12px; min-width: 44px; }
+    html.pp-mobile #overlay .hdr .main-menu-tour small { display: none; }
+}
+@media (max-height: 360px) {
+    html.pp-mobile .mode-card-hint { display: none; }
 }

@@ -316,7 +316,9 @@
             this.canvasW = canvasW;
             this.canvasH = canvasH;
             this.setDifficulty(diff);
-            this.style = pick(STYLES);
+            // A Tour rival plays its own style; every other match picks one at random.
+            const tourStyle = window.game?.getTourContext?.()?.styleId;
+            this.style = STYLES.find((st) => st.id === tourStyle) || pick(STYLES);
             this.reset();
         }
 

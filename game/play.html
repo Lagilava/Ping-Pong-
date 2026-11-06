@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="css/backgrounds.css">
     <link rel="stylesheet" href="css/online.css">
     <link rel="stylesheet" href="css/results.css">
+    <link rel="stylesheet" href="css/tour.css?v=20261106-tour-1">
     <link rel="stylesheet" href="css/textures.css">
     <link rel="stylesheet" href="css/achievement-redesign.css">
     <link rel="stylesheet" href="css/main-menu.css?v=20261104-guide-2">
@@ -170,10 +171,16 @@
             <div class="hdr">
                 <h1>PING PONG</h1>
                 <p>NEON EDITION · CHOOSE YOUR ARENA</p>
-                <button type="button" class="main-menu-settings" data-open-panel="settings" aria-label="Open settings">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg>
-                    Settings
-                </button>
+                <div class="menu-hdr-actions">
+                    <button type="button" class="main-menu-settings" data-open-panel="settings" aria-label="Open settings">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></svg>
+                        Settings
+                    </button>
+                    <button type="button" class="main-menu-tour" id="menuTourBtn" aria-label="Open the Tour, a solo career against named rivals">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4M6 5h11l-2.5 4L17 13H6"/></svg>
+                        Tour <small id="menuTourStars" aria-hidden="true">0/24</small>
+                    </button>
+                </div>
                 <div class="menu-keys" id="menuKeys" aria-hidden="true">
                     <span data-input="keys"><kbd>&#8592;</kbd><kbd>&#8594;</kbd> Choose mode</span>
                     <span data-input="keys"><kbd>Enter</kbd> Select</span>
@@ -647,6 +654,7 @@
     <script src="js/systems/achievement-icons.js"></script>
     <script src="js/systems/progression.js?v=20261101-ach-1"></script>
     <script src="js/systems/profile.js"></script>
+    <script src="js/systems/tour.js?v=20261106-tour-1"></script>
     <script src="js/ui/match-intro.js?v=20261024-intro-pull-1"></script>
     <script src="js/ui/settings-panel.js?v=20261102-thumbpad-1"></script>
     <script src="js/ui/mode-tutorial.js?v=20261105-quick-guide-1"></script>

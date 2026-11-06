@@ -20,6 +20,7 @@ phone, and updates a minute or two after each push to `main`.
 - [The arenas](#the-arenas)
   - [Classic](#classic) · [Zombie](#zombie) · [Gravity](#gravity) · [Speed](#speed) · [Obstacle](#obstacle)
   - [Custom, the Forge and Ball Studio](#custom-the-forge-and-ball-studio)
+- [The Tour](#the-tour)
 - [Power-ups and the Laser Shot](#power-ups-and-the-laser-shot)
 - [Arena abilities](#arena-abilities)
 - [The computer opponent](#the-computer-opponent)
@@ -195,6 +196,23 @@ zoom and blend mode, saved presets, and optional custom effect code. Its
 preview uses the real in-match ball renderer, in close-up and at match size.
 
 <p align="center"><img src="docs/images/ball-studio.jpg" alt="Ball Studio" width="80%" /></p>
+
+## The Tour
+
+The **Tour** button under the menu title opens a solo career of eight matches
+against named rivals, in four tiers: Club, Regional, National and World. Each
+stage is a normal match with its own mode (Classic, Gravity, Speed or
+Obstacle), computer skill, points to win and a rival with a fixed play style.
+Some stages add a twist (power-ups always on, no power-ups, or win by two).
+
+- **Stars:** a win earns one star, and each of the stage's two goals (win by a
+  margin, land a long rally) earns one more, so a stage is worth up to three.
+- **Unlocks:** winning a stage opens the next one. Each tier also needs a total
+  number of stars (4, 8 and 12) before its stages open.
+- **Your settings stay as they are:** a stage uses its own skill and points for
+  that match only. Starting a normal match from the menu leaves the Tour.
+- Progress is saved in the browser (`pp-tour-v1`). Stage data lives in
+  [`game/js/systems/tour.js`](game/js/systems/tour.js).
 
 ## Power-ups and the Laser Shot
 

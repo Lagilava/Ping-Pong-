@@ -1,5 +1,5 @@
 {
- "hash": "f8da51f7599ef05b",
+ "hash": "c00786acec0dbff7",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -66,6 +66,10 @@
   "assets/images/tutorial/classic-touch.jpg",
   "assets/images/tutorial/custom-arena-desktop.jpg",
   "assets/images/tutorial/custom-arena-touch.jpg",
+  "assets/images/tutorial/custom-look-desktop.jpg",
+  "assets/images/tutorial/custom-look-touch.jpg",
+  "assets/images/tutorial/custom-powerups-desktop.jpg",
+  "assets/images/tutorial/custom-powerups-touch.jpg",
   "assets/images/tutorial/gravity-desktop.jpg",
   "assets/images/tutorial/gravity-touch.jpg",
   "assets/images/tutorial/obstacle-desktop.jpg",
@@ -99,6 +103,7 @@
   "css/studio.css",
   "css/textures.css",
   "css/touch.css",
+  "css/tour.css",
   "css/ui-art.css",
   "css/ui-refresh.css",
   "css/zombie-hud.css",
@@ -178,6 +183,7 @@
   "js/systems/profile.js",
   "js/systems/progression.js",
   "js/systems/settings.js",
+  "js/systems/tour.js",
   "js/ui/device-controls.js",
   "js/ui/match-end-transition.js",
   "js/ui/match-intro.js",

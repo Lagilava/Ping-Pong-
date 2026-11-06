@@ -5821,6 +5821,8 @@ class Game {
     // Settings > Gameplay > Points to win. Custom (Forge rules) and Zombie
     // (waves) set their own target.
     getConfiguredMaxScore() {
+        const tourPoints = this.getTourContext()?.points;
+        if (Number.isFinite(tourPoints) && tourPoints >= 1) return tourPoints;
         const n = Number(window.PPSettings?.get('pointsToWin'));
         return Number.isFinite(n) && n >= 1 ? n : 11;
     }
@@ -6540,7 +6542,9 @@ class Game {
         // Online guest: power-ups come from the host.
         if (this.net?.role === 'guest') return;
         // Settings > Gameplay > Power-ups (Custom has its own list).
-        if (this.gameMode !== 'customise' && window.PPSettings?.get('powerUps') === false) return;
+        const tourTwist = this.getTourContext()?.twist;
+        if (tourTwist === 'noPowerUps') return;
+        if (this.gameMode !== 'customise' && tourTwist !== 'powerUps' && window.PPSettings?.get('powerUps') === false) return;
         const spawnScale = Math.max(0.25, Math.min(1, this.timeWarpFactor || 1));
         const isObstacleMode = this.gameMode === 'obstacle';
         const spawnChance = (isObstacleMode ? 0.0065 : 0.02) * spawnScale;
@@ -7948,8 +7952,18 @@ class Game {
         this.postFx.present(0.25);
     }
 
+    // The Tour stage being played, or null. Its skill, points to win and rule
+    // twist replace the saved settings for that match only; the saved
+    // settings are never changed. It only applies to the stage's own mode.
+    getTourContext() {
+        const c = this.tourContext;
+        return c && c.active && !this.isMultiplayer && c.mode === this.gameMode ? c : null;
+    }
+
     // Settings > Gameplay > Computer skill, 0 (Rookie) .. 4 (Insane).
     getAILevel() {
+        const tourLevel = this.getTourContext()?.level;
+        if (Number.isFinite(tourLevel)) return Math.max(0, Math.min(4, tourLevel));
         const n = Math.round(Number(window.PPSettings?.get('aiLevel')));
         return Number.isFinite(n) ? Math.max(0, Math.min(4, n)) : 2;
     }
@@ -8274,6 +8288,16 @@ class Game {
             });
         }
 
+        // A Tour stage reports its result so stars, unlocks and the card match.
+        this._tourResult = null;
+        const tour = progressionEnabled ? this.getTourContext() : null;
+        if (tour && window.PPTour) {
+            this._tourResult = window.PPTour.recordResult({
+                stageId: tour.stageId, won: !!playerWon,
+                playerScore: matchStats.playerScore, aiScore: matchStats.aiScore, rally: this.maxRally
+            });
+        }
+
         this.running = false;
         this.stop();
         const endToken = this._matchEndToken = {};
@@ -8378,6 +8402,10 @@ class Game {
             });
         }
         actions.push({ label: 'Main menu', back: true, onClick: () => window.PPResults?.hide() });
+        const tourCard = this._tourResult && window.PPTour
+            ? window.PPTour.resultCard(this._tourResult, xp > 0 ? `XP earned: +${xp}` : '')
+            : null;
+        if (tourCard) return Object.assign({ left, right: right && { ...right, label: this._tourResult.stage.rival } }, tourCard);
         return { kicker: `${modeLabel} · match over`, title, tone, left, right, lines, actions };
     }
 
@@ -8400,6 +8428,8 @@ class Game {
         // An online guest waits for the host to call it.
         if (this.net?.role === 'guest') return;
         if (this.scores.player >= this.maxScore || this.scores.ai >= this.maxScore) {
+            // Tour finals: first to the target, but only with a two point lead.
+            if (this.getTourContext()?.twist === 'winBy2' && Math.abs(this.scores.player - this.scores.ai) < 2) return;
             this.finishMatch(this.scores.player >= this.maxScore);
         }
     }

@@ -1556,6 +1556,7 @@
                 // every 10th frame (a class lookup per frame is not free).
                 if ((menuCoverCheck++ % 10) === 0) menuCovered = !!menuCustomOverlayEl?.classList.contains('active')
                     || document.body.classList.contains('pp-panel-open')
+                    || document.body.classList.contains('pp-tour-open')
                     || document.body.classList.contains('pp-results-open')
                     || !!document.querySelector('#modeTutorial:not([hidden])');
                 if (menuCovered) {
@@ -1911,6 +1912,7 @@
                     const chosenMode = menuSelected;
                     const chosenMultiplayer = menuIsMP;
                     const start = () => {
+                        window.PPTour?.clear();
                         window.ppEnterMobilePlay?.();
                         closeMenuModal();
                         const overlay = document.getElementById('overlay');
@@ -2407,7 +2409,7 @@
         const overlay = document.getElementById('overlay');
         if (!overlay || !overlay.classList.contains('visible') || overlay.classList.contains('hidden')) return null;
         if (window.game?.isInMatch?.()) return null;
-        if (document.body.classList.contains('pp-panel-open')) return null;
+        if (document.body.classList.contains('pp-panel-open') || document.body.classList.contains('pp-tour-open')) return null;
         if (document.querySelector('#customiseOverlay.active, .achievement-sidebar.visible')) return null;
         if (isShown('pp-online') || isShown('pp-results') || isShown('modeTutorial')) return null;
         return document.getElementById('modal')?.classList.contains('on') ? 'modal' : 'cards';
