@@ -1539,7 +1539,7 @@ class Paddle {
 
 // Fragment system for destructible obstacle rendering
 
-Paddle.STYLES = ['classic', 'neonBlade', 'shieldWall', 'arcadeBlock', 'prismGlass', 'riptide', 'magmaCore', 'bassline'];
+Paddle.STYLES = ['classic', 'neonBlade', 'shieldWall', 'arcadeBlock', 'prismGlass', 'riptide', 'magmaCore', 'bassline', 'tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion'];
 
 // Motion timing clock (falls back to Date.now outside a browser).
 Paddle.now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());

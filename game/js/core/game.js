@@ -944,6 +944,11 @@ class Game {
         let right = S?.getPaddle ? S.getPaddle(mode, 'right') : 'classic';
         const picked = this.net?.paddleDesigns;
         if (picked) { left = picked.left; right = picked.right; }
+        else {
+            // A Tour reward that isn't earned (or was reset) falls back to Classic.
+            if (window.PPTour?.paddleLocked(left)) left = 'classic';
+            if (window.PPTour?.paddleLocked(right)) right = 'classic';
+        }
         this.player.setStyle?.(left);
         this.aiPaddle.setStyle?.(this.aiPaddle.isZombieBoss ? 'classic' : right);
         if (mode === 'customise' && this.customSettings) this.customSettings.paddleStyle = this.player.paddleStyle;

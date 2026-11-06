@@ -201,6 +201,27 @@
     function starsOf(id) { return ensure().stages[id]?.stars || 0; }
     function totalStars() { return STAGES.reduce((n, s) => n + starsOf(s.id), 0); }
 
+    // ── Paddle rewards ───────────────────────────────────────────────────
+    // Clearing both stages of a tier earns that tier's paddle design (defined
+    // in paddle-designs.js with a tourTier). Nothing that already existed is
+    // locked behind the Tour.
+    function tierCleared(i) {
+        const list = STAGES.filter((st) => st.tier === i);
+        return list.length > 0 && list.every((st) => starsOf(st.id) > 0);
+    }
+    function rewardDesigns() { return (window.PaddleDesigns?.LIST || []).filter((d) => d.tourTier != null); }
+    function rewardOf(tier) { return rewardDesigns().find((d) => d.tourTier === tier) || null; }
+    function paddleLocked(id) {
+        const d = rewardDesigns().find((x) => x.id === id);
+        if (!d) return false;
+        ensure();
+        return !tierCleared(d.tourTier);
+    }
+    function paddleLockText(id) {
+        const d = rewardDesigns().find((x) => x.id === id);
+        return d ? `Clear both ${TIERS[d.tourTier].name} stages in the Tour` : '';
+    }
+
     // 'locked' | 'open' | 'cleared'
     function lockInfo(stage) {
         const total = totalStars();
@@ -234,6 +255,7 @@
         if (!stage) return null;
         ensure();
         const beforeTotal = totalStars();
+        const clearedBefore = TIERS.map((t, i) => tierCleared(i));
         const before = data.stages[stage.id] || null;
         const goals = stage.goals.map((g) => !!info.won && goalMet(g, info));
         const earned = info.won ? 1 + goals.filter(Boolean).length : 0;
@@ -247,10 +269,11 @@
         updateMenuButton();
         const next = byId(stage.id + 1);
         const opened = TIERS.filter((t) => t.need > beforeTotal && t.need <= total);
+        const newPaddles = TIERS.map((t, i) => (!clearedBefore[i] && tierCleared(i) ? rewardOf(i) : null)).filter(Boolean);
         return {
             stage, won: !!info.won, earned, goals,
             best: starsOf(stage.id), firstClear: !!info.won && !before,
-            total, next, nextPlayable: !!(next && isPlayable(next)),
+            newPaddles, total, next, nextPlayable: !!(next && isPlayable(next)),
             opened, tourComplete: !!info.won && stage.id === STAGES[STAGES.length - 1].id,
         };
     }
@@ -347,8 +370,10 @@
         const hint = data.completed
             ? 'Tour complete. Replay any stage for a perfect three stars.'
             : (next ? `${next.name} stages open at ${next.need} stars (you have ${total}).` : 'Every tier is open.');
-        root.querySelector('.pptour-hint').textContent = hint;
+        const nextPad = rewardDesigns().find((d) => !tierCleared(d.tourTier));
+        root.querySelector('.pptour-hint').textContent = nextPad ? `${hint} Next paddle: ${nextPad.name}, earned by clearing both ${TIERS[nextPad.tourTier].name} stages.` : `${hint} All four paddle rewards earned.`;
         root.querySelector('.pptour-grid').innerHTML = stageHtml;
+        renderRewards();
         // The arena's own artwork (the same scenes as the menu cards) fills the top of each card.
         root.querySelectorAll('.pptour-card').forEach((card) => {
             const mode = card.dataset.mode;
@@ -368,6 +393,53 @@
             bar.hidden = false;
             bar.setAttribute('aria-label', `${total} of ${next.need} stars for the ${next.name} tier`);
         } else bar.hidden = true;
+    }
+
+    // ── Reward strip: the four paddles with their live previews ──────────
+    let rewardRaf = 0;
+    const rewardPads = new Map();
+    function renderRewards() {
+        const host = root.querySelector('.pptour-rewards');
+        const list = rewardDesigns();
+        if (!host) return;
+        host.hidden = !list.length;
+        host.innerHTML = `<h3>Paddle rewards</h3>` + list.map((d) => {
+            const got = tierCleared(d.tourTier);
+            return `<div class="pptour-reward ${got ? 'got' : 'locked'}" data-design="${d.id}" title="${esc(d.blurb)}">
+                <canvas aria-hidden="true"></canvas>
+                <span class="pptour-rname">${esc(d.name)}</span>
+                <span class="pptour-rstate">${got ? 'Earned' : `Clear ${esc(TIERS[d.tourTier].name)} stages`}</span></div>`;
+        }).join('');
+        rewardPads.clear();
+        cancelAnimationFrame(rewardRaf);
+        rewardRaf = requestAnimationFrame(drawRewards);
+    }
+    function drawRewards() {
+        rewardRaf = 0;
+        if (!isOpen() || typeof Paddle !== 'function') return;
+        const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+        root.querySelectorAll('.pptour-reward canvas').forEach((canvas) => {
+            const id = canvas.parentElement.dataset.design;
+            const cw = canvas.clientWidth || 40, ch = canvas.clientHeight || 64;
+            if (!cw || !ch) return;
+            if (canvas.width !== Math.round(cw * dpr) || canvas.height !== Math.round(ch * dpr)) {
+                canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
+                rewardPads.delete(canvas);
+            }
+            let pd = rewardPads.get(canvas);
+            const ph = Math.round(ch * 0.8), pw = Math.max(9, Math.round(ph * 0.17));
+            if (!pd) {
+                pd = new Paddle(0, 0, pw, ph, '#00ffd6', false);
+                pd.applyCustomPaddleVisualState?.(id, '#00ffd6');
+                rewardPads.set(canvas, pd);
+            }
+            pd.pos.x = (cw - pw) / 2; pd.pos.y = (ch - ph) / 2;
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, cw, ch);
+            pd.render(ctx);
+        });
+        rewardRaf = requestAnimationFrame(drawRewards);
     }
 
     function build() {
@@ -393,7 +465,7 @@
                     <div class="pptour-total" aria-label="Stars earned"><b>0</b><span>/ ${MAX_STARS}</span><i aria-hidden="true">&#9733;</i></div>
                     <button type="button" class="pptour-close" aria-label="Close the Tour">&times;</button>
                 </header>
-                <div class="pptour-body"><div class="pptour-grid"></div></div>
+                <div class="pptour-body"><section class="pptour-rewards" aria-label="Paddle rewards"></section><div class="pptour-grid"></div></div>
             </div>`;
         document.body.appendChild(root);
         root.addEventListener('click', (e) => {
@@ -425,6 +497,54 @@
         return root;
     }
 
+    // ── Gamepad: d-pad or left stick moves between buttons, A (on release)
+    // presses, B closes. Polled only while the Tour is open and a pad is
+    // connected.
+    let padRaf = 0, padPrev = {}, padDir = '', padRepeat = 0;
+    function padMove(dir) {
+        const items = [...root.querySelectorAll('button:not(:disabled)')].filter((el) => el.getClientRects().length);
+        if (!items.length) return;
+        let cur = root.contains(document.activeElement) && items.includes(document.activeElement) ? document.activeElement : null;
+        if (!cur) { (items.find((el) => el.classList.contains('pptour-play')) || items[0]).focus(); return; }
+        const r = cur.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        let best = null, bestScore = Infinity;
+        for (const el of items) {
+            if (el === cur) continue;
+            const b = el.getBoundingClientRect(), dx = b.left + b.width / 2 - cx, dy = b.top + b.height / 2 - cy;
+            const along = dir === 'left' ? -dx : dir === 'right' ? dx : dir === 'up' ? -dy : dy;
+            if (along < 4) continue;
+            const across = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
+            const score = along + across * 2.2;
+            if (score < bestScore) { bestScore = score; best = el; }
+        }
+        if (best) best.focus();
+    }
+    function padPoll() {
+        padRaf = 0;
+        if (!isOpen()) return;
+        const pad = [...(navigator.getGamepads?.() || [])].find((g) => g && g.connected);
+        if (!pad) return;
+        padRaf = requestAnimationFrame(padPoll);
+        if (document.querySelector('#modeTutorial:not([hidden])')) return;
+        const b = (i) => !!pad.buttons[i]?.pressed;
+        const x = pad.axes[0] || 0, y = pad.axes[1] || 0;
+        const dir = (b(14) || x < -0.55) ? 'left' : (b(15) || x > 0.55) ? 'right' : (b(12) || y < -0.55) ? 'up' : (b(13) || y > 0.55) ? 'down' : '';
+        const now = performance.now();
+        if (dir && (dir !== padDir || now >= padRepeat)) { padMove(dir); padRepeat = now + (dir !== padDir ? 360 : 170); }
+        padDir = dir;
+        const cur = { a: b(0), b: b(1) };
+        if (!padPrev) { padPrev = cur; return; }
+        if (padPrev.a && !cur.a && root.contains(document.activeElement) && document.activeElement.tagName === 'BUTTON') document.activeElement.click();
+        if (!padPrev.b && cur.b) close();
+        padPrev = cur;
+    }
+    function startPad() {
+        if (padRaf || !isOpen()) return;
+        padPrev = null; // the first frame only records which buttons are already held
+        padDir = ''; padRaf = requestAnimationFrame(padPoll);
+    }
+    window.addEventListener('gamepadconnected', () => { if (isOpen()) startPad(); });
+
     function isOpen() { return !!root?.classList.contains('open'); }
 
     function open() {
@@ -434,6 +554,7 @@
         root.classList.add('open');
         root.setAttribute('aria-hidden', 'false');
         document.body.classList.add('pp-tour-open');
+        startPad();
         const target = root.querySelector('.pptour-card.open .pptour-play:not(:disabled), .pptour-card.cleared .pptour-play:not(:disabled), .pptour-play:not(:disabled)')
             || root.querySelector('.pptour-close');
         // Scroll the first stage still to play into view, then focus it.
@@ -484,6 +605,7 @@
             if (result.best > result.earned) lines.push(`Your best on this stage: ${result.best} of 3 stars`);
             lines.push(`Tour stars: ${result.total} of ${MAX_STARS}`);
             result.opened.forEach((t) => lines.push(`${t.name} tier unlocked`));
+            (result.newPaddles || []).forEach((d) => lines.push(`New paddle unlocked: ${d.name}`));
             if (result.tourComplete) lines.push('You beat Titan. The Tour is complete.');
             else if (result.next && !result.nextPlayable) lines.push(`Stage ${result.next.id} needs more stars: ${lockInfo(result.next).reason.replace(/^Needs /, 'needs ')}`);
         } else {
@@ -494,6 +616,7 @@
         if (result.won && result.nextPlayable && !result.tourComplete) {
             actions.push({ label: `Next: stage ${result.next.id}`, primary: true, onClick: () => launch(result.next.id) });
         }
+        (result.newPaddles || []).slice(0, 1).forEach((d) => actions.push({ label: `Equip ${d.name}`, onClick: function () { equip(d.id); if (this && this.textContent !== undefined) this.textContent = `${d.name} equipped`; } }));
         actions.push({ label: result.won ? 'Replay stage' : 'Try again', primary: !result.won, onClick: () => launch(stage.id) });
         actions.push({ label: 'Tour map', onClick: () => { window.PPResults?.hide(); open(); } });
         actions.push({ label: 'Main menu', back: true, onClick: () => window.PPResults?.hide() });
@@ -504,7 +627,16 @@
         };
     }
 
+    // Put a reward on the player's own side in every mode.
+    function equip(id) {
+        const S = window.PPSettings;
+        if (!S?.setPaddle || paddleLocked(id)) return false;
+        ['classic', 'zombie', 'gravity', 'speed', 'obstacle', 'customise'].forEach((m) => S.setPaddle(m, 'left', id));
+        return true;
+    }
+
     window.PPTour = {
+        tierCleared, rewardOf, paddleLocked, paddleLockText, equip,
         STAGES, TIERS, MAX_STARS, byId, lockInfo, isPlayable, totalStars, starsOf,
         recordResult, resultCard, applyTierLook, syncLook, launch, clear, open, close, isOpen, updateMenuButton,
         reload: () => { data = null; load(); },

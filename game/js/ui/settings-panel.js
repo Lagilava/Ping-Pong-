@@ -102,7 +102,7 @@
 
     function paddleCards(side) {
         return designs().map((d) => `<button type="button" class="ppset-pcard" data-pside="${side}" data-design="${d.id}" aria-pressed="false">
-            <canvas aria-hidden="true"></canvas><span class="ppset-pname">${esc(d.name)}</span><span class="ppset-pblurb">${esc(d.blurb)}</span></button>`).join('');
+            <canvas aria-hidden="true"></canvas><span class="ppset-pname">${esc(d.name)}</span><span class="ppset-pblurb">${esc(d.blurb)}</span>${d.tourTier != null ? '<span class="ppset-plock"></span>' : ''}</button>`).join('');
     }
 
     function renderPaddles() {
@@ -124,6 +124,11 @@
         root.querySelectorAll('[data-pmode]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.pmode === paddleMode)));
         root.querySelectorAll('.ppset-pcard').forEach((b) => {
             b.setAttribute('aria-pressed', String(S().getPaddle?.(paddleMode, b.dataset.pside) === b.dataset.design));
+            const locked = !!window.PPTour?.paddleLocked(b.dataset.design);
+            b.classList.toggle('locked', locked);
+            b.setAttribute('aria-disabled', String(locked));
+            const tag = b.querySelector('.ppset-plock');
+            if (tag) tag.textContent = locked ? window.PPTour.paddleLockText(b.dataset.design) : 'Tour reward';
         });
         const zombie = paddleMode === 'zombie';
         const right = root.querySelector('[data-pright]');
@@ -467,6 +472,7 @@
             const pmode = e.target.closest('[data-pmode]');
             if (pmode) { paddleMode = pmode.dataset.pmode; syncPaddles(); return; }
             const pcard = e.target.closest('.ppset-pcard');
+            if (pcard && pcard.classList.contains('locked')) { return; }
             if (pcard) { S().setPaddle?.(paddleMode, pcard.dataset.pside, pcard.dataset.design); flashSaved(); return; }
             const key = e.target.closest('.ppset-key');
             if (key) { startCapture(key); return; }

@@ -488,3 +488,10 @@ body.pp-noir #pp-enhanced-hud .ai-side { filter: brightness(1.9); }
     .ppset-pf-head { gap: 12px; }
     .ppset-avatar { width: 52px; height: 52px; font-size: 22px; }
 }
+
+/* Tour reward paddles: tagged, and locked until the tier is cleared. */
+.ppset-plock { font: 700 11px/1.2 'Rajdhani', sans-serif; letter-spacing: .06em; text-transform: uppercase; color: #ffd37a; text-align: center; }
+.ppset-pcard.locked { cursor: not-allowed; border-color: rgba(255, 214, 120, .22); }
+.ppset-pcard.locked canvas { filter: grayscale(.9) brightness(.55); }
+.ppset-pcard.locked:hover { transform: none; border-color: rgba(255, 214, 120, .45); }
+.ppset-pcard.locked .ppset-plock { color: rgba(255, 214, 120, .85); }

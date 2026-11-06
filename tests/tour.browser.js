@@ -132,6 +132,24 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
                     assert.equal(await spawn(), 0, 'no power-ups on the no power-up stage even with the setting on');
                 }
             }
+            // Paddle rewards: all four earned after the full Tour, all four locked on a fresh save.
+            const rw = await page.evaluate(() => {
+                const ids = ['tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion'];
+                const earned = ids.map((i) => PPTour.paddleLocked(i));
+                PPTour.equip('tourChampion');
+                const eq = PPSettings.getPaddle('classic', 'left');
+                localStorage.removeItem('pp-tour-v1'); PPTour.reload();
+                const fresh = ids.map((i) => PPTour.paddleLocked(i));
+                PPSettings.setPaddle('classic', 'left', 'tourVoltage');
+                game.setGameMode('classic'); game.applyPaddleDesigns();
+                return { earned, eq, fresh, style: game.player.paddleStyle, classicFree: PPTour.paddleLocked('classic') };
+            });
+            assert.deepEqual(rw.earned, [false, false, false, false]);
+            assert.equal(rw.eq, 'tourChampion');
+            assert.deepEqual(rw.fresh, [true, true, true, true]);
+            assert.equal(rw.style, 'classic', 'a locked reward falls back to Classic in a match');
+            assert.equal(rw.classicFree, false);
+            await page.evaluate(() => ['classic','zombie','gravity','speed','obstacle','customise'].forEach((m) => PPSettings.setPaddle(m, 'left', 'classic')));
             assert.deepEqual(errors, [], `${name} page errors`);
             await context.close();
             console.log(`${name} ok`);

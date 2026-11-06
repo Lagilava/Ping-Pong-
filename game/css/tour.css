@@ -185,3 +185,32 @@ body.pp-reduce-motion .pptour-progress i { transition: none; }
 body.pp-reduce-motion .pptour-title { animation-name: pptour-title-fade; }
 @keyframes pptour-title-fade { 0% { opacity: 0; } 12%, 78% { opacity: 1; } 100% { opacity: 0; } }
 @media (max-height: 520px) { .pptour-title { top: 18%; padding: 8px 22px 10px; } .pptour-title span { display: none; } }
+
+/* ── Paddle rewards strip ─────────────────────────────────────────── */
+.pptour-rewards {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
+    margin: 0 0 14px; padding: 10px 12px 12px;
+    border: 1px solid rgba(255, 214, 120, .22); border-radius: 14px;
+    background: linear-gradient(180deg, rgba(255, 200, 90, .08), rgba(0, 0, 0, .25));
+}
+.pptour-rewards[hidden] { display: none; }
+.pptour-rewards h3 {
+    grid-column: 1 / -1; margin: 0; font: 700 11px/1 'Orbitron', system-ui, sans-serif;
+    letter-spacing: .14em; text-transform: uppercase; color: #ffd37a;
+}
+.pptour-reward {
+    display: grid; grid-template-columns: 42px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; align-items: center;
+    padding: 4px 6px; border-radius: 10px; background: rgba(0, 0, 0, .28); border: 1px solid rgba(255, 255, 255, .06);
+}
+.pptour-reward canvas { grid-row: 1 / 3; width: 42px; height: 72px; display: block; }
+.pptour-reward.locked canvas { filter: grayscale(.85) brightness(.7); }
+.pptour-reward.got { border-color: rgba(255, 214, 120, .5); }
+.pptour-rname { font: 700 12px/1.1 'Orbitron', system-ui, sans-serif; letter-spacing: .05em; text-transform: uppercase; align-self: end; }
+.pptour-rstate { font: 600 12px/1.2 'Rajdhani', sans-serif; color: rgba(200, 230, 245, .7); align-self: start; }
+.pptour-reward.got .pptour-rstate { color: #ffd37a; }
+@media (max-width: 760px) { .pptour-rewards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-height: 460px) {
+    .pptour-reward canvas { height: 44px; width: 26px; grid-template-columns: 26px 1fr; }
+    .pptour-reward { grid-template-columns: 26px minmax(0, 1fr); padding: 3px 5px; }
+    .pptour-rewards { margin-bottom: 10px; padding: 8px 10px 10px; gap: 6px; }
+}

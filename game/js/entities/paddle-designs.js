@@ -25,6 +25,10 @@
         { id: 'riptide', name: 'Riptide', blurb: 'A glass tube of liquid that sloshes as you move' },
         { id: 'magmaCore', name: 'Magma', blurb: 'Cracked basalt with lava veins that flare on every hit' },
         { id: 'bassline', name: 'Bassline', blurb: 'Speaker stack with level meters that dance to the music' },
+        { id: 'tourSunbeam', name: 'Sunbeam', blurb: 'Polished brass and glass with a glint that sweeps the length', tourTier: 0 },
+        { id: 'tourVoltage', name: 'Voltage', blurb: 'A copper coil with a plasma arc that forks on every hit', tourTier: 1 },
+        { id: 'tourAfterglow', name: 'Afterglow', blurb: 'A dusk sky in glass: striped sun, drifting lines, twinkling stars', tourTier: 2 },
+        { id: 'tourChampion', name: 'Champion', blurb: 'A gold trophy bar with crowns, pulsing gems and floodlight sparkle', tourTier: 3 },
     ];
     const IDS = LIST.map((d) => d.id);
     const PAD = 22;                 // logical px of room around the paddle for glow
@@ -1524,9 +1528,253 @@
         },
     };
 
+    // ── Tour rewards ──────────────────────────────────────────────────
+    // Four designs earned by clearing both stages of a Tour tier. They stay
+    // in the same bake-once style as the others: a static body sprite plus a
+    // few cheap live strokes, no shadowBlur per frame.
+    const GOLD = [255, 205, 96];
+
+    // Sunbeam (Club): polished brass around tinted glass. A bright glint
+    // sweeps down the glass every few seconds and the glass flares on a hit.
+    const sunbeam = {
+        bake(c, w, h, s) {
+            const hw = w / 2, hh = h / 2, r = Math.min(hw, 5);
+            const body = sprite(w, h, s), g = body.ctx;
+            const bloom = bloomFor(c);
+            g.save();
+            g.shadowColor = rgba(GOLD, 0.8 * bloom); g.shadowBlur = 14 * s * bloom;
+            g.fillStyle = rgba(GOLD, 0.35);
+            roundRect(g, -hw, -hh, w, h, r); g.fill();
+            g.restore();
+            const brass = g.createLinearGradient(-hw, 0, hw, 0);
+            brass.addColorStop(0, '#fff0b8'); brass.addColorStop(0.3, '#e0a93a');
+            brass.addColorStop(0.7, '#9b6a1c'); brass.addColorStop(1, '#5a3a0c');
+            g.fillStyle = brass; roundRect(g, -hw, -hh, w, h, r); g.fill();
+            const ins = Math.max(2, hw * 0.42);
+            const glass = g.createLinearGradient(0, -hh, 0, hh);
+            glass.addColorStop(0, rgba(mix(c, BLACK, 0.55), 1));
+            glass.addColorStop(0.5, rgba(mix(c, BLACK, 0.3), 1));
+            glass.addColorStop(1, rgba(mix(c, BLACK, 0.6), 1));
+            g.fillStyle = glass; roundRect(g, -hw + ins, -hh + ins + 3, w - ins * 2, h - ins * 2 - 6, 2); g.fill();
+            g.strokeStyle = 'rgba(60,34,4,0.8)'; g.lineWidth = 0.7;
+            roundRect(g, -hw + ins, -hh + ins + 3, w - ins * 2, h - ins * 2 - 6, 2); g.stroke();
+            // Rivets and a bright top lip.
+            g.fillStyle = '#fff6d0';
+            for (const y of [-hh + ins * 0.9, hh - ins * 0.9]) { g.beginPath(); g.arc(0, y, 1.1, 0, TAU); g.fill(); }
+            for (let i = 1; i < 5; i++) { g.fillStyle = 'rgba(255,240,190,0.5)'; g.fillRect(-hw + 1, -hh + (h * i) / 5, 1.2, 0.6); }
+            return { body: body.canvas, ins };
+        },
+        draw(ctx, p, k, t, hitGlow) {
+            const { w, h, c } = k, { ins } = k.sprites, hw = w / 2, hh = h / 2;
+            const m = p.motion;
+            drawSprite(ctx, k.sprites.body, w, h);
+            const gx = -hw + ins, gy = -hh + ins + 3, gw = w - ins * 2, gh = h - ins * 2 - 6;
+            const win = reactEnv(m, 'win');
+            ctx.save();
+            roundRect(ctx, gx, gy, gw, gh, 2); ctx.clip();
+            ctx.globalCompositeOperation = 'lighter';
+            const glow = clamp(hitGlow + win * 0.7 + (m?.ant || 0) * 0.3, 0, 1);
+            if (glow > 0.01) { ctx.fillStyle = rgba(c, glow * 0.55); ctx.fillRect(gx, gy, gw, gh); }
+            const ph = ((t * 0.32 + (p._seed || 0) * 0.1) % 1.6) - 0.3;
+            const y = gy + ph * gh;
+            const gl = ctx.createLinearGradient(0, y - 9, 0, y + 9);
+            gl.addColorStop(0, 'rgba(255,240,190,0)'); gl.addColorStop(0.5, 'rgba(255,246,214,0.8)'); gl.addColorStop(1, 'rgba(255,240,190,0)');
+            ctx.fillStyle = gl; ctx.fillRect(gx, y - 9, gw, 18);
+            ctx.restore();
+        },
+    };
+
+    // Voltage (Regional): a coil wound with copper between two electrodes
+    // with a plasma arc that never sits still. The arc thickens and forks on
+    // a hit and the coil dims when a point is lost.
+    const voltage = {
+        bake(c, w, h, s) {
+            const hw = w / 2, hh = h / 2, r = Math.min(hw, 4);
+            const cap = clamp(w * 0.8, 6, 11);
+            const body = sprite(w, h, s), g = body.ctx;
+            const bloom = bloomFor(c);
+            g.save();
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 14 * s * bloom;
+            g.fillStyle = rgba(c, 0.28 * bloom); roundRect(g, -hw, -hh, w, h, r); g.fill();
+            g.restore();
+            g.fillStyle = '#0b0d14'; roundRect(g, -hw, -hh, w, h, r); g.fill();
+            // Copper winding.
+            const cg = g.createLinearGradient(-hw, 0, hw, 0);
+            cg.addColorStop(0, '#6a3a1a'); cg.addColorStop(0.4, '#f0a060'); cg.addColorStop(1, '#4a2410');
+            const y0 = -hh + cap + 2, y1 = hh - cap - 2;
+            for (let y = y0; y < y1; y += 2.6) { g.fillStyle = cg; g.fillRect(-hw + 2, y, w - 4, 1.6); }
+            g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(-0.9, y0, 1.8, y1 - y0);
+            // Electrode caps.
+            for (const dir of [-1, 1]) {
+                const y = dir * (hh - cap / 2 - 0.5);
+                g.fillStyle = metalGradient(g, -hw, hw);
+                roundRect(g, -hw, y - cap / 2, w, cap, r); g.fill();
+                g.fillStyle = rgba(mix(c, WHITE, 0.7), 1);
+                g.beginPath(); g.arc(0, dir * (hh - cap - 0.5), 1.4, 0, TAU); g.fill();
+            }
+            return { body: body.canvas, y0: -hh + cap + 1, y1: hh - cap - 1 };
+        },
+        draw(ctx, p, k, t, hitGlow) {
+            const { w, c, light } = k, { y0, y1 } = k.sprites;
+            const m = p.motion;
+            const lose = reactEnv(m, 'lose'), win = reactEnv(m, 'win');
+            drawSprite(ctx, k.sprites.body, w, k.h);
+            const power = clamp(0.55 + hitGlow * 0.9 + win * 0.5 + (m?.ant || 0) * 0.3 - lose * 0.5, 0.1, 1.5);
+            const tick = Math.floor(t * 22 + (p._seed || 0) * 7);
+            const rnd = rng(tick * 2654435 + 17);
+            const amp = (w / 2 - 1) * (0.6 + power * 0.5);
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+            const n = 9;
+            const pts = [];
+            for (let i = 0; i <= n; i++) pts.push([i === 0 || i === n ? 0 : (rnd() * 2 - 1) * amp, y0 + ((y1 - y0) * i) / n]);
+            const path = (pp) => { ctx.beginPath(); pp.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); };
+            ctx.strokeStyle = rgba(c, 0.35 * Math.min(1, power)); ctx.lineWidth = 4.2; path(pts);
+            ctx.strokeStyle = rgba(light, 0.9 * Math.min(1, power + 0.2)); ctx.lineWidth = 1.5; path(pts);
+            ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 0.6; path(pts);
+            if (power > 0.9 || hitGlow > 0.2) {
+                const a = 2 + Math.floor(rnd() * (n - 3));
+                const [bx, by] = pts[a], dir = rnd() < 0.5 ? -1 : 1;
+                ctx.strokeStyle = rgba(light, 0.8); ctx.lineWidth = 0.9;
+                path([[bx, by], [bx + dir * amp * 1.3, by + 5 + rnd() * 6], [bx + dir * amp * 0.9, by + 12 + rnd() * 8]]);
+            }
+            ctx.restore();
+        },
+    };
+
+    // Afterglow (National): a dusk sky in a glass case. Violet to orange to
+    // pink, a retro sun striped with lines that drift up, and stars that
+    // twinkle at the top.
+    const afterglow = {
+        bake(c, w, h, s) {
+            const hw = w / 2, hh = h / 2, r = Math.min(hw, 5);
+            const body = sprite(w, h, s), g = body.ctx;
+            const bloom = bloomFor(c);
+            g.save();
+            g.shadowColor = rgba(c, bloom); g.shadowBlur = 14 * s * bloom;
+            g.fillStyle = rgba(c, 0.3 * bloom); roundRect(g, -hw, -hh, w, h, r); g.fill();
+            g.restore();
+            const sky = g.createLinearGradient(0, -hh, 0, hh);
+            sky.addColorStop(0, '#1c0a3e'); sky.addColorStop(0.35, '#6a1f8a');
+            sky.addColorStop(0.62, '#e8467a'); sky.addColorStop(0.82, '#ff9a3c'); sky.addColorStop(1, '#ffd36a');
+            g.fillStyle = sky; roundRect(g, -hw, -hh, w, h, r); g.fill();
+            // Sun disc low in the glass.
+            const sr = hw * 1.05, sy = hh * 0.52;
+            g.save(); roundRect(g, -hw, -hh, w, h, r); g.clip();
+            const sun = g.createLinearGradient(0, sy - sr, 0, sy + sr);
+            sun.addColorStop(0, '#fff2a8'); sun.addColorStop(1, '#ff5f6d');
+            g.fillStyle = sun; g.beginPath(); g.arc(0, sy, sr, 0, TAU); g.fill();
+            g.restore();
+            roundRect(g, -hw, -hh, w, h, r);
+            innerBevel(g, -hw, -hh, hw, hh, 3);
+            g.strokeStyle = rgba(mix(c, WHITE, 0.45), 0.9); g.lineWidth = 1;
+            roundRect(g, -hw + 0.5, -hh + 0.5, w - 1, h - 1, r); g.stroke();
+            return { body: body.canvas, sy, sr };
+        },
+        draw(ctx, p, k, t, hitGlow) {
+            const { w, h, c } = k, { sy, sr } = k.sprites, hw = w / 2, hh = h / 2;
+            const m = p.motion;
+            drawSprite(ctx, k.sprites.body, w, h);
+            ctx.save();
+            roundRect(ctx, -hw + 1, -hh + 1, w - 2, h - 2, 4); ctx.clip();
+            // Dark stripes sliding up through the sun.
+            ctx.fillStyle = 'rgba(30,6,50,0.85)';
+            const off = (t * 5) % 7;
+            for (let y = sy - sr + 2 - off; y < sy + sr; y += 7) {
+                const th = clamp((y - (sy - sr)) / (sr * 2), 0, 1) * 2.4 + 0.4;
+                if (y > sy - sr) ctx.fillRect(-hw, y, w, th);
+            }
+            // Stars.
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < 5; i++) {
+                const x = Math.sin(i * 12.9 + 1.3) * (hw - 2.5), y = -hh + 6 + ((i * 9.7) % (h * 0.3));
+                ctx.globalAlpha = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * (1.8 + i * 0.7) + i * 2 + (p._seed || 0)));
+                ctx.fillStyle = '#fff'; ctx.fillRect(x - 0.5, y - 0.5, 1.1, 1.1);
+            }
+            const glow = clamp(hitGlow + reactEnv(m, 'win') * 0.7, 0, 1);
+            if (glow > 0.01) { ctx.globalAlpha = glow * 0.5; ctx.fillStyle = '#ffe6a8'; ctx.fillRect(-hw, -hh, w, h); }
+            ctx.restore();
+        },
+    };
+
+    // Champion (World): a gold trophy bar. Crowns cap both ends, a column of
+    // gems pulses, a floodlight sparkle travels the length and a win throws
+    // gold sparks.
+    const champion = {
+        layout(w, h) {
+            const hw = w / 2, hh = h / 2, cap = clamp(w * 0.9, 7, 13);
+            const n = Math.max(3, Math.min(7, Math.floor((h - cap * 2 - 8) / 14)));
+            const gems = [];
+            for (let i = 0; i < n; i++) gems.push(-hh + cap + 6 + ((h - cap * 2 - 12) * (i + 0.5)) / n);
+            return { hw, hh, cap, gems };
+        },
+        bake(c, w, h, s) {
+            const L = this.layout(w, h), { hw, hh, cap, gems } = L;
+            const body = sprite(w, h, s), g = body.ctx;
+            g.save();
+            g.shadowColor = rgba(GOLD, 0.9); g.shadowBlur = 16 * s;
+            g.fillStyle = rgba(GOLD, 0.4); roundRect(g, -hw, -hh + 2, w, h - 4, 4); g.fill();
+            g.restore();
+            const gold = g.createLinearGradient(-hw, 0, hw, 0);
+            gold.addColorStop(0, '#fff3c0'); gold.addColorStop(0.25, '#ffd45c');
+            gold.addColorStop(0.6, '#c58a1c'); gold.addColorStop(1, '#6e4a0a');
+            g.fillStyle = gold; roundRect(g, -hw, -hh + cap * 0.5, w, h - cap, 3); g.fill();
+            roundRect(g, -hw, -hh + cap * 0.5, w, h - cap, 3); innerBevel(g, -hw, -hh, hw, hh, 3);
+            // Crowns: three points at each end.
+            for (const dir of [-1, 1]) {
+                const base = dir * (hh - cap * 0.5), tip = dir * (hh - 0.5);
+                g.fillStyle = gold; g.beginPath();
+                g.moveTo(-hw, base);
+                g.lineTo(-hw, tip - dir * cap * 0.15); g.lineTo(-hw * 0.5, base + dir * cap * 0.05);
+                g.lineTo(0, tip); g.lineTo(hw * 0.5, base + dir * cap * 0.05);
+                g.lineTo(hw, tip - dir * cap * 0.15); g.lineTo(hw, base);
+                g.closePath(); g.fill();
+                g.fillStyle = rgba(c, 1); g.beginPath(); g.arc(0, dir * (hh - cap * 0.7), 1.3, 0, TAU); g.fill();
+            }
+            // Gem settings.
+            for (const y of gems) {
+                g.fillStyle = '#5a3a08'; g.beginPath(); g.arc(0, y, hw * 0.55 + 0.6, 0, TAU); g.fill();
+                g.fillStyle = rgba(mix(c, BLACK, 0.4), 1); g.beginPath(); g.arc(0, y, hw * 0.55 - 0.4, 0, TAU); g.fill();
+            }
+            return { body: body.canvas, L };
+        },
+        draw(ctx, p, k, t, hitGlow) {
+            const { w, h, c, light } = k, { L } = k.sprites;
+            const m = p.motion, win = reactEnv(m, 'win'), lose = reactEnv(m, 'lose');
+            drawSprite(ctx, k.sprites.body, w, h);
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const pulse = (i) => clamp(0.55 + 0.35 * Math.sin(t * 2.4 + i * 0.9 + (p._seed || 0)) + hitGlow + win * 0.5 - lose * 0.45, 0.1, 1.4);
+            L.gems.forEach((y, i) => {
+                const a = pulse(i);
+                ctx.fillStyle = rgba(c, 1);
+                ctx.globalAlpha = a * 0.3; ctx.beginPath(); ctx.arc(0, y, L.hw * 0.9, 0, TAU); ctx.fill();
+                ctx.globalAlpha = Math.min(1, a); ctx.beginPath(); ctx.arc(0, y, L.hw * 0.42, 0, TAU); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.globalAlpha = a * 0.8; ctx.beginPath(); ctx.arc(-0.5, y - 0.6, 0.7, 0, TAU); ctx.fill();
+            });
+            // Floodlight sparkle on its own travel.
+            const sp = ((t * 0.45 + (p._seed || 0) * 0.13) % 1);
+            const sy = -L.hh + L.cap + sp * (L.hh * 2 - L.cap * 2);
+            ctx.globalAlpha = 0.9; ctx.fillStyle = '#fffbe6';
+            star(ctx, 0, sy, 4.5); star(ctx, 0, sy, 2.2);
+            // Gold sparks on a win.
+            if (win > 0.05) {
+                const rnd = rng(Math.floor(t * 12) * 977 + 3);
+                ctx.fillStyle = '#ffe28a';
+                for (let i = 0; i < 6; i++) {
+                    ctx.globalAlpha = win * (0.4 + rnd() * 0.5);
+                    ctx.fillRect((rnd() * 2 - 1) * (L.hw + 8), (rnd() * 2 - 1) * L.hh, 1.4, 1.4);
+                }
+            }
+            ctx.restore();
+        },
+    };
+
     const DESIGNS = {
         neonBlade: satelliten, shieldWall: worldShield, arcadeBlock: aiRebel, prismGlass: prizma,
         riptide, magmaCore: magma, bassline,
+        tourSunbeam: sunbeam, tourVoltage: voltage, tourAfterglow: afterglow, tourChampion: champion,
     };
 
     // Pixel scale of the current transform, in quarter steps so a little
