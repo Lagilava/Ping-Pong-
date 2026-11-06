@@ -24,13 +24,7 @@
     const TIERS = [
         { id: 'club', name: 'Club', need: 0, mood: 'Sunlit open', accent: '#ffd37a',
             look: { sat: 0.95, contrast: 1.02, tint: [1.07, 1.035, 0.93], shadow: [0.04, 0.032, 0.016], highlight: [0.034, 0.022, 0.0] },
-            veil: {
-                layers: [
-                    'linear-gradient(106deg, transparent 4%, rgba(255, 244, 210, .24) 14%, transparent 28%, transparent 46%, rgba(255, 244, 210, .16) 56%, transparent 70%)',
-                    'linear-gradient(180deg, rgba(255, 236, 180, .22), transparent 38%)',
-                    'linear-gradient(0deg, rgba(255, 190, 120, .16), transparent 32%)',
-                ],
-                tint: [255, 222, 150, 0.12], frame: '' } },
+            veil: null },
         { id: 'regional', name: 'Regional', need: 4, mood: 'Evening league', accent: '#5ee7ff', look: null, veil: null },
         { id: 'national', name: 'National', need: 8, mood: 'Dusk finals', accent: '#ff7a9c',
             look: { sat: 1.14, contrast: 1.08, tint: [1.08, 0.95, 0.95], shadow: [0.03, -0.01, 0.036], highlight: [0.046, 0.012, -0.012] },
@@ -43,14 +37,7 @@
                 tint: [255, 96, 140, 0.12], frame: '' } },
         { id: 'world', name: 'World', need: 12, mood: 'Floodlit final', accent: '#ffe08a',
             look: { sat: 1.04, contrast: 1.18, tint: [0.97, 0.99, 1.07], shadow: [-0.012, -0.006, 0.012], highlight: [0.02, 0.026, 0.046] },
-            veil: {
-                layers: [
-                    'linear-gradient(158deg, rgba(222, 242, 255, .42), transparent 30%)',
-                    'linear-gradient(202deg, rgba(222, 242, 255, .42), transparent 30%)',
-                    'radial-gradient(ellipse at center, transparent 30%, rgba(0, 2, 14, .86) 100%)',
-                ],
-                tint: [40, 70, 210, 0.1],
-                frame: 'inset 0 0 0 3px rgba(255, 214, 120, .75), inset 0 0 90px rgba(255, 200, 90, .24)' } },
+            veil: { layers: [], tint: null, frame: 'inset 0 0 0 3px rgba(255, 214, 120, .75), inset 0 0 90px rgba(255, 200, 90, .24)' } },
     ];
     const SKILLS = ['Rookie', 'Easy', 'Normal', 'Hard', 'Insane'];
     const MODES = {
@@ -113,6 +100,14 @@
     // match is set up.
     let veil = null;
     let cardTimer = 0;
+    // Club and World Classic stages get their own venue scene (tour-venues.js).
+    function venueFor(game) {
+        const ctx = game?.getTourContext?.();
+        if (!ctx || ctx.mode !== 'classic') return null;
+        const tier = byId(ctx.stageId)?.tier;
+        return tier === 0 ? 'hall' : tier === 3 ? 'final' : null;
+    }
+
     function syncLook(game) {
         window.clearInterval(cardTimer);
         document.getElementById('ppTourCard')?.remove();
@@ -209,17 +204,19 @@
         const list = STAGES.filter((st) => st.tier === i);
         return list.length > 0 && list.every((st) => starsOf(st.id) > 0);
     }
-    function rewardDesigns() { return (window.PaddleDesigns?.LIST || []).filter((d) => d.tourTier != null); }
+    function rewardDesigns() { return (window.PaddleDesigns?.LIST || []).filter((d) => d.tourTier != null || d.tourComplete); }
+    function rewardEarned(d) { return d.tourComplete ? !!ensure().completed : tierCleared(d.tourTier); }
     function rewardOf(tier) { return rewardDesigns().find((d) => d.tourTier === tier) || null; }
     function paddleLocked(id) {
         const d = rewardDesigns().find((x) => x.id === id);
         if (!d) return false;
         ensure();
-        return !tierCleared(d.tourTier);
+        return !rewardEarned(d);
     }
     function paddleLockText(id) {
         const d = rewardDesigns().find((x) => x.id === id);
-        return d ? `Clear both ${TIERS[d.tourTier].name} stages in the Tour` : '';
+        if (!d) return '';
+        return d.tourComplete ? 'Beat the whole Tour (all 8 stages)' : `Clear both ${TIERS[d.tourTier].name} stages in the Tour`;
     }
 
     // 'locked' | 'open' | 'cleared'
@@ -256,6 +253,7 @@
         ensure();
         const beforeTotal = totalStars();
         const clearedBefore = TIERS.map((t, i) => tierCleared(i));
+        const completedBefore = !!data.completed;
         const before = data.stages[stage.id] || null;
         const goals = stage.goals.map((g) => !!info.won && goalMet(g, info));
         const earned = info.won ? 1 + goals.filter(Boolean).length : 0;
@@ -270,6 +268,7 @@
         const next = byId(stage.id + 1);
         const opened = TIERS.filter((t) => t.need > beforeTotal && t.need <= total);
         const newPaddles = TIERS.map((t, i) => (!clearedBefore[i] && tierCleared(i) ? rewardOf(i) : null)).filter(Boolean);
+        if (!completedBefore && data.completed) newPaddles.push(...rewardDesigns().filter((d) => d.tourComplete));
         return {
             stage, won: !!info.won, earned, goals,
             best: starsOf(stage.id), firstClear: !!info.won && !before,
@@ -370,8 +369,8 @@
         const hint = data.completed
             ? 'Tour complete. Replay any stage for a perfect three stars.'
             : (next ? `${next.name} stages open at ${next.need} stars (you have ${total}).` : 'Every tier is open.');
-        const nextPad = rewardDesigns().find((d) => !tierCleared(d.tourTier));
-        root.querySelector('.pptour-hint').textContent = nextPad ? `${hint} Next paddle: ${nextPad.name}, earned by clearing both ${TIERS[nextPad.tourTier].name} stages.` : `${hint} All four paddle rewards earned.`;
+        const nextPad = rewardDesigns().find((d) => !rewardEarned(d));
+        root.querySelector('.pptour-hint').textContent = nextPad ? `${hint} Next paddle: ${nextPad.name}, earned by ${nextPad.tourComplete ? 'beating the whole Tour' : `clearing both ${TIERS[nextPad.tourTier].name} stages`}.` : `${hint} All paddle rewards earned.`;
         root.querySelector('.pptour-grid').innerHTML = stageHtml;
         renderRewards();
         // The arena's own artwork (the same scenes as the menu cards) fills the top of each card.
@@ -404,11 +403,11 @@
         if (!host) return;
         host.hidden = !list.length;
         host.innerHTML = `<h3>Paddle rewards</h3>` + list.map((d) => {
-            const got = tierCleared(d.tourTier);
+            const got = rewardEarned(d);
             return `<div class="pptour-reward ${got ? 'got' : 'locked'}" data-design="${d.id}" title="${esc(d.blurb)}">
                 <canvas aria-hidden="true"></canvas>
                 <span class="pptour-rname">${esc(d.name)}</span>
-                <span class="pptour-rstate">${got ? 'Earned' : `Clear ${esc(TIERS[d.tourTier].name)} stages`}</span></div>`;
+                <span class="pptour-rstate">${got ? 'Earned' : (d.tourComplete ? 'Beat the whole Tour' : `Clear ${esc(TIERS[d.tourTier].name)} stages`)}</span></div>`;
         }).join('');
         rewardPads.clear();
         cancelAnimationFrame(rewardRaf);
@@ -636,7 +635,7 @@
     }
 
     window.PPTour = {
-        tierCleared, rewardOf, paddleLocked, paddleLockText, equip,
+        venueFor, tierCleared, rewardOf, paddleLocked, paddleLockText, equip,
         STAGES, TIERS, MAX_STARS, byId, lockInfo, isPlayable, totalStars, starsOf,
         recordResult, resultCard, applyTierLook, syncLook, launch, clear, open, close, isOpen, updateMenuButton,
         reload: () => { data = null; load(); },

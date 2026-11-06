@@ -1,5 +1,5 @@
 {
- "hash": "c00786acec0dbff7",
+ "hash": "0ef40ac3603eb7cd",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -179,6 +179,7 @@
   "js/render/scene-compositor.js",
   "js/render/speed-art.js",
   "js/render/surface-textures.js",
+  "js/render/tour-venues.js",
   "js/systems/achievement-icons.js",
   "js/systems/profile.js",
   "js/systems/progression.js",

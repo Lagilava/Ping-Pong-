@@ -29,6 +29,7 @@
         { id: 'tourVoltage', name: 'Voltage', blurb: 'A copper coil with a plasma arc that forks on every hit', tourTier: 1 },
         { id: 'tourAfterglow', name: 'Afterglow', blurb: 'A dusk sky in glass: striped sun, drifting lines, twinkling stars', tourTier: 2 },
         { id: 'tourChampion', name: 'Champion', blurb: 'A gold trophy bar with crowns, pulsing gems and floodlight sparkle', tourTier: 3 },
+        { id: 'tourCryptLord', name: 'Crypt Lord', blurb: 'The Zombie boss\'s own paddle: bone armour, burning eyes, dripping goo', tourComplete: true },
     ];
     const IDS = LIST.map((d) => d.id);
     const PAD = 22;                 // logical px of room around the paddle for glow
@@ -1771,10 +1772,101 @@
         },
     };
 
+    // Crypt Lord (earned by beating the whole Tour): the Zombie boss's own
+    // paddle. Rotting hull, bone spikes and plates, red eyes that burn and
+    // veins that pulse. Goo drips from the foot of it and a hit flushes it green.
+    const cryptLord = {
+        bake(c, w, h, s) {
+            const hw = w / 2, hh = h / 2, sp = clamp(w * 0.55, 6, 11);
+            const body = sprite(w, h, s), g = body.ctx;
+            const r = rng(1313);
+            // Sickly halo.
+            g.save();
+            g.shadowColor = 'rgba(80,255,90,0.9)'; g.shadowBlur = 15 * s;
+            g.fillStyle = 'rgba(70,200,80,0.28)'; roundRect(g, -hw, -hh, w, h, Math.min(hw, 4)); g.fill();
+            g.restore();
+            // Hull: lumpy edges, mouldy gradient.
+            const hull = g.createLinearGradient(-hw, 0, hw, 0);
+            hull.addColorStop(0, '#4c7a46'); hull.addColorStop(0.45, '#2d5030'); hull.addColorStop(1, '#0d180e');
+            g.fillStyle = hull; g.beginPath();
+            g.moveTo(-hw + 2, -hh);
+            g.bezierCurveTo(-hw - 1.5, -hh * 0.5, -hw + 1.5, hh * 0.3, -hw + 1, hh);
+            g.lineTo(hw - 1, hh);
+            g.bezierCurveTo(hw - 1.5, hh * 0.3, hw + 1.5, -hh * 0.5, hw - 2, -hh);
+            g.closePath(); g.fill();
+            // Rot patches.
+            g.fillStyle = 'rgba(8,12,8,0.55)';
+            for (let i = 0; i < 7; i++) { g.beginPath(); g.ellipse((r() * 2 - 1) * hw * 0.5, (r() * 2 - 1) * hh * 0.8, hw * (0.3 + r() * 0.4), 3 + r() * 6, r(), 0, TAU); g.fill(); }
+            // Bone plates strapped across the body.
+            const plates = [-0.34, 0.06, 0.44];
+            for (const f of plates) {
+                const y = hh * f, ph = Math.max(5, h * 0.06);
+                const bg2 = g.createLinearGradient(0, y, 0, y + ph);
+                bg2.addColorStop(0, '#efe3cc'); bg2.addColorStop(1, '#a89878');
+                g.fillStyle = bg2; roundRect(g, -hw - 1.2, y, w + 2.4, ph, 2); g.fill();
+                g.strokeStyle = 'rgba(70,52,30,0.7)'; g.lineWidth = 0.7; g.stroke();
+                g.strokeStyle = 'rgba(70,52,30,0.55)'; g.lineWidth = 0.6;
+                for (let k = -1; k <= 1; k++) { g.beginPath(); g.moveTo(k * hw * 0.5 - 1, y + 1); g.lineTo(k * hw * 0.5 + 1, y + ph - 1); g.stroke(); }
+            }
+            // Bone spikes along the top and the foot.
+            g.fillStyle = '#eadfc8'; g.strokeStyle = 'rgba(100,80,50,0.7)'; g.lineWidth = 0.6;
+            for (const dir of [-1, 1]) {
+                for (let i = 0; i < 3; i++) {
+                    const x = (i - 1) * hw * 0.62, len = sp * (i === 1 ? 1.25 : 0.9), y0 = dir * (hh - 1);
+                    g.beginPath(); g.moveTo(x - hw * 0.26, y0); g.lineTo(x, y0 + dir * len); g.lineTo(x + hw * 0.26, y0); g.closePath(); g.fill(); g.stroke();
+                }
+            }
+            // Eye sockets.
+            const ey = -hh + h * 0.14;
+            g.fillStyle = '#0b0b0b';
+            for (const sx of [-1, 1]) { g.beginPath(); g.arc(sx * hw * 0.42, ey, Math.max(2.4, hw * 0.34), 0, TAU); g.fill(); }
+            return { body: body.canvas, hw, hh, ey, plates, sp };
+        },
+        draw(ctx, p, k, t, hitGlow) {
+            const { w, h } = k, { hw, hh, ey } = k.sprites;
+            const m = p.motion, win = reactEnv(m, 'win'), lose = reactEnv(m, 'lose');
+            drawSprite(ctx, k.sprites.body, w, h);
+            const seed = p._seed || 0;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            // Eyes burn brighter as the ball closes in and when a point lands.
+            const burn = clamp(0.62 + 0.25 * Math.sin(t * 3.4 + seed) + (m?.ant || 0) * 0.4 + hitGlow * 0.6 + win * 0.5 - lose * 0.4, 0.15, 1.4);
+            for (const sx of [-1, 1]) {
+                const x = sx * hw * 0.42, er = Math.max(1.6, hw * 0.26);
+                ctx.fillStyle = 'rgba(255,60,40,1)';
+                ctx.globalAlpha = burn * 0.28; ctx.beginPath(); ctx.arc(x, ey, er * 2.6, 0, TAU); ctx.fill();
+                ctx.globalAlpha = Math.min(1, burn); ctx.beginPath(); ctx.arc(x, ey, er, 0, TAU); ctx.fill();
+                ctx.fillStyle = '#ffd9c8'; ctx.globalAlpha = burn * 0.8; ctx.beginPath(); ctx.arc(x, ey, er * 0.4, 0, TAU); ctx.fill();
+            }
+            // Veins creeping across the body.
+            ctx.lineCap = 'round'; ctx.lineWidth = 0.9;
+            const vp = 0.35 + 0.35 * Math.sin(t * 2.6 + seed * 2) + hitGlow * 0.5;
+            ctx.strokeStyle = 'rgba(255,90,70,1)'; ctx.globalAlpha = clamp(vp, 0.1, 0.9);
+            for (const [y0, y1, a] of [[-0.62, -0.38, 1], [0.18, 0.38, -1], [0.55, 0.78, 1]]) {
+                ctx.beginPath(); ctx.moveTo(-a * hw * 0.5, hh * y0);
+                ctx.quadraticCurveTo(a * hw * 0.35, hh * (y0 + y1) / 2, -a * hw * 0.3, hh * y1); ctx.stroke();
+            }
+            // A hit flushes the whole body toward poison green.
+            if (hitGlow > 0.02 || win > 0.02) {
+                ctx.fillStyle = 'rgba(90,255,100,1)'; ctx.globalAlpha = clamp(hitGlow * 0.38 + win * 0.25, 0, 0.5);
+                roundRect(ctx, -hw, -hh, w, h, Math.min(hw, 4)); ctx.fill();
+            }
+            // Goo drips off the foot, on two staggered loops.
+            ctx.fillStyle = 'rgba(120,255,110,1)';
+            for (let i = 0; i < 2; i++) {
+                const u = ((t * 0.55 + i * 0.5 + seed * 0.1) % 1);
+                const x = (i ? 0.35 : -0.3) * hw, y = hh + 2 + u * 15;
+                ctx.globalAlpha = (1 - u) * 0.85;
+                ctx.beginPath(); ctx.ellipse(x, y, 1.1, 1.1 + u * 1.8, 0, 0, TAU); ctx.fill();
+            }
+            ctx.restore();
+        },
+    };
+
     const DESIGNS = {
         neonBlade: satelliten, shieldWall: worldShield, arcadeBlock: aiRebel, prismGlass: prizma,
         riptide, magmaCore: magma, bassline,
-        tourSunbeam: sunbeam, tourVoltage: voltage, tourAfterglow: afterglow, tourChampion: champion,
+        tourSunbeam: sunbeam, tourVoltage: voltage, tourAfterglow: afterglow, tourChampion: champion, tourCryptLord: cryptLord,
     };
 
     // Pixel scale of the current transform, in quarter steps so a little

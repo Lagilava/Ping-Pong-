@@ -102,7 +102,7 @@
 
     function paddleCards(side) {
         return designs().map((d) => `<button type="button" class="ppset-pcard" data-pside="${side}" data-design="${d.id}" aria-pressed="false">
-            <canvas aria-hidden="true"></canvas><span class="ppset-pname">${esc(d.name)}</span><span class="ppset-pblurb">${esc(d.blurb)}</span>${d.tourTier != null ? '<span class="ppset-plock"></span>' : ''}</button>`).join('');
+            <canvas aria-hidden="true"></canvas><span class="ppset-pname">${esc(d.name)}</span><span class="ppset-pblurb">${esc(d.blurb)}</span>${(d.tourTier != null || d.tourComplete) ? '<span class="ppset-plock"></span>' : ''}</button>`).join('');
     }
 
     function renderPaddles() {

@@ -1378,6 +1378,18 @@ class BackgroundRenderer {
     // ------------------------------------------------------------------
     // The packed arena from the Classic key art (classic-art.js).
     renderClassic(ctx, w, h) {
+        // Tour stages in the Club and World tiers play in venues of their own.
+        const venue = typeof window !== 'undefined' ? window.PPTour?.venueFor?.(window.game) : null;
+        if (venue && typeof TourVenue === 'function') {
+            const venues = this._tourVenues || (this._tourVenues = {});
+            const art = venues[venue] || (venues[venue] = new TourVenue(venue));
+            const g = window.game;
+            const prev = this._tourVenueLast ?? this.time;
+            const dt = Math.max(0, Math.min(0.1, this.time - prev));
+            this._tourVenueLast = this.time;
+            art.draw(ctx, w, h, { dt, score: g?.scores ? (g.scores.player || 0) + (g.scores.ai || 0) : 0 });
+            return;
+        }
         if (!this._classicArt && typeof ClassicArt === 'function') this._classicArt = new ClassicArt();
         if (!this._classicArt) {
             this._renderSynthwaveBackground(ctx, w, h);

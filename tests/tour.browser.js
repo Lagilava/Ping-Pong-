@@ -119,12 +119,14 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
                 const st = await page.evaluate((n) => PPTour.byId(n), id);
                 assert.equal(info.mode, st.mode); assert.equal(info.max, st.points); assert.equal(info.lvl, st.level);
                 assert.equal(info.style, st.style, `stage ${id} style`);
+                assert.equal(await page.evaluate(() => PPTour.venueFor(game)), id >= 7 ? 'final' : null, `stage ${id} venue`);
                 if (id === 8) {
                     const res = await page.evaluate(() => { game.scores.player = 11; game.scores.ai = 10; game.updateScoreUI(); return game.matchEnding; });
                     assert.equal(res, false, 'win by 2: 11-10 keeps playing');
                     await page.evaluate(() => { game.scores.player = 12; game.scores.ai = 10; game.updateScoreUI(); });
                     await page.locator('#pp-results .ppres-box').waitFor({ timeout: 60000 });
                     assert.match(await page.locator('#pp-results').innerText(), /Tour is complete/i);
+                    assert.match(await page.locator('#pp-results').innerText(), /New paddle unlocked: Crypt Lord/i);
                     await page.evaluate(() => PPResults.hide());
                 }
                 if (id === 7) {
@@ -134,7 +136,7 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
             }
             // Paddle rewards: all four earned after the full Tour, all four locked on a fresh save.
             const rw = await page.evaluate(() => {
-                const ids = ['tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion'];
+                const ids = ['tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion', 'tourCryptLord'];
                 const earned = ids.map((i) => PPTour.paddleLocked(i));
                 PPTour.equip('tourChampion');
                 const eq = PPSettings.getPaddle('classic', 'left');
@@ -144,9 +146,9 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
                 game.setGameMode('classic'); game.applyPaddleDesigns();
                 return { earned, eq, fresh, style: game.player.paddleStyle, classicFree: PPTour.paddleLocked('classic') };
             });
-            assert.deepEqual(rw.earned, [false, false, false, false]);
+            assert.deepEqual(rw.earned, [false, false, false, false, false]);
             assert.equal(rw.eq, 'tourChampion');
-            assert.deepEqual(rw.fresh, [true, true, true, true]);
+            assert.deepEqual(rw.fresh, [true, true, true, true, true]);
             assert.equal(rw.style, 'classic', 'a locked reward falls back to Classic in a match');
             assert.equal(rw.classicFree, false);
             await page.evaluate(() => ['classic','zombie','gravity','speed','obstacle','customise'].forEach((m) => PPSettings.setPaddle(m, 'left', 'classic')));
