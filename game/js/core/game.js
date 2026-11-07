@@ -1083,6 +1083,16 @@ class Game {
         if (scale <= 1 || !this.ball) {
             this.arenaReveal = null;
             this.arenaRevealZoom = 1;
+            // Every other mode (and every Tour stage): the ball waits out the
+            // intro, then the same 2 s serve hold as Obstacle before it goes.
+            const b = this.ball;
+            if (b && !this.isZombieWaveMode?.()) {
+                if (this.serveHold > 0 && this.pendingServe) {
+                    this.serveHold = Game.ARENA_SERVE_DELAY;
+                    this.serveHoldTotal = Game.ARENA_SERVE_DELAY;
+                    b.vel.set(0, 0);
+                } else if (Math.abs(b.vel.x) + Math.abs(b.vel.y) > 1) this.holdServe(Game.ARENA_SERVE_DELAY);
+            }
             return;
         }
         this.arenaReveal = { t: 0, hold: 0.35, dur: 2.2, from: scale };

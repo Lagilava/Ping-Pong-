@@ -176,6 +176,11 @@
         ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
     }
 
+    // A hit in progress: { q: 0..1 progress, iy: impact height } or null.
+    function hitAt(m, dur) {
+        return m && m.sinceHit < dur ? { q: m.sinceHit / dur, iy: m.impactY } : null;
+    }
+
     function star(ctx, x, y, r) {
         ctx.beginPath();
         ctx.moveTo(x, y - r);
@@ -1581,6 +1586,41 @@
             const gl = ctx.createLinearGradient(0, y - 9, 0, y + 9);
             gl.addColorStop(0, 'rgba(255,240,190,0)'); gl.addColorStop(0.5, 'rgba(255,246,214,0.8)'); gl.addColorStop(1, 'rgba(255,240,190,0)');
             ctx.fillStyle = gl; ctx.fillRect(gx, y - 9, gw, 18);
+            // Two slower lens glints that twinkle at their own pace.
+            const sd = p._seed || 0;
+            ctx.fillStyle = '#fff6d6';
+            for (let i = 0; i < 2; i++) {
+                const u = (t * 0.17 + i * 0.5 + sd * 0.07) % 1, tw = Math.sin(u * Math.PI);
+                ctx.globalAlpha = tw * 0.9;
+                star(ctx, (i ? -1 : 1) * gw * 0.2, gy + ((u * 3.7 + i * 0.41) % 1) * gh, 1.8 + tw * 2.6);
+            }
+            // A hit sends a ring of sunlight out through the glass with short rays.
+            const hi = hitAt(m, 0.55);
+            if (hi) {
+                const iy = clamp(hi.iy * hh, gy, gy + gh), a = 1 - hi.q;
+                ctx.strokeStyle = 'rgba(255,238,176,1)';
+                ctx.globalAlpha = a * 0.85; ctx.lineWidth = 0.5 + 1.3 * a;
+                ctx.beginPath(); ctx.ellipse(0, iy, gw * 0.2 + hi.q * gw * 1.2, 2 + hi.q * gh * 0.3, 0, 0, TAU); ctx.stroke();
+                ctx.lineWidth = 0.8; ctx.globalAlpha = a * 0.7;
+                ctx.beginPath();
+                for (let i = 0; i < 8; i++) {
+                    const an = (i / 8) * TAU + 0.3, r0 = 2 + hi.q * 5, r1 = r0 + 3 + a * 8;
+                    ctx.moveTo(Math.cos(an) * r0 * 0.7, iy + Math.sin(an) * r0);
+                    ctx.lineTo(Math.cos(an) * r1 * 0.7, iy + Math.sin(an) * r1);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+            // Warm shimmer travelling along both brass rails.
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (const side of [-1, 1]) {
+                const u = (t * 0.28 + (side > 0 ? 0.5 : 0) + sd * 0.05) % 1;
+                const y = -hh + 3 + u * (h - 6);
+                const rg = ctx.createLinearGradient(0, y - 7, 0, y + 7);
+                rg.addColorStop(0, 'rgba(255,240,190,0)'); rg.addColorStop(0.5, 'rgba(255,248,214,0.8)'); rg.addColorStop(1, 'rgba(255,240,190,0)');
+                ctx.fillStyle = rg; ctx.fillRect(side < 0 ? -hw : hw - ins * 0.6, y - 7, ins * 0.6, 14);
+            }
             ctx.restore();
         },
     };
@@ -1640,6 +1680,27 @@
                 ctx.strokeStyle = rgba(light, 0.8); ctx.lineWidth = 0.9;
                 path([[bx, by], [bx + dir * amp * 1.3, by + 5 + rnd() * 6], [bx + dir * amp * 0.9, by + 12 + rnd() * 8]]);
             }
+            // Sparks leap off the electrodes now and then.
+            ctx.lineWidth = 0.8;
+            for (const dir of [-1, 1]) {
+                if (rnd() < 0.45 + power * 0.25) {
+                    const ey = dir < 0 ? y0 : y1, len = 4 + rnd() * 7;
+                    ctx.strokeStyle = rgba(light, 0.85);
+                    path([[0, ey], [(rnd() - 0.5) * w * 1.8, ey - dir * len * 0.5], [(rnd() - 0.5) * w * 2.4, ey - dir * len]]);
+                }
+            }
+            // A hit throws a shockwave ring through the coil, with forks at the impact.
+            const hi = hitAt(m, 0.45);
+            if (hi) {
+                const iy = clamp(hi.iy * (y1 - y0) / 2 + (y0 + y1) / 2, y0, y1), a = 1 - hi.q;
+                ctx.strokeStyle = rgba(light, a * 0.9); ctx.lineWidth = 0.6 + 1.6 * a;
+                ctx.beginPath(); ctx.ellipse(0, iy, w * 0.5 + hi.q * w * 0.9, 1.5 + hi.q * (y1 - y0) * 0.22, 0, 0, TAU); ctx.stroke();
+                ctx.strokeStyle = 'rgba(255,255,255,' + (a * 0.9).toFixed(2) + ')'; ctx.lineWidth = 0.9;
+                for (let i = 0; i < 3; i++) {
+                    const dir = i % 2 ? 1 : -1, r2 = rng(tick * 31 + i * 7);
+                    path([[0, iy], [dir * w * (0.6 + r2() * 0.8), iy + (r2() - 0.5) * 10], [dir * w * (1.3 + r2()), iy + (r2() - 0.5) * 18]]);
+                }
+            }
             ctx.restore();
         },
     };
@@ -1694,6 +1755,33 @@
                 ctx.fillStyle = '#fff'; ctx.fillRect(x - 0.5, y - 0.5, 1.1, 1.1);
             }
             const glow = clamp(hitGlow + reactEnv(m, 'win') * 0.7, 0, 1);
+            // Stars flare with a little cross as they peak.
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < 3; i++) {
+                const x = Math.sin(i * 7.7 + 2.1) * (hw - 3), y = -hh + 5 + ((i * 11.3) % (h * 0.26));
+                const tw = Math.max(0, Math.sin(t * (0.9 + i * 0.45) + i * 3.3 + (p._seed || 0)));
+                ctx.globalAlpha = tw * tw * 0.9; star(ctx, x, y, 1.2 + tw * 2.4);
+            }
+            // The sun breathes and a shooting star streaks across now and then.
+            ctx.globalAlpha = 0.1 + 0.08 * Math.sin(t * 1.3 + (p._seed || 0));
+            ctx.fillStyle = '#ffd78a'; ctx.beginPath(); ctx.arc(0, sy, sr * (0.96 + 0.04 * Math.sin(t * 1.3)), 0, TAU); ctx.fill();
+            const ss = (t * 0.22 + (p._seed || 0) * 0.31) % 1;
+            if (ss < 0.18) {
+                const u = ss / 0.18;
+                ctx.globalAlpha = Math.sin(u * Math.PI) * 0.95;
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 0.9;
+                ctx.beginPath();
+                ctx.moveTo(hw - u * w * 1.4, -hh + 4 + u * h * 0.2);
+                ctx.lineTo(hw - u * w * 1.4 + 7, -hh + 4 + u * h * 0.2 - 3);
+                ctx.stroke();
+            }
+            // A hit makes the sun flare outward in a ring.
+            const hi = hitAt(m, 0.5);
+            if (hi) {
+                const iy = clamp(hi.iy * hh, -hh + 3, hh - 3), a = 1 - hi.q;
+                ctx.globalAlpha = a * 0.8; ctx.strokeStyle = '#ffe6a8'; ctx.lineWidth = 0.6 + a * 1.4;
+                ctx.beginPath(); ctx.ellipse(0, iy, 2 + hi.q * hw * 1.6, 2 + hi.q * 14, 0, 0, TAU); ctx.stroke();
+            }
             if (glow > 0.01) { ctx.globalAlpha = glow * 0.5; ctx.fillStyle = '#ffe6a8'; ctx.fillRect(-hw, -hh, w, h); }
             ctx.restore();
         },
@@ -1766,6 +1854,30 @@
                 for (let i = 0; i < 6; i++) {
                     ctx.globalAlpha = win * (0.4 + rnd() * 0.5);
                     ctx.fillRect((rnd() * 2 - 1) * (L.hw + 8), (rnd() * 2 - 1) * L.hh, 1.4, 1.4);
+                }
+            }
+            // A second sparkle travels the other way, and the crown tips glint in turn.
+            const sp2 = 1 - ((t * 0.31 + (p._seed || 0) * 0.29) % 1);
+            ctx.globalAlpha = 0.65; ctx.fillStyle = '#fff3c4';
+            star(ctx, L.hw * 0.4, -L.hh + L.cap + sp2 * (L.hh * 2 - L.cap * 2), 3);
+            for (const dir of [-1, 1]) {
+                const tw = Math.max(0, Math.sin(t * 2.1 + (dir > 0 ? 2.4 : 0) + (p._seed || 0)));
+                ctx.globalAlpha = tw * tw; ctx.fillStyle = '#fff';
+                star(ctx, 0, dir * (L.hh - 1), 1.6 + tw * 3.2);
+            }
+            // A hit rolls a wave of light down the gems and throws confetti.
+            const hi = hitAt(m, 0.6);
+            if (hi) {
+                const iy = hi.iy * L.hh, a = 1 - hi.q;
+                L.gems.forEach((gy) => {
+                    const d = Math.abs(gy - iy) / (L.hh * 2), on = Math.max(0, 1 - Math.abs(hi.q * 0.9 - d) * 5);
+                    if (on > 0) { ctx.globalAlpha = on * 0.9; ctx.fillStyle = '#fff5cf'; ctx.beginPath(); ctx.arc(0, gy, L.hw * 0.7, 0, TAU); ctx.fill(); }
+                });
+                const rr = rng(Math.floor(hi.q * 8) * 53 + 5);
+                for (let i = 0; i < 9; i++) {
+                    const an = rr() * TAU, dist = (4 + rr() * 12) * hi.q * 1.6;
+                    ctx.globalAlpha = a * 0.9; ctx.fillStyle = i % 3 ? '#ffd45c' : rgba(c, 1);
+                    ctx.fillRect(Math.cos(an) * dist * 1.3 - 0.7, iy + Math.sin(an) * dist - 0.7, 1.5, 1.5);
                 }
             }
             ctx.restore();
@@ -1879,6 +1991,31 @@
                 const u = (t * 0.45 + i * 0.25 + seed * 0.07) % 1;
                 ctx.globalAlpha = (1 - u) * 0.8;
                 ctx.fillRect(Math.sin(i * 9.1 + seed) * hw * 0.8, hh * 0.7 - u * h * 0.9, 1.2, 1.2);
+            }
+            // Lava bubbles swell and pop along the mouth seam.
+            ctx.fillStyle = 'rgba(255,200,90,1)';
+            for (let i = 0; i < 3; i++) {
+                const u = (t * 0.6 + i * 0.34 + seed * 0.11) % 1;
+                ctx.globalAlpha = Math.sin(u * Math.PI) * 0.8;
+                ctx.beginPath(); ctx.arc((i - 1) * hw * 0.55, (i % 2 ? 1 : -1) * 1.2, 0.5 + u * 1.5, 0, TAU); ctx.fill();
+            }
+            // The mouth roars open on a win and a hit sprays molten splash from the impact.
+            const roar = Math.max(win, lose * 0.5);
+            if (roar > 0.05) {
+                ctx.globalAlpha = roar * 0.9; ctx.fillStyle = 'rgba(255,170,40,1)';
+                ctx.fillRect(-hw + 1, -1 - roar * 2.2, w - 2, 2 + roar * 4.4);
+            }
+            const hi = hitAt(m, 0.5);
+            if (hi) {
+                const iy = clamp(hi.iy * hh, -hh + 2, hh - 2), a = 1 - hi.q, rr = rng(Math.floor(hi.q * 9) * 41 + 9);
+                ctx.globalAlpha = a * 0.7; ctx.strokeStyle = 'rgba(255,200,90,1)'; ctx.lineWidth = 0.6 + a * 1.4;
+                ctx.beginPath(); ctx.ellipse(0, iy, 2 + hi.q * hw * 1.5, 1.5 + hi.q * 9, 0, 0, TAU); ctx.stroke();
+                ctx.fillStyle = 'rgba(255,220,130,1)';
+                for (let i = 0; i < 8; i++) {
+                    const dir = rr() < 0.5 ? -1 : 1, d2 = hi.q * (5 + rr() * 11);
+                    ctx.globalAlpha = a * 0.9;
+                    ctx.fillRect(dir * (hw * 0.3 + d2 * 0.8), iy + (rr() - 0.5) * 8 - hi.q * 3 + hi.q * hi.q * 8, 1.3, 1.3);
+                }
             }
             ctx.restore();
         },

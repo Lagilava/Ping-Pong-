@@ -12,16 +12,41 @@
     // Shared frame: dark card, accent rim light behind the head, shoulders.
     function frame(accent, jacket, inner, extraBack = '') {
         const id = `pr${++uid}`;
+        // Lighting filter: the figure's own silhouette is blurred into a height
+        // map and lit from the upper left, which rounds every flat shape with
+        // shading, a soft highlight and a contact shadow.
         return `<svg viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
 <defs>
-<radialGradient id="${id}g" cx="50%" cy="38%" r="62%"><stop offset="0" stop-color="${accent}" stop-opacity=".55"/><stop offset=".6" stop-color="${accent}" stop-opacity=".1"/><stop offset="1" stop-color="#04060e" stop-opacity="0"/></radialGradient>
+<radialGradient id="${id}g" cx="50%" cy="38%" r="62%"><stop offset="0" stop-color="${accent}" stop-opacity=".6"/><stop offset=".6" stop-color="${accent}" stop-opacity=".12"/><stop offset="1" stop-color="#04060e" stop-opacity="0"/></radialGradient>
 <linearGradient id="${id}j" x1="0" x2="1"><stop offset="0" stop-color="${jacket}"/><stop offset="1" stop-color="#0a0d18"/></linearGradient>
+<linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${accent}" stop-opacity=".0"/><stop offset="1" stop-color="${accent}" stop-opacity=".35"/></linearGradient>
+<linearGradient id="${id}v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset=".35" stop-color="#000" stop-opacity="0"/><stop offset=".75" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></linearGradient>
+<filter id="${id}l" x="-8%" y="-8%" width="116%" height="116%" color-interpolation-filters="sRGB">
+<feGaussianBlur in="SourceAlpha" stdDeviation="2.4" result="h"/>
+<feDiffuseLighting in="h" surfaceScale="3.2" diffuseConstant="1.1" lighting-color="#fff" result="d"><feDistantLight azimuth="232" elevation="52"/></feDiffuseLighting>
+<feComposite in="d" in2="SourceAlpha" operator="in" result="d2"/>
+<feBlend in="SourceGraphic" in2="d2" mode="multiply" result="m"/>
+<feComponentTransfer in="m" result="m2"><feFuncR type="linear" slope="1.28"/><feFuncG type="linear" slope="1.28"/><feFuncB type="linear" slope="1.28"/></feComponentTransfer>
+<feSpecularLighting in="h" surfaceScale="3.2" specularConstant=".55" specularExponent="26" lighting-color="#fff" result="sp"><feDistantLight azimuth="232" elevation="46"/></feSpecularLighting>
+<feComposite in="sp" in2="SourceAlpha" operator="in" result="sp2"/>
+<feComposite in="m2" in2="sp2" operator="arithmetic" k1="0" k2="1" k3=".85" k4="0" result="lit"/>
+<feDropShadow in="lit" dx="1.6" dy="2.6" stdDeviation="2.2" flood-color="#000" flood-opacity=".6"/>
+</filter>
 </defs>
 <rect width="120" height="150" fill="#070a16"/>
 <rect width="120" height="150" fill="url(#${id}g)"/>
+<path d="M60 -4 L8 150 L112 150Z" fill="${accent}" opacity=".09"/>
+<path d="M60 -4 L30 150 L90 150Z" fill="#fff" opacity=".05"/>
+<g fill="${accent}" opacity=".28"><circle cx="14" cy="22" r="5"/><circle cx="104" cy="34" r="7"/><circle cx="96" cy="14" r="3"/><circle cx="22" cy="58" r="3"/><circle cx="108" cy="72" r="4"/></g>
+<g fill="#fff" opacity=".35"><circle cx="14" cy="22" r="1.4"/><circle cx="104" cy="34" r="1.8"/><circle cx="96" cy="14" r="1"/></g>
+<rect y="108" width="120" height="42" fill="url(#${id}b)"/>
 ${extraBack}
+<g filter="url(#${id}l)">
 <path d="M6 150 Q10 110 60 104 Q110 110 114 150Z" fill="url(#${id}j)" stroke="${accent}" stroke-opacity=".6" stroke-width="1.4"/>
 ${inner}
+</g>
+<rect width="120" height="150" fill="url(#${id}v)"/>
+<rect x=".75" y=".75" width="118.5" height="148.5" rx="3" fill="none" stroke="${accent}" stroke-opacity=".5" stroke-width="1.5"/>
 </svg>`;
     }
     const eyes = (y, dx, r, col = '#10131f', white = '#fff') =>
