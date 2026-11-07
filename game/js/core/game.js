@@ -2358,6 +2358,24 @@ class Game {
         // A first match in this mode stays frozen until How to play is
         // confirmed. Armed before the intro so not one physics step runs.
         window.PPDeviceControls?.armTutorial?.(this);
+        // A Tour stage opens on its own versus screen instead of the cinematic.
+        const tourStage = this.getTourContext() && window.PPTourStage?.versus
+            ? window.PPTour?.byId(this.getTourContext().stageId) : null;
+        if (tourStage) {
+            if (this.introRafId !== null) { cancelAnimationFrame(this.introRafId); this.introRafId = null; }
+            this.introHasPlayed = false;
+            this.introActive = true;
+            this.running = false;
+            document.getElementById('skipIntro')?.classList.add('hidden');
+            if (this.hud) { this.hud.style.opacity = '0'; this.hud.style.pointerEvents = 'none'; }
+            window.PPTourStage.versus(tourStage, () => {
+                // Hand over exactly as the end of the cinematic does.
+                if (this.intro) this.intro.running = false;
+                this.introActive = false;
+                this.introLoop();
+            });
+            return;
+        }
         // Full cinematic on the first match of a session; a short version after
         // that so rematches get to the action quickly. The intro always plays;
         // Esc, a click or the Skip button ends it.
@@ -6991,7 +7009,13 @@ class Game {
         if (st.text !== taunt.text || st.k !== k) {
             st.text = taunt.text;
             st.k = k;
-            el.textContent = taunt.text;
+            if (taunt.who) {
+                el.textContent = '';
+                const tag = document.createElement('b');
+                tag.className = 'ai-taunt-who';
+                tag.textContent = taunt.who;
+                el.append(tag, taunt.text);
+            } else el.textContent = taunt.text;
             el.style.setProperty('--k', k.toFixed(3));
             st.h = 0; // re-measured once it is visible
         }
@@ -8364,10 +8388,15 @@ class Game {
             const card = net && this.net === net
                 ? net.resultCard(playerWon)
                 : this.buildResultCard(playerWon, options, progressionEnabled ? xp : 0);
-            const box = window.PPResults?.show(card);
-            if (net && this.net === net) window.PPOnline?.bindResults(box);
-
-            this.progression.showEndGameAchievementSummary();
+            const present = () => {
+                const box = window.PPResults?.show(card);
+                if (net && this.net === net) window.PPOnline?.bindResults(box);
+                this.progression.showEndGameAchievementSummary();
+            };
+            // A Tour stage ends on its own outro before the card.
+            if (this._tourResult && window.PPTourStage?.outro) {
+                window.PPTourStage.outro(this._tourResult, { player: this.scores.player, ai: this.scores.ai }, present);
+            } else present();
         };
         if (transition) transition.then(completed => { if (completed) showResults(); });
         else setTimeout(showResults, Number.isFinite(options.delayMs) ? options.delayMs : 1100);

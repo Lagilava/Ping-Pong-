@@ -226,6 +226,13 @@ Some stages add a twist (power-ups always on, no power-ups, or win by two).
 - **Controller:** press **Y** on the menu to open the Tour; the d-pad moves
   between stages, **A** plays and **B** closes. *Reset Tour progress* at the
   bottom of the Tour screen starts the career again.
+- **Rivals:** each stage has a named rival with a hand-drawn portrait, a title
+  and their own voice ([`tour-rivals.js`](game/js/systems/tour-rivals.js)). A
+  stage opens on a versus screen (no cinematic) with the rival's quote, which
+  changes on a first meeting, a return match or a rematch after a loss, and
+  ends on a win or loss outro where the rival reacts, before the result card.
+  In the match their taunts carry a name tag
+  ([`tour-stage.js`](game/js/systems/tour-stage.js)).
 - Progress is saved in the browser (`pp-tour-v1`). Stage data lives in
   [`game/js/systems/tour.js`](game/js/systems/tour.js).
 

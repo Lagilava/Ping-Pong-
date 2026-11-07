@@ -749,19 +749,37 @@
         }
 
         // The general pool plus whatever fits this arena, play style and level.
+        // A Tour rival: their own voice for this moment (counted twice so it
+        // dominates the general pools).
+        rival() {
+            const id = this.game?.getTourContext?.()?.rival;
+            return id ? window.PPRivals?.get(id) || null : null;
+        }
+
+        rivalPool(key) {
+            const r = this.rival();
+            if (!r?.taunts) return [];
+            const base = key.indexOf('intro') === 0 ? 'intro' : key.indexOf('end_win') === 0 ? 'end_win'
+                : key.indexOf('end_loss') === 0 ? 'end_loss' : key;
+            const pool = r.taunts[base] || [];
+            const extra = base === 'player_point' ? (r.taunts.miss_any || []) : [];
+            return pool.concat(extra);
+        }
+
         poolFor(key) {
             const mode = this.modeId();
-            return [].concat(
+            const own = this.rivalPool(key);
+            return own.concat(own, [].concat(
                 LINES[key] || [],
                 MODE_LINES[key + '@' + mode] || [],
                 STYLE_LINES[key + '@' + this.style.id] || [],
-                STYLE_LINES[key + '@d' + this.difficulty] || []);
+                STYLE_LINES[key + '@d' + this.difficulty] || []));
         }
 
         line(key, fill) {
             const pool = this.poolFor(key);
             if (!pool.length) return null;
-            const bagKey = key + '|' + this.modeId() + '|' + this.style.id + '|' + this.difficulty;
+            const bagKey = key + '|' + (this.rival()?.id || '') + '|' + this.modeId() + '|' + this.style.id + '|' + this.difficulty;
             let bag = this.bags.get(bagKey);
             if (!bag || !bag.length) {
                 bag = pool.slice().sort(() => Math.random() - 0.5);
@@ -852,7 +870,7 @@
             if (this.isPvPMatch()) { this.suppressTauntsForPvP(); return null; }
             if (!this.currentTaunt) return null;
             if (Date.now() > this.tauntUntil) { this.currentTaunt = ''; return null; }
-            return { text: this.currentTaunt, opacity: 1 };
+            return { text: this.currentTaunt, opacity: 1, who: this.rival()?.name || '' };
         }
 
         rallyRemark(hit) {

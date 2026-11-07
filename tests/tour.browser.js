@@ -52,6 +52,15 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
             await page.locator('#modeTutorial:not([hidden]) [data-guide-accept]').click();
             await page.waitForFunction(() => window.game.running || window.game.introActive, null, { timeout: 30000 });
             assert.equal(await page.evaluate(() => PPTour.isOpen()), false, `${name} Tour closes once the stage starts`);
+            // Tour stages open on their own versus screen, not the cinematic.
+            await page.locator('.ppstage.versus').waitFor({ timeout: 10000 });
+            const vs = await page.locator('.ppstage.versus').innerText();
+            assert.match(vs, /pip/i); assert.match(vs, /Stage 1 of 8/i); assert.match(vs, /Start match/i);
+            assert.equal(await page.evaluate(() => game.running), false, `${name} no play behind the versus screen`);
+            await page.waitForTimeout(1600);
+            if (out) await page.screenshot({ path: path.join(out, `${name}-versus.png`) });
+            await page.keyboard.press('Enter');
+            await page.waitForFunction(() => game.running && !game.introActive && !document.querySelector('.ppstage.versus:not(.leaving)'), null, { timeout: 15000 });
             const s1 = await page.evaluate(() => ({
                 lvl: game.getAILevel(), max: game.maxScore, style: game.ai?.style?.id, mode: game.gameMode,
                 saved: [PPSettings.get('aiLevel'), PPSettings.get('pointsToWin'), PPSettings.get('powerUps')],
@@ -64,6 +73,12 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
 
             // Win it 5-0 with a long rally: 3 stars and the stage 2 unlock.
             await page.evaluate(() => { game.maxRally = 12; game.scores.player = 5; game.scores.ai = 0; game.updateScoreUI(); });
+            await page.locator('.ppstage.outro.win').waitFor({ timeout: 60000 });
+            const outro = await page.locator('.ppstage.outro').innerText();
+            assert.match(outro, /Stage cleared/i); assert.match(outro, /pip/i); assert.match(outro, /5\s*[–-]\s*0/);
+            if (out) await page.screenshot({ path: path.join(out, `${name}-outro-win.png`) });
+            await page.waitForTimeout(1300);
+            await page.locator('.ppstage-go').click();
             await page.locator('#pp-results .ppres-box').waitFor({ timeout: 60000 });
             const card = await page.locator('#pp-results').innerText();
             assert.match(card, /TOUR/i); assert.match(card, /Stage 1 cleared/i); assert.match(card, /Next: stage 2/i); assert.match(card, /Pip/i, 'rival named on the card');
@@ -76,6 +91,8 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
             if (await dismiss.count()) await dismiss.click();
             await page.locator('#pp-results .ppres-btn', { hasText: 'Next: stage 2' }).click();
             await page.waitForFunction(() => game.getTourContext()?.stageId === 2, null, { timeout: 30000 });
+            await page.locator('.ppstage.versus').waitFor({ timeout: 10000 });
+            await page.evaluate(() => PPTourStage.hide());
             const s2 = await page.evaluate(() => ({ lvl: game.getAILevel(), max: game.maxScore, style: game.ai?.style?.id, twist: game.getTourContext().twist }));
             assert.deepEqual(s2, { lvl: 1, max: 7, style: 'sniper', twist: 'powerUps' });
             const spawn = () => page.evaluate(() => {
@@ -89,7 +106,12 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
 
             // A lost stage records nothing and offers Try again.
             await page.evaluate(() => { game.scores.player = 1; game.scores.ai = 7; game.updateScoreUI(); });
+            await page.locator('.ppstage.outro.loss').waitFor({ timeout: 60000 });
+            assert.match(await page.locator('.ppstage.outro').innerText(), /Vee wins/i);
+            if (out) await page.screenshot({ path: path.join(out, `${name}-outro-loss.png`) });
+            await page.evaluate(() => PPTourStage.hide());
             await page.locator('#pp-results .ppres-box').waitFor({ timeout: 60000 });
+            assert.equal(await page.evaluate(() => PPTour.lossesOf(2)), 1, 'loss is counted');
             assert.match(await page.locator('#pp-results').innerText(), /Try again/i);
             assert.equal(await page.evaluate(() => PPTour.starsOf(2)), 0);
 
@@ -115,6 +137,10 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
             for (const id of [3, 4, 5, 6, 7, 8]) {
                 await page.evaluate((n) => PPTour.launch(n), id);
                 await page.waitForFunction((n) => game.getTourContext()?.stageId === n, id, { timeout: 30000 });
+                await page.locator('.ppstage.versus').waitFor({ timeout: 10000 });
+                assert.match(await page.locator('.ppstage.versus').innerText(), new RegExp(await page.evaluate((n) => PPTour.byId(n).rival, id), 'i'));
+                await page.evaluate(() => PPTourStage.hide());
+                await page.waitForFunction(() => game.running && !game.introActive, null, { timeout: 15000 });
                 const info = await page.evaluate(() => ({ mode: game.gameMode, ai: !!game.ai, max: game.maxScore, lvl: game.getAILevel(), style: game.ai?.style?.id }));
                 const st = await page.evaluate((n) => PPTour.byId(n), id);
                 assert.equal(info.mode, st.mode); assert.equal(info.max, st.points); assert.equal(info.lvl, st.level);
@@ -124,6 +150,9 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
                     const res = await page.evaluate(() => { game.scores.player = 11; game.scores.ai = 10; game.updateScoreUI(); return game.matchEnding; });
                     assert.equal(res, false, 'win by 2: 11-10 keeps playing');
                     await page.evaluate(() => { game.scores.player = 12; game.scores.ai = 10; game.updateScoreUI(); });
+                    await page.locator('.ppstage.outro.final').waitFor({ timeout: 60000 });
+                    assert.match(await page.locator('.ppstage.outro').innerText(), /Tour complete/i);
+                    await page.evaluate(() => PPTourStage.hide());
                     await page.locator('#pp-results .ppres-box').waitFor({ timeout: 60000 });
                     assert.match(await page.locator('#pp-results').innerText(), /Tour is complete/i);
                     assert.match(await page.locator('#pp-results').innerText(), /New paddle unlocked: Magma Demon/i);

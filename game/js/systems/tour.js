@@ -244,6 +244,11 @@
         const stage = byId(info?.stageId);
         if (!stage) return null;
         ensure();
+        if (!info.won) {
+            data.losses = data.losses || {};
+            data.losses[stage.id] = (data.losses[stage.id] || 0) + 1;
+            save();
+        }
         const beforeTotal = totalStars();
         const clearedBefore = TIERS.map((t, i) => tierCleared(i));
         const completedBefore = !!data.completed;
@@ -317,6 +322,8 @@
         return s ? s.id : 0;
     }
 
+    function lossesOf(id) { ensure(); return (data.losses && data.losses[id]) || 0; }
+
     function stageCard(stage, nextUp) {
         const info = lockInfo(stage);
         const rec = data.stages[stage.id];
@@ -339,7 +346,10 @@
                     <span class="pptour-stage">Stage ${stage.id}${stage.id === nextUp ? ' &middot; Next up' : ''}</span>
                     <span class="pptour-tier">${esc(tier.name)}${stage.boss ? ' &middot; Rival' : ''}</span>
                 </div>
-                <h3 class="pptour-rival">${esc(stage.rival)}</h3>
+                <div class="pptour-who">
+                    <span class="pptour-face" aria-hidden="true">${window.PPRivals?.portrait(stage.rival) || ''}</span>
+                    <div class="pptour-whotext"><h3 class="pptour-rival">${esc(stage.rival)}</h3><span class="pptour-rtitle">${esc(window.PPRivals?.get(stage.rival)?.title || '')}</span></div>
+                </div>
                 <p class="pptour-style">${esc(STYLE_TEXT[stage.style])}</p>
                 <div class="pptour-chips">${chips.join('')}</div>
                 <ul class="pptour-goals">${goals.map((g) =>
@@ -657,7 +667,7 @@
     window.PPTour = {
         pauseSummary, resetProgress, venueFor, tierCleared, rewardOf, paddleLocked, paddleLockText, equip,
         STAGES, TIERS, MAX_STARS, byId, lockInfo, isPlayable, totalStars, starsOf,
-        recordResult, resultCard, applyTierLook, syncLook, launch, clear, open, close, isOpen, updateMenuButton,
+        recordResult, lossesOf, resultCard, applyTierLook, syncLook, launch, clear, open, close, isOpen, updateMenuButton,
         reload: () => { data = null; load(); },
     };
 })();
