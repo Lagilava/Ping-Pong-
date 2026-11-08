@@ -1,5 +1,5 @@
 {
- "hash": "22e454c36eace46a",
+ "hash": "45484865c9c6cdb7",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -62,6 +62,12 @@
   "assets/images/menu-textures/stadium-360.webp",
   "assets/images/powerups/zombie-powerups.webp",
   "assets/images/textures/display-grid.svg",
+  "assets/images/tour/dock.webp",
+  "assets/images/tour/final.webp",
+  "assets/images/tour/hall.webp",
+  "assets/images/tour/mirage.webp",
+  "assets/images/tour/tunnel.webp",
+  "assets/images/tour/yard.webp",
   "assets/images/tutorial/classic-desktop.jpg",
   "assets/images/tutorial/classic-touch.jpg",
   "assets/images/tutorial/custom-arena-desktop.jpg",

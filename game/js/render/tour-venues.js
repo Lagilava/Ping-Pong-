@@ -837,19 +837,94 @@
         x.restore();
     }
 
+    // Each venue uses one compressed background. Instances share decoded images;
+    // the procedural renderer below remains available until an image loads.
+    const venueImages = new Map();
+    const artworkVenues = new Set(['hall', 'final', 'dock', 'yard', 'tunnel', 'mirage']);
+    function venueImage(kind) {
+        if (!artworkVenues.has(kind)) return { ready: false, failed: true };
+        if (!venueImages.has(kind)) {
+            const image = new Image();
+            const entry = { image, ready: false, failed: false };
+            image.onload = () => { entry.ready = true; };
+            image.onerror = () => { entry.failed = true; };
+            image.src = `assets/images/tour/${kind}.webp`;
+            venueImages.set(kind, entry);
+        }
+        return venueImages.get(kind);
+    }
+    function bakeArtwork(x, image, w, h) {
+        const scale = Math.max(w / image.naturalWidth, h / image.naturalHeight);
+        const dw = image.naturalWidth * scale, dh = image.naturalHeight * scale;
+        x.drawImage(image, (w - dw) / 2, (h - dh) / 2, dw, dh);
+        // Keep the entire playfield legible against all court and sky colours.
+        x.fillStyle = 'rgba(3,6,18,.28)'; x.fillRect(0, 0, w, h);
+        const shade = x.createLinearGradient(0, 0, 0, h);
+        shade.addColorStop(0, 'rgba(2,4,14,.20)'); shade.addColorStop(.48, 'rgba(2,4,14,.04)');
+        shade.addColorStop(1, 'rgba(2,4,14,.30)');
+        x.fillStyle = shade; x.fillRect(0, 0, w, h);
+    }
+    function animateArtwork(ctx, w, h, S, kind) {
+        if (reduced()) return;
+        const t = S.t, rand = S.ambient;
+        // Tiny moving specks: dust in the hall, stars at the dock, sparks in
+        // the yard, and light glints in the other venues. One batched draw.
+        ctx.save(); ctx.globalCompositeOperation = 'screen';
+        const colors = { hall:'rgba(255,218,158,.35)', final:'rgba(177,213,255,.38)', dock:'rgba(193,225,255,.45)', yard:'rgba(255,180,110,.32)', tunnel:'rgba(255,199,120,.30)', mirage:'rgba(255,204,193,.30)' };
+        ctx.fillStyle = colors[kind];
+        ctx.beginPath();
+        for (const p of rand) {
+            const drift = (t * p.speed + p.phase) % 1;
+            const px = ((p.x + drift * (kind === 'yard' ? -.035 : .012) + 1) % 1) * w;
+            const py = ((p.y - drift * .035 + 1) % 1) * h;
+            const pulse = .55 + .45 * Math.sin(t * p.rate + p.phase * 6.28);
+            if (pulse > .18) ctx.rect(px, py, p.size, p.size);
+        }
+        ctx.fill();
+        // Broad, slow light breathing uses a pre-rendered sprite and no blur.
+        const a = .035 + .018 * (1 + Math.sin(t * .7));
+        ctx.globalAlpha = a + S.cheer * .035;
+        const positions = { hall:[.48,.18], final:[.5,.14], dock:[.74,.25], yard:[.5,.20], tunnel:[.5,.28], mirage:[.5,.20] };
+        const pos=positions[kind];
+        ctx.drawImage(S.artGlow, w*pos[0]-w*.22, h*pos[1]-h*.18, w*.44, h*.36);
+        // A few slow reflections suggest movement within each scene without
+        // covering the ball or redrawing the detailed background artwork.
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = .12 + .04 * Math.sin(t * .8);
+        ctx.fillStyle = kind === 'tunnel' ? '#78e4df' : kind === 'dock' ? '#a6c8ff' : '#ffc891';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+            const phase = (t * .025 + i * .21) % 1;
+            const y = h * (.72 + i * .045);
+            const x = w * (.08 + ((i * .27 + phase * .08) % .84));
+            ctx.rect(x, y, w * (.025 + phase * .025), Math.max(1, h * .0015));
+        }
+        ctx.fill();
+        ctx.restore();
+    }
+
     class TourVenue {
         constructor(kind) {
             this.kind = ['hall', 'final', 'dock', 'yard', 'tunnel', 'mirage'].includes(kind) ? kind : 'hall';
             this.key = ''; this.t = 0; this.cheer = 0; this._score = -1;
+            this.art = venueImage(this.kind);
         }
         _bake(ctx, w, h) {
             const m = ctx.getTransform();
             const sx = Math.hypot(m.a, m.b) || 1, sy = Math.hypot(m.c, m.d) || 1;
-            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}`;
+            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${this.art.ready ? 'art' : 'fallback'}`;
             if (key === this.key) return;
             this.key = key;
             const S = this.S = { sx, sy, w, h, fy: Math.round(h * FLOOR), t: this.t, cheer: 0, conf: [], sparks: [], speed: 0.3, phase: 0 };
             const [bc, bx] = canvas(w, h, sx, sy);
+            if (this.art.ready) {
+                bakeArtwork(bx, this.art.image, w, h);
+                const random = rng(118 + this.kind.length);
+                S.ambient = Array.from({length: 20}, () => ({ x: random(), y: random() * .72, phase: random(), speed: .012 + random() * .02, rate: .5 + random(), size: 1 + random() * 1.3 }));
+                S.artGlow = glow(this.kind === 'hall' || this.kind === 'yard' || this.kind === 'tunnel' ? '255,194,120' : '150,190,255', 64);
+                this.base = bc;
+                return;
+            }
             if (this.kind === 'dock') { bake_dock(bx, w, h, S); S.glowA = glow('150,200,255', 64); }
             else if (this.kind === 'yard') {
                 bake_yard(bx, w, h, S);
@@ -926,6 +1001,7 @@
             this.cheer = Math.max(0, this.cheer - dt * 0.4);
             S.t = this.t; S.cheer = this.cheer; S.rally = st.rally;
             ctx.drawImage(this.base, 0, 0, w, h);
+            if (this.art.ready && S.artGlow) { animateArtwork(ctx, w, h, S, this.kind); return; }
             if (this.kind === 'dock') frame_dock(ctx, w, h, S, st);
             else if (this.kind === 'yard') frame_yard(ctx, w, h, S, st, dt);
             else if (this.kind === 'tunnel') frame_tunnel(ctx, w, h, S, st, dt);
