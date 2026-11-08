@@ -10,6 +10,17 @@
         || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
     let layer = null, closer = null;
+    // Keep consecutive rematches and results from repeating the same line.
+    const recentDialogue = new Map();
+    function pickDialogue(rival, moment, pool) {
+        if (!pool?.length) return '';
+        const key = rival + ':' + moment;
+        const previous = recentDialogue.get(key);
+        const choices = pool.length > 1 ? pool.filter(line => line !== previous) : pool;
+        const line = window.PPRivals.pick(choices);
+        recentDialogue.set(key, line);
+        return line;
+    }
 
     // Close the current screen and run `then` once.
     function dismiss(then) {
@@ -70,8 +81,11 @@
         const lost = T.lossesOf(stage.id) > 0;
         const played = T.starsOf(stage.id) > 0;
         const pool = lost ? rival.afterLoss : played ? rival.rematch : rival.meet;
-        const introPool = !lost && !played ? window.PPTourDialogue?.pool(rival.id, 'intro') : null;
-        const quote = Rv.pick(introPool?.length ? introPool : (pool && pool.length ? pool : rival.meet));
+        // Losses are the player's losses, while stars mean the player won. If
+        // both exist, the save does not identify the latest result; stay neutral.
+        const greeting = played && !lost ? 'afterLoss' : (lost || played) ? 'rematch' : 'intro';
+        const introPool = window.PPTourDialogue?.pool(rival.id, greeting);
+        const quote = pickDialogue(rival.id, greeting, introPool?.length ? introPool : (pool && pool.length ? pool : rival.meet));
         const tier = T.TIERS[stage.tier];
         const firstOfTier = T.STAGES.find((s) => s.tier === stage.tier)?.id === stage.id && !played && !lost;
         const mode = ({ classic: 'Classic', gravity: 'Gravity', speed: 'Speed', obstacle: 'Obstacle' })[stage.mode] || stage.mode;
@@ -122,7 +136,7 @@
         if (!rival) { done(); return; }
         const won = !!result.won;
         const resultPool = window.PPTourDialogue?.pool(rival.id, won ? 'end_loss' : 'end_win');
-        const quote = Rv.pick(resultPool?.length ? resultPool : (won ? rival.youWin : rival.youLose));
+        const quote = pickDialogue(rival.id, won ? 'end_loss' : 'end_win', resultPool?.length ? resultPool : (won ? rival.youWin : rival.youLose));
         const stars = [1, 2, 3].map((i) => `<i class="${won && i <= result.earned ? 'on' : ''}" style="--d:${0.7 + i * 0.35}s">&#9733;</i>`).join('');
         const goals = won ? stage.goals.map((g, i) =>
             `<li class="${result.goals[i] ? 'done' : ''}">${result.goals[i] ? '&#10003;' : '&#10007;'} ${esc(g.text)}</li>`).join('') : '';
