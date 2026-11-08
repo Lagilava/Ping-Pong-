@@ -346,3 +346,16 @@ body.pp-reduce-motion .ppstage, body.pp-reduce-motion .ppstage * { animation-dur
     .ppstage-stars i { font-size: 26px; }
 }
 .ai-taunt-who { display: block; margin-bottom: 2px; font: 700 .72em/1.1 'Orbitron', sans-serif; letter-spacing: .12em; text-transform: uppercase; opacity: .8; }
+
+/* Earned rewards are actual selection controls. */
+.pptour-reward { color: inherit; text-align: left; min-width: 0; }
+.pptour-reward.got { cursor: pointer; }
+.pptour-reward.got:hover { background: rgba(255, 214, 120, .12); }
+.pptour-reward.got:focus-visible { outline: 2px solid #fff0b9; outline-offset: 2px; }
+.pptour-reward.selected { border-color: #ffdb83; background: rgba(255, 203, 96, .17); box-shadow: inset 0 0 0 1px rgba(255, 219, 131, .35); }
+.pptour-reward:disabled { cursor: not-allowed; opacity: .8; }
+/* A short idle movement gives the portrait life only on the versus card. */
+.ppstage.versus .ppstage-side.rival .ppstage-face svg { animation: ppstage-rival-idle 3.8s ease-in-out infinite; transform-origin: 50% 85%; }
+@keyframes ppstage-rival-idle { 0%, 100% { transform: scale(1.035) translateY(0); } 50% { transform: scale(1.055) translateY(-1.5%); } }
+@media (prefers-reduced-motion: reduce) { .ppstage.versus .ppstage-side.rival .ppstage-face svg { animation: none; } }
+body.pp-reduce-motion .ppstage.versus .ppstage-side.rival .ppstage-face svg { animation: none; }

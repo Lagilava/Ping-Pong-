@@ -816,6 +816,17 @@
                 const sh = h * 0.6 - h * 0.548 - 4;
                 S.strip = ticker('WORLD CHAMPIONSHIP  \u25C6  MATCH POINT  \u25C6  CHAMPIONS  \u25C6', sh, sh * 0.62, '#0d0a02', '#ffd96a');
             }
+            // Bake a gentle edge and floor grade once per size. This unifies the
+            // venues and keeps the bright action in the middle easy to read.
+            const grade = bx.createRadialGradient(w * 0.5, h * 0.48, h * 0.12, w * 0.5, h * 0.48, Math.max(w, h) * 0.7);
+            grade.addColorStop(0, 'rgba(3,8,18,0)');
+            grade.addColorStop(1, 'rgba(3,8,18,0.38)');
+            bx.fillStyle = grade; bx.fillRect(0, 0, w, h);
+            const depth = bx.createLinearGradient(0, S.fy - h * 0.04, 0, S.fy + h * 0.12);
+            depth.addColorStop(0, 'rgba(5,10,20,0)');
+            depth.addColorStop(0.48, 'rgba(5,10,20,0.16)');
+            depth.addColorStop(1, 'rgba(5,10,20,0)');
+            bx.fillStyle = depth; bx.fillRect(0, S.fy - h * 0.04, w, h * 0.16);
             this.base = bc;
         }
         draw(ctx, w, h, st) {

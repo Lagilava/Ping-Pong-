@@ -52,18 +52,18 @@
     };
 
     const margin = (n) => ({ type: 'margin', n, text: `Win by ${n} or more points` });
-    const rally = (n) => ({ type: 'rally', n, text: `Land a ${n}-hit rally` });
+    const streak = (n) => ({ type: 'streak', n, text: `Score ${n} points in a row` });
 
     // Order matters: stage N+1 opens when stage N is won (and its tier is open).
     const STAGES = [
-        { id: 1, tier: 0, rival: 'Pip', style: 'wall', mode: 'classic', level: 0, points: 5, twist: null, goals: [margin(3), rally(8)] },
-        { id: 2, tier: 0, rival: 'Vee', style: 'sniper', mode: 'classic', level: 1, points: 7, twist: 'powerUps', goals: [margin(3), rally(10)], boss: true },
-        { id: 3, tier: 1, rival: 'Nova', style: 'trickster', mode: 'gravity', level: 1, points: 7, twist: null, goals: [margin(3), rally(10)] },
-        { id: 4, tier: 1, rival: 'Brick', style: 'bully', mode: 'obstacle', level: 2, points: 7, twist: null, goals: [margin(3), rally(8)], boss: true },
-        { id: 5, tier: 2, rival: 'Juno', style: 'sniper', mode: 'speed', level: 2, points: 7, twist: null, goals: [margin(3), rally(12)] },
-        { id: 6, tier: 2, rival: 'Mirage', style: 'trickster', mode: 'gravity', level: 3, points: 7, twist: null, goals: [margin(3), rally(10)], boss: true },
-        { id: 7, tier: 3, rival: 'Atlas', style: 'wall', mode: 'classic', level: 3, points: 11, twist: 'noPowerUps', goals: [margin(4), rally(15)] },
-        { id: 8, tier: 3, rival: 'Titan', style: 'bully', mode: 'classic', level: 4, points: 11, twist: 'winBy2', goals: [margin(3), rally(15)], boss: true },
+        { id: 1, tier: 0, rival: 'Pip', style: 'wall', mode: 'classic', level: 0, points: 5, twist: null, goals: [margin(3), streak(3)] },
+        { id: 2, tier: 0, rival: 'Vee', style: 'sniper', mode: 'classic', level: 1, points: 7, twist: 'powerUps', goals: [margin(3), streak(3)], boss: true },
+        { id: 3, tier: 1, rival: 'Nova', style: 'trickster', mode: 'gravity', level: 1, points: 7, twist: null, goals: [margin(3), streak(3)] },
+        { id: 4, tier: 1, rival: 'Brick', style: 'bully', mode: 'obstacle', level: 2, points: 7, twist: null, goals: [margin(3), streak(3)], boss: true },
+        { id: 5, tier: 2, rival: 'Juno', style: 'sniper', mode: 'speed', level: 2, points: 7, twist: null, goals: [margin(3), streak(3)] },
+        { id: 6, tier: 2, rival: 'Mirage', style: 'trickster', mode: 'gravity', level: 3, points: 7, twist: null, goals: [margin(3), streak(3)], boss: true },
+        { id: 7, tier: 3, rival: 'Atlas', style: 'wall', mode: 'classic', level: 3, points: 11, twist: 'noPowerUps', goals: [margin(4), streak(3)] },
+        { id: 8, tier: 3, rival: 'Titan', style: 'bully', mode: 'classic', level: 4, points: 11, twist: 'winBy2', goals: [margin(3), streak(3)], boss: true },
     ];
     const MAX_STARS = STAGES.length * 3;
 
@@ -161,7 +161,7 @@
     // ── Save data ────────────────────────────────────────────────────────
     let data = null;
 
-    function blank() { return { v: 1, stages: {}, completed: false }; }
+    function blank() { return { v: 2, stages: {}, completed: false }; }
 
     function load() {
         data = blank();
@@ -174,7 +174,7 @@
             const goals = [!!(r.goals && r.goals[0]), !!(r.goals && r.goals[1])];
             // Stars are always derived: 1 for a win plus one per goal.
             const won = Number(r.stars) > 0 || goals[0] || goals[1];
-            if (won) data.stages[s.id] = { goals, stars: 1 + goals.filter(Boolean).length };
+            if (won) data.stages[s.id] = { goals, stars: 1 + goals.filter(Boolean).length, legacyGoal: !!goals[1] && (raw.v !== 2 || !!r.legacyGoal) };
         });
         data.completed = !!raw.completed && !!data.stages[STAGES[STAGES.length - 1].id];
         return data;
@@ -235,7 +235,7 @@
     // ── Results ──────────────────────────────────────────────────────────
     function goalMet(goal, info) {
         if (goal.type === 'margin') return info.playerScore - info.aiScore >= goal.n;
-        if (goal.type === 'rally') return info.rally >= goal.n;
+        if (goal.type === 'streak') return (info.bestStreak || 0) >= goal.n;
         return false;
     }
 
@@ -257,7 +257,7 @@
         const earned = info.won ? 1 + goals.filter(Boolean).length : 0;
         if (info.won) {
             const merged = [0, 1].map((i) => goals[i] || !!before?.goals?.[i]);
-            data.stages[stage.id] = { goals: merged, stars: 1 + merged.filter(Boolean).length };
+            data.stages[stage.id] = { goals: merged, stars: 1 + merged.filter(Boolean).length, legacyGoal: !!before?.legacyGoal && !goals[1] };
             if (stage.id === STAGES[STAGES.length - 1].id) data.completed = true;
             save();
         }
@@ -331,7 +331,7 @@
         const tier = TIERS[stage.tier];
         const stars = rec?.stars || 0;
         const goals = [{ text: 'Win the match', done: stars > 0 }]
-            .concat(stage.goals.map((g, i) => ({ text: g.text, done: !!rec?.goals?.[i] })));
+            .concat(stage.goals.map((g, i) => ({ text: g.text + (i === 1 && rec?.legacyGoal ? ' (star kept from previous goal)' : ''), done: !!rec?.goals?.[i] })));
         const chips = [
             `<span class="pptour-chip mode">${esc(mode.name)}</span>`,
             `<span class="pptour-chip">${esc(SKILLS[stage.level])}</span>`,
@@ -407,10 +407,11 @@
         host.hidden = !list.length;
         host.innerHTML = `<h3>Paddle rewards</h3>` + list.map((d) => {
             const got = rewardEarned(d);
-            return `<div class="pptour-reward ${got ? 'got' : 'locked'}" data-design="${d.id}" title="${esc(d.blurb)}">
+            const selected = got && window.PPSettings?.getPaddle?.('classic', 'left') === d.id;
+            return `<button type="button" class="pptour-reward ${got ? 'got' : 'locked'}${selected ? ' selected' : ''}" data-design="${esc(d.id)}" title="${esc(d.blurb)}" aria-pressed="${selected}"${got ? '' : ' disabled'}>
                 <canvas aria-hidden="true"></canvas>
                 <span class="pptour-rname">${esc(d.name)}</span>
-                <span class="pptour-rstate">${got ? 'Earned' : (d.tourComplete ? 'Beat the whole Tour' : `Clear ${esc(TIERS[d.tourTier].name)} stages`)}</span></div>`;
+                <span class="pptour-rstate">${selected ? 'Equipped' : got ? 'Equip paddle' : (d.tourComplete ? 'Beat the whole Tour' : `Clear ${esc(TIERS[d.tourTier].name)} stages`)}</span></button>`;
         }).join('');
         rewardPads.clear();
         cancelAnimationFrame(rewardRaf);
@@ -472,6 +473,18 @@
         document.body.appendChild(root);
         root.addEventListener('click', (e) => {
             if (e.target === root || e.target.closest('.pptour-close')) { close(); return; }
+            const reward = e.target.closest('.pptour-reward[data-design]');
+            if (reward && !reward.disabled) {
+                if (equip(reward.dataset.design)) {
+                    root.querySelectorAll('.pptour-reward.got').forEach((button) => {
+                        const selected = button === reward;
+                        button.classList.toggle('selected', selected);
+                        button.setAttribute('aria-pressed', String(selected));
+                        button.querySelector('.pptour-rstate').textContent = selected ? 'Equipped' : 'Equip paddle';
+                    });
+                }
+                return;
+            }
             const rs = e.target.closest('.pptour-reset');
             if (rs) {
                 if (rs.dataset.armed) { delete rs.dataset.armed; resetProgress(); return; }
@@ -625,7 +638,7 @@
         if (result.won && result.nextPlayable && !result.tourComplete) {
             actions.push({ label: `Next: stage ${result.next.id}`, primary: true, onClick: () => launch(result.next.id) });
         }
-        (result.newPaddles || []).slice(0, 1).forEach((d) => actions.push({ label: `Equip ${d.name}`, onClick: function () { equip(d.id); if (this && this.textContent !== undefined) this.textContent = `${d.name} equipped`; } }));
+        (result.newPaddles || []).slice(0, 1).forEach((d) => actions.push({ label: `Equip ${d.name}`, onClick: (_event, button) => { if (equip(d.id) && button) { button.textContent = 'Equipped'; button.setAttribute('aria-pressed', 'true'); } } }));
         actions.push({ label: result.won ? 'Replay stage' : 'Try again', primary: !result.won, onClick: () => launch(stage.id) });
         actions.push({ label: 'Tour map', onClick: () => { window.PPResults?.hide(); open(); } });
         actions.push({ label: 'Main menu', back: true, onClick: () => window.PPResults?.hide() });
@@ -642,7 +655,7 @@
         const stage = ctx ? byId(ctx.stageId) : null;
         if (!stage) return '';
         const sc = game.scores || {};
-        const live = { playerScore: sc.player || 0, aiScore: sc.ai || 0, rally: game.maxRally || 0 };
+        const live = { playerScore: sc.player || 0, aiScore: sc.ai || 0, rally: game.maxRally || 0, bestStreak: game.tourBestStreak || 0 };
         const rows = [`<li>First to ${stage.points}${stage.twist === 'winBy2' ? ' (win by 2)' : ''}</li>`]
             .concat(stage.goals.map((g) => `<li class="${goalMet(g, live) ? 'done' : ''}">${goalMet(g, live) ? '\u2713' : '\u25CB'} ${esc(g.text)}</li>`));
         return `<p class="pause-tour-head">Tour \u00B7 stage ${stage.id} \u00B7 vs ${esc(stage.rival)}</p><ul>${rows.join('')}</ul>`;

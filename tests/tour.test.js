@@ -34,7 +34,7 @@ assert.ok(T.STAGES.every((s, i, a) => i === 0 || a[i - 1].level <= s.level), 'sk
 assert.equal(T.lockInfo(T.byId(1)).state, 'open');
 assert.equal(T.lockInfo(T.byId(2)).state, 'locked');
 assert.match(T.lockInfo(T.byId(2)).reason, /stage 1/);
-const win = (id, playerScore, aiScore, rally) => T.recordResult({ stageId: id, won: true, playerScore, aiScore, rally });
+const win = (id, playerScore, aiScore, rally) => T.recordResult({ stageId: id, won: true, playerScore, aiScore, rally, bestStreak: rally >= 8 ? 3 : 0 });
 
 let r = win(1, 5, 4, 3);
 assert.equal(r.earned, 1, 'a bare win is one star');

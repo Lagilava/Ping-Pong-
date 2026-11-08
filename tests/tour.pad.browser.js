@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..', 'game');
 const { chromium } = require('playwright');
 const assert = require('assert');
 (async()=>{
-  const b = await chromium.launch({args:['--use-gl=swiftshader','--enable-unsafe-swiftshader']});
+  const b = await chromium.launch({executablePath: process.env.BROWSER_PATH || undefined, args:['--use-gl=swiftshader','--enable-unsafe-swiftshader']});
   const ctx = await b.newContext({viewport:{width:1366,height:768}});
   await ctx.route('**/*', async route => {
     const url = new URL(route.request().url());

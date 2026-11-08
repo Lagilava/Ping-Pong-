@@ -74,6 +74,8 @@ class Game {
         this.scores = { player: 0, ai: 0 };
         this.rallyCount = 0;
         this.maxRally = 0;
+        this.tourPointStreak = 0;
+        this.tourBestStreak = 0;
         this.maxScore = this.getConfiguredMaxScore();
         this.running = false;
         this.paused = false;
@@ -2673,6 +2675,8 @@ class Game {
         this.matchEnding = false;
         this.rallyCount = 0;
         this.maxRally = 0;
+        this.tourPointStreak = 0;
+        this.tourBestStreak = 0;
         this.maxScore = this.getConfiguredMaxScore();
         this.running = false;
         this.userPaused = false;
@@ -6422,6 +6426,8 @@ class Game {
         this.matchEnding = false;
         this.rallyCount = 0;
         this.maxRally = 0;
+        this.tourPointStreak = 0;
+        this.tourBestStreak = 0;
         this.maxScore = this.getConfiguredMaxScore();
         this.running = false;
         this.userPaused = false;
@@ -7250,6 +7256,11 @@ class Game {
         const p = paddle;
         const maxAngle = Math.PI / 3.4;
         const preHitSpeed = b.getSpeed();
+        // Stage 7 grows its ceiling with the incoming ball: no fixed maximum.
+        // Keep a finite value for both JS and WebAssembly physics.
+        if (this.getTourContext()?.stageId === 7 && this.getTourContext()?.twist === 'noPowerUps') {
+            b.maxSpeed = Math.max(b.maxSpeed, preHitSpeed * 2);
+        }
         const hit = PhysicsCore.collidePaddle(b, p, isPlayer, this.getPaddleSpeedIncrease(isPlayer), maxAngle, this.dt);
         if (!hit) return false;
 
@@ -7646,6 +7657,7 @@ class Game {
                 } else {
                     const points = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
                     this.scores.ai += points;
+                    if (this.getTourContext()) this.tourPointStreak = 0;
                     this.audio.score();
                     this.updateScoreUI();
                     this.resetRally();
@@ -7658,6 +7670,7 @@ class Game {
             if (ball.pos.x > this.width + 50) {
                 const points = this.powerUpTimers.doublePoints > 0 ? 2 : 1;
                 this.scores.player += points;
+                if (this.getTourContext()) { this.tourPointStreak = (this.tourPointStreak || 0) + 1; this.tourBestStreak = Math.max(this.tourBestStreak || 0, this.tourPointStreak); }
                 this.audio.score();
                 this.updateScoreUI();
                 this.resetRally();
@@ -8179,6 +8192,7 @@ class Game {
                 }
                 const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeWarpBonus(ball);
                 this.scores.player += points;
+                if (this.getTourContext()) { this.tourPointStreak = (this.tourPointStreak || 0) + 1; this.tourBestStreak = Math.max(this.tourBestStreak || 0, this.tourPointStreak); }
                 this.progression.recordPoint('player', points);
                 this.audio.score();
                 this.resetRally();
@@ -8211,6 +8225,7 @@ class Game {
                 } else {
                     const points = (this.powerUpTimers.doublePoints > 0 ? 2 : 1) + this.takeWarpBonus(ball);
                     this.scores.ai += points;
+                    if (this.getTourContext()) this.tourPointStreak = 0;
                     this.progression.recordPoint('ai', points);
                     this.audio.score();
                     this.resetRally();
@@ -8350,7 +8365,7 @@ class Game {
         if (tour && window.PPTour) {
             this._tourResult = window.PPTour.recordResult({
                 stageId: tour.stageId, won: !!playerWon,
-                playerScore: matchStats.playerScore, aiScore: matchStats.aiScore, rally: this.maxRally
+                playerScore: matchStats.playerScore, aiScore: matchStats.aiScore, rally: this.maxRally, bestStreak: this.tourBestStreak || 0
             });
         }
 
@@ -8921,7 +8936,11 @@ class Game {
         // stays at 2 even on a slow frame: the wells pull once per step with
         // the sub-step's dt, so dropping to 1 doubled their pull exactly when
         // the game was already struggling (the extra step costs ~0.1 ms).
-        const subSteps = (this.gameMode === 'gravity') ? 2 : 1;
+        const unlimitedTour = this.getTourContext()?.twist === 'noPowerUps';
+        // More checks as the ball accelerates, with a budget for slower devices.
+        const subSteps = unlimitedTour
+            ? Math.min(8, Math.max(1, Math.ceil((this.ball?.getSpeed() || 0) * physicsStepDt / 35)))
+            : (this.gameMode === 'gravity' ? 2 : 1);
         const subStepDt = physicsStepDt / subSteps;
 
         while (this.accumulator >= physicsStepDt && physicsSteps < 10) {

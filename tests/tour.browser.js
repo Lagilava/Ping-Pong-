@@ -71,8 +71,8 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
             assert.equal(s1.style, 'wall', 'rival style is forced');
             assert.deepEqual(s1.saved, [3, 15, false], 'saved settings are untouched');
 
-            // Win it 5-0 with a long rally: 3 stars and the stage 2 unlock.
-            await page.evaluate(() => { game.maxRally = 12; game.scores.player = 5; game.scores.ai = 0; game.updateScoreUI(); });
+            // Win it 5-0 with a scoring streak: 3 stars and the stage 2 unlock.
+            await page.evaluate(() => { game.tourBestStreak = 3; game.scores.player = 5; game.scores.ai = 0; game.updateScoreUI(); });
             await page.locator('.ppstage.outro.win').waitFor({ timeout: 60000 });
             const outro = await page.locator('.ppstage.outro').innerText();
             assert.match(outro, /Stage cleared/i); assert.match(outro, /pip/i); assert.match(outro, /5\s*[–-]\s*0/);
@@ -133,7 +133,7 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
             assert.match(await page.locator('#menuTourStars').innerText(), /^3\/24/);
 
             // Every Tour mode starts and ends cleanly; stage 8 needs a two point lead.
-            await page.evaluate(() => { for (let i = 1; i <= 7; i++) PPTour.recordResult({ stageId: i, won: true, playerScore: 11, aiScore: 0, rally: 99 }); });
+            await page.evaluate(() => { for (let i = 1; i <= 7; i++) PPTour.recordResult({ stageId: i, won: true, playerScore: 11, aiScore: 0, bestStreak: 3 }); });
             for (const id of [3, 4, 5, 6, 7, 8]) {
                 await page.evaluate((n) => PPTour.launch(n), id);
                 await page.waitForFunction((n) => game.getTourContext()?.stageId === n, id, { timeout: 30000 });
@@ -168,7 +168,7 @@ const out = process.argv[2] && path.resolve(process.argv[2]);
             assert.match(ps, /Tour/); assert.match(ps, /First to 11/);
             const rs = await page.evaluate(() => { PPTour.resetProgress(); return { stars: PPTour.totalStars(), locked: PPTour.paddleLocked('tourMagmaDemon') }; });
             assert.equal(rs.stars, 0); assert.equal(rs.locked, true);
-            await page.evaluate(() => { for (let i = 1; i <= 8; i++) PPTour.recordResult({ stageId: i, won: true, playerScore: 11, aiScore: 0, rally: 99 }); });
+            await page.evaluate(() => { for (let i = 1; i <= 8; i++) PPTour.recordResult({ stageId: i, won: true, playerScore: 11, aiScore: 0, bestStreak: 3 }); });
             // Paddle rewards: all four earned after the full Tour, all four locked on a fresh save.
             const rw = await page.evaluate(() => {
                 const ids = ['tourSunbeam', 'tourVoltage', 'tourAfterglow', 'tourChampion', 'tourMagmaDemon'];
