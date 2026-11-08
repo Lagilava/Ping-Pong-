@@ -847,7 +847,8 @@
         if (!venueImages.has(kind)) {
             const image = new Image();
             const entry = { image, ready: false, failed: false };
-            image.onload = () => { entry.ready = true; };
+            const invalidate = () => window.game?.bgRenderer?._invalidateBackgroundRenderCache?.();
+            image.onload = () => { entry.ready = true; invalidate(); };
             image.onerror = () => { entry.failed = true; };
             image.src = `assets/images/tour/${kind}.webp`;
             // The hall banners and floating rocks are cut from the original
@@ -862,7 +863,7 @@
                 Promise.all([
                     loadImage(root + '-base.webp'), loadImage(root + '-parts.webp'),
                     fetch(root + '.json').then(r => { if (!r.ok) throw new Error('motion metadata'); return r.json(); })
-                ]).then(([base, parts, regions]) => { entry.motion = { base, parts, regions }; })
+                ]).then(([base, parts, regions]) => { entry.motion = { base, parts, regions }; invalidate(); })
                   .catch(() => { /* retain the complete original artwork */ });
             }
             venueImages.set(kind, entry);
@@ -893,14 +894,23 @@
                 if (kind === 'hall') {
                     // Each fabric banner rocks about its upper edge, keeping the
                     // textured emblem from the illustration rather than a redraw.
-                    const angle = Math.sin(t*.85+i*.83)*.035;
+                    const angle = Math.sin(t*.9+i*.83)*.025;
                     ctx.save(); ctx.translate(x+pw*.5,y+ph*.07); ctx.rotate(angle);
-                    ctx.drawImage(atlas,0,p.atlasY,p.atlasW,p.atlasH,-pw*.5,-ph*.07,pw,ph);
+                    // Anchored at the top, the cut-out fabric bends in bands;
+                    // the bottom sways more than the top so movement reads as
+                    // cloth instead of an almost imperceptible rigid rotation.
+                    const bands = 5;
+                    for (let band=0; band<bands; band++) {
+                        const u=band/bands, next=(band+1)/bands;
+                        const bend=Math.sin(t*1.45+i*.85-u*2.4)*pw*.12*u;
+                        ctx.drawImage(atlas,0,p.atlasY+p.atlasH*u,p.atlasW,p.atlasH/bands,
+                            -pw*.5+bend,ph*(u-.07),pw,ph*(next-u)+.5);
+                    }
                     ctx.restore();
                 } else {
                     // Independent hovering rocks above the salt pan.
                     const dx = Math.sin(t*.32+i*1.9)*r.w*.003;
-                    const dy = Math.sin(t*.65+i*1.5)*r.h*.009;
+                    const dy = Math.sin(t*.8+i*1.5)*r.h*.013;
                     ctx.drawImage(atlas,0,p.atlasY,p.atlasW,p.atlasH,x+dx,y+dy,pw,ph);
                 }
             });
@@ -926,12 +936,13 @@
             ctx.globalAlpha=.65; ctx.fill();
         } else if (kind === 'dock') {
             // A distant shuttle crosses the window, while the deck indicators pulse.
-            const phase=(t*.025)%1, x=xp(.12+phase*.72), y=yp(.30+Math.sin(t*.45)*.008);
-            ctx.globalAlpha=.7; ctx.fillStyle='#bcf4ff'; ctx.fillRect(x,y,Math.max(2,w*.003),Math.max(1,h*.002));
+            const phase=(t*.04)%1, x=xp(.12+phase*.72), y=yp(.30+Math.sin(t*.45)*.008);
+            ctx.globalAlpha=.7; ctx.fillStyle='#bcf4ff'; ctx.fillRect(x,y,Math.max(3,w*.005),Math.max(1,h*.002));
+            ctx.globalAlpha=.23; ctx.fillRect(x-r.w*.014,y,r.w*.014,Math.max(1,h*.001));
             ctx.globalAlpha=.12; ctx.drawImage(S.artGlow,x-r.w*.035,y-r.h*.025,r.w*.07,r.h*.05);
         } else if (kind === 'yard') {
             // Cargo trolley and its suspended load move under the far crane.
-            const x=xp(.82+Math.sin(t*.27)*.045), y=yp(.145), end=yp(.245+Math.sin(t*.40)*.012);
+            const x=xp(.82+Math.sin(t*.38)*.05), y=yp(.205), end=yp(.315+Math.sin(t*.5)*.012);
             ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=.8;
             ctx.strokeStyle='#211b24'; ctx.lineWidth=Math.max(1,w*.0012);
             ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,end); ctx.stroke();
