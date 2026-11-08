@@ -973,7 +973,8 @@ class Game {
         }
 
         const k = this.getObjectScale();
-        const lengthK = this.gameMode === 'obstacle' ? Game.OBSTACLE_PADDLE_LENGTH : 1;
+        const mobileObstacle = this.gameMode === 'obstacle' && !!window.PerfGovernor?.isMobile;
+        const lengthK = this.gameMode === 'obstacle' ? Game.OBSTACLE_PADDLE_LENGTH * (mobileObstacle ? 1.15 : 1) : 1;
         return {
             height: Math.round(Math.max(50, Math.min(160, Math.floor(this.height * paddleHFactor))) *
                 (this.isForgeArenaActive?.() ? (this.customSettings.forge?.rules?.paddleSize || 1) : 1) * k * lengthK),

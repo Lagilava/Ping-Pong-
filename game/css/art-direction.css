@@ -137,7 +137,10 @@ html #overlay .hdr p { font: 700 12px/1.6 var(--ad-display); letter-spacing: .3e
 
 /* ---- Motion: panels rise in once; reduced motion switches it all off ---- */
 @keyframes ad-rise { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
-body #modal.open .modal-box, body #modal[style*="flex"] .modal-box, body .ppres-box { animation: ad-rise .32s var(--ad-ease) both; }
+body .ppres-box { animation: ad-rise .32s var(--ad-ease) both; }
+/* Keep the match setup panel still: animating its large masked artwork and
+   shadows causes a noticeable hitch on mobile GPUs. */
+body #modal .modal-box { animation: none; }
 body.pp-reduce-motion :is(#modal .modal-box, .ppres-box, #overlay .card, .pause-btn) { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) { body :is(#modal .modal-box, .ppres-box, #overlay .card, .pause-btn) { animation: none !important; transition: none !important; } }
 

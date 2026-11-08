@@ -49,7 +49,7 @@ function game(mode) {
     g.ball.vel.x = -900;
     g.ball.pos.x = 160;
     assert.equal(ability.trigger('player'), true);
-    ability.update(0.33);
+    ability.update(0.56);
     assert.equal(ability.speedScale(), 1, 'missed parry expires');
     assert.ok(ability.side('player').miss > 0, 'miss feedback appears');
     ability.update(2);

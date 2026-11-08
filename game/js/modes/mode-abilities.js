@@ -3,7 +3,7 @@
 // Lucky Dice lives in obstacle-dice.js and Gravity's Wormhole in
 // gravity-wormhole.js; this class routes input and the HUD.
 class ModeAbilities {
-    static SPEED_WINDOW = 0.32;
+    static SPEED_WINDOW = 0.55;
     static SPEED_SLOW = 0.42;
     static GRAVITY_INPUT_BUFFER = 0.35;
     static COOLDOWN = { speed: 2.3, gravity: 6, obstacle: 9 };

@@ -421,6 +421,10 @@ class Ball {
         const x = this.prev.x + (this.pos.x - this.prev.x) * interp;
         const y = this.prev.y + (this.pos.y - this.prev.y) * interp;
         const isZombieMode = this._isZombieMode();
+        if (typeof window !== 'undefined' && window.game?.gameMode === 'gravity') {
+            this._renderMeteor(ctx, x, y);
+            return;
+        }
         const isSpecialTrailMode = this._isSpecialTrailMode();
         const particlesEnabled = areParticleEffectsEnabled();
 
@@ -465,6 +469,33 @@ class Ball {
         if (particlesEnabled) {
             this._renderParticles(ctx);
         }
+    }
+
+    // A warm, high-contrast silhouette remains legible against the blue wells.
+    // Fixed geometry avoids per-frame particles, shadows and gradient allocations.
+    _renderMeteor(ctx, x, y) {
+        const r = this.r;
+        const moving = Math.hypot(this.vel.x, this.vel.y) > 1;
+        ctx.save();
+        ctx.translate(x, y);
+        if (moving) {
+            ctx.rotate(Math.atan2(this.vel.y, this.vel.x));
+            ctx.fillStyle = 'rgba(255, 91, 24, 0.65)';
+            ctx.beginPath(); ctx.moveTo(-r * 0.4, -r * 0.9);
+            ctx.lineTo(-r * 3.8, 0); ctx.lineTo(-r * 0.4, r * 0.9); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#ffb13b';
+            ctx.beginPath(); ctx.moveTo(-r * 0.5, -r * 0.48);
+            ctx.lineTo(-r * 2.7, 0); ctx.lineTo(-r * 0.5, r * 0.48); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = '#ffefad';
+        ctx.beginPath(); ctx.arc(0, 0, r * 1.12, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#d84a1d';
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.86, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffb449';
+        ctx.beginPath(); ctx.arc(r * 0.22, -r * 0.22, r * 0.43, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#873b25';
+        ctx.beginPath(); ctx.arc(-r * 0.25, r * 0.25, r * 0.19, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
     }
 
     // Two orbiting arcs whose speed and brightness follow the spin, so players
