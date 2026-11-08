@@ -1,5 +1,5 @@
 {
- "hash": "90fef7b78332f2f6",
+ "hash": "b0ad435b3d62d466",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -64,7 +64,13 @@
   "assets/images/textures/display-grid.svg",
   "assets/images/tour/dock.webp",
   "assets/images/tour/final.webp",
+  "assets/images/tour/hall-motion-base.webp",
+  "assets/images/tour/hall-motion-parts.webp",
+  "assets/images/tour/hall-motion.json",
   "assets/images/tour/hall.webp",
+  "assets/images/tour/mirage-motion-base.webp",
+  "assets/images/tour/mirage-motion-parts.webp",
+  "assets/images/tour/mirage-motion.json",
   "assets/images/tour/mirage.webp",
   "assets/images/tour/tunnel.webp",
   "assets/images/tour/yard.webp",

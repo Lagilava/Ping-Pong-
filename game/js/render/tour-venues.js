@@ -40,7 +40,8 @@
         x.fillStyle = g; x.fillRect(0, 0, size, size);
         return c;
     }
-    function reduced() { return !!window.PPSettings?.get?.('reduceMotion'); }
+    // Tour ambience remains animated even when reduced motion is enabled.
+    function reduced() { return false; }
 
     // ════════════════════════════════════════════════════════════════════
     // HALL
@@ -849,6 +850,21 @@
             image.onload = () => { entry.ready = true; };
             image.onerror = () => { entry.failed = true; };
             image.src = `assets/images/tour/${kind}.webp`;
+            // The hall banners and floating rocks are cut from the original
+            // artwork. A clean plate and compact sprite atlas load separately;
+            // the original remains visible if any optional layer fails.
+            if (kind === 'hall' || kind === 'mirage') {
+                const loadImage = src => new Promise((resolve, reject) => {
+                    const img = new Image(); img.onload = () => resolve(img);
+                    img.onerror = reject; img.src = src;
+                });
+                const root = `assets/images/tour/${kind}-motion`;
+                Promise.all([
+                    loadImage(root + '-base.webp'), loadImage(root + '-parts.webp'),
+                    fetch(root + '.json').then(r => { if (!r.ok) throw new Error('motion metadata'); return r.json(); })
+                ]).then(([base, parts, regions]) => { entry.motion = { base, parts, regions }; })
+                  .catch(() => { /* retain the complete original artwork */ });
+            }
             venueImages.set(kind, entry);
         }
         return venueImages.get(kind);
@@ -864,43 +880,92 @@
         shade.addColorStop(1, 'rgba(2,4,14,.30)');
         x.fillStyle = shade; x.fillRect(0, 0, w, h);
     }
+    // The illustration stays cached. Only small extracted pieces, sprites and
+    // batched geometry move. Coordinates refer to the original illustration so
+    // effects stay attached when cover-cropping for mobile and ultrawide screens.
     function animateArtwork(ctx, w, h, S, kind) {
-        if (reduced()) return;
-        const t = S.t, rand = S.ambient;
-        // Tiny moving specks: dust in the hall, stars at the dock, sparks in
-        // the yard, and light glints in the other venues. One batched draw.
-        ctx.save(); ctx.globalCompositeOperation = 'screen';
-        const colors = { hall:'rgba(255,218,158,.35)', final:'rgba(177,213,255,.38)', dock:'rgba(193,225,255,.45)', yard:'rgba(255,180,110,.32)', tunnel:'rgba(255,199,120,.30)', mirage:'rgba(255,204,193,.30)' };
-        ctx.fillStyle = colors[kind];
-        ctx.beginPath();
-        for (const p of rand) {
-            const drift = (t * p.speed + p.phase) % 1;
-            const px = ((p.x + drift * (kind === 'yard' ? -.035 : .012) + 1) % 1) * w;
-            const py = ((p.y - drift * .035 + 1) % 1) * h;
-            const pulse = .55 + .45 * Math.sin(t * p.rate + p.phase * 6.28);
-            if (pulse > .18) ctx.rect(px, py, p.size, p.size);
+        const t = S.t, r = S.artRect, xp = x => r.x + x*r.w, yp = y => r.y + y*r.h;
+        ctx.save();
+        if (S.motion) {
+            const { atlas, regions } = S.motion;
+            regions.forEach((p, i) => {
+                const x=xp(p.x), y=yp(p.y), pw=p.w*r.w, ph=p.h*r.h;
+                if (kind === 'hall') {
+                    // Each fabric banner rocks about its upper edge, keeping the
+                    // textured emblem from the illustration rather than a redraw.
+                    const angle = Math.sin(t*.85+i*.83)*.035;
+                    ctx.save(); ctx.translate(x+pw*.5,y+ph*.07); ctx.rotate(angle);
+                    ctx.drawImage(atlas,0,p.atlasY,p.atlasW,p.atlasH,-pw*.5,-ph*.07,pw,ph);
+                    ctx.restore();
+                } else {
+                    // Independent hovering rocks above the salt pan.
+                    const dx = Math.sin(t*.32+i*1.9)*r.w*.003;
+                    const dy = Math.sin(t*.65+i*1.5)*r.h*.009;
+                    ctx.drawImage(atlas,0,p.atlasY,p.atlasW,p.atlasH,x+dx,y+dy,pw,ph);
+                }
+            });
         }
-        ctx.fill();
-        // Broad, slow light breathing uses a pre-rendered sprite and no blur.
-        const a = .035 + .018 * (1 + Math.sin(t * .7));
-        ctx.globalAlpha = a + S.cheer * .035;
-        const positions = { hall:[.48,.18], final:[.5,.14], dock:[.74,.25], yard:[.5,.20], tunnel:[.5,.28], mirage:[.5,.20] };
-        const pos=positions[kind];
-        ctx.drawImage(S.artGlow, w*pos[0]-w*.22, h*pos[1]-h*.18, w*.44, h*.36);
-        // A few slow reflections suggest movement within each scene without
-        // covering the ball or redrawing the detailed background artwork.
+        // Scene-specific light and movement, drawn before the gameplay layer.
         ctx.globalCompositeOperation = 'screen';
-        ctx.globalAlpha = .12 + .04 * Math.sin(t * .8);
-        ctx.fillStyle = kind === 'tunnel' ? '#78e4df' : kind === 'dock' ? '#a6c8ff' : '#ffc891';
-        ctx.beginPath();
-        for (let i = 0; i < 5; i++) {
-            const phase = (t * .025 + i * .21) % 1;
-            const y = h * (.72 + i * .045);
-            const x = w * (.08 + ((i * .27 + phase * .08) % .84));
-            ctx.rect(x, y, w * (.025 + phase * .025), Math.max(1, h * .0015));
+        if (kind === 'hall') {
+            // Sunlight shifts over the windows; dust rises through its path.
+            ctx.globalAlpha = .13 + .035*Math.sin(t*.55);
+            ctx.drawImage(S.artGlow,xp(.53),yp(.19),r.w*.18,r.h*.28);
+        } else if (kind === 'final') {
+            // A few roaming spotlights and camera flashes around the stands.
+            for(let i=0;i<3;i++) {
+                const x=xp(.20+i*.29+Math.sin(t*.34+i*1.7)*.07);
+                ctx.globalAlpha=.11+.025*Math.sin(t*.7+i);
+                ctx.drawImage(S.artGlow,x-r.w*.10,yp(.015),r.w*.20,r.h*.32);
+            }
+            ctx.fillStyle='#cfe5ff'; ctx.beginPath();
+            for(let i=0;i<36;i++) {
+                const p=S.ambient[i%S.ambient.length], v=Math.sin(t*(1.3+p.rate)+i*4);
+                if(v>.76) ctx.rect(xp(.05+((i*.371)% .90)),yp(.19+((i*.093)% .22)),Math.max(1,w*.0015),Math.max(1,h*.002));
+            }
+            ctx.globalAlpha=.65; ctx.fill();
+        } else if (kind === 'dock') {
+            // A distant shuttle crosses the window, while the deck indicators pulse.
+            const phase=(t*.025)%1, x=xp(.12+phase*.72), y=yp(.30+Math.sin(t*.45)*.008);
+            ctx.globalAlpha=.7; ctx.fillStyle='#bcf4ff'; ctx.fillRect(x,y,Math.max(2,w*.003),Math.max(1,h*.002));
+            ctx.globalAlpha=.12; ctx.drawImage(S.artGlow,x-r.w*.035,y-r.h*.025,r.w*.07,r.h*.05);
+        } else if (kind === 'yard') {
+            // Cargo trolley and its suspended load move under the far crane.
+            const x=xp(.82+Math.sin(t*.27)*.045), y=yp(.145), end=yp(.245+Math.sin(t*.40)*.012);
+            ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=.8;
+            ctx.strokeStyle='#211b24'; ctx.lineWidth=Math.max(1,w*.0012);
+            ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,end); ctx.stroke();
+            ctx.fillStyle='#302631'; ctx.fillRect(x-r.w*.012,end,r.w*.024,r.h*.018);
+            ctx.fillStyle='rgba(255,177,104,.45)'; ctx.fillRect(x-r.w*.009,end+r.h*.003,r.w*.017,Math.max(1,h*.001));
+            ctx.globalCompositeOperation='screen';
+            ctx.globalAlpha=.16+.05*Math.sin(t*.7); ctx.drawImage(S.artGlow,xp(.49),yp(.30),r.w*.20,r.h*.15);
+        } else if (kind === 'tunnel') {
+            // Lit segments travel toward the far end, echoing the existing teal rails.
+            ctx.fillStyle='#8afaf0'; ctx.beginPath();
+            for(let i=0;i<8;i++) {
+                const u=(t*.18+i/8)%1, depth=u*u;
+                const y=yp(.08+depth*.26), x=xp(.5);
+                const width=r.w*(.006+depth*.035), height=Math.max(1,r.h*.0025);
+                ctx.rect(x-width/2,y,width,height);
+            }
+            ctx.globalAlpha=.35; ctx.fill();
+            ctx.globalAlpha=.10+.04*Math.sin(t*1.1); ctx.drawImage(S.artGlow,xp(.39),yp(.10),r.w*.22,r.h*.22);
+        } else if (kind === 'mirage') {
+            // The eclipse and its reflection breathe without adding moving rays.
+            ctx.globalAlpha=.11+.035*Math.sin(t*.8);
+            ctx.drawImage(S.artGlow,xp(.42),yp(.04),r.w*.17,r.h*.22);
+            ctx.globalAlpha=.13+.04*Math.sin(t*.7);
+            ctx.drawImage(S.artGlow,xp(.38+Math.sin(t*.25)*.015),yp(.48),r.w*.24,r.h*.10);
         }
-        ctx.fill();
-        ctx.restore();
+        // Sparse drifting motes; batched and intentionally kept away from the
+        // main playfield so the ball and paddles remain clear.
+        ctx.globalAlpha=.55; ctx.fillStyle=kind==='yard'?'#ffd0a2':kind==='mirage'?'#ffb6ce':'#ccefff';
+        ctx.beginPath();
+        for(const p of S.ambient) {
+            const x=xp((p.x+t*p.speed*.11)%1), y=yp((p.y+t*p.speed*.04)% .60);
+            ctx.rect(x,y,Math.max(1,p.size),Math.max(1,p.size));
+        }
+        ctx.fill(); ctx.restore();
     }
 
     class TourVenue {
@@ -912,13 +977,27 @@
         _bake(ctx, w, h) {
             const m = ctx.getTransform();
             const sx = Math.hypot(m.a, m.b) || 1, sy = Math.hypot(m.c, m.d) || 1;
-            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${this.art.ready ? 'art' : 'fallback'}`;
+            const key = `${w}|${h}|${sx.toFixed(3)}|${sy.toFixed(3)}|${this.art.ready ? 'art' : 'fallback'}|${this.art.motion ? 'parts' : 'flat'}`;
             if (key === this.key) return;
             this.key = key;
             const S = this.S = { sx, sy, w, h, fy: Math.round(h * FLOOR), t: this.t, cheer: 0, conf: [], sparks: [], speed: 0.3, phase: 0 };
             const [bc, bx] = canvas(w, h, sx, sy);
             if (this.art.ready) {
-                bakeArtwork(bx, this.art.image, w, h);
+                const source = this.art.motion?.base || this.art.image;
+                bakeArtwork(bx, source, w, h);
+                const scale = Math.max(w / source.naturalWidth, h / source.naturalHeight);
+                const dw = source.naturalWidth * scale, dh = source.naturalHeight * scale;
+                S.artRect = { x: (w-dw)/2, y: (h-dh)/2, w: dw, h: dh };
+                if (this.art.motion) {
+                    // Apply the same low-contrast grade to the extracted parts
+                    // once, not with a canvas filter on every animation frame.
+                    const m = this.art.motion, ac = document.createElement('canvas');
+                    ac.width = m.parts.naturalWidth; ac.height = m.parts.naturalHeight;
+                    const ax = ac.getContext('2d'); ax.drawImage(m.parts, 0, 0);
+                    ax.globalCompositeOperation = 'source-atop';
+                    ax.fillStyle = 'rgba(3,6,18,.34)'; ax.fillRect(0, 0, ac.width, ac.height);
+                    S.motion = { atlas: ac, regions: m.regions };
+                }
                 const random = rng(118 + this.kind.length);
                 S.ambient = Array.from({length: 20}, () => ({ x: random(), y: random() * .72, phase: random(), speed: .012 + random() * .02, rate: .5 + random(), size: 1 + random() * 1.3 }));
                 S.artGlow = glow(this.kind === 'hall' || this.kind === 'yard' || this.kind === 'tunnel' ? '255,194,120' : '150,190,255', 64);
@@ -995,7 +1074,7 @@
         draw(ctx, w, h, st) {
             this._bake(ctx, w, h);
             const S = this.S, dt = Math.max(0, Math.min(0.1, st.dt || 0));
-            if (!reduced()) this.t += dt;
+            this.t += dt;
             if (this._score >= 0 && st.score !== this._score) { this.cheer = 1; S.burst = true; }
             this._score = st.score;
             this.cheer = Math.max(0, this.cheer - dt * 0.4);

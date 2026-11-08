@@ -1,0 +1,17 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict'); const path=require('node:path'); const fs=require('node:fs');
+const root=path.resolve(__dirname,'..','game');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_PATH||undefined,args:['--use-gl=swiftshader','--enable-unsafe-swiftshader']});try{
+ const ctx=await browser.newContext({viewport:{width:960,height:540},reducedMotion:'reduce'});
+ await ctx.route('**/*',async route=>{const url=new URL(route.request().url());if(url.hostname!=='pingpong.local')return route.abort();if(url.pathname==='/harness'){return route.fulfill({contentType:'text/html',body:'<style>body{margin:0;background:#000}</style><canvas id="c" width="960" height="540"></canvas><script>window.PPSettings={get:()=>true}</script><script src="/js/render/tour-venues.js"></script>'});}const file=path.resolve(root,decodeURIComponent(url.pathname).replace(/^\/+/,''));if(!file.startsWith(root+path.sep))return route.abort();try{await route.fulfill({path:file})}catch{await route.fulfill({status:404})}});
+ const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://pingpong.local/harness');
+ for(const k of ['hall','final','dock','yard','tunnel','mirage']){
+  const result=await page.evaluate(async k=>{let c=document.querySelector('canvas'),x=c.getContext('2d'),v=new TourVenue(k);await new Promise((resolve,reject)=>{let end=Date.now()+10000;const poll=()=>{if(v.art.failed)return reject(Error('art failed'));if(v.art.ready&&(!['hall','mirage'].includes(k)||v.art.motion))return resolve();if(Date.now()>end)return reject(Error('motion load timed out '+k));setTimeout(poll,25)};poll()});v.draw(x,960,540,{dt:.1,score:0,rally:0});let a=x.getImageData(0,0,960,540).data;for(let i=0;i<40;i++)v.draw(x,960,540,{dt:.1,score:0,rally:0});let b=x.getImageData(0,0,960,540).data;let diff=0;for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>12)diff++;return {diff,time:v.t,motion:!!v.S.motion};},k);
+  assert.ok(result.time>3.5,`${k} must animate with reduced motion`);assert.ok(result.diff>70,`${k} visible frame difference ${result.diff}`);if(['hall','mirage'].includes(k))assert.ok(result.motion,`${k} parts loaded`);console.log(k,result);if(process.argv[2]){fs.mkdirSync(process.argv[2],{recursive:true});await page.locator('canvas').screenshot({path:path.join(process.argv[2],k+'.png')});}
+ }
+ const fallback = await page.evaluate(()=>{const v=new TourVenue('hall');v.art={ready:false,failed:true};const x=document.querySelector('canvas').getContext('2d');for(let i=0;i<10;i++)v.draw(x,960,540,{dt:.1,score:0});return v.t});
+ assert.ok(fallback>.9, 'procedural fallback also animates with reduced motion');
+ const crop = await page.evaluate(async()=>{const v=new TourVenue('hall');while(!v.art.motion)await new Promise(r=>setTimeout(r,20));const c=document.createElement('canvas');c.width=390;c.height=844;const x=c.getContext('2d');v.draw(x,390,844,{dt:.1,score:0});const a=x.getImageData(0,0,390,844).data;for(let i=0;i<25;i++)v.draw(x,390,844,{dt:.1,score:0});const b=x.getImageData(0,0,390,844).data;let n=0;for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2])>12)n++;return n});
+ assert.ok(crop>70, 'motion survives portrait cover crop');
+ assert.deepEqual(errors,[]);await ctx.close();
+ }finally{await browser.close()}})().catch(e=>{console.error(e);process.exit(1)});
