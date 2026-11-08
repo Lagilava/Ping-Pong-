@@ -644,7 +644,7 @@
         const target = 0.32 + Math.min(0.6, (st.rally || 0) * 0.035) + S.cheer * 0.5;
         S.speed += (target - S.speed) * Math.min(1, dt * 2.5);
         S.phase = (S.phase + dt * S.speed * calm) % 1;
-        const N = 15, buckets = [new Path2D(), new Path2D(), new Path2D()];
+        const N = 10, buckets = [new Path2D(), new Path2D(), new Path2D()];
         for (let i = 0; i < N; i++) {
             const u = ((i + S.phase) / N);
             const k = Math.pow(u, 2.6);
@@ -747,8 +747,8 @@
         for (const st2 of S.stones) {
             const bob = Math.sin(t * 0.7 * calm + st2.p) * 6, y = st2.y + bob;
             ctx.fillStyle = '#12082a';
-            ctx.beginPath(); ctx.moveTo(st2.x - st2.w, y + st2.h); ctx.lineTo(st2.x - st2.w * 0.6, y); ctx.lineTo(st2.x + st2.w * 0.7, y + 3); ctx.lineTo(st2.x + st2.w, y + st2.h); ctx.closePath(); ctx.fill();
-            ctx.fillStyle = 'rgba(255,190,140,0.35)'; ctx.fillRect(st2.x - st2.w * 0.6, y, 2, st2.h * 0.9);
+            ctx.beginPath(); ctx.moveTo(st2.x - st2.w * .9, y + st2.h * .35); ctx.lineTo(st2.x - st2.w * .35, y); ctx.lineTo(st2.x + st2.w * .65, y + st2.h * .12); ctx.lineTo(st2.x + st2.w, y + st2.h * .62); ctx.lineTo(st2.x + st2.w * .1, y + st2.h); ctx.lineTo(st2.x - st2.w * .7, y + st2.h * .8); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = 'rgba(255,190,140,0.16)'; ctx.beginPath(); ctx.moveTo(st2.x - st2.w * .35, y); ctx.lineTo(st2.x + st2.w * .08, y + st2.h * .36); ctx.lineTo(st2.x - st2.w * .7, y + st2.h * .8); ctx.lineTo(st2.x - st2.w * .9, y + st2.h * .35); ctx.closePath(); ctx.fill();
             // Reflection, mirrored about the horizon, dimmed and rippling.
             const ry = horizon + (horizon - (y + st2.h)), wob = Math.sin(t * 2.3 * calm + st2.p) * 3;
             ctx.save(); ctx.globalAlpha = 0.4; ctx.fillStyle = '#12082a';
@@ -769,6 +769,74 @@
     }
 
     // ════════════════════════════════════════════════════════════════════
+    // Venue dressing is baked into the scene on resize, never redrawn per frame.
+    function dressVenue(x, w, h, S, kind) {
+        const fy = S.fy, fh = h - fy;
+        x.save();
+        if (kind === 'hall') {
+            // Court paint and the shadow below the bleachers ground the hall.
+            const shade = x.createLinearGradient(0, fy - h * .035, 0, fy + h * .09);
+            shade.addColorStop(0, 'rgba(12,7,4,.38)'); shade.addColorStop(1, 'rgba(12,7,4,0)');
+            x.fillStyle = shade; x.fillRect(0, fy - h * .035, w, h * .125);
+            x.strokeStyle = 'rgba(247,223,181,.25)'; x.lineWidth = Math.max(1, h * .002);
+            x.beginPath(); x.moveTo(w * .18, h); x.lineTo(w * .30, fy + fh * .38);
+            x.lineTo(w * .70, fy + fh * .38); x.lineTo(w * .82, h); x.stroke();
+            x.beginPath(); x.ellipse(w * .5, fy + fh * .76, w * .14, fh * .10, 0, 0, TAU); x.stroke();
+        } else if (kind === 'final') {
+            // Stepped fascia and cool reflections give the championship bowl depth.
+            for (let i = 0; i < 3; i++) {
+                const y = h * (.42 + i * .038);
+                x.fillStyle = 'rgba(2,6,17,.48)'; x.fillRect(0, y, w, h * .008);
+                x.fillStyle = 'rgba(97,151,231,.16)'; x.fillRect(0, y, w, Math.max(1, h * .0015));
+            }
+            x.strokeStyle = 'rgba(113,154,220,.15)'; x.lineWidth = Math.max(1, h * .002);
+            x.beginPath(); x.moveTo(w * .12, h); x.lineTo(w * .30, fy + fh * .16);
+            x.lineTo(w * .70, fy + fh * .16); x.lineTo(w * .88, h); x.stroke();
+            const sheen = x.createRadialGradient(w * .5, fy, 0, w * .5, fy, w * .4);
+            sheen.addColorStop(0, 'rgba(119,161,224,.15)'); sheen.addColorStop(1, 'rgba(119,161,224,0)');
+            x.fillStyle = sheen; x.fillRect(0, fy, w, fh);
+        } else if (kind === 'dock') {
+            // Architectural side frames and deck panels imply a viewing bay.
+            x.fillStyle = 'rgba(2,5,15,.6)';
+            x.beginPath(); x.moveTo(0,0); x.lineTo(w*.085,0); x.lineTo(w*.04,fy); x.lineTo(0,fy); x.fill();
+            x.beginPath(); x.moveTo(w,0); x.lineTo(w*.915,0); x.lineTo(w*.96,fy); x.lineTo(w,fy); x.fill();
+            x.strokeStyle = 'rgba(117,165,237,.2)'; x.lineWidth = Math.max(1,h*.003);
+            x.beginPath(); x.moveTo(w*.04,fy); x.lineTo(w*.085,0); x.moveTo(w*.96,fy); x.lineTo(w*.915,0); x.stroke();
+            x.fillStyle = 'rgba(66,120,199,.11)';
+            for (const side of [0,1]) { const px = side ? w*.92 : w*.025; x.fillRect(px, fy+fh*.18, w*.055, fh*.012); x.fillRect(px, fy+fh*.25, w*.035, fh*.008); }
+        } else if (kind === 'yard') {
+            // Cranes and distant work lights add a real harbour silhouette.
+            x.strokeStyle = 'rgba(26,14,35,.55)'; x.lineWidth = Math.max(1,h*.003);
+            for (const f of [.13,.88]) {
+                const px=w*f, y=fy-h*.13;
+                x.beginPath(); x.moveTo(px,fy); x.lineTo(px,y); x.lineTo(px+w*.07,y-h*.075);
+                x.moveTo(px-w*.035,y); x.lineTo(px+w*.085,y); x.stroke();
+            }
+            x.strokeStyle = 'rgba(228,184,129,.11)'; x.lineWidth = Math.max(1,h*.002);
+            for (const f of [.26,.74]) { x.beginPath(); x.moveTo(w*f,fy+fh*.23); x.lineTo(w*(f-.04),h); x.stroke(); }
+        } else if (kind === 'tunnel') {
+            // Side ribs turn a flat ring graphic into a built tunnel.
+            x.fillStyle = 'rgba(6,8,20,.65)';
+            for (const side of [0,1]) {
+                x.save(); if (side) { x.translate(w,0); x.scale(-1,1); }
+                x.beginPath(); x.moveTo(0,0); x.lineTo(w*.16,0); x.lineTo(w*.33,h*.37); x.lineTo(w*.18,h); x.lineTo(0,h); x.fill();
+                x.strokeStyle = 'rgba(238,164,76,.25)'; x.lineWidth = Math.max(1,h*.003);
+                x.beginPath(); x.moveTo(w*.16,0); x.lineTo(w*.33,h*.37); x.lineTo(w*.18,h); x.stroke();
+                x.strokeStyle = 'rgba(116,153,195,.14)'; x.lineWidth = 1;
+                for(let i=0;i<5;i++) { const y=h*(.08+i*.18); x.beginPath(); x.moveTo(0,y); x.lineTo(w*(.13+i*.025),h*(.15+i*.13)); x.stroke(); }
+                x.restore();
+            }
+        } else if (kind === 'mirage') {
+            // Wisps of reflected colour replace the hard, empty horizon.
+            const haze = x.createLinearGradient(0, fy-h*.05, 0, fy+fh*.3);
+            haze.addColorStop(0,'rgba(255,183,148,0)'); haze.addColorStop(.35,'rgba(255,187,155,.14)'); haze.addColorStop(1,'rgba(255,183,148,0)');
+            x.fillStyle=haze; x.fillRect(0,fy-h*.05,w,h*.05+fh*.3);
+            x.strokeStyle='rgba(255,215,194,.12)'; x.lineWidth=Math.max(1,h*.002);
+            for(let i=0;i<9;i++) { const y=fy+fh*(.08+i*.07), len=w*(.03+(i%3)*.025), px=w*(.15+((i*37)%70)/100); x.beginPath(); x.moveTo(px,y); x.lineTo(px+len,y); x.stroke(); }
+        }
+        x.restore();
+    }
+
     class TourVenue {
         constructor(kind) {
             this.kind = ['hall', 'final', 'dock', 'yard', 'tunnel', 'mirage'].includes(kind) ? kind : 'hall';
@@ -835,6 +903,7 @@
                 const sh = h * 0.6 - h * 0.548 - 4;
                 S.strip = ticker('WORLD CHAMPIONSHIP  \u25C6  MATCH POINT  \u25C6  CHAMPIONS  \u25C6', sh, sh * 0.62, '#0d0a02', '#ffd96a');
             }
+            dressVenue(bx, w, h, S, this.kind);
             // Bake a gentle edge and floor grade once per size. This unifies the
             // venues and keeps the bright action in the middle easy to read.
             const grade = bx.createRadialGradient(w * 0.5, h * 0.48, h * 0.12, w * 0.5, h * 0.48, Math.max(w, h) * 0.7);
