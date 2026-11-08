@@ -768,12 +768,18 @@
 
         poolFor(key) {
             const mode = this.modeId();
-            const own = this.rivalPool(key);
-            return own.concat(own, [].concat(
+            const rival = this.rival();
+            if (rival) {
+                // Tour opponents keep their own voice even for rare tactical events.
+                // If the dialogue file is unavailable, prefer their existing lines.
+                const authored = window.PPTourDialogue?.pool(rival.id, key);
+                return authored?.length ? authored : this.rivalPool(key);
+            }
+            return [].concat(
                 LINES[key] || [],
                 MODE_LINES[key + '@' + mode] || [],
                 STYLE_LINES[key + '@' + this.style.id] || [],
-                STYLE_LINES[key + '@d' + this.difficulty] || []));
+                STYLE_LINES[key + '@d' + this.difficulty] || []);
         }
 
         line(key, fill) {

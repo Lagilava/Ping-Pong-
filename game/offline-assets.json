@@ -1,5 +1,5 @@
 {
- "hash": "45484865c9c6cdb7",
+ "hash": "90fef7b78332f2f6",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -190,6 +190,7 @@
   "js/systems/profile.js",
   "js/systems/progression.js",
   "js/systems/settings.js",
+  "js/systems/tour-dialogue.js",
   "js/systems/tour-rivals.js",
   "js/systems/tour-stage.js",
   "js/systems/tour.js",

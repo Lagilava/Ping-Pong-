@@ -70,7 +70,8 @@
         const lost = T.lossesOf(stage.id) > 0;
         const played = T.starsOf(stage.id) > 0;
         const pool = lost ? rival.afterLoss : played ? rival.rematch : rival.meet;
-        const quote = Rv.pick(pool && pool.length ? pool : rival.meet);
+        const introPool = !lost && !played ? window.PPTourDialogue?.pool(rival.id, 'intro') : null;
+        const quote = Rv.pick(introPool?.length ? introPool : (pool && pool.length ? pool : rival.meet));
         const tier = T.TIERS[stage.tier];
         const firstOfTier = T.STAGES.find((s) => s.tier === stage.tier)?.id === stage.id && !played && !lost;
         const mode = ({ classic: 'Classic', gravity: 'Gravity', speed: 'Speed', obstacle: 'Obstacle' })[stage.mode] || stage.mode;
@@ -120,7 +121,8 @@
         const rival = stage && Rv?.get(stage.rival);
         if (!rival) { done(); return; }
         const won = !!result.won;
-        const quote = Rv.pick(won ? rival.youWin : rival.youLose);
+        const resultPool = window.PPTourDialogue?.pool(rival.id, won ? 'end_loss' : 'end_win');
+        const quote = Rv.pick(resultPool?.length ? resultPool : (won ? rival.youWin : rival.youLose));
         const stars = [1, 2, 3].map((i) => `<i class="${won && i <= result.earned ? 'on' : ''}" style="--d:${0.7 + i * 0.35}s">&#9733;</i>`).join('');
         const goals = won ? stage.goals.map((g, i) =>
             `<li class="${result.goals[i] ? 'done' : ''}">${result.goals[i] ? '&#10003;' : '&#10007;'} ${esc(g.text)}</li>`).join('') : '';
