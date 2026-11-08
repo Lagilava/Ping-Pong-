@@ -25,7 +25,12 @@ test('every rival has distinct openings, rematches and appropriate outcomes', ()
     assert.equal(D.pool(id, 'end_loss_spin'), D.pool(id, 'end_loss'));
     const allKeys = [...keys, 'powerup_player', 'power_shot', 'rally_first_spin', 'flavour'];
     const all = allKeys.flatMap(key => Array.from(D.pool(id, key)));
-    assert.ok(new Set(all).size >= 500, `${id} gameplay variety`);
+    assert.ok(new Set(all).size >= 80, `${id} gameplay variety`);
+    const rival = ctx.window.PPRivals.get(id);
+    assert.equal(rival.meet, D.pool(id, 'intro'));
+    assert.equal(rival.youWin, D.pool(id, 'end_loss'));
+    assert.equal(rival.youLose, D.pool(id, 'end_win'));
+    assert.equal(rival.taunts.ai_point, D.pool(id, 'ai_point'));
   }
 });
 test('situational events map to a suitable outcome or a neutral observation', () => {

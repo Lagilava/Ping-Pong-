@@ -1,10 +1,9 @@
 // The Tour's cast: eight rivals with a face, a voice and a reason to beat them.
 // Data only, plus the portrait painter. tour.js reads window.PPRivals for the
 // versus screen, the Tour map, result reactions and the in-match chatter
-// (ai-opponent.js adds the `taunts` pools to the computer's own lines).
+// (ai-opponent.js uses their own pools instead of generic AI lines).
 //
-// Voice rules (same as the rest of the game's taunts): dry, a little rude, no
-// emoji. Each rival has one clear manner so they are easy to tell apart.
+// Each rival has a distinct voice; dialogue is shared with the Tour UI and AI.
 (function () {
     'use strict';
 
@@ -141,169 +140,56 @@ ${eyes(70, 9, 3.6)}
 <path d="M36 112 L84 112" stroke="#ffd45c" stroke-width="3"/><path d="M60 112 L60 150" stroke="#ffd45c" stroke-width="2.4"/>`),
     };
 
+    // Portraits and bios remain here. Dialogue has one source of truth in
+    // tour-dialogue.js, including the compatibility fields used by older UI.
     const R = {
         pip: {
             id: 'pip', name: 'Pip', title: 'The Rookie', accent: '#b8ff4a', home: 'Maple Street Sports Hall',
             bio: 'Club junior who has never lost a home game, because nobody else shows up.',
-            meet: ['Oh! You\'re the new one? I\'ve been practising against a wall. It never complains. You will, though.',
-                   'Please go easy on me. That\'s a joke. I trained for this. Slightly.'],
-            rematch: ['Again? I\'ve been thinking about it. I still don\'t have a plan.'],
-            afterLoss: ['I\'ve been practising since last time. The wall helped. The wall is smug about it.'],
-            youWin: ['Okay. Okay okay okay. Fine. Good game. Please don\'t tell the club.', 'I want a rematch. Not today. Soon.'],
-            youLose: ['I won! Does this count? Can I put it on the board?', 'Sorry! No I\'m not. Yes I am. A bit.'],
-            taunts: {
-                intro: ['Hi! Good luck! I mean it! Mostly!', 'The wall and I have a system. It involves you losing.', 'Don\'t mind me. I\'m just very, very consistent.'],
-                ai_point: ['Oh! That counted! Wow!', 'I didn\'t even plan that. Don\'t tell anyone.', 'Point to me. Is that rude? It feels rude.', 'The wall taught me that. It\'s a good wall.'],
-                player_point: ['Nice one! That\'s annoying, but nice.', 'Okay yes, that was good. I\'m writing that down.', 'Hey! I was ready for that! In theory!'],
-                miss_any: ['I blinked. I do that.', 'Sorry, my brain was getting a snack.'],
-                match_point_ai: ['One more point. I might cry. Don\'t look.'],
-                match_point_player: ['You\'re one away. Be gentle with me. Or don\'t.'],
-                end_win: ['I WON. Somebody witness this.', 'Good game! Great game! I\'m so smug right now.'],
-                end_loss: ['That was fun! Rude, but fun. Rematch?', 'You\'re really good. I hate that. Teach me.'],
-                rally_long: ['This is the longest rally of my life and I love it.'],
-            },
         },
         vee: {
             id: 'vee', name: 'Vee', title: 'The Sniper', accent: '#ff3a5c', home: 'Maple Street Sports Hall',
             bio: 'Club champion. Hasn\'t smiled since the semi-finals, and that was a typo.',
-            meet: ['You beat Pip. Good for you. He\'s the easy one, and I\'m the reason he\'s nervous.', 'Corners. That\'s the whole plan. Enjoy the cardio.'],
-            rematch: ['Back. Fine. I\'ll aim somewhere new.'],
-            afterLoss: ['Last time was a warm-up. I wasn\'t trying. Mostly.'],
-            youWin: ['Hm. That was acceptable.', 'You found the gap. Rare. Don\'t get used to it.'],
-            youLose: ['Clean. Expected.', 'Come back when you can read a corner.'],
-            taunts: {
-                intro: ['Corners. All of them. Go.', 'I don\'t miss. Adjust accordingly.', 'One shot. One corner. Your move.'],
-                ai_point: ['Line. As drawn.', 'Gap. Taken.', 'You looked left. I used right.', 'That one had your name on it. Spelled correctly.'],
-                player_point: ['Lucky.', 'Noted. It won\'t happen twice.', 'Fine. One.'],
-                miss_any: ['Unscheduled. Won\'t repeat.', 'Wind.'],
-                match_point_ai: ['One point. I\'ll make it quiet.'],
-                match_point_player: ['You\'re close. Cute.'],
-                end_win: ['As expected. Next.', 'Corner by corner. That\'s the game.'],
-                end_loss: ['Hm. Impressive. Annoyingly.', 'You earned that. Don\'t tell anyone I said so.'],
-                rally_long: ['Long rally. Boring. I preferred the corners.'],
-            },
         },
         nova: {
             id: 'nova', name: 'Nova', title: 'The Wanderer', accent: '#5ee7ff', home: 'Ringworld Dock 7',
             bio: 'Flew in from a station nobody can find on a map. Talks to the ball. It answers.',
-            meet: ['Regional now! Fun fact: I read the stars and they said you\'d lose. Fun fact two: I\'m lying.', 'Gravity is just a suggestion. Wanna see my suggestion?'],
-            rematch: ['The universe brought you back. It has a sense of humour.'],
-            afterLoss: ['I\'ve consulted three planets about last time. They all laughed.'],
-            youWin: ['Ha! You bent the whole orbit! Respect, space cadet.', 'Okay, the stars were wrong. Stars lie. It\'s their thing.'],
-            youLose: ['Called it! The cosmos told me! I\'ll thank it later.', 'Gravity wins. Gravity always wins. Rude.'],
-            taunts: {
-                intro: ['Welcome to my side of the galaxy! Please don\'t touch anything!', 'I fake left, mean right, and sometimes mean the moon.', 'Pay attention. No, not there. Wait, there. See? Already working.'],
-                ai_point: ['The universe said yes!', 'That was physics. Rude physics.', 'Wormhole\'s on my side. It owes me money.', 'Plot twist: I did that on purpose.'],
-                player_point: ['Whoa! You sneaky comet!', 'The stars did NOT mention that.', 'Fine. You get one star. Don\'t spend it.'],
-                miss_any: ['A tiny asteroid hit my brain.', 'Gravity blinked.'],
-                match_point_ai: ['One more and the cosmos is mine.'],
-                match_point_player: ['You\'re one away. The stars are gossiping about it.'],
-                end_win: ['Told you! The stars told me! I told you!', 'Back to space I go. Thanks for the snack.'],
-                end_loss: ['You warped me! Teach me that trick!', 'Okay, fair. Even the sun sets. Dramatic exit now.'],
-                rally_long: ['We\'re orbiting! This is basically astronomy!'],
-            },
         },
         brick: {
             id: 'brick', name: 'Brick', title: 'The Foreman', accent: '#ff7620', home: 'Dockside Container Yard',
             bio: 'Runs the yard. Hits the ball like it owes him a pallet. Never apologised, ever.',
-            meet: ['Rules are simple. I hit it. You chase it. Sound good? Doesn\'t matter.', 'Gloves off. I don\'t wear any. Stretch.'],
-            rematch: ['You again. Good. I needed the workout.'],
-            afterLoss: ['You got lucky. I\'ve fixed my back. No excuses now.'],
-            youWin: ['...Fine. That was clean. Don\'t make me say it twice.', 'You\'re hired. As an opponent. Come back.'],
-            youLose: ['Work harder. Hit the gym. Hit the ball. Same thing.', 'That\'s what a deadline feels like.'],
-            taunts: {
-                intro: ['Hard hat on. Mercy off.', 'I hit hard and I hit far. Stretch first.', 'This yard has three rules. You\'ll learn the other two.'],
-                ai_point: ['Delivered.', 'Heavy. Like me.', 'That\'s called shipping.', 'Move your feet. Not your mouth.'],
-                player_point: ['Lucky bounce. Doesn\'t count.', 'Huh. Fine. One.', 'Don\'t get comfortable on my floor.'],
-                miss_any: ['Slippery floor.', 'Crane distracted me.'],
-                match_point_ai: ['One more load. Then you\'re off site.'],
-                match_point_player: ['You\'re one away? Make it count. I won\'t help.'],
-                end_win: ['Clocked off. See you at six.', 'That\'s a day\'s work.'],
-                end_loss: ['Hm. You\'ve got a decent arm. Don\'t tell anyone.', 'Take the rest of the day off. You earned it.'],
-                rally_long: ['Now we\'re working.'],
-            },
         },
         juno: {
             id: 'juno', name: 'Juno', title: 'The Streak', accent: '#ffbe00', home: 'Redline Wind Tunnel',
             bio: 'Test driver who got bored of the track and wants the tunnel. Talks as fast as she plays.',
-            meet: ['National league! Everything\'s faster here, including how quickly I\'ll beat you. Ready? Ready. Too slow.', 'Blink and you\'ll miss it. Literally. Everyone does.'],
-            rematch: ['Back for round two? Good. Round one was a warm-up lap.'],
-            afterLoss: ['I\'ve re-tuned everything. Engine, nerves, snacks. You\'re toast.'],
-            youWin: ['You kept up! Nobody keeps up! Do it again!', 'Okay okay okay, you\'re quick. Don\'t let it go to your head. Or do. Not a lot.'],
-            youLose: ['Photo finish? No. Not even close. Sorry. No I\'m not.', 'Too slow! Next time bring a faster paddle.'],
-            taunts: {
-                intro: ['Green flag! Red flag for you!', 'Fasten your seatbelt. You\'ll need it. You\'ll also need a map.', 'The tunnel\'s mine. You\'re a very polite passenger.'],
-                ai_point: ['Zoom! That\'s the sound of your point leaving.', 'Gone before you looked.', 'That\'s a sub-second return. Frame it.', 'Hit the apex. Hit the point.'],
-                player_point: ['Okay! That was quick! For you!', 'Hey, who gave you rocket fuel?', 'Fine, fine. One lap to you.'],
-                miss_any: ['Brake lines. Always the brake lines.', 'I\'m not slow, the ball\'s early.'],
-                match_point_ai: ['Last lap! Smell that? That\'s victory. And burnt rubber.'],
-                match_point_player: ['You\'re one away. The crowd\'s losing it. I\'m not.'],
-                end_win: ['Chequered flag! Thanks for racing!', 'That\'s the fastest I\'ve ever won. New record. Again.'],
-                end_loss: ['You passed me! On a straight! How!', 'I want a rematch. Right now. Actually yesterday.'],
-                rally_long: ['This rally\'s so long I could get a coffee. I won\'t. Too slow.'],
-            },
         },
         mirage: {
             id: 'mirage', name: 'Mirage', title: 'The Illusionist', accent: '#d28bff', home: 'The Salt Pan',
             bio: 'Nobody has seen the same Mirage twice. The ball may be real. That\'s the rumour.',
-            meet: ['You\'re looking at me. Or at a me. Which one is playing? Wrong answer.', 'Welcome to the flat. Nothing here is where you left it.'],
-            rematch: ['Did we play before? I don\'t recall. Neither do you, if you\'re smart.'],
-            afterLoss: ['The last one wasn\'t me. This one is. Probably.'],
-            youWin: ['Good. You saw through it. Don\'t ask me how.', 'A lovely defeat. I\'ll pretend it was a different me.'],
-            youLose: ['Did that happen? Check your memory. Then check the scoreboard.', 'You lost. Or I did. Ask me again later.'],
-            taunts: {
-                intro: ['I never hit it where I\'m pointing. Call it a feature.', 'Look at the paddle. Then look away. Everyone fails here.', 'Two of me. One of me. Neither of me. Serve.'],
-                ai_point: ['Was that real? It scored.', 'Gone. Like a rumour.', 'The ball was never where you thought. Don\'t take it personally.', 'A shimmer. A point. A moral.'],
-                player_point: ['Interesting. A point appears.', 'You scored? How quaint.', 'That wasn\'t me. That was my echo.'],
-                miss_any: ['A trick of the light. Mine.', 'I blinked. Or did I?'],
-                match_point_ai: ['One point left. It may or may not exist.'],
-                match_point_player: ['You\'re one away. It may not be there when you arrive.'],
-                end_win: ['Was there a game? There was a winner. That\'s enough.', 'Gone before the applause.'],
-                end_loss: ['You saw me. Interesting. Quiet about that.', 'Even mirages end at the horizon.'],
-                rally_long: ['This rally is a mirage. It never ends, and it never began.'],
-            },
         },
         atlas: {
             id: 'atlas', name: 'Atlas', title: 'The Immovable', accent: '#7ab4ff', home: 'Centre Court',
             bio: 'Five-time defending semi-finalist. Has returned every ball ever served to him. Allegedly.',
-            meet: ['The final stage. Everyone says that, I think. I\'ve outlasted three coaches and two stadiums.', 'Hit it anywhere. I\'ll be there. Usually before it.'],
-            rematch: ['You\'re persistent. I respect that. I\'ll respect it from here.'],
-            afterLoss: ['Last time I was tired. Today I\'m patient. Different thing.'],
-            youWin: ['You broke the wall. Well. Hm. There is a first time for everything.', 'Go. Take the final. I\'ll be here. I\'m always here.'],
-            youLose: ['Patience, as predicted. Try again in a year.', 'You can\'t out-run a mountain. You can only outlast it.'],
-            taunts: {
-                intro: ['I\'ve outlasted bigger egos than yours.', 'No hurry. I have all day. I have all week.', 'Go ahead. Try something clever. I love clever. It runs out.'],
-                ai_point: ['Everything comes back.', 'Nothing gets past me. Not ego, not spin.', 'That was patience, not power.', 'I\'d say I\'m sorry. I\'m not.'],
-                player_point: ['A point. Noted. Archived.', 'You scored. Mountains lose pebbles. It\'s fine.', 'Clever. Won\'t work twice.'],
-                miss_any: ['A rock slipped.', 'Even mountains yawn.'],
-                match_point_ai: ['One more. Then the long silence.'],
-                match_point_player: ['One away. Don\'t trip on the finish line.'],
-                end_win: ['Everything returns. So will you.', 'Good effort. Try again in a year.'],
-                end_loss: ['You\'ve moved a mountain. Mind the avalanche.', 'Go. Take the last stage. It\'s heavier than I was.'],
-                rally_long: ['Finally. A rally worth my afternoon.'],
-            },
         },
         titan: {
             id: 'titan', name: 'Titan', title: 'The Champion', accent: '#ffd45c', home: 'The Grand Final',
             bio: 'Undefeated, unsmiling and under a gold mask. Wins on points and on principle. Mostly on principle.',
-            meet: ['So. You\'re the one who climbed here. Impressive. Irrelevant. Take your place.', 'No one reaches this court. You\'re a rumour I\'ll end personally.'],
-            rematch: ['You\'re back. Good. Ending you once wasn\'t satisfying enough.'],
-            afterLoss: ['I\'ve studied you. Every habit. Every flinch. Begin.'],
-            youWin: ['...Impossible. And yet. The court is yours. Wear it carefully.', 'You are the champion. Mask off. Congratulations. Now go away.'],
-            youLose: ['As written. Return when you are worthy. Or louder.', 'You were never in the book. I\'ll keep it that way.'],
-            taunts: {
-                intro: ['I have no rivals. Only spectators.', 'Kneel. I mean, serve. It\'s similar.', 'The crowd came for a coronation. Not yours.'],
-                ai_point: ['Another for the book.', 'Regal. As always.', 'Observe: a champion at work.', 'Do try to keep up. The anthem ends soon.'],
-                player_point: ['A point. Enjoy it. It\'s on loan.', 'Impressive. Don\'t hold your breath.', 'You scored. The crowd gasped. I did not.'],
-                miss_any: ['An oversight. It will be corrected.', 'The ball offended me.'],
-                match_point_ai: ['One more point and the crown is mine. Again.'],
-                match_point_player: ['One away. The crown is heavy. Do you want it?'],
-                end_win: ['Back to the throne. Next.', 'A tidy coronation. You may applaud.'],
-                end_loss: ['The crown... is yours. Wear it more kindly than I did.', 'A new champion. I suppose the court needed one.'],
-                rally_long: ['Hm. A worthy rally. Almost.'],
-            },
         },
     };
+    const linePool = (id, key) => window.PPTourDialogue?.pool(id, key) || [];
+    for (const rival of Object.values(R)) {
+        Object.defineProperties(rival, {
+            meet: { get: () => linePool(rival.id, 'intro') },
+            rematch: { get: () => linePool(rival.id, 'rematch') },
+            afterLoss: { get: () => linePool(rival.id, 'afterLoss') },
+            youWin: { get: () => linePool(rival.id, 'end_loss') },
+            youLose: { get: () => linePool(rival.id, 'end_win') },
+            taunts: { get: () => Object.fromEntries([
+                'intro', 'ai_point', 'player_point', 'miss_any', 'match_point_ai',
+                'match_point_player', 'end_win', 'end_loss', 'rally_long'
+            ].map(key => [key, linePool(rival.id, key)])) }
+        });
+    }
 
     // Story beats shown on the versus screen at the first stage of each tier.
     const TIER_STORY = [
