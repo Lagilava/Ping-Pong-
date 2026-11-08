@@ -47,7 +47,7 @@
             { type: 'keys', label: 'Keys', help: 'Click a key, then press the new one. Esc cancels.', pcOnly: true },
             { type: 'toggle', key: 'padRumble', label: 'Controller vibration', help: 'Gamepads rumble on hits and goals.' },
             { type: 'toggle', key: 'phoneVibrate', label: 'Phone vibration', help: 'Phones buzz when a point is scored.' },
-            { type: 'note', html: '<p><b>Mouse</b><br>Hold and drag on your half of the court.</p><p><b>Touch</b><br>Rest your thumb on the thumb pad and slide: a short slide crosses the whole court. In local 1v1, each player slides on their own half. Use the round ability button; tap with a second finger to fire a laser.</p><p><b>Gamepad</b><br>Left stick moves · A fires · Start pauses.</p>' },
+            { type: 'note', html: '<p><b>Mouse</b><br>Hold and drag on your half of the court.</p><p><b>Touch</b><br>Rest your thumb on the thumb pad and slide: a short slide crosses the whole court. Use the round ability button; tap with a second finger to fire a laser.</p><p><b>Gamepad</b><br>Left stick moves · A fires · Start pauses.</p>' },
         ],
         display: [
             { type: 'seg', key: 'graphics', label: 'Visual quality', help: 'Trade effects for frame rate.',

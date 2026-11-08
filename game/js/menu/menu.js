@@ -1895,6 +1895,7 @@
             const optEls = document.querySelectorAll('.opt');
             optEls.forEach(o => {
                 o.addEventListener('click', function () {
+                    if (window.PPDevice?.touch && this.dataset.mp === 'true') return;
                     optEls.forEach(x => { x.classList.remove('sel'); x.setAttribute('aria-checked', 'false'); });
                     this.classList.add('sel');
                     this.setAttribute('aria-checked', 'true');
@@ -1910,7 +1911,7 @@
             document.getElementById('btnGo')?.addEventListener('click', () => {
                 if (window.game && menuSelected) {
                     const chosenMode = menuSelected;
-                    const chosenMultiplayer = menuIsMP;
+                    const chosenMultiplayer = menuIsMP && !window.PPDevice?.touch;
                     const start = () => {
                         window.PPTour?.clear();
                         window.ppEnterMobilePlay?.();
@@ -2276,7 +2277,7 @@
                     const launch = window.__ppStartCustomMatchCore || window.__ppStartCustomMatch;
                     if (typeof launch === 'function') { try { await launch(event); } catch (e) { console.error('[Customise] start failed:', e); } return; }
                     const game = window.game;
-                    if (!game) return;
+                    if (!game || window.PPDevice?.touch) return;
                     if (typeof window.__ppSyncCustomSettingsFromControls === 'function') window.__ppSyncCustomSettingsFromControls();
                     game.customSettings.previewModeActive = false;
                     game.isMultiplayer = true;

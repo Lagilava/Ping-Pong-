@@ -514,3 +514,8 @@ body.pp-paused .pp-thumb-pad { display: none; }
 @media (prefers-reduced-motion: reduce) {
     .pp-thumb-pad.intro { animation: none; }
 }
+
+/* Local two-player setup is unavailable on phones and tablets. */
+html.pp-touch #modal .opt[data-mp="true"],
+html.pp-touch .pvp-option[data-multiplayer="true"],
+html.pp-touch #customStartMatchBtn { display: none !important; }

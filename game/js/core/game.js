@@ -2113,7 +2113,12 @@ class Game {
                 pvpSelector.classList.add('active');
                 backToModes.classList.remove('hidden');
                 if (startBtnText) startBtnText.textContent = 'Start Battle';
-                const selectedOpponent = pvpSelector.querySelector('.pvp-option.selected');
+                let selectedOpponent = pvpSelector.querySelector('.pvp-option.selected');
+                if (window.PPDevice?.touch && selectedOpponent?.dataset.multiplayer === 'true') {
+                    selectedOpponent.classList.remove('selected');
+                    selectedOpponent = pvpSelector.querySelector('.pvp-option[data-multiplayer="false"]');
+                    selectedOpponent?.classList.add('selected');
+                }
                 this.isMultiplayer = selectedOpponent?.dataset.multiplayer === 'true';
                 inPvPSelection = true;
             };
@@ -2124,6 +2129,7 @@ class Game {
 
             pvpSelector.querySelectorAll('.pvp-option').forEach(opt => {
                 opt.addEventListener('click', () => {
+                    if (window.PPDevice?.touch && opt.dataset.multiplayer === 'true') return;
                     pvpSelector.querySelectorAll('.pvp-option').forEach(o => o.classList.remove('selected'));
                     opt.classList.add('selected');
                     this.isMultiplayer = opt.dataset.multiplayer === 'true';
@@ -2199,6 +2205,10 @@ class Game {
 
             const startSelectedMatch = async (forceCustomStart = false) => {
                 const selectedMode = forceCustomStart ? 'customise' : getSelectedMenuMode();
+                if (window.PPDevice?.touch) {
+                    if (selectedMode === 'customise' && forceCustomStart) return;
+                    if (selectedMode !== 'customise') this.isMultiplayer = false;
+                }
                 if (selectedMode === 'customise') {
                     syncCustomSettingsFromControls();
                 }

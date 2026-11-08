@@ -5,7 +5,7 @@
         const nav = navigator;
         const coarse = matchMedia('(pointer: coarse)').matches;
         const small = Math.min(screen.width || 9999, screen.height || 9999) < 820;
-        const mobile = !!(nav.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(nav.userAgent || '') || (coarse && small));
+        const mobile = !!(nav.userAgentData?.mobile || /Android|iPhone|iPad|iPod|Mobile/i.test(nav.userAgent || '') || (/Macintosh/i.test(nav.userAgent || '') && (nav.maxTouchPoints || 0) > 1) || (coarse && small));
         if (mobile) document.documentElement.classList.add('pp-mobile');
         // Which controls the tutorials and on-screen buttons are for, decided
         // once at start: phones and tablets (a touch screen with no mouse or
@@ -17,6 +17,19 @@
         if (touch) document.documentElement.classList.add('pp-touch');
     } catch (e) {
         window.PPDevice = Object.freeze({ touch: false, kind: 'pc' });
+    }
+
+    // Local two-player matches require a desktop. Keep online multiplayer on
+    // touch devices, including Custom's separate online-room button.
+    if (window.PPDevice.touch) {
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('#modal .opt[data-mp="true"], .pvp-option[data-multiplayer="true"], #customStartMatchBtn').forEach(el => {
+                el.hidden = true;
+                el.disabled = true;
+            });
+            const notice = document.getElementById('customModeNotice');
+            if (notice) notice.textContent = 'Play your custom match online with a friend. No computer opponent, XP or achievements.';
+        }, { once: true });
     }
 
     const params = new URLSearchParams(location.search);
@@ -96,7 +109,7 @@ window.__ppStartCustomMatch = async function (event) {
     }
 
     const game = window.game;
-    if (!game) return;
+    if (!game || window.PPDevice?.touch) return;
 
     if (typeof window.__ppSyncCustomSettingsFromControls === 'function') {
         window.__ppSyncCustomSettingsFromControls();

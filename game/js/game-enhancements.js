@@ -518,7 +518,7 @@
                     </dl>`],
                 ['online', 'Versus', `
                     <ul class="pphelp-list">
-                        <li><b>Local 1v1:</b> pick a mode, choose Local 1v1, and share the keyboard (or plug in two gamepads).</li>
+                        ${window.PPDevice?.touch ? '' : '<li><b>Local 1v1:</b> pick a mode, choose Local 1v1, and share the keyboard (or plug in two gamepads).</li>'}
                         <li><b>Online:</b> pick a mode, choose Online, then <b>Create a room</b>. Send the 8-character code (or the invite link) to a friend; they choose Online, <b>Join a room</b> and type it in. You play on the left, they play on the right.</li>
                         <li>Online works in Classic, Gravity, Obstacle and Custom. The host picks the mode, and the host's points to win, power-ups and Forge arena are used.</li>
                         <li>Online, your paddle answers to every control: ${kb('W')}/${kb('S')}, ${kb('↑')}/${kb('↓')}, mouse, touch or a gamepad.</li>

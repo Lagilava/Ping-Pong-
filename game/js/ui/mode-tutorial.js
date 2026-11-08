@@ -112,7 +112,7 @@
         customise: [
             ['Arena and rules', [36, 25], [25, 20], 'Choose a court, then scroll down for Forge and rules.', 'Choose a court, then open Forge or set rules below.'],
             ['Look and sound', [12, 35], [8, 18], 'Use the tabs for paddles, music and background.', 'Use the tabs for paddles, music and background.'],
-            ['Start or play online', [12, 82], [74, 96], 'Select power-ups, then start locally or play online.', 'Select power-ups, then start locally or play online.']
+            ['Start or play online', [12, 82], [74, 96], 'Select power-ups, then play online with a friend.', 'Select power-ups, then start locally or play online.']
         ]
     };
     // One annotated screenshot gets players started. Detailed rules are optional.
@@ -185,11 +185,11 @@
                     </div>
                     <div class="guide-instructions">
                         <p class="guide-objective">${quickGoals[mode]}</p>
-                        <ol>${points.map(([label, , , touchCopy, pcCopy], i) => `<li><b>${i + 1}</b><span><strong>${label}</strong>${touch ? touchCopy : pcCopy}</span></li>`).join('')}</ol>
+                        <ol>${points.map(([label, , , touchCopy, pcCopy], i) => `<li><b>${i + 1}</b><span><strong>${touch && mode === 'customise' && i === 2 ? 'Play online' : label}</strong>${touch ? touchCopy : pcCopy}</span></li>`).join('')}</ol>
                         <details class="guide-more">
                             <summary>More tips and rules</summary>
-                            <p>${guide.goal}</p>
-                            <ul>${guide.steps.map(([title, description]) => `<li><strong>${title}:</strong> ${touch ? touchText(description, mode) : description}</li>`).join('')}</ul>
+                            <p>${touch && mode === 'customise' ? 'Choose a court and rules, then play online with a friend.' : guide.goal}</p>
+                            <ul>${guide.steps.map(([title, description]) => `<li><strong>${title}:</strong> ${touch && mode === 'customise' && title === 'Play together' ? 'Create an online room and invite a friend. The host’s arena and rules are used.' : touch ? touchText(description, mode) : description}</li>`).join('')}</ul>
                             <p>${touch && guide.touchTip ? guide.touchTip : guide.tip}</p>
                         </details>
                     </div>
