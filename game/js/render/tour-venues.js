@@ -141,7 +141,7 @@
         x.save(); x.globalCompositeOperation = 'lighter';
         for (const wn of wins) {
             const rg = x.createLinearGradient(0, fy, 0, fy + (h - fy) * 0.9);
-            rg.addColorStop(0, 'rgba(255,230,170,0.22)'); rg.addColorStop(1, 'rgba(255,210,150,0)');
+            rg.addColorStop(0, 'rgba(255,230,170,0.10)'); rg.addColorStop(1, 'rgba(255,210,150,0)');
             x.fillStyle = rg;
             x.beginPath(); x.moveTo(wn.x, fy); x.lineTo(wn.x + wn.w, fy);
             x.lineTo(wn.x + wn.w * 1.5 - w * 0.02, fy + (h - fy) * 0.9); x.lineTo(wn.x - wn.w * 0.5 - w * 0.02, fy + (h - fy) * 0.9); x.fill();
@@ -162,7 +162,7 @@
         // Sun shafts leaning from every window onto the floor, breathing slowly.
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
         S.wins.forEach((wn, i) => {
-            const a = 0.5 + 0.18 * Math.sin(t * 0.3 * calm + i * 1.7) + cheer * 0.2;
+            const a = 0.22 + 0.07 * Math.sin(t * 0.3 * calm + i * 1.7) + cheer * 0.08;
             ctx.globalAlpha = a; ctx.drawImage(S.shaft, wn.x - wn.w * 0.1, wn.y + wn.h, wn.w * 1.5, S.shaftH);
         });
         for (const l of S.lamps) { ctx.globalAlpha = 0.9 + cheer * 0.1; ctx.drawImage(S.warm, l.x - 70, l.y - 50, 140, 140); }
@@ -271,6 +271,11 @@
         x.beginPath(); x.ellipse(w * 0.5, fy + (h - fy) * 0.55, w * 0.36, (h - fy) * 0.34, 0, 0, TAU); x.stroke();
         x.lineWidth = 1; x.strokeStyle = 'rgba(255,214,120,0.16)';
         x.beginPath(); x.ellipse(w * 0.5, fy + (h - fy) * 0.55, w * 0.31, (h - fy) * 0.28, 0, 0, TAU); x.stroke();
+        // A broad, dim pool of reflected arena light gives the floor depth.
+        const floorGlow = x.createRadialGradient(w * 0.5, fy + (h - fy) * 0.12, 0, w * 0.5, fy + (h - fy) * 0.12, w * 0.46);
+        floorGlow.addColorStop(0, 'rgba(76,110,180,0.18)');
+        floorGlow.addColorStop(1, 'rgba(76,110,180,0)');
+        x.fillStyle = floorGlow; x.fillRect(0, fy, w, h - fy);
         // Gold board edge.
         x.fillStyle = '#1a1405'; x.fillRect(0, h * 0.545, w, fy - h * 0.545);
         g = x.createLinearGradient(0, 0, w, 0);
@@ -466,7 +471,7 @@
             if (on) { ctx.globalAlpha = 0.5; ctx.drawImage(S.glowA, b.x - 18, b.y - 18, 36, 36); }
         });
         // Light pulses racing along the deck lanes toward the viewport.
-        ctx.globalAlpha = 0.8 + cheer * 0.2;
+        ctx.globalAlpha = 0.36 + cheer * 0.15;
         ctx.strokeStyle = '#7fb4ff'; ctx.lineWidth = 2;
         S.lanes.forEach((l, i) => {
             const u = ((t * 0.35 * calm + i * 0.137) % 1);
@@ -491,6 +496,10 @@
         const sg = x.createRadialGradient(w * 0.5, fy, 0, w * 0.5, fy, w * 0.4);
         sg.addColorStop(0, 'rgba(255,220,140,0.85)'); sg.addColorStop(0.3, 'rgba(255,150,80,0.35)'); sg.addColorStop(1, 'rgba(255,100,60,0)');
         x.fillStyle = sg; x.fillRect(0, h * 0.2, w, fy - h * 0.2);
+        // Layered harbour silhouettes break up the flat skyline at a low contrast.
+        x.fillStyle = 'rgba(65,32,70,0.38)'; x.beginPath(); x.moveTo(0, fy);
+        for (let i = 0; i <= 16; i++) x.lineTo(w * i / 16, fy - h * (0.08 + r() * 0.07));
+        x.lineTo(w, fy); x.closePath(); x.fill();
         // Far skyline of stacks and a chimney.
         x.fillStyle = '#2a1636';
         for (let px = 0; px < w; px += w * 0.035) { const bh = h * (0.06 + r() * 0.08); x.fillRect(px, fy - bh - h * 0.04, w * 0.034, bh); }
@@ -545,7 +554,7 @@
         for (let i = 0; i < 9; i++) {
             const px = r() * w, py = fy + (h - fy) * (0.15 + r() * 0.8), pw = w * (0.05 + r() * 0.09);
             const pg = x.createLinearGradient(0, py, 0, py + 8);
-            pg.addColorStop(0, 'rgba(255,170,100,0.22)'); pg.addColorStop(1, 'rgba(255,170,100,0)');
+            pg.addColorStop(0, 'rgba(255,170,100,0.10)'); pg.addColorStop(1, 'rgba(255,170,100,0)');
             x.fillStyle = pg; x.beginPath(); x.ellipse(px, py, pw, 6, 0, 0, TAU); x.fill();
         }
         x.restore();
@@ -612,7 +621,7 @@
         x.fillStyle = g; x.fillRect(0, 0, w, h);
         // The far end: a bright exit that rings rush out of.
         const eg = x.createRadialGradient(S.vp.x, S.vp.y, 0, S.vp.x, S.vp.y, h * 0.2);
-        eg.addColorStop(0, 'rgba(255,240,200,1)'); eg.addColorStop(0.25, 'rgba(255,190,60,0.7)'); eg.addColorStop(1, 'rgba(255,120,0,0)');
+        eg.addColorStop(0, 'rgba(255,220,170,0.45)'); eg.addColorStop(0.25, 'rgba(255,175,60,0.28)'); eg.addColorStop(1, 'rgba(255,120,0,0)');
         x.fillStyle = eg; x.fillRect(0, 0, w, h);
         // Floor and ceiling panels converge on the exit.
         x.strokeStyle = 'rgba(255,170,40,0.12)'; x.lineWidth = 1;
@@ -649,11 +658,11 @@
             p.lineTo(rx, ry + rr); p.quadraticCurveTo(rx, ry, rx + rr, ry); p.closePath();
         }
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
-        [[1.2, 'rgba(255,180,60,0.35)', 0.55], [2.4, 'rgba(255,196,80,0.6)', 0.8], [4.2, 'rgba(255,225,150,0.9)', 1]].forEach(([lw, col, a], i) => {
+        [[1, 'rgba(255,180,60,0.24)', 0.55], [1.5, 'rgba(255,196,80,0.38)', 0.7], [2, 'rgba(255,225,150,0.48)', 0.8]].forEach(([lw, col, a], i) => {
             ctx.lineWidth = lw; ctx.strokeStyle = col; ctx.globalAlpha = a; ctx.stroke(buckets[i]);
         });
         // Speed streaks radiating from the exit; they lengthen with speed.
-        ctx.strokeStyle = 'rgba(255,230,170,0.8)'; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.5 + S.speed * 0.4;
+        ctx.strokeStyle = 'rgba(255,230,170,0.8)'; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.22 + S.speed * 0.18;
         const streaks = new Path2D();
         for (let i = 0; i < 46; i++) {
             const a = (i * 2.399) % TAU, ph2 = ((i * 0.173) + S.phase * (1.5 + (i % 3) * 0.4)) % 1;
@@ -688,9 +697,19 @@
             const f = [0.14, 0.27, 0.4, 0.62, 0.76, 0.88][i], sw = w * (0.018 + r() * 0.012), sh = h * (0.07 + r() * 0.06);
             S.stones.push({ x: w * f, y: h * (0.3 + r() * 0.12), w: sw, h: sh, p: r() * TAU });
         }
-        // Distant mesas.
-        x.fillStyle = '#26104a';
-        for (let px = 0; px < w; px += w * 0.08) { const mh = h * (0.015 + r() * 0.03); x.fillRect(px, fy - mh, w * 0.07, mh); }
+        // Overlapping distant ridges soften the horizon and give the pan scale.
+        const ridge = (base, height, color, seed) => {
+            const rand = rng(seed);
+            x.fillStyle = color; x.beginPath(); x.moveTo(0, fy);
+            x.lineTo(0, base);
+            for (let i = 1; i <= 24; i++) {
+                const px = w * i / 24;
+                x.lineTo(px, base - height * (0.18 + rand() * 0.82));
+            }
+            x.lineTo(w, fy); x.closePath(); x.fill();
+        };
+        ridge(fy - h * 0.015, h * 0.10, 'rgba(109,53,112,0.55)', 67);
+        ridge(fy + h * 0.005, h * 0.065, '#321a52', 68);
         // The salt pan: a mirror of the sky, dimmer and wavering.
         g = x.createLinearGradient(0, fy, 0, h);
         g.addColorStop(0, '#f0b080'); g.addColorStop(0.15, '#a85a8a'); g.addColorStop(0.6, '#32195a'); g.addColorStop(1, '#0c0620');
@@ -712,7 +731,7 @@
         // Corona: breathing glow and slow rotating rays.
         const pulse = 0.85 + 0.15 * Math.sin(t * 1.1 * calm) + cheer * 0.5;
         ctx.globalAlpha = pulse; ctx.drawImage(S.corona, sun.x - sun.r * 3, sun.y - sun.r * 3, sun.r * 6, sun.r * 6);
-        ctx.strokeStyle = 'rgba(255,214,150,0.55)'; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.6 + cheer * 0.3;
+        ctx.strokeStyle = 'rgba(255,214,150,0.32)'; ctx.lineWidth = 1; ctx.globalAlpha = 0.35 + cheer * 0.2;
         const rays = new Path2D();
         for (let i = 0; i < 24; i++) {
             const a = i * TAU / 24 + t * 0.05 * calm, len = sun.r * (1.5 + (i % 3) * 0.55 + Math.sin(t * 1.4 * calm + i) * 0.15);
