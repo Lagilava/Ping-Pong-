@@ -10,7 +10,7 @@
 //   js/app/pwa.js and offline-assets.json) so every mode works offline.
 'use strict';
 
-const VERSION = 'pp-sw-v1';
+const VERSION = 'pp-sw-v2';
 const CODE_CACHE = VERSION + '-code';
 const ART_CACHE = VERSION + '-art';
 const SHELL = ['./', 'index.html', 'play.html', 'manifest.webmanifest',
