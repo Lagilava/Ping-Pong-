@@ -37,7 +37,7 @@
             window.removeEventListener('keydown', onKey, true);
             const el = layer;
             closer = null;
-            if (el) { el.classList.add('leaving'); setTimeout(() => el.remove(), reduce() ? 0 : 220); if (layer === el) layer = null; }
+            if (el) { el.classList.add('leaving'); setTimeout(() => el.remove(), cls === 'versus' ? 220 : (reduce() ? 0 : 220)); if (layer === el) layer = null; }
             done && done();
         };
         const go = () => { if (performance.now() - openedAt >= minMs) finish(); };
@@ -78,32 +78,39 @@
         const mood = lost ? 'Rematch' : played ? 'Return match' : 'First meeting';
         const html = `
             <div class="ppstage-bg"></div>
-            <div class="ppstage-split">
-                <section class="ppstage-side you">
-                    <div class="ppstage-you" aria-hidden="true"><i></i></div>
-                    <h2>You</h2>
-                    <p>${T.totalStars()} of ${T.MAX_STARS} stars</p>
-                </section>
-                <div class="ppstage-vs" aria-hidden="true">VS</div>
-                <section class="ppstage-side rival">
-                    <div class="ppstage-face">${Rv.portrait(rival.id)}</div>
-                    <h2>${esc(rival.name)}</h2>
-                    <p>${esc(rival.title)}</p>
-                </section>
-            </div>
-            <div class="ppstage-info">
-                <p class="ppstage-kicker">${esc(tier.name)} &middot; Stage ${stage.id} of ${T.STAGES.length} &middot; ${esc(mood)}</p>
-                ${firstOfTier ? `<p class="ppstage-story">${esc(Rv.story(stage.tier))}</p>` : ''}
-                <blockquote class="ppstage-quote"><span>${esc(rival.name)}</span>${esc(quote)}</blockquote>
-                <p class="ppstage-meta">${esc(rival.home)} &middot; ${esc(mode)}${stage.twist ? ' &middot; ' + esc({ winBy2: 'Win by 2', noPowerUps: 'No power-ups', powerUps: 'Power-ups on' })[stage.twist] || stage.twist : ''}</p>
-                <ul class="ppstage-goals">${goals.map((g) => `<li>${esc(g)}</li>`).join('')}</ul>
-                <button type="button" class="ppstage-go">Start match</button>
+            <div class="ppstage-match">
+                <header class="ppstage-match-head">
+                    <span class="ppstage-series">THE TOUR <b> / </b> ${esc(tier.name)}</span>
+                    <span class="ppstage-round">Stage ${stage.id} of ${T.STAGES.length}</span>
+                </header>
+                <div class="ppstage-match-body">
+                    <div class="ppstage-split">
+                        <section class="ppstage-side you">
+                            <div class="ppstage-portrait"><div class="ppstage-you" aria-hidden="true"><i></i></div><span class="ppstage-player-tag">PLAYER 01</span></div>
+                            <div class="ppstage-identity"><span class="ppstage-overline">CHALLENGER</span><h2>You</h2><p>${T.totalStars()} / ${T.MAX_STARS} STARS</p></div>
+                        </section>
+                        <div class="ppstage-vs" aria-label="versus"><span>VS</span></div>
+                        <section class="ppstage-side rival">
+                            <div class="ppstage-portrait"><div class="ppstage-face">${Rv.portrait(rival.id)}</div><span class="ppstage-player-tag">RIVAL</span></div>
+                            <div class="ppstage-identity"><span class="ppstage-overline">YOUR OPPONENT</span><h2>${esc(rival.name)}</h2><p>${esc(rival.title)}</p></div>
+                        </section>
+                    </div>
+                    <div class="ppstage-info">
+                        <div class="ppstage-details-head"><span>THE MATCHUP</span><span>${esc(mood)}</span></div>
+                        ${firstOfTier ? `<p class="ppstage-story">${esc(Rv.story(stage.tier))}</p>` : ''}
+                        <blockquote class="ppstage-quote"><span>${esc(rival.name)} <i> / </i> RIVAL SAYS</span>${esc(quote)}</blockquote>
+                        <p class="ppstage-meta"><span>VENUE</span> ${esc(rival.home)} <b>•</b> ${esc(mode)}${stage.twist ? ' <b>•</b> ' + (esc({ winBy2: 'Win by 2', noPowerUps: 'No power-ups', powerUps: 'Power-ups on' }[stage.twist] || stage.twist)) : ''}</p>
+                        <div class="ppstage-goal-head"><span>STAR OBJECTIVES</span><span>★ &nbsp;3 AVAILABLE</span></div>
+                        <ul class="ppstage-goals">${goals.map((g) => `<li>${esc(g)}</li>`).join('')}</ul>
+                        <button type="button" class="ppstage-go"><span>Start match</span><b aria-hidden="true">→</b></button>
+                    </div>
+                </div>
             </div>
             <div class="ppstage-timer" aria-hidden="true"><i></i></div>`;
-        const ms = reduce() ? 7000 : 8500;
+        const ms = 8500;
         open('versus', rival.accent, html, { autoMs: ms, minMs: 900, done });
         const bar = layer && layer.querySelector('.ppstage-timer i');
-        if (bar) { bar.style.animationDuration = `${ms}ms`; }
+        if (bar) { bar.style.setProperty('--timer-duration', `${ms}ms`); }
     }
 
     // ── After the match ──────────────────────────────────────────────────

@@ -326,7 +326,7 @@ body.pp-reduce-motion .pptour-title { animation-name: pptour-title-fade; }
 @keyframes ppstage-star { from { opacity: 0; transform: scale(2.4) rotate(-25deg); } to { opacity: 1; transform: none; } }
 @keyframes ppstage-loom { from { opacity: 0; transform: scale(.82) translateY(30px); } to { opacity: 1; transform: none; } }
 @keyframes ppstage-timer { to { transform: scaleX(0); } }
-body.pp-reduce-motion .ppstage, body.pp-reduce-motion .ppstage * { animation-duration: .01s !important; animation-delay: 0s !important; }
+body.pp-reduce-motion .ppstage.outro, body.pp-reduce-motion .ppstage.outro * { animation-duration: .01s !important; animation-delay: 0s !important; }
 
 @media (max-width: 640px) {
     .ppstage-outro { flex-direction: column; text-align: center; }
@@ -357,5 +357,104 @@ body.pp-reduce-motion .ppstage, body.pp-reduce-motion .ppstage * { animation-dur
 /* A short idle movement gives the portrait life only on the versus card. */
 .ppstage.versus .ppstage-side.rival .ppstage-face svg { animation: ppstage-rival-idle 3.8s ease-in-out infinite; transform-origin: 50% 85%; }
 @keyframes ppstage-rival-idle { 0%, 100% { transform: scale(1.035) translateY(0); } 50% { transform: scale(1.055) translateY(-1.5%); } }
-@media (prefers-reduced-motion: reduce) { .ppstage.versus .ppstage-side.rival .ppstage-face svg { animation: none; } }
-body.pp-reduce-motion .ppstage.versus .ppstage-side.rival .ppstage-face svg { animation: none; }
+
+
+/* Match introduction: a compact tournament broadcast card. */
+.ppstage.versus { display: grid; place-items: center; overflow: auto; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+.ppstage.versus .ppstage-bg { position: fixed; background: radial-gradient(ellipse at 15% 45%, rgba(23,146,169,.16), transparent 48%), radial-gradient(ellipse at 84% 40%, color-mix(in srgb, var(--a) 16%, transparent), transparent 48%), linear-gradient(140deg, #090f1a, #050810 65%); }
+.ppstage.versus .ppstage-bg::after { content: ''; position: absolute; inset: 0; opacity: .28; background: repeating-linear-gradient(0deg, transparent 0 47px, rgba(166,208,230,.05) 48px), repeating-linear-gradient(90deg, transparent 0 79px, rgba(166,208,230,.04) 80px); }
+.ppstage-match { position: relative; width: min(920px, 100%); margin: auto; border: 1px solid rgba(186,220,233,.16); border-radius: 20px; background: linear-gradient(155deg, rgba(17,28,43,.95), rgba(7,12,22,.97)); box-shadow: 0 28px 90px rgba(0,0,0,.46); overflow: hidden; }
+.ppstage-match-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px clamp(16px, 3vw, 28px); border-bottom: 1px solid rgba(196,224,240,.11); font: 700 11px/1.2 'Orbitron', sans-serif; letter-spacing: .12em; color: #d5effa; }
+.ppstage-series b, .ppstage-round i { font-style: normal; color: rgba(176,208,222,.4); padding: 0 5px; }
+.ppstage-round { color: #f6d187; white-space: nowrap; }
+.ppstage-match-body { padding: clamp(13px, 2.2vh, 22px) clamp(16px, 3vw, 30px) clamp(16px, 2.5vh, 24px); }
+.ppstage.versus .ppstage-split { width: 100%; display: grid; grid-template-columns: minmax(0,1fr) 58px minmax(0,1fr); gap: 8px; }
+.ppstage.versus .ppstage-side { position: relative; min-height: 145px; display: flex; align-items: center; justify-content: center; gap: clamp(12px, 2.5vw, 24px); padding: 12px; border: 1px solid rgba(93,231,255,.23); border-radius: 14px; background: linear-gradient(110deg, rgba(49,191,213,.13), rgba(26,44,60,.15)); text-align: left; }
+.ppstage.versus .ppstage-side.rival { flex-direction: row-reverse; text-align: right; border-color: color-mix(in srgb, var(--a) 32%, transparent); background: linear-gradient(250deg, color-mix(in srgb, var(--a) 15%, transparent), rgba(26,32,48,.15)); }
+.ppstage.versus .ppstage-portrait { position: relative; flex: 0 0 auto; }
+.ppstage.versus .ppstage-face, .ppstage.versus .ppstage-you { width: clamp(86px, 17vh, 126px); border-radius: 11px; box-shadow: 0 9px 20px rgba(0,0,0,.3); }
+.ppstage.versus .ppstage-face { border-width: 1px; }
+.ppstage.versus .ppstage-you { border-width: 1px; background: radial-gradient(ellipse at 50% 45%, rgba(46,210,221,.28), transparent 65%), #0a1823; }
+.ppstage.versus .ppstage-you i { width: 18%; height: 50%; animation: ppstage-paddle-idle 3.8s ease-in-out infinite; }
+.ppstage-player-tag { position: absolute; right: 5px; bottom: 5px; padding: 3px 5px; border-radius: 3px; background: rgba(3,10,19,.8); color: #c4f6ff; font: 700 8px/1 'Share Tech Mono', monospace; letter-spacing: .08em; }
+.ppstage.versus .rival .ppstage-player-tag { color: var(--a); }
+.ppstage-identity { min-width: 0; }
+.ppstage-overline { display: block; color: #81bdcc; font: 700 10px/1.2 'Share Tech Mono', monospace; letter-spacing: .15em; }
+.ppstage.versus .rival .ppstage-overline { color: color-mix(in srgb, var(--a) 78%, white); }
+.ppstage.versus .ppstage-side h2 { margin: 7px 0 6px; font-size: clamp(19px, 3vw, 32px); letter-spacing: .02em; overflow-wrap: anywhere; }
+.ppstage.versus .ppstage-side p { font-size: 12px; letter-spacing: .11em; color: #9ed9e5; }
+.ppstage.versus .ppstage-side.rival p { color: var(--a); }
+.ppstage.versus .ppstage-vs { z-index: 1; display: grid; place-items: center; width: 48px; height: 48px; margin: auto; border: 1px solid rgba(235,245,255,.2); border-radius: 50%; background: #111b29; box-shadow: 0 0 0 6px #0c1421; color: #fff; font: italic 900 17px/1 'Orbitron', sans-serif; text-shadow: none; }
+.ppstage.versus .ppstage-info { width: 100%; gap: 8px; padding-top: 17px; text-align: left; justify-items: stretch; }
+.ppstage-details-head, .ppstage-goal-head { display: flex; justify-content: space-between; gap: 10px; font: 700 10px/1.3 'Orbitron', sans-serif; letter-spacing: .12em; color: #c7e1e9; }
+.ppstage-details-head span:last-child { font-family: 'Rajdhani', sans-serif; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #9ab1bd; }
+.ppstage.versus .ppstage-story { max-width: none; font-size: 13px; color: #d7c397; }
+.ppstage.versus .ppstage-quote { max-width: none; padding: 9px 13px; border-left-width: 2px; border-radius: 3px 9px 9px 3px; background: rgba(255,255,255,.045); font-size: clamp(14px, 1.55vw, 17px); }
+.ppstage.versus .ppstage-quote span { margin-bottom: 3px; font-size: 9px; }
+.ppstage.versus .ppstage-quote span i { font-style: normal; opacity: .5; }
+.ppstage.versus .ppstage-meta { font-size: 13px; color: #c3d3da; }
+.ppstage.versus .ppstage-meta span { margin-right: 7px; color: #78949f; font: 700 10px/1 'Share Tech Mono', monospace; letter-spacing: .1em; }
+.ppstage.versus .ppstage-meta b { color: #71858d; padding: 0 3px; }
+.ppstage-goal-head { margin-top: 2px; color: #98b2bf; }
+.ppstage-goal-head span:last-child { color: #f4cb7d; }
+.ppstage.versus .ppstage-goals { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; justify-content: stretch; font-size: 13px; }
+.ppstage.versus .ppstage-goals li { min-width: 0; padding: 7px 9px; border: 1px solid rgba(214,227,239,.1); border-radius: 7px; background: rgba(255,255,255,.035); }
+.ppstage.versus .ppstage-goals li::before { content: '★ '; color: #f2cc7e; }
+.ppstage.versus .ppstage-go { display: flex; align-items: center; justify-content: center; gap: 14px; width: min(100%, 300px); min-height: 42px; justify-self: center; margin-top: 4px; border-radius: 9px; font-size: 12px; }
+.ppstage.versus .ppstage-go b { font-size: 18px; font-family: sans-serif; }
+.ppstage.versus .ppstage-timer { height: 3px; }
+@keyframes ppstage-paddle-idle { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@media (max-width: 600px) {
+    .ppstage.versus { padding: max(9px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
+    .ppstage-match { border-radius: 15px; }
+    .ppstage-match-head { padding: 10px 13px; font-size: 9px; }
+    .ppstage-match-body { padding: 12px; }
+    .ppstage.versus .ppstage-split { grid-template-columns: minmax(0,1fr) 32px minmax(0,1fr); gap: 3px; }
+    .ppstage.versus .ppstage-side, .ppstage.versus .ppstage-side.rival { min-height: 0; flex-direction: column; gap: 8px; padding: 10px 5px; text-align: center; }
+    .ppstage.versus .ppstage-face, .ppstage.versus .ppstage-you { width: clamp(62px, 13vh, 92px); }
+    .ppstage.versus .ppstage-side h2 { margin: 4px 0; font-size: clamp(16px, 5vw, 23px); }
+    .ppstage.versus .ppstage-side p { font-size: 10px; }
+    .ppstage-overline { font-size: 8px; }
+    .ppstage.versus .ppstage-vs { width: 30px; height: 30px; font-size: 11px; box-shadow: 0 0 0 3px #0c1421; }
+    .ppstage.versus .ppstage-info { padding-top: 12px; gap: 7px; }
+    .ppstage.versus .ppstage-goals { grid-template-columns: 1fr; gap: 4px; font-size: 12px; }
+    .ppstage.versus .ppstage-goals li { padding: 5px 8px; }
+    .ppstage.versus .ppstage-go { width: 100%; }
+}
+@media (max-height: 500px) and (min-width: 601px) {
+    .ppstage.versus { padding-top: 6px; padding-bottom: 8px; }
+    .ppstage-match-head { padding: 7px 16px; }
+    .ppstage-match-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, .95fr); align-items: center; gap: 15px; padding: 9px 14px 12px; }
+    .ppstage.versus .ppstage-split { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); gap: 3px; }
+    .ppstage.versus .ppstage-side, .ppstage.versus .ppstage-side.rival { min-height: 0; flex-direction: column; gap: 5px; padding: 7px; text-align: center; }
+    .ppstage.versus .ppstage-face, .ppstage.versus .ppstage-you { width: clamp(54px, 23vh, 86px); }
+    .ppstage.versus .ppstage-side h2 { font-size: clamp(15px, 4vh, 22px); margin: 3px 0; }
+    .ppstage.versus .ppstage-vs { width: 30px; height: 30px; font-size: 11px; box-shadow: 0 0 0 3px #0c1421; }
+    .ppstage.versus .ppstage-info { padding: 0; gap: 5px; }
+    .ppstage.versus .ppstage-meta { display: block; font-size: 12px; }
+    .ppstage.versus .ppstage-quote { font-size: 13px; padding: 6px 10px; }
+    .ppstage.versus .ppstage-goals { grid-template-columns: 1fr; gap: 3px; font-size: 11px; }
+    .ppstage.versus .ppstage-goals li { padding: 3px 7px; }
+    .ppstage.versus .ppstage-go { min-height: 36px; }
+}
+
+/* This matchup keeps its animation even when the system requests reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+    .ppstage.versus { animation-duration: .35s !important; animation-iteration-count: 1 !important; transition-duration: .2s !important; }
+    .ppstage.versus .ppstage-side, .ppstage.versus .ppstage-info, .ppstage.versus .ppstage-vs { animation-duration: .6s !important; animation-iteration-count: 1 !important; }
+    .ppstage.versus .ppstage-side.rival .ppstage-face svg, .ppstage.versus .ppstage-you i { animation-duration: 3.8s !important; animation-iteration-count: infinite !important; }
+    .ppstage.versus .ppstage-timer i { animation-duration: var(--timer-duration, 8500ms) !important; animation-iteration-count: 1 !important; }
+}
+.ppstage.versus .ppstage-timer i { animation-duration: var(--timer-duration, 8500ms); }
+
+@media (max-width: 600px) and (max-height: 650px) {
+    .ppstage.versus .ppstage-match-head { padding: 7px 12px; }
+    .ppstage.versus .ppstage-match-body { padding: 8px 10px; }
+    .ppstage.versus .ppstage-side, .ppstage.versus .ppstage-side.rival { padding: 6px 4px; gap: 4px; }
+    .ppstage.versus .ppstage-face, .ppstage.versus .ppstage-you { width: 60px; }
+    .ppstage.versus .ppstage-info { padding-top: 8px; gap: 5px; }
+    .ppstage.versus .ppstage-story { display: none; }
+    .ppstage.versus .ppstage-quote { font-size: 13px; padding: 6px 9px; line-height: 1.2; }
+    .ppstage.versus .ppstage-goals li { padding: 3px 7px; }
+    .ppstage.versus .ppstage-go { min-height: 40px; margin-top: 2px; }
+}
