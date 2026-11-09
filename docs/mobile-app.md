@@ -133,3 +133,26 @@ Items marked **Owner** need your accounts, money, identity or legal judgment.
 Pushes to `main` reach app users as soon as Pages redeploys. Rebuild and upload
 a new AAB only when `android/twa-manifest.json` changes (icon, name, colours,
 version) or Play raises the target API level. Bump `appVersionCode` each time.
+
+## Android app (bundled build)
+
+`android/native/` is a small WebView shell that carries the real `game/` folder
+inside the APK (assets/game/) and serves it from
+`https://appassets.androidplatform.net/game/` via `AssetServer.java`, which
+answers like a static server, including HTTP Range for the music. So every
+mode, shader, sound, the thumb pad and Touch layout editor are the web build's
+own code, it starts with no network, and online play uses the network exactly
+as in a browser. The shell adds: sensor-landscape, immersive full screen, keep
+screen on, Back = Esc (twice quickly to exit), a file picker for custom
+music/background images, and external links open in the browser. The service
+worker is skipped inside the app (UA contains `PingPongAndroid`).
+
+Build (apt only, no Android Studio): `tools/build-android-apk.sh`, output
+`android/build/ping-pong.apk` (~68 MB; minSdk 24, targetSdk 34). Set
+`PP_KEYSTORE`, `PP_KEYSTORE_PASS`, `PP_KEY_ALIAS` to sign with a release key;
+otherwise a throwaway debug key is generated. Rebuild after any change under
+`game/`. `android/native/test/ServeGame.java` serves the repo through the same
+`AssetServer` class so a desktop browser can exercise the app's file serving.
+
+Not done: a Play Store AAB (needs the owner's upload key and dev account) and
+a run on a real device or emulator (none available here); phone fps unmeasured.

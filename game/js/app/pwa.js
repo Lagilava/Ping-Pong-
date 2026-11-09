@@ -7,6 +7,8 @@
     'use strict';
     if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
     if (/[?&]nosw\b/.test(location.search)) return;
+    // The Android app bundles every file and serves it itself: no cache layer needed.
+    if (/PingPongAndroid/.test(navigator.userAgent)) return;
 
     const LIST = 'offline-assets.json';
     const DONE_KEY = 'pp-offline-cache-v1';
