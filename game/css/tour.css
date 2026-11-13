@@ -458,3 +458,58 @@ body.pp-reduce-motion .ppstage.outro, body.pp-reduce-motion .ppstage.outro * { a
     .ppstage.versus .ppstage-goals li { padding: 3px 7px; }
     .ppstage.versus .ppstage-go { min-height: 40px; margin-top: 2px; }
 }
+
+/* Tour match card: quieter surfaces and a clearer reading order. */
+.ppstage.versus .ppstage-bg { background: radial-gradient(ellipse at 75% 30%, color-mix(in srgb, var(--a) 10%, transparent), transparent 48%), #080e17; }
+.ppstage.versus .ppstage-bg::after { display:none; }
+.ppstage.versus .ppstage-match { width:min(850px,100%); border-radius:14px; background:#111b28; border-color:#334252; box-shadow:0 24px 70px #0008; }
+.ppstage.versus .ppstage-match-head { padding:16px 24px; font:700 12px/1.2 'Rajdhani',sans-serif; letter-spacing:.15em; color:#b6c8d3; }
+.ppstage.versus .ppstage-round { color:#d7e3e8; }
+.ppstage.versus .ppstage-match-body { padding:20px 24px 22px; }
+.ppstage.versus .ppstage-split { grid-template-columns:minmax(0,1fr) 48px minmax(0,1fr); gap:0; border-bottom:1px solid #344250; padding-bottom:20px; }
+.ppstage.versus .ppstage-side,.ppstage.versus .ppstage-side.rival { min-height:130px; padding:0; border:0; border-radius:0; background:none; justify-content:flex-start; gap:18px; }
+.ppstage.versus .ppstage-side.rival { justify-content:flex-start; }
+.ppstage.versus .ppstage-face,.ppstage.versus .ppstage-you { width:100px; border-radius:8px; border:0; box-shadow:none; }
+.ppstage.versus .ppstage-you { background:#1c3440; }
+.ppstage.versus .ppstage-you i { box-shadow:none; background:#72dce6; }
+.ppstage.versus .ppstage-player-tag { display:none; }
+.ppstage.versus .ppstage-overline { color:#9fb2bd; font:700 11px/1.2 'Rajdhani',sans-serif; letter-spacing:.12em; }
+.ppstage.versus .rival .ppstage-overline { color:#b8c8b0; }
+.ppstage.versus .ppstage-side h2 { font:800 clamp(24px,3.5vw,38px)/1 'Rajdhani',sans-serif; letter-spacing:0; margin:7px 0; }
+.ppstage.versus .ppstage-side p,.ppstage.versus .ppstage-side.rival p { font:600 14px/1.2 'Rajdhani',sans-serif; color:#b8cad2; letter-spacing:.03em; }
+.ppstage.versus .ppstage-vs { width:auto; height:auto; border:0; background:none; box-shadow:none; color:#82929f; font:700 13px/1 'Rajdhani',sans-serif; }
+.ppstage.versus .ppstage-info { padding-top:16px; gap:10px; }
+.ppstage.versus .ppstage-details-head,.ppstage.versus .ppstage-goal-head { font:700 12px/1.2 'Rajdhani',sans-serif; letter-spacing:.12em; color:#a5b6c1; }
+.ppstage.versus .ppstage-quote { padding:0; border:0; background:none; font:500 18px/1.3 'Rajdhani',sans-serif; color:#edf4f5; }
+.ppstage.versus .ppstage-quote span { margin-bottom:5px; font:700 11px/1.2 'Rajdhani',sans-serif; letter-spacing:.1em; color:color-mix(in srgb,var(--a) 70%,white); }
+.ppstage.versus .ppstage-meta { font-size:14px; color:#bdcbd2; }
+.ppstage.versus .ppstage-meta span { font:700 11px/1 'Rajdhani',sans-serif; color:#8fa5b0; }
+.ppstage.versus .ppstage-goals { gap:8px; font:600 14px/1.2 'Rajdhani',sans-serif; }
+.ppstage.versus .ppstage-goals li { padding:10px 12px; border:0; border-radius:6px; background:#1c2935; }
+.ppstage.versus .ppstage-goals li::before { content:'\2605  '; color:#e8c47b; }
+.ppstage.versus .ppstage-go { justify-self:end; width:210px; min-height:44px; margin-top:5px; background:#87dce5; box-shadow:none; color:#10232a; font:800 14px/1 'Rajdhani',sans-serif; letter-spacing:.08em; }
+@media (max-width:600px) {
+ .ppstage.versus .ppstage-match-head { padding:11px 15px; }
+ .ppstage.versus .ppstage-match-body { padding:14px 15px; }
+ .ppstage.versus .ppstage-split { grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr); padding-bottom:12px; }
+ .ppstage.versus .ppstage-side,.ppstage.versus .ppstage-side.rival { flex-direction:column; justify-content:start; gap:7px; text-align:center; }
+ .ppstage.versus .ppstage-face,.ppstage.versus .ppstage-you { width:clamp(58px,12vh,82px); }
+ .ppstage.versus .ppstage-side h2 { font-size:23px; margin:3px 0; }
+ .ppstage.versus .ppstage-side p { font-size:12px; }
+ .ppstage.versus .ppstage-info { padding-top:12px; gap:7px; }
+ .ppstage.versus .ppstage-quote { font-size:15px; }
+ .ppstage.versus .ppstage-goals { grid-template-columns:1fr; gap:4px; font-size:13px; }
+ .ppstage.versus .ppstage-goals li { padding:6px 9px; }
+ .ppstage.versus .ppstage-go { width:100%; }
+}
+@media (max-height:500px) and (min-width:601px) {
+ .ppstage.versus .ppstage-match-body { display:grid; grid-template-columns:1fr 1fr; gap:20px; padding:12px 18px; }
+ .ppstage.versus .ppstage-split { border:0; padding:0; }
+ .ppstage.versus .ppstage-side,.ppstage.versus .ppstage-side.rival { flex-direction:column; text-align:center; gap:4px; }
+ .ppstage.versus .ppstage-face,.ppstage.versus .ppstage-you { width:clamp(55px,23vh,90px); }
+ .ppstage.versus .ppstage-info { padding:0; gap:5px; }
+ .ppstage.versus .ppstage-goals { grid-template-columns:1fr; gap:3px; }
+ .ppstage.versus .ppstage-goals li { padding:4px 8px; }
+}
+.ppstage.versus .ppstage-go span { white-space:nowrap; }
+

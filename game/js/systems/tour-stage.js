@@ -111,11 +111,11 @@
                         </section>
                     </div>
                     <div class="ppstage-info">
-                        <div class="ppstage-details-head"><span>THE MATCHUP</span><span>${esc(mood)}</span></div>
+                        <div class="ppstage-details-head"><span>MATCH DETAILS</span><span>${esc(mood)}</span></div>
                         ${firstOfTier ? `<p class="ppstage-story">${esc(Rv.story(stage.tier))}</p>` : ''}
-                        <blockquote class="ppstage-quote"><span>${esc(rival.name)} <i> / </i> RIVAL SAYS</span>${esc(quote)}</blockquote>
+                        <blockquote class="ppstage-quote"><span>${esc(rival.name)} <i> / </i> SAYS</span>${esc(quote)}</blockquote>
                         <p class="ppstage-meta"><span>VENUE</span> ${esc(rival.home)} <b>•</b> ${esc(mode)}${stage.twist ? ' <b>•</b> ' + (esc({ winBy2: 'Win by 2', noPowerUps: 'No power-ups', powerUps: 'Power-ups on' }[stage.twist] || stage.twist)) : ''}</p>
-                        <div class="ppstage-goal-head"><span>STAR OBJECTIVES</span><span>★ &nbsp;3 AVAILABLE</span></div>
+                        <div class="ppstage-goal-head"><span>EARN STARS</span><span>★ &nbsp;3 AVAILABLE</span></div>
                         <ul class="ppstage-goals">${goals.map((g) => `<li>${esc(g)}</li>`).join('')}</ul>
                         <button type="button" class="ppstage-go"><span>Start match</span><b aria-hidden="true">→</b></button>
                     </div>
