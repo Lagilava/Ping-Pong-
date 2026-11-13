@@ -94,3 +94,20 @@
     .guide-instructions li strong { font-size: 13px; }
     .mode-tutorial-foot { padding: 5px 12px; }
 }
+/* One clear note at a time, with an animated touch demonstration. */
+.guide-pin[hidden], .guide-instructions li[hidden], .guide-gesture[hidden], .guide-step-nav button[hidden] { display: none !important; }
+.guide-step-nav { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.guide-step-nav button { min-height: 40px; padding: 7px 11px; border: 1px solid #68899a; border-radius: 8px; color: white; background: #183649; font-weight: 700; }
+.guide-step-nav button:disabled { opacity: .45; }
+.guide-step-count { flex: 1; text-align: center; color: #c8e0ea; font-size: 12px; }
+.guide-gesture { display: none; position: absolute; left: var(--touch-x); top: var(--touch-y); color: white; font: 30px/1 system-ui; filter: drop-shadow(0 2px 3px #000); pointer-events: none; animation: guide-tap 1.4s ease-in-out infinite; }
+.guide-gesture-swipe { animation-name: guide-swipe; }
+@media (pointer: coarse) { .guide-gesture:not([hidden]) { display: block; } }
+@keyframes guide-tap { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-4px, -5px) scale(.8); } }
+@keyframes guide-swipe { 0%, 100% { transform: translate(0, 15px); } 50% { transform: translate(0, -25px); } }
+@media (prefers-reduced-motion: reduce) { .guide-gesture { animation: none; } }
+.guide-controls-demo { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 8px 10px; border-radius: 8px; background: #173244; color: #d7edf6; font-size: 12px; }
+.guide-controls-demo strong { display: block; color: #fff; font-size: 13px; }
+.guide-controls-icon { flex: 0 0 28px; text-align: center; color: var(--tutorial-accent); font-size: 24px; animation: guide-control-move 1.6s ease-in-out infinite; }
+@keyframes guide-control-move { 0%, 100% { transform: translateY(4px); } 50% { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .guide-controls-icon { animation: none; } }

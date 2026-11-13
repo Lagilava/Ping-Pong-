@@ -119,7 +119,26 @@
     const shot = (mode, kind) => `assets/images/tutorial/${mode === 'customise' ? 'custom-arena' : mode}-${kind}.jpg`;
     const seenKey = mode => `pp-guide-seen-v3-${mode}`;
     const hasViewed = mode => { try { return localStorage.getItem(seenKey(mode)) === '1'; } catch (_) { return false; } };
-    let dialog, returnFocus, currentMode, pendingStart;
+    let dialog, returnFocus, currentMode, pendingStart, guideStep = 0;
+    function showStep(step) {
+        guideStep = Math.max(0, Math.min(2, step));
+        dialog.querySelectorAll('.guide-pin, .guide-instructions ol > li').forEach(el => {
+            el.hidden = Number(el.dataset.step) !== guideStep;
+        });
+        const counter = dialog.querySelector('.guide-step-count');
+        counter.textContent = `Step ${guideStep + 1} of 3`;
+        dialog.querySelector('[data-guide-prev]').disabled = guideStep === 0;
+        const next = dialog.querySelector('[data-guide-next]');
+        if (guideStep === 2 && document.activeElement === next) dialog.querySelector('[data-guide-prev]').focus({ preventScroll: true });
+        next.hidden = guideStep === 2;
+        const cue = dialog.querySelector('.guide-gesture');
+        const point = targets[currentMode][guideStep];
+        cue.style.setProperty('--touch-x', point[1][0] + '%');
+        cue.style.setProperty('--touch-y', point[1][1] + '%');
+        cue.hidden = currentMode === 'customise' || !(currentMode === 'classic' && guideStep === 0 || currentMode !== 'classic' && guideStep === (currentMode === 'zombie' ? 1 : 2));
+        if (currentMode === 'gravity' || currentMode === 'speed') cue.hidden = guideStep !== 1;
+        cue.classList.toggle('guide-gesture-swipe', currentMode === 'classic');
+    }
 
     function close(accepted = false) {
         if (!dialog || dialog.hidden) return;
@@ -154,6 +173,8 @@
             dialog.addEventListener('click', event => {
                 if (event.target === dialog || event.target.closest('[data-close-tutorial]')) close();
                 if (event.target.closest('[data-guide-accept]')) close(true);
+                if (event.target.closest('[data-guide-prev]')) showStep(guideStep - 1);
+                if (event.target.closest('[data-guide-next]')) showStep(guideStep + 1);
             });
         }
         currentMode = mode;
@@ -181,11 +202,14 @@
                             <source media="(pointer: coarse)" srcset="${shot(mode, 'touch')}">
                             <img src="${shot(mode, 'desktop')}" alt="${guide.name} screen with three numbered areas explained beside it" width="1366" height="768">
                         </picture>
-                        ${points.map(([label, touchAt, pcAt], i) => `<span class="guide-pin" style="--touch-x:${touchAt[0]}%;--touch-y:${touchAt[1]}%;--pc-x:${pcAt[0]}%;--pc-y:${pcAt[1]}%" aria-hidden="true">${i + 1}</span>`).join('')}
+                        ${points.map(([label, touchAt, pcAt], i) => `<span data-step="${i}" class="guide-pin" style="--touch-x:${touchAt[0]}%;--touch-y:${touchAt[1]}%;--pc-x:${pcAt[0]}%;--pc-y:${pcAt[1]}%" aria-hidden="true">${i + 1}</span>`).join('')}
+                    <span class="guide-gesture" aria-hidden="true">☝</span>
                     </div>
                     <div class="guide-instructions">
                         <p class="guide-objective">${quickGoals[mode]}</p>
-                        <ol>${points.map(([label, , , touchCopy, pcCopy], i) => `<li><b>${i + 1}</b><span><strong>${touch && mode === 'customise' && i === 2 ? 'Play online' : label}</strong>${touch ? touchCopy : pcCopy}</span></li>`).join('')}</ol>
+                        ${mode !== 'customise' ? `<div class="guide-controls-demo"><span class="guide-controls-icon" aria-hidden="true">${touch ? '☝' : '↕'}</span><span><strong>Move your paddle</strong>${touch ? 'Slide your right thumb up and down on the right side.' : 'Use W / S or drag on your half of the court.'}</span></div>` : ''}
+                        <ol>${points.map(([label, , , touchCopy, pcCopy], i) => `<li data-step="${i}"><b>${i + 1}</b><span><strong>${touch && mode === 'customise' && i === 2 ? 'Play online' : label}</strong>${touch ? touchCopy : pcCopy}</span></li>`).join('')}</ol>
+                        <div class="guide-step-nav"><button type="button" data-guide-prev>← Previous</button><span class="guide-step-count" aria-live="polite"></span><button type="button" data-guide-next>Next →</button></div>
                         <details class="guide-more">
                             <summary>More tips and rules</summary>
                             <p>${touch && mode === 'customise' ? 'Choose a court and rules, then play online with a friend.' : guide.goal}</p>
@@ -200,7 +224,8 @@
                 </footer>
             </article>`;
         dialog.hidden = false;
-        dialog.querySelector('.guide-accept').focus({ preventScroll: true });
+        showStep(0);
+        dialog.querySelector('[data-guide-next]').focus({ preventScroll: true });
     }
 
     window.ModeTutorial = { open, close, firstTime, beforeStart, hasViewed };
@@ -215,7 +240,7 @@
         if (!dialog || dialog.hidden) return;
         if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); close(); }
         if (event.key !== 'Tab') return;
-        const focusable = [...dialog.querySelectorAll('button, summary')];
+        const focusable = [...dialog.querySelectorAll('button, summary')].filter(el => !el.disabled && el.getClientRects().length);
         const first = focusable[0], last = focusable[focusable.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }

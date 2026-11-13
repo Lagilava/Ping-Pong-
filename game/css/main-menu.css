@@ -353,3 +353,14 @@ html.pp-mobile #overlay .preview-touch { display: inline; }
 @media (max-height: 360px) {
     html.pp-mobile .mode-card-hint { display: none; }
 }
+/* A quieter home screen; the existing arena picker becomes the Play screen. */
+#overlay.menu-home #cards-hud, #overlay.menu-home .menu-keys, #overlay.menu-home .menu-recent-achievements { display: none !important; }
+#overlay:not(.menu-home) .menu-home-actions { display: none; }
+#overlay:not(.menu-home) .menu-right-panel { display: none; }
+#overlay .menu-play, #overlay .menu-home-back { pointer-events: auto; cursor: pointer; font-family: inherit; }
+#overlay .menu-play { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 210px; min-height: 64px; margin-top: 20px; padding: 12px 22px; border: 1px solid #8cf4ff; border-radius: 12px; color: #041723; background: #8cf4ff; font-size: 20px; font-weight: 800; box-shadow: 0 0 25px #00d9ff50; }
+#overlay .menu-play span { font: 600 12px/1.2 system-ui, sans-serif; }
+#overlay .menu-home-back { margin-top: 12px; padding: 9px 14px; min-height: 44px; border: 1px solid #79cce0; border-radius: 9px; color: #e7faff; background: #102b3b; }
+#overlay .menu-home-back[hidden] { display: none; }
+#overlay :is(.menu-play,.menu-home-back):focus-visible { outline: 3px solid white; outline-offset: 3px; }
+@media (max-height: 500px) { #overlay .menu-play { min-height: 48px; margin-top: 7px; padding: 7px 16px; font-size: 16px; } #overlay .menu-home-back { margin-top: 5px; } }

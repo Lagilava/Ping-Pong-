@@ -2413,6 +2413,7 @@
         if (document.body.classList.contains('pp-panel-open') || document.body.classList.contains('pp-tour-open')) return null;
         if (document.querySelector('#customiseOverlay.active, .achievement-sidebar.visible')) return null;
         if (isShown('pp-online') || isShown('pp-results') || isShown('modeTutorial')) return null;
+        if (overlay.classList.contains('menu-home')) return 'home';
         return document.getElementById('modal')?.classList.contains('on') ? 'modal' : 'cards';
     }
     function menuCards() { return [...(document.getElementById('cardRow')?.children || [])]; }
@@ -2450,6 +2451,7 @@
         if (i >= 0) focusCard(i);
     }
     function activateMenu(state) {
+        if (state === 'home') { document.getElementById('menuPlay')?.click(); return; }
         if (state === 'modal') { document.getElementById('btnGo')?.click(); return; }
         const cards = menuCards();
         const focused = cards.indexOf(document.activeElement);
@@ -2465,12 +2467,11 @@
             if (!state) return;
             const t = e.target;
             if (t?.closest?.('input, textarea, select, [contenteditable]')) return;
+            if (state === 'home') return;
             if (state === 'cards') {
                 if (e.key === 'Escape') {
                     e.preventDefault();
-                    menuActiveIdx = null;
-                    document.activeElement?.closest?.('#cardRow .card')?.blur();
-                    updateMenuCards();
+                    document.getElementById('menuHomeBack')?.click();
                 } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
                     e.preventDefault();
                     moveCard(e.key === 'ArrowLeft' ? -1 : 1);
@@ -2511,13 +2512,14 @@
             const state = menuNavState();
             if (state) {
                 const now = performance.now();
-                if (dir && (dir !== prevDir || now >= repeatAt)) {
+                if (state !== 'home' && dir && (dir !== prevDir || now >= repeatAt)) {
                     if (state === 'cards') moveCard(dir); else moveOpt(dir);
                     repeatAt = now + (dir !== prevDir ? 380 : 170);
                 }
                 if ((prev.a && !cur.a) || (prev.start && !cur.start)) activateMenu(state);
                 if (!prev.b && cur.b && state === 'modal') closeModalToCards();
-                if (!prev.y && cur.y && state === 'cards') window.PPTour?.open();
+                else if (!prev.b && cur.b && state === 'cards') document.getElementById('menuHomeBack')?.click();
+                if (!prev.y && cur.y && (state === 'cards' || state === 'home')) window.PPTour?.open();
             } else if (!prev.b && cur.b && isShown('modeTutorial')) {
                 document.querySelector('#modeTutorial [data-close-tutorial]')?.click();
             } else if (!prev.b && cur.b && document.querySelector('#customiseOverlay.active')
@@ -2550,6 +2552,18 @@
 
     function initMenuSystem() {
         buildMenuCards();
+        const overlay = document.getElementById('overlay');
+        const play = document.getElementById('menuPlay');
+        const back = document.getElementById('menuHomeBack');
+        const setHome = (home, focus = true) => {
+            overlay?.classList.toggle('menu-home', home);
+            if (back) back.hidden = home;
+            if (focus) (home ? play : back)?.focus({ preventScroll: true });
+        };
+        setHome(true, false);
+        play?.addEventListener('click', () => setHome(false));
+        back?.addEventListener('click', () => setHome(true));
+        window.addEventListener('pp-returned-to-menu', () => setHome(true, false));
         setupMenuNavigation();
         window.addEventListener('resize', () => updateMenuCards(), false);
         document.fonts?.ready?.then(() => updateMenuCards());
