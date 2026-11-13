@@ -3360,7 +3360,7 @@ class BackgroundRenderer {
         this._speedRushVX = (this._speedRushVX || 0) + (tx - (this._speedRushVX || 0)) * Math.min(1, dt * 4);
         if (!this._speedArt && typeof SpeedArt === 'function') this._speedArt = new SpeedArt();
         if (!this._speedArt) return;
-        const slow = game?.modeAbilities?.speedScale?.() ?? 1;
+        const slow = 1; // Background clock is already scaled by the game.
         this._speedArt.draw(ctx, w, h, { rush, hot: hotM, pulse, lean: this._speedRushVX, dt, slow });
     }
 

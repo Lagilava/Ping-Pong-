@@ -38,6 +38,7 @@ class PowerUp {
         // Lifetime system
         this.lifetime = 15000;
         this.spawnTime = Date.now();
+        this.simTime = this.spawnTime;
         this.warningTime = 5000;
         this.blinkPhase = 0;
 
@@ -404,6 +405,7 @@ class PowerUp {
     }
 
     update(dt, game) {
+        this.simTime += dt * 1000;
         const particlesEnabled = areParticleEffectsEnabled();
         if (this.collected) {
             this.collectAnimation += dt * 4;
@@ -415,7 +417,7 @@ class PowerUp {
         }
 
         // Check lifetime
-        const timeLeft = this.lifetime - (Date.now() - this.spawnTime);
+        const timeLeft = this.lifetime - (this.simTime - this.spawnTime);
         if (timeLeft <= 0) {
             this.createExpiryEffect();
             this.active = false;
@@ -519,8 +521,8 @@ class PowerUp {
         }
 
         // Apply velocity with reduced hover
-        this.pos.x += this.vel.x;
-        this.pos.y += this.vel.y + Math.sin(Date.now() * 0.002) * 0.2; // Reduced hover
+        this.pos.x += this.vel.x * dt * 60;
+        this.pos.y += (this.vel.y + Math.sin(this.simTime * 0.002) * 0.2) * dt * 60; // Reduced hover
 
         // Wall collision
         if (!this.phaseThroughWalls) {
@@ -792,7 +794,7 @@ class PowerUp {
         ctx.rotate(this.rotation);
 
         // Warning effect
-        const timeLeft = this.lifetime - (Date.now() - this.spawnTime);
+        const timeLeft = this.lifetime - (this.simTime - this.spawnTime);
         let opacity = 1;
         if (timeLeft < this.warningTime) {
             opacity = 0.7 + Math.sin(this.blinkPhase) * 0.3;
@@ -949,7 +951,7 @@ class PowerUp {
             ctx.shadowBlur = 5; // Reduced blur
             ctx.beginPath();
             for (let i = 0; i < starCount; i++) {
-                const angle = (Date.now() * 0.001 + i * Math.PI * 2 / starCount) % (Math.PI * 2);
+                const angle = (this.simTime * 0.001 + i * Math.PI * 2 / starCount) % (Math.PI * 2);
                 const distance = this.size + 8; // Reduced distance
                 const x = Math.cos(angle) * distance;
                 const y = Math.sin(angle) * distance;
@@ -1355,7 +1357,7 @@ class PowerUp {
         ctx.fillText(effectText, this.pos.x, y + 28);
 
         // Time remaining indicator with neon effect
-        const timeLeft = this.lifetime - (Date.now() - this.spawnTime);
+        const timeLeft = this.lifetime - (this.simTime - this.spawnTime);
         if (timeLeft < this.warningTime) {
             const progress = timeLeft / this.warningTime;
             ctx.fillStyle = `rgba(255, ${Math.floor(255 * progress)}, 0, 0.8)`;
@@ -1394,7 +1396,7 @@ class PowerUp {
 
             let color = this.color;
             if (this.rarity === 5) {
-                const hue = (Date.now() * 0.01 + i * 360 / particleCount) % 360;
+                const hue = (this.simTime * 0.01 + i * 360 / particleCount) % 360;
                 color = `hsl(${hue}, 100%, 60%)`;
             }
 

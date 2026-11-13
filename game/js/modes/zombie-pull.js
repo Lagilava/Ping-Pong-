@@ -206,6 +206,21 @@
             ctx.moveTo(b.x0, bot); ctx.lineTo(end, bot);
             ctx.stroke();
             ctx.setLineDash([]);
+            // Spectral bands contract toward the maw, giving the pull depth
+            // while keeping the zombies and the edge of the field visible.
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < 5; i++) {
+                const u = 1 - ((t * 0.48 + i / 5) % 1);
+                const x = b.x0 + b.range * u;
+                const alpha = r * Math.sin(u * Math.PI) * 0.24;
+                ctx.strokeStyle = i % 2 ? `rgba(185,130,255,${alpha})` : `rgba(163,255,117,${alpha})`;
+                ctx.lineWidth = 2 + (1 - u) * 3;
+                ctx.beginPath();
+                ctx.ellipse(x, b.y0, Math.max(3, b.half * .12), Math.max(3, b.half * (.35 + u * .6)), 0, -Math.PI / 2, Math.PI / 2);
+                ctx.stroke();
+            }
+            ctx.restore();
             // Far edge: a bracket so the reach is readable.
             ctx.strokeStyle = `rgba(190,140,255,${0.4 * r})`;
             ctx.beginPath();
@@ -412,37 +427,56 @@
                 }
             }
 
-            // The maw: a slit down the front edge that opens and has teeth.
-            const open = r * (0.85 + 0.15 * Math.sin(t * 13)) + this.gulp * 0.25;
-            const mh = h * 0.5 * Math.min(1.2, open), mw = (w * 0.5 + 5) * Math.min(1.2, open);
-            if (mh > 1) {
-                const grad = ctx.createRadialGradient(front, cy, 1, front, cy, mw * 1.8);
-                grad.addColorStop(0, 'rgba(8,0,18,0.95)');
-                grad.addColorStop(0.55, 'rgba(60,20,120,0.85)');
-                grad.addColorStop(1, 'rgba(157,255,106,0.9)');
-                ctx.fillStyle = grad;
-                ctx.beginPath();
-                ctx.ellipse(front, cy, mw, mh, 0, 0, TAU);
-                ctx.fill();
-                ctx.strokeStyle = `rgba(230,255,210,${0.9 * flicker})`;
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-                // teeth
-                ctx.fillStyle = `rgba(240,250,225,${0.95 * flicker})`;
-                const teeth = 5;
-                for (let k = 0; k < teeth; k++) {
-                    const a = -Math.PI * 0.42 + (k / (teeth - 1)) * Math.PI * 0.84;
-                    for (const side of [-1, 1]) {
-                        const px = front + Math.sin(a) * mw * 0.9;
-                        const py = cy + side * Math.cos(a) * mh * 0.92;
-                        ctx.beginPath();
-                        ctx.moveTo(px - 2.2, py);
-                        ctx.lineTo(px + 2.2, py);
-                        ctx.lineTo(px, py - side * Math.min(9, mh * 0.2));
-                        ctx.closePath();
-                        ctx.fill();
-                    }
+            // An organic eye opens with the pull, watches the nearest prey,
+            // and contracts when a zombie is swallowed.
+            const reduced = window.PPSettings?.get('reduceMotion');
+            const breath = reduced ? 0 : Math.sin(t * 4.8) * 0.035;
+            const open = Math.min(1.15, Math.max(0, r * (0.92 + breath) + this.gulp * 0.15));
+            const mh = h * 0.38 * open, mw = Math.max(0, (w * 0.52 + 7) * open);
+            if (mh > 1 && mw > 1) {
+                let nearest = null;
+                for (const z of g.zombieState?.zombies || []) {
+                    if (!z.dead && Number.isFinite(z.y) && (!nearest || z.x < nearest.x)) nearest = z;
                 }
+                const look = nearest ? Math.max(-0.28, Math.min(0.28, (nearest.y - cy) / Math.max(h, 1))) : (reduced ? 0 : Math.sin(t * 1.5) * 0.1);
+                const blink = reduced ? 1 : 1 - Math.pow(Math.max(0, Math.sin(t * 1.35)), 24) * 0.72;
+                const irisY = cy + look * mh * 0.48;
+                ctx.save();
+                ctx.globalAlpha = Math.min(1, open * 2) * flicker;
+                // Dark leathery socket and soft toxic light separate the eye
+                // from the paddle's bright geometric outline.
+                ctx.shadowColor = '#77ca69'; ctx.shadowBlur = 9 * r;
+                ctx.fillStyle = '#0a1714'; ctx.strokeStyle = '#547756'; ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.ellipse(front, cy, mw * 1.16, mh * 1.05, 0, 0, TAU); ctx.fill(); ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.save();
+                ctx.beginPath(); ctx.ellipse(front, cy, mw, mh * blink, 0, 0, TAU); ctx.clip();
+                const sclera = ctx.createRadialGradient(front, cy, 0, front, cy, Math.max(1, mw));
+                sclera.addColorStop(0, '#829c54'); sclera.addColorStop(.35, '#526d3e');
+                sclera.addColorStop(.72, '#263f2f'); sclera.addColorStop(1, '#0c1d19');
+                ctx.fillStyle = sclera; ctx.fillRect(front - mw, cy - mh, mw * 2, mh * 2);
+                // Fine radial fibres make the iris read as an eye at game scale.
+                const irx = mw * .83, iry = Math.min(mh * .51, mw * 2.15);
+                const iris = ctx.createRadialGradient(front, irisY, 0, front, irisY, Math.max(irx, iry));
+                iris.addColorStop(0, '#100e1a'); iris.addColorStop(.30, '#4e3e66');
+                iris.addColorStop(.58, '#a6c46c'); iris.addColorStop(.8, '#68955a'); iris.addColorStop(1, '#243a2c');
+                ctx.fillStyle = iris; ctx.beginPath(); ctx.ellipse(front, irisY, irx, iry, 0, 0, TAU); ctx.fill();
+                ctx.strokeStyle = 'rgba(225,255,167,.38)'; ctx.lineWidth = .8;
+                for (let i = 0; i < 18; i++) {
+                    const a = i * TAU / 18 + (reduced ? 0 : t * .2);
+                    ctx.beginPath(); ctx.moveTo(front + Math.cos(a) * irx * .38, irisY + Math.sin(a) * iry * .38);
+                    ctx.lineTo(front + Math.cos(a) * irx * .9, irisY + Math.sin(a) * iry * .9); ctx.stroke();
+                }
+                const pupilWidth = Math.max(1.5, mw * (.22 - Math.min(.1, this.gulp * .1)));
+                ctx.fillStyle = '#100a1b'; ctx.beginPath(); ctx.ellipse(front, irisY, pupilWidth, iry * .76, 0, 0, TAU); ctx.fill();
+                ctx.fillStyle = 'rgba(243,255,222,.9)'; ctx.beginPath(); ctx.ellipse(front - mw * .24, irisY - iry * .3, Math.max(1, mw * .13), Math.max(1.5, iry * .12), -.35, 0, TAU); ctx.fill();
+                ctx.restore();
+                // Raised lids close over the eye during its blink and release.
+                ctx.strokeStyle = '#17251d'; ctx.lineWidth = Math.max(2, mw * .24);
+                ctx.beginPath(); ctx.ellipse(front, cy, mw, mh * blink, 0, 0, TAU); ctx.stroke();
+                ctx.strokeStyle = `rgba(159,205,130,${.45 * r})`; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.ellipse(front, cy, mw * 1.08, mh * 1.02, 0, -.95, .95); ctx.stroke();
+                ctx.restore();
             }
 
             // Motes drifting out of the field and into the maw.

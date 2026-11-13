@@ -40,7 +40,7 @@
     // and both tutorials. Classic and Custom have none.
     const ABILITIES = {
         speed: {
-            name: 'Overcharge', hold: false,
+            name: 'Time Stop', hold: false,
             touch: 'Tap it just before the ball reaches your paddle. Time slows, and your return leaves as a faster Sonic Return.',
             pc: 'Press it just before the ball reaches your paddle. Time slows, and your return leaves as a faster Sonic Return.'
         },

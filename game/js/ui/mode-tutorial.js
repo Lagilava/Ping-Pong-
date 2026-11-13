@@ -34,15 +34,15 @@
             touchTip: 'Tap Wormhole as the ball passes a black hole. A dashed ring shows the hole that will take it; arrows mark where it will come out.'
         },
         speed: {
-            name: 'Speed', number: '04', color: '#ffd16b', tagline: 'Keep up with the pace', fact: 'TIMED SONIC RETURNS', action: 'Space: Overcharge near your paddle',
-            goal: 'Win the rally as the ball keeps accelerating. Time an Overcharge to turn a close return into a faster shot.',
+            name: 'Speed', number: '04', color: '#ffd16b', tagline: 'Keep up with the pace', fact: 'TIMED SONIC RETURNS', action: 'Space: Time Stop near your paddle',
+            goal: 'Win the rally as the ball keeps accelerating. Use Time Stop to turn a close return into a faster shot.',
             steps: [
                 ['Stay ahead', 'The ball speeds up during play, so start moving before it crosses the center line.'],
-                ['Time Overcharge', 'Press Space when the ball approaches your paddle. The button says PRESS NOW when it is in range.'],
-                ['Land a Sonic Return', 'Meet the ball during the brief Overcharge window to send it back faster. The ability recharges after 2.3 seconds.']
+                ['Use Time Stop', 'Press Space when the ball approaches your paddle. The button says PRESS NOW when it is in range.'],
+                ['Land a Sonic Return', 'Meet the ball during the brief Time Stop window to send it back faster. The ability recharges after 2.3 seconds.']
             ],
-            tip: 'Wait for the ball to come toward your paddle before pressing Space. An early press will not start Overcharge.',
-            touchTip: 'Tap Overcharge when the ball is close to your paddle, then meet it for a faster Sonic Return.'
+            tip: 'Wait for the ball to come toward your paddle before pressing Space. An early press will not start Time Stop.',
+            touchTip: 'Tap Time Stop when the ball is close to your paddle, then meet it for a faster Sonic Return.'
         },
         obstacle: {
             name: 'Obstacle', number: '05', color: '#ffab6e', tagline: 'Play the course', fact: 'COINS = 1 GOAL SHIELD', action: 'Space / Enter rolls the Lucky Dice',
@@ -70,13 +70,13 @@
     // Step copy names keys; on touch the same actions are on-screen buttons.
     const touchText = (text, mode) => text
         .replace(/\bHold Space\b/g, 'Hold the Pull button')
-        .replace(/\bPress Space\b/g, `Tap ${mode === 'gravity' ? 'Wormhole' : mode === 'speed' ? 'Overcharge' : 'Lucky Dice'}`);
+        .replace(/\bPress Space\b/g, `Tap ${mode === 'gravity' ? 'Wormhole' : mode === 'speed' ? 'Time Stop' : 'Lucky Dice'}`);
 
     const quickGoals = {
         classic: 'Send the ball past the other paddle to score.',
         zombie: 'Survive ten waves and defeat the final boss.',
         gravity: 'Curve shots around black holes and score.',
-        speed: 'Keep up with the ball and time Overcharge.',
+        speed: 'Keep up with the ball and use Time Stop.',
         obstacle: 'Navigate hazards and score past your opponent.',
         customise: 'Choose your court and rules, then start a match.'
     };
@@ -101,8 +101,8 @@
         ],
         speed: [
             ['Middle line', [50, 50], [50, 50], 'Start moving before the ball crosses the middle.', 'Start moving before the ball crosses the middle.'],
-            ['Overcharge', [9, 83], [12, 94], 'Tap Overcharge just before a return.', 'Press Space just before a return.'],
-            ['Your paddle', [3, 51], [3, 50], 'Meet the ball during Overcharge for a Sonic Return.', 'Meet the ball during Overcharge for a Sonic Return.']
+            ['Time Stop', [9, 83], [12, 94], 'Tap Time Stop just before a return.', 'Press Space just before a return.'],
+            ['Your paddle', [3, 51], [3, 50], 'Meet the ball during Time Stop for a Sonic Return.', 'Meet the ball during Time Stop for a Sonic Return.']
         ],
         obstacle: [
             ['Checkpoints', [38, 50], [50, 20], 'Guide the ball through checkpoints in order.', 'Guide the ball through checkpoints in order.'],

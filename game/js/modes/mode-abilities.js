@@ -17,6 +17,8 @@ class ModeAbilities {
     reset() {
         this.sonicMax = 0;
         this.clock = 0;
+        this.timeVisual = 0;
+        this.timePhase = 0;
         this.dice?.reset();
         this.sides = {
             player: { cooldown: 0, active: 0, sonic: 0, miss: 0, y: 0, trail: [], trailClock: 0, burst: 0, burstX: 0, burstY: 0 },
@@ -77,11 +79,25 @@ class ModeAbilities {
             if (!this.dice?.roll(side)) return false;
             s.cooldown = ModeAbilities.COOLDOWN.obstacle;
         } else return false;
+        if (g.gameMode !== 'speed') {
+            const paddle = this.paddle(side);
+            if (paddle) {
+                s.burst = 0.38;
+                s.burstX = paddle.pos.x + paddle.w / 2;
+                s.burstY = paddle.pos.y + paddle.h / 2;
+            }
+        }
         return true;
     }
 
     update(dt) {
         this.clock += dt;
+        const timeActive = this.game.gameMode === 'speed' && !this.game.net && Object.values(this.sides).some(s => s.active > 0);
+        const target = timeActive ? 1 : 0;
+        const rate = timeActive ? 7 : 3.4;
+        this.timeVisual += (target - this.timeVisual) * Math.min(1, dt * rate);
+        if (this.timeVisual < 0.002) this.timeVisual = 0;
+        this.timePhase += dt;
         for (const [side, s] of Object.entries(this.sides)) {
             if (s.pendingWarp > 0) {
                 if (!this.enabled || this.game.gameMode !== 'gravity' || this.game.gravityWarp?.holdsBall()) s.pendingWarp = 0;
@@ -195,6 +211,37 @@ class ModeAbilities {
             ctx.stroke();
         }
         ctx.setLineDash([]);
+        // A pair of offset neon arcs and angular lightning sell the brief
+        // acceleration without obscuring the ball or the opponent.
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
+        for (let layer = 0; layer < 2; layer++) {
+            const offset = layer ? 5 : -5;
+            ctx.strokeStyle = layer ? `rgba(255,86,211,${.45 * fade})` : `rgba(75,230,255,${.7 * fade})`;
+            ctx.lineWidth = layer ? 2 : 3;
+            ctx.shadowColor = layer ? '#ff50d8' : '#54eaff'; ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.ellipse(cx + dir * (20 + offset), cy, 25 + layer * 9, paddle.h * (.91 + layer * .08), 0, dir === 1 ? -1.27 : Math.PI - 1.27, dir === 1 ? 1.27 : Math.PI + 1.27);
+            ctx.stroke();
+        }
+        if (motion) {
+            ctx.shadowBlur = 8;
+            for (let bolt = 0; bolt < 3; bolt++) {
+                const y0 = cy + (bolt - 1) * paddle.h * .37;
+                const length = Math.min(reach * .85, 75 + bolt * 13);
+                ctx.strokeStyle = bolt === 1 ? `rgba(255,154,231,${.7 * fade})` : `rgba(189,252,255,${.8 * fade})`;
+                ctx.lineWidth = bolt === 1 ? 1.4 : 2;
+                ctx.beginPath();
+                for (let j = 0; j <= 6; j++) {
+                    const x = cx + dir * (18 + length * j / 6);
+                    const jitter = j === 0 || j === 6 ? 0 : Math.sin(j * 13 + bolt * 7 + Math.floor(this.clock * 22)) * (5 + j);
+                    if (j) ctx.lineTo(x, y0 + jitter); else ctx.moveTo(x, y0);
+                }
+                ctx.stroke();
+            }
+        }
+        ctx.restore();
         // The shield charges toward contact: a segmented turbine with an
         // electric edge, rather than a static outline around the paddle.
         const charge = 1 - s.active / ModeAbilities.SPEED_WINDOW;
@@ -303,9 +350,48 @@ class ModeAbilities {
         ctx.restore();
     }
 
+    // Screen-space optical wake. The simulation has its own immediate slowdown;
+    // this envelope eases the scene into and out of the altered-time look.
+    renderTimeWake(ctx) {
+        const k = this.timeVisual, g = this.game;
+        if (g.gameMode !== 'speed' || g.net || k < 0.002) return;
+        const w = g.width, h = g.height;
+        const reduced = window.PPSettings?.get('reduceMotion');
+        ctx.save();
+        const wash = ctx.createRadialGradient(w * .5, h * .5, h * .08, w * .5, h * .5, Math.max(w, h) * .7);
+        wash.addColorStop(0, `rgba(124,235,255,${0.025 * k})`);
+        wash.addColorStop(.65, `rgba(35,105,185,${0.09 * k})`);
+        wash.addColorStop(1, `rgba(5,12,45,${0.42 * k})`);
+        ctx.fillStyle = wash; ctx.fillRect(0, 0, w, h);
+        // Chromatic edge trails frame the frozen moment without covering the
+        // middle of the court; the envelope also carries the exit transition.
+        ctx.globalCompositeOperation = 'screen';
+        for (let edge = 0; edge < 2; edge++) {
+            const gradient = ctx.createLinearGradient(edge ? w : 0, 0, edge ? w * .7 : w * .3, 0);
+            gradient.addColorStop(0, edge ? `rgba(255,48,170,${.13 * k})` : `rgba(32,202,255,${.18 * k})`);
+            gradient.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = gradient; ctx.fillRect(edge ? w * .7 : 0, 0, w * .3, h);
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        if (!reduced) {
+            ctx.globalCompositeOperation = 'screen';
+            ctx.lineCap = 'round';
+            for (let i = 0; i < 24; i++) {
+                const a = i * 2.399, radius = .22 + ((i * .173 + this.timePhase * .08) % .65);
+                const x = w * (.5 + Math.cos(a) * radius), y = h * (.5 + Math.sin(a) * radius);
+                const dx = x - w * .5, dy = y - h * .5;
+                ctx.strokeStyle = i % 3 ? `rgba(86,194,255,${.16 * k})` : `rgba(220,252,255,${.24 * k})`;
+                ctx.lineWidth = i % 4 === 0 ? 2 : 1;
+                ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + dx * .12, y + dy * .12); ctx.stroke();
+            }
+        }
+        ctx.restore();
+    }
+
     render(ctx) {
         const g = this.game, mode = g.gameMode;
         if (!['speed', 'gravity', 'obstacle'].includes(mode) || g.net) return;
+        this.renderTimeWake(ctx);
         ctx.save();
         const motion = !window.PPSettings?.get('reduceMotion');
         for (const side of ['player', 'ai']) {
@@ -314,6 +400,9 @@ class ModeAbilities {
             if (mode === 'speed') this.renderSpeedField(ctx, side, s, motion);
         }
         if (mode === 'obstacle') this.dice?.render(ctx);
+        if (mode === 'gravity' || mode === 'obstacle') {
+            for (const s of Object.values(this.sides)) this.renderBurst(ctx, s, mode === 'gravity' ? '#c4a9ff' : '#ffd477', 0.38, motion);
+        }
         if (mode === 'speed' && this.speedScale() < 1) {
             ctx.fillStyle = 'rgba(80,210,255,0.025)';
             ctx.fillRect(0, 0, g.width, g.height);
@@ -349,7 +438,7 @@ class ModeAbilities {
                 : window.PPSettings?.keyLabel(bound || (side === 'player' ? ' ' : 'enter')) || (side === 'player' ? 'Space' : 'Enter');
             const dice = mode === 'obstacle' ? this.dice?.status(side) : null;
             const inRange = mode === 'speed' ? this.speedInRange(side) : mode === 'gravity' ? !!this.nearestWell() : false;
-            const label = mode === 'speed' ? 'OVERCHARGE' : mode === 'gravity' ? 'WORMHOLE' : 'LUCKY DICE';
+            const label = mode === 'speed' ? 'TIME STOP' : mode === 'gravity' ? 'WORMHOLE' : 'LUCKY DICE';
             const warping = mode === 'gravity' && g.gravityWarp?.warp?.side === side;
             const status = dice ? dice.text : warping ? 'WARPING' : s.pendingWarp > 0 ? 'WAITING FOR WELL' : s.active > 0 ? 'ACTIVE' : s.miss > 0 ? 'MISSED' : ready ? (inRange ? 'PRESS NOW' : (mode === 'obstacle' ? 'READY TO ROLL' : mode === 'gravity' ? 'NEAR A WELL TO WARP' : 'READY')) : `${s.cooldown.toFixed(1)}s`;
             const pillW = Math.min(236, g.width * (g.isMultiplayer ? 0.38 : 0.48));

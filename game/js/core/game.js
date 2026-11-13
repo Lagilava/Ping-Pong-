@@ -8613,8 +8613,12 @@ class Game {
         const renderBackgroundLayer = () => {
             if (this.gameMode === 'speed') {
                 if (this.bgRenderer) {
-                    this.bgRenderer.update(renderDt);
+                    this.bgRenderer.update(renderDt * (this.modeAbilities?.speedScale() || 1));
+                    ctx.save();
+                    const timeBlur = (this.modeAbilities?.timeVisual || 0) * (window.PPSettings?.get('reduceMotion') ? 0 : 2.5);
+                    if (timeBlur > 0.05 && 'filter' in ctx) ctx.filter = `blur(${timeBlur.toFixed(2)}px) saturate(1.2)`;
                     this.bgRenderer.render();
+                    ctx.restore();
                 } else {
                     this.renderSpeedBackground();
                 }
