@@ -2,7 +2,7 @@
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict'), fs = require('node:fs'), path = require('node:path');
 (async () => {
-    const browser = await chromium.launch({ headless: true });
+    const browser = await chromium.launch({ headless: true, ...(process.env.BROWSER_PATH ? { executablePath: process.env.BROWSER_PATH } : {}) });
     try {
         for (const display of [
             { viewport: { width: 3840, height: 2160 }, deviceScaleFactor: 1 },
@@ -12,9 +12,19 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
             const displayName = display.isMobile ? 'mobile' : display.deviceScaleFactor === 2 ? 'retina' : '4k';
             if (process.env.DISPLAY_FILTER && process.env.DISPLAY_FILTER !== displayName) continue;
             const page = await browser.newPage(display);
+            if (process.env.GAME_TEST_FILES) {
+                const root = path.resolve(__dirname, '..', 'game');
+                await page.route('**/*', async route => {
+                    const url = new URL(route.request().url());
+                    if (url.hostname !== 'pingpong.local') return route.abort();
+                    const target = path.resolve(root, decodeURIComponent(url.pathname).replace(/^\/+/, ''));
+                    if (!target.startsWith(root + path.sep)) return route.abort();
+                    try { await route.fulfill({ path: target }); } catch { await route.fulfill({ status: 404 }); }
+                });
+            }
             const errors = [];
             page.on('pageerror', error => errors.push(error.message));
-            await page.goto((process.env.GAME_TEST_URL || 'http://127.0.0.1:8080') + '/play.html?from_intro=1');
+            await page.goto((process.env.GAME_TEST_FILES ? 'http://pingpong.local' : (process.env.GAME_TEST_URL || 'http://127.0.0.1:8080')) + '/play.html?from_intro=1&nosw');
             await page.waitForFunction(() => window.game?.bgRenderer && window.PPResolution);
             assert.equal(await page.evaluate(() => game.zombieSprites.artReady), true, 'enlarged enemy atlas decodes all six silhouettes in each row');
             for (const mode of ['classic', 'speed', 'gravity', 'zombie', 'obstacle', 'customise']) {
@@ -63,3 +73,4 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), path = re
         }
     } finally { await browser.close(); }
 })().catch(error => {console.error(error); process.exitCode = 1;});
+

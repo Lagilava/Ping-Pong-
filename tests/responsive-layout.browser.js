@@ -88,8 +88,9 @@ const sizes = [
             await page.locator('#modeTutorial').waitFor({ state: 'visible' });
             await page.evaluate(() => ModeTutorial.close());
             await check('#customiseOverlay', 'custom');
-            await page.locator('#customStartMatchBtn').scrollIntoViewIfNeeded();
-            assert.ok(await page.locator('#customStartMatchBtn').isVisible(), `${name} custom start unreachable`);
+            const customStart = page.locator(mobile ? '.customise-online-btn' : '#customStartMatchBtn');
+            await customStart.scrollIntoViewIfNeeded();
+            assert.ok(await customStart.isVisible(), `${name} custom start unreachable`);
             await page.locator('#customiseBackBtn').click();
             await page.locator('.card[data-mode="classic"]').click();
             await page.locator('#btnGo').click();
@@ -136,3 +137,4 @@ const sizes = [
         }
     } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
+
