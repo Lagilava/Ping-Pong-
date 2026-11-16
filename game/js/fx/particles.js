@@ -100,6 +100,7 @@ class ParticleSystem {
         this.active = [];
         this.spawnQueue = [];
         this.enabled = true;
+        this._sortDirty = false;
 
         for (let i = 0; i < maxParticles; i++) {
             this.pool[i] = new Particle();
@@ -338,21 +339,29 @@ class ParticleSystem {
             }
         }
         this.active.length = alive;
+        this._sortDirty = true;
     }
 
     render(ctx) {
         if (!this.enabled || !areParticleEffectsEnabled() || !this.active.length) return;
 
-        // optional sort – helps a bit with overdraw
-        this.active.sort((a, b) => b.size - a.size);
+        // Size/order only changes during update, not during repeated renders.
+        if (this._sortDirty) {
+            this.active.sort(ParticleSystem._bySize);
+            this._sortDirty = false;
+        }
 
         for (const p of this.active) p.render(ctx);
     }
 
     clear() {
         this.active.forEach(p => this._release(p));
+        this.spawnQueue.forEach(p => this._release(p));
         this.active.length = this.spawnQueue.length = 0;
+        this._sortDirty = false;
     }
+
+    static _bySize(a, b) { return b.size - a.size; }
 
     setEnabled(state) {
         this.enabled = state;

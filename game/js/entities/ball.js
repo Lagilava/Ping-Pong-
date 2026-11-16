@@ -417,6 +417,10 @@ class Ball {
     }
 
     render(ctx, interp) {
+        if (window.SpeedAnime?.active()) {
+            window.SpeedAnime.ball(ctx, this, interp);
+            return;
+        }
         // Interpolated position (reduces stutter)
         const x = this.prev.x + (this.pos.x - this.prev.x) * interp;
         const y = this.prev.y + (this.pos.y - this.prev.y) * interp;

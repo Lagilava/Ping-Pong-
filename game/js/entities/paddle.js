@@ -787,6 +787,8 @@ class Paddle {
 
         if (this.isAI && this.isZombieBoss) {
             this.renderZombieBossAI(ctx, time, hitGlow, pulse, pulseIntensity, transformPulse);
+        } else if (window.SpeedAnime?.active()) {
+            window.SpeedAnime.paddle(ctx, this);
         } else if (style === 'classic') {
             if (this.isAI) {
                 // apply subtle living scale oscillation
@@ -804,7 +806,7 @@ class Paddle {
             this.renderStyledPaddle(ctx, time, hitGlow, pulse, pulseIntensity, transformPulse, style);
         }
 
-        if (!this.isZombieBoss) this._renderAnimatedAccents(ctx, time, hitGlow, style !== 'classic');
+        if (!this.isZombieBoss && !window.SpeedAnime?.active()) this._renderAnimatedAccents(ctx, time, hitGlow, style !== 'classic');
         this._renderMotionFx(ctx);
         window.LaserFX?.ready(ctx, this, time);
 

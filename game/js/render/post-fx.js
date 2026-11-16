@@ -278,9 +278,6 @@ class PostFX {
             else if (v.length === 3) gl.uniform3fv(loc, v);
             else gl.uniform4fv(loc, v);
         }
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
-        gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
 
@@ -290,6 +287,11 @@ class PostFX {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
         // One oversized triangle covers the viewport.
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+        // This context belongs exclusively to PostFX. Every program uses the
+        // same triangle and attribute 0; framebuffer/texture changes and canvas
+        // resizes preserve this WebGL vertex state.
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     }
 
     _compile(fsSource) {

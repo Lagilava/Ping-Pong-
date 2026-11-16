@@ -3977,7 +3977,11 @@ class BackgroundRenderer {
     _ensureObstacleShimmerSprite() { }
     _ensureObstacleStaticOverlayLayer() { }
     syncObstacleArenaState(obstacles = [], ball = null, game = null, dt = 1 / 60) {
-        const activeObstacles = Array.isArray(obstacles) ? obstacles.filter(obs => obs?.active) : [];
+        const activeObstacles = this._activeObstacleScratch || (this._activeObstacleScratch = []);
+        activeObstacles.length = 0;
+        if (Array.isArray(obstacles)) {
+            for (const obs of obstacles) if (obs?.active) activeObstacles.push(obs);
+        }
         const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
         const lerp = (from, to, amount) => from + (to - from) * amount;
 
@@ -4101,7 +4105,14 @@ class BackgroundRenderer {
         state.beat = lerp(state.beat, beatTarget, Math.min(1, 0.14 + dt * 2.0));
         state.energy = clamp(state.energy, 0, 1);
         state.beat = clamp(state.beat, 0, 1);
-        state.dominantType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'none';
+        // Keep insertion order for ties, just like the previous stable sort.
+        let dominantCount = -1;
+        for (const type in typeCounts) {
+            if (typeCounts[type] > dominantCount) {
+                dominantCount = typeCounts[type];
+                state.dominantType = type;
+            }
+        }
         state.lastUpdate = this.time;
         return state;
     }

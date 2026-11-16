@@ -33,6 +33,8 @@
     }
 
     const params = new URLSearchParams(location.search);
+    // Capture the opt-in art preview before startup removes navigation params.
+    window.PP_SPEED_ANIME_PREVIEW = params.get('speedAnime') === '1';
     const navEntry = performance.getEntriesByType('navigation')[0];
     const isReload = navEntry && navEntry.type === 'reload';
 

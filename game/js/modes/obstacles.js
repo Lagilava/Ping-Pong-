@@ -1233,11 +1233,13 @@ class Obstacle {
         this.colorGlow = this.activeRailColor;
 
         // Fade hit-ripples
-        this.hitRipples = this.hitRipples.filter(r => {
+        let liveRipples = 0;
+        for (const r of this.hitRipples) {
             r.radius += dt * 220;
             r.alpha = Math.max(0, 1 - r.radius / r.maxRadius);
-            return r.alpha > 0;
-        });
+            if (r.alpha > 0) this.hitRipples[liveRipples++] = r;
+        }
+        this.hitRipples.length = liveRipples;
     }
 
     // -- Collision ---------------------------------------------------
@@ -1512,15 +1514,20 @@ class Obstacle {
     }
 
     _updateParticles(dt) {
-        this.hitParticles = this.hitParticles.filter(p => {
+        if (!this.hitParticles.length) return;
+        const dragX = Math.pow(0.92, dt * 60);
+        const dragY = Math.pow(0.96, dt * 60);
+        let liveParticles = 0;
+        for (const p of this.hitParticles) {
             p.x += p.vx * dt;
             p.y += p.vy * dt;
             p.vy += 200 * dt;   // gravity
-            p.vx *= Math.pow(0.92, dt * 60);
-            p.vy *= Math.pow(0.96, dt * 60);
+            p.vx *= dragX;
+            p.vy *= dragY;
             p.life -= dt;
-            return p.life > 0;
-        });
+            if (p.life > 0) this.hitParticles[liveParticles++] = p;
+        }
+        this.hitParticles.length = liveParticles;
     }
 
     _respawn() {

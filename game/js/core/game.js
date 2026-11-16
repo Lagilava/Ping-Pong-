@@ -3692,7 +3692,12 @@ class Game {
 
         const state = this.zombieState;
         state.active = true;
-        state.pickupBursts = (state.pickupBursts || []).filter(effect => (effect.age += dt) < 0.65);
+        const pickupBursts = state.pickupBursts || (state.pickupBursts = []);
+        let liveBursts = 0;
+        for (const effect of pickupBursts) {
+            if ((effect.age += dt) < 0.65) pickupBursts[liveBursts++] = effect;
+        }
+        pickupBursts.length = liveBursts;
         this.zombiePull.update(dt);
         this.zombieSprites.pump(2);
         this.syncZombiePullHUD();
@@ -4075,7 +4080,11 @@ class Game {
         }
 
         if (state.zombies.length) {
-            state.zombies = state.zombies.filter(zombie => !zombie.dead);
+            let liveZombies = 0;
+            for (const zombie of state.zombies) {
+                if (!zombie.dead) state.zombies[liveZombies++] = zombie;
+            }
+            state.zombies.length = liveZombies;
         }
 
         if (rageHit) {
@@ -7318,6 +7327,9 @@ class Game {
         if (this.gameMode === 'speed') {
             this.lastHitFlash = 1.0;
             this.hitFlashDirection = isPlayer ? 1 : -1;
+            if (window.SpeedAnime?.active()) this._speedAnimeImpact = {
+                x: hitX, y: b.pos.y, at: this.modeAbilities?.clock || 0
+            };
         }
 
         this.onPaddleImpact(b, p, isPlayer, hit === 2);
@@ -8712,7 +8724,7 @@ class Game {
                 ctx.restore();
             }
         }
-        if (this.gameMode === 'speed') {
+        if (this.gameMode === 'speed' && !window.SpeedAnime?.active()) {
             ctx.save();
             ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.003) * 0.2;
             ctx.fillStyle = '#ff00ff';
@@ -8723,6 +8735,7 @@ class Game {
             ctx.fillText('⚡  ⚡', W / 2, 40);
             ctx.restore();
         }
+        if (window.SpeedAnime?.active()) window.SpeedAnime.backdrop(ctx, this);
         ctx.strokeStyle = 'rgba(0, 255, 214, 0.12)';
         ctx.lineWidth = 2;
         ctx.setLineDash([10, 12]);
@@ -8857,6 +8870,7 @@ class Game {
         if (this.gameMode === 'obstacle') this.obstacleArcade?.renderPaddleShields(ctx);
         this.renderMainBall(ctx, interp);
         this.modeAbilities?.render(ctx);
+        if (window.SpeedAnime?.active()) window.SpeedAnime.action(ctx, this);
         if (window.PPSettings?.get('ballOutline')) this.renderBallOutlines(ctx);
         this.renderServeTelegraph(ctx);
         if (revealing) ctx.restore();

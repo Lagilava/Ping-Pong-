@@ -1,5 +1,5 @@
 {
- "hash": "b0ad435b3d62d466",
+ "hash": "speed-anime-20261116-2",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -190,6 +190,7 @@
   "js/render/render-resolution.js",
   "js/render/scene-compositor.js",
   "js/render/speed-art.js",
+  "js/render/speed-anime.js",
   "js/render/surface-textures.js",
   "js/render/tour-venues.js",
   "js/systems/achievement-icons.js",
