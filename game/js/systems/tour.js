@@ -31,6 +31,8 @@
         { id: 'world', name: 'World', need: 12, mood: 'Floodlit final', accent: '#ffe08a',
             look: { sat: 1.04, contrast: 1.18, tint: [0.97, 0.99, 1.07], shadow: [-0.012, -0.006, 0.012], highlight: [0.02, 0.026, 0.046] },
             veil: { layers: [], tint: null, frame: 'inset 0 0 0 3px rgba(255, 214, 120, .75), inset 0 0 90px rgba(255, 200, 90, .24)' } },
+        // One survival stage after the World final; the Zombie arena brings its own look.
+        { id: 'survival', name: 'Survival', need: 16, mood: 'Midnight siege', accent: '#7dff6a', look: null, veil: null },
     ];
     const SKILLS = ['Rookie', 'Easy', 'Normal', 'Hard', 'Insane'];
     const MODES = {
@@ -38,6 +40,7 @@
         gravity: { name: 'Gravity', hex: '#3d9eff' },
         speed: { name: 'Speed', hex: '#ffbe00' },
         obstacle: { name: 'Obstacle', hex: '#ff7620' },
+        zombie: { name: 'Zombie', hex: '#7dff6a' },
     };
     const STYLE_TEXT = {
         wall: 'Returns everything and waits for a mistake',
@@ -53,6 +56,12 @@
 
     const margin = (n) => ({ type: 'margin', n, text: `Win by ${n} or more points` });
     const streak = (n) => ({ type: 'streak', n, text: `Score ${n} points in a row` });
+    const lives = (n) => ({ type: 'lives', n, text: `Finish with ${n} or more lives` });
+    // Judged on breaches taken, so a heart pickup cannot hide a lost life.
+    const clean = () => ({ type: 'clean', n: 0, text: 'Finish without losing a life' });
+    const rallyGoal = (n) => ({ type: 'rally', n, text: `Hit a ${n}-ball rally` });
+    // Gold rematch goal per stage (one skill level up, win plus this).
+    const GOLD = { 1: rallyGoal(10), 2: margin(5), 3: rallyGoal(12), 4: margin(5), 5: rallyGoal(12), 6: margin(5), 7: rallyGoal(14), 8: margin(5) };
 
     // Order matters: stage N+1 opens when stage N is won (and its tier is open).
     const STAGES = [
@@ -64,12 +73,27 @@
         { id: 6, tier: 2, rival: 'Mirage', style: 'trickster', mode: 'gravity', level: 3, points: 7, twist: null, goals: [margin(3), streak(3)], boss: true },
         { id: 7, tier: 3, rival: 'Atlas', style: 'wall', mode: 'classic', level: 3, points: 11, twist: 'noPowerUps', goals: [margin(4), streak(3)] },
         { id: 8, tier: 3, rival: 'Titan', style: 'bully', mode: 'classic', level: 4, points: 11, twist: 'winBy2', goals: [margin(3), streak(3)], boss: true },
+        // Survival: the Zombie run (all 10 waves and the boss). No points target, so points is 0.
+        { id: 9, tier: 4, rival: 'Morrow', style: 'wall', mode: 'zombie', level: 3, points: 0, survive: 10, twist: null, goals: [lives(3), clean()], boss: true },
     ];
+    STAGES.forEach((st) => { if (GOLD[st.id]) st.goldGoal = GOLD[st.id]; });
+    const LAST_ID = STAGES[STAGES.length - 1].id;
     const MAX_STARS = STAGES.length * 3;
+    const GOLD_STAGES = STAGES.filter((st) => st.goldGoal);
 
     const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
     // 'daily' is today's Daily Match (daily.js builds its stage the same shape as a Tour stage).
     const byId = (id) => (id === 'daily' ? (window.PPDaily?.stage?.() || null) : (STAGES.find((s) => s.id === Number(id)) || null));
+
+    // A gold rematch: one skill level up, the stage's gold goal in place of its two star goals.
+    function goldVariant(stage) {
+        return Object.assign({}, stage, { gold: true, level: Math.min(4, stage.level + 1), goals: [stage.goldGoal] });
+    }
+    // The stage a running match is, as the player sees it (gold variant included).
+    function stageFor(ctx) {
+        const st = ctx ? byId(ctx.stageId) : null;
+        return st && ctx.gold && st.goldGoal ? goldVariant(st) : st;
+    }
 
     // Mode grade + the tier's look. `look.tint/shadow/highlight` multiply
     // (tint) or add to the base; sat and contrast multiply.
@@ -152,7 +176,7 @@
             card.className = 'pptour-title';
             card.setAttribute('aria-hidden', 'true');
             card.style.setProperty('--tier', tier.accent);
-            card.innerHTML = `<small>${stage.daily ? 'Daily Match' : `Tour &middot; stage ${stage.id}`}</small><b>vs ${esc(stage.rival)}</b><span>${esc(tier.name)} &middot; ${esc(tier.mood)}</span>`;
+            card.innerHTML = `<small>${stage.daily ? 'Daily Match' : `Tour &middot; stage ${stage.id}${stage.gold ? ' &middot; Gold' : ''}`}</small><b>vs ${esc(stage.rival)}</b><span>${esc(tier.name)} &middot; ${esc(tier.mood)}</span>`;
             host.appendChild(card);
             card.addEventListener('animationend', () => card.remove());
             window.setTimeout(() => card.remove(), 5000);
@@ -162,7 +186,10 @@
     // ── Save data ────────────────────────────────────────────────────────
     let data = null;
 
-    function blank() { return { v: 2, stages: {}, completed: false }; }
+    // v3 adds gold stars, kept rewards and a saved loss count. `kept` holds rewards
+    // earned under an older rule so they are never taken back (Magma Demon moved
+    // from the stage 8 clear to the stage 9 clear).
+    function blank() { return { v: 3, stages: {}, completed: false, gold: {}, kept: [], losses: {} }; }
 
     function load() {
         data = blank();
@@ -175,9 +202,16 @@
             const goals = [!!(r.goals && r.goals[0]), !!(r.goals && r.goals[1])];
             // Stars are always derived: 1 for a win plus one per goal.
             const won = Number(r.stars) > 0 || goals[0] || goals[1];
-            if (won) data.stages[s.id] = { goals, stars: 1 + goals.filter(Boolean).length, legacyGoal: !!goals[1] && (raw.v !== 2 || !!r.legacyGoal) };
+            if (won) data.stages[s.id] = { goals, stars: 1 + goals.filter(Boolean).length, legacyGoal: !!goals[1] && ((raw.v !== 2 && raw.v !== 3) || !!r.legacyGoal) };
         });
-        data.completed = !!raw.completed && !!data.stages[STAGES[STAGES.length - 1].id];
+        data.completed = !!raw.completed && !!data.stages[LAST_ID];
+        data.kept = Array.isArray(raw.kept) ? raw.kept.filter((id) => typeof id === 'string').slice(0, 20) : [];
+        // Finished the Tour back when it ended at stage 8: Magma Demon stays earned.
+        if (!(raw.v >= 3) && raw.completed && !data.kept.includes('tourMagmaDemon')) data.kept.push('tourMagmaDemon');
+        GOLD_STAGES.forEach((st) => { if (raw.gold && raw.gold[st.id] === true && data.stages[st.id]?.stars >= 3) data.gold[st.id] = true; });
+        if (raw.losses && typeof raw.losses === 'object') {
+            STAGES.forEach((st) => { const n = Math.floor(Number(raw.losses[st.id])); if (n > 0) data.losses[st.id] = Math.min(n, 999); });
+        }
         return data;
     }
 
@@ -189,6 +223,11 @@
 
     function starsOf(id) { return ensure().stages[id]?.stars || 0; }
     function totalStars() { return STAGES.reduce((n, s) => n + starsOf(s.id), 0); }
+    // Gold stars sit beside the normal ones and never change which tier is open.
+    function goldOf(id) { return !!ensure().gold[id]; }
+    function totalGold() { return GOLD_STAGES.reduce((n, s) => n + (goldOf(s.id) ? 1 : 0), 0); }
+    // A gold rematch opens once a stage has all three stars.
+    function goldAvailable(stage) { return !!stage?.goldGoal && starsOf(stage.id) >= 3; }
 
     // ── Paddle rewards ───────────────────────────────────────────────────
     // Clearing both stages of a tier earns that tier's paddle design (defined
@@ -199,7 +238,7 @@
         return list.length > 0 && list.every((st) => starsOf(st.id) > 0);
     }
     function rewardDesigns() { return (window.PaddleDesigns?.LIST || []).filter((d) => d.tourTier != null || d.tourComplete); }
-    function rewardEarned(d) { return d.tourComplete ? !!ensure().completed : tierCleared(d.tourTier); }
+    function rewardEarned(d) { return d.tourComplete ? (!!ensure().completed || ensure().kept.includes(d.id)) : tierCleared(d.tourTier); }
     function rewardOf(tier) { return rewardDesigns().find((d) => d.tourTier === tier) || null; }
     function paddleLocked(id) {
         const d = rewardDesigns().find((x) => x.id === id);
@@ -210,7 +249,7 @@
     function paddleLockText(id) {
         const d = rewardDesigns().find((x) => x.id === id);
         if (!d) return '';
-        return d.tourComplete ? 'Beat the whole Tour (all 8 stages)' : `Clear both ${TIERS[d.tourTier].name} stages in the Tour`;
+        return d.tourComplete ? `Beat the whole Tour (all ${STAGES.length} stages)` : `Clear both ${TIERS[d.tourTier].name} stages in the Tour`;
     }
 
     // 'locked' | 'open' | 'cleared'
@@ -238,6 +277,8 @@
         if (goal.type === 'margin') return info.playerScore - info.aiScore >= goal.n;
         if (goal.type === 'streak') return (info.bestStreak || 0) >= goal.n;
         if (goal.type === 'rally') return (info.rally || 0) >= goal.n;
+        if (goal.type === 'lives') return Number.isFinite(info.lives) && info.lives >= goal.n;
+        if (goal.type === 'clean') return Number.isFinite(info.lives) && (Number(info.aiScore) || 0) === 0;
         return false;
     }
 
@@ -247,6 +288,7 @@
         const stage = byId(info?.stageId);
         if (!stage) return null;
         ensure();
+        if (info.gold && stage.goldGoal) return recordGold(stage, info);
         if (!info.won) {
             data.losses = data.losses || {};
             data.losses[stage.id] = (data.losses[stage.id] || 0) + 1;
@@ -261,7 +303,7 @@
         if (info.won) {
             const merged = [0, 1].map((i) => goals[i] || !!before?.goals?.[i]);
             data.stages[stage.id] = { goals: merged, stars: 1 + merged.filter(Boolean).length, legacyGoal: !!before?.legacyGoal && !goals[1] };
-            if (stage.id === STAGES[STAGES.length - 1].id) data.completed = true;
+            if (stage.id === LAST_ID) data.completed = true;
             save();
         }
         const total = totalStars();
@@ -269,12 +311,30 @@
         const next = byId(stage.id + 1);
         const opened = TIERS.filter((t) => t.need > beforeTotal && t.need <= total);
         const newPaddles = TIERS.map((t, i) => (!clearedBefore[i] && tierCleared(i) ? rewardOf(i) : null)).filter(Boolean);
-        if (!completedBefore && data.completed) newPaddles.push(...rewardDesigns().filter((d) => d.tourComplete));
+        if (!completedBefore && data.completed) newPaddles.push(...rewardDesigns().filter((d) => d.tourComplete && !data.kept.includes(d.id)));
         return {
             stage, won: !!info.won, earned, goals,
             best: starsOf(stage.id), firstClear: !!info.won && !before,
             newPaddles, total, next, nextPlayable: !!(next && isPlayable(next)),
-            opened, tourComplete: !!info.won && stage.id === STAGES[STAGES.length - 1].id,
+            opened, tourComplete: !!info.won && stage.id === LAST_ID,
+            wave: stage.survive ? Math.max(0, Number(info.playerScore) || 0) : 0,
+            goldOpened: !!info.won && !!stage.goldGoal && (before?.stars || 0) < 3 && starsOf(stage.id) >= 3,
+        };
+    }
+
+    // A gold rematch: only the gold star changes; normal stars, losses and the
+    // tier gates are not touched.
+    function recordGold(stage, info) {
+        const variant = goldVariant(stage);
+        const hit = !!info.won && goalMet(stage.goldGoal, info);
+        const had = goldOf(stage.id);
+        if (hit && !had) { data.gold[stage.id] = true; save(); }
+        updateMenuButton();
+        return {
+            stage: variant, won: !!info.won, earned: 0, goals: [hit], gold: true,
+            goldEarned: hit && !had, goldHad: had || hit, goldTotal: totalGold(), goldMax: GOLD_STAGES.length,
+            best: starsOf(stage.id), opened: [], newPaddles: [], total: totalStars(),
+            next: null, nextPlayable: false, tourComplete: false, wave: 0,
         };
     }
 
@@ -289,14 +349,20 @@
         return startStage(stage, isOpen() ? root.querySelector(`[data-play="${stage.id}"]`) : document.getElementById('menuTourBtn'));
     }
 
-    // Start any stage-shaped match (a Tour stage or the Daily Match). `trigger`
+    function launchGold(id) {
+        const stage = byId(id);
+        if (!stage || !goldAvailable(stage)) return false;
+        return startStage(goldVariant(stage), isOpen() ? root.querySelector(`[data-gold="${stage.id}"]`) : document.getElementById('menuTourBtn'));
+    }
+
+    // Start any stage-shaped match (a Tour stage, a gold rematch or the Daily Match). `trigger`
     // is the element the How to play guide returns focus to.
     function startStage(stage, trigger) {
         const g = window.game;
         if (!stage || !g) return false;
         g.tourContext = {
             active: true, stageId: stage.id, mode: stage.mode, level: stage.level, points: stage.points,
-            styleId: stage.style, rival: stage.rival, twist: stage.twist,
+            styleId: stage.style, rival: stage.rival, twist: stage.twist, gold: !!stage.gold,
         };
         window.PPResults?.hide();
         const go = () => {
@@ -340,16 +406,21 @@
         const mode = MODES[stage.mode];
         const tier = TIERS[stage.tier];
         const stars = rec?.stars || 0;
-        const goals = [{ text: 'Win the match', done: stars > 0 }]
+        const goals = [{ text: stage.survive ? 'Survive all waves and beat the boss' : 'Win the match', done: stars > 0 }]
             .concat(stage.goals.map((g, i) => ({ text: g.text + (i === 1 && rec?.legacyGoal ? ' (star kept from previous goal)' : ''), done: !!rec?.goals?.[i] })));
-        const chips = [
-            `<span class="pptour-chip mode">${esc(mode.name)}</span>`,
-            `<span class="pptour-chip">${esc(SKILLS[stage.level])}</span>`,
-            `<span class="pptour-chip">First to ${stage.points}</span>`,
-        ];
+        const chips = stage.survive
+            ? [`<span class="pptour-chip mode">${esc(mode.name)}</span>`, `<span class="pptour-chip">Survive ${stage.survive} waves</span>`, `<span class="pptour-chip">Boss at the end</span>`]
+            : [
+                `<span class="pptour-chip mode">${esc(mode.name)}</span>`,
+                `<span class="pptour-chip">${esc(SKILLS[stage.level])}</span>`,
+                `<span class="pptour-chip">First to ${stage.points}</span>`,
+            ];
         if (stage.twist) chips.push(`<span class="pptour-chip twist">${esc(TWISTS[stage.twist])}</span>`);
         const locked = info.state === 'locked';
         const label = locked ? 'Locked' : (stars > 0 ? 'Play again' : 'Play');
+        const goldOn = goldOf(stage.id);
+        const goldBtn = !locked && stage.goldGoal && goldAvailable(stage)
+            ? `<button type="button" class="pptour-gold${goldOn ? ' got' : ''}" data-gold="${stage.id}" title="${esc(stage.goldGoal.text)}${stage.level < 4 ? ', one skill level up' : ''}">${goldOn ? '&#9733; Gold' : 'Gold rematch'}</button>` : '';
         return `
             <article class="pptour-card ${info.state}${stage.boss ? ' boss' : ''}${stage.id === nextUp ? ' next' : ''}" style="--c:${mode.hex}" data-stage="${stage.id}" data-mode="${stage.mode}">
                 <div class="pptour-card-top">
@@ -360,12 +431,13 @@
                     <span class="pptour-face" aria-hidden="true">${window.PPRivals?.portrait(stage.rival) || ''}</span>
                     <div class="pptour-whotext"><h3 class="pptour-rival">${esc(stage.rival)}</h3><span class="pptour-rtitle">${esc(window.PPRivals?.get(stage.rival)?.title || '')}</span></div>
                 </div>
-                <p class="pptour-style">${esc(STYLE_TEXT[stage.style])}</p>
+                <p class="pptour-style">${esc(stage.survive ? 'Ten waves of the dead, then a boss who keeps the hill' : STYLE_TEXT[stage.style])}</p>
                 <div class="pptour-chips">${chips.join('')}</div>
                 <ul class="pptour-goals">${goals.map((g) =>
                     `<li class="${g.done ? 'done' : ''}"><span class="pptour-tick" aria-hidden="true">${g.done ? '&#9733;' : '&#9734;'}</span><span>${esc(g.text)}<span class="pptour-sr">${g.done ? ' (done)' : ''}</span></span></li>`).join('')}</ul>
                 <div class="pptour-card-foot">
                     ${locked ? `<p class="pptour-lock">${esc(info.reason)}</p>` : starRow(stars)}
+                    ${goldBtn}
                     <button type="button" class="pptour-play" data-play="${stage.id}"${locked ? ' disabled' : ''}>${label}</button>
                 </div>
             </article>`;
@@ -379,9 +451,10 @@
         const stageHtml = STAGES.map((st) => stageCard(st, nextUp)).join('');
         root.querySelector('.pptour-total b').textContent = String(total);
         root.querySelector('.pptour-total span').textContent = `/ ${MAX_STARS}`;
-        const hint = data.completed
-            ? 'Tour complete. Replay any stage for a perfect three stars.'
-            : (next ? `${next.name} stages open at ${next.need} stars (you have ${total}).` : 'Every tier is open.');
+        const gold = totalGold() ? ` Gold stars ${totalGold()} of ${GOLD_STAGES.length}.` : (STAGES.some(goldAvailable) ? ' A gold rematch is open.' : '');
+        const hint = (data.completed
+            ? 'Tour complete. Replay any stage for three stars, then take the gold rematch.'
+            : (next ? `${next.name} stages open at ${next.need} stars (you have ${total}).` : 'Every tier is open.')) + gold;
         const nextPad = rewardDesigns().find((d) => !rewardEarned(d));
         root.querySelector('.pptour-hint').textContent = nextPad ? `${hint} Next paddle: ${nextPad.name}, earned by ${nextPad.tourComplete ? 'beating the whole Tour' : `clearing both ${TIERS[nextPad.tourTier].name} stages`}.` : `${hint} All paddle rewards earned.`;
         root.querySelector('.pptour-grid').innerHTML = stageHtml;
@@ -502,6 +575,8 @@
                 setTimeout(() => { if (rs.isConnected) { delete rs.dataset.armed; rs.textContent = 'Reset Tour progress'; } }, 4000);
                 return;
             }
+            const gbtn = e.target.closest('[data-gold]');
+            if (gbtn && !gbtn.disabled) { launchGold(Number(gbtn.dataset.gold)); return; }
             const btn = e.target.closest('[data-play]');
             if (btn && !btn.disabled) launch(Number(btn.dataset.play));
         });
@@ -629,20 +704,24 @@
         if (!result) return null;
         const { stage } = result;
         if (stage.daily) return window.PPDaily?.resultCard?.(result, baseXpLine) || null;
+        if (result.gold) return goldResultCard(result, baseXpLine);
         const lines = [];
         const stars = result.won ? `${'★'.repeat(result.earned)}${'☆'.repeat(3 - result.earned)}` : '';
         if (result.won) {
-            lines.push(`Stage ${stage.id} cleared  ${stars}`);
+            lines.push(stage.survive ? `Stage ${stage.id}: you survived the siege  ${stars}` : `Stage ${stage.id} cleared  ${stars}`);
             lines.push(`${result.goals[0] ? '✓' : '✗'} ${stage.goals[0].text}`);
             lines.push(`${result.goals[1] ? '✓' : '✗'} ${stage.goals[1].text}`);
             if (result.best > result.earned) lines.push(`Your best on this stage: ${result.best} of 3 stars`);
             lines.push(`Tour stars: ${result.total} of ${MAX_STARS}`);
             result.opened.forEach((t) => lines.push(`${t.name} tier unlocked`));
             (result.newPaddles || []).forEach((d) => lines.push(`New paddle unlocked: ${d.name}`));
-            if (result.tourComplete) lines.push('You beat Titan. The Tour is complete.');
+            if (result.goldOpened) lines.push('Gold rematch unlocked for this stage');
+            if (result.tourComplete) lines.push('You outlasted Morrow. The Tour is complete.');
             else if (result.next && !result.nextPlayable) lines.push(`Stage ${result.next.id} needs more stars: ${lockInfo(result.next).reason.replace(/^Needs /, 'needs ')}`);
         } else {
-            lines.push(`${stage.rival} wins this one. Stars are only earned on a win.`);
+            lines.push(stage.survive
+                ? `${stage.rival}'s horde got you${result.wave ? ` on wave ${result.wave}` : ''}. Stars are only earned by surviving all ${stage.survive} waves.`
+                : `${stage.rival} wins this one. Stars are only earned on a win.`);
         }
         if (baseXpLine) lines.push(baseXpLine);
         const actions = [];
@@ -655,21 +734,45 @@
         actions.push({ label: 'Main menu', back: true, onClick: () => window.PPResults?.hide() });
         return {
             kicker: `Tour · stage ${stage.id} · ${TIERS[stage.tier].name}`,
-            title: result.won ? 'You win!' : `${stage.rival} wins`,
+            title: result.won ? 'You win!' : (stage.survive ? 'Overrun' : `${stage.rival} wins`),
             tone: result.won ? 'win' : 'loss', lines, actions,
+        };
+    }
+
+    function goldResultCard(result, baseXpLine) {
+        const { stage } = result;
+        const lines = [];
+        if (result.won && result.goals[0]) {
+            lines.push(result.goldEarned ? `Gold star earned on stage ${stage.id}` : `Gold star already yours on stage ${stage.id}`);
+        } else if (result.won) {
+            lines.push(`Won, but not the gold goal: ${stage.goals[0].text}`);
+        } else {
+            lines.push(`${stage.rival} wins this one. Win and ${stage.goals[0].text.charAt(0).toLowerCase()}${stage.goals[0].text.slice(1)} for the gold star.`);
+        }
+        lines.push(`Gold stars: ${result.goldTotal} of ${result.goldMax}`);
+        if (baseXpLine) lines.push(baseXpLine);
+        return {
+            kicker: `Tour \u00B7 stage ${stage.id} \u00B7 Gold rematch`,
+            title: result.won && result.goals[0] ? 'Gold!' : (result.won ? 'You win' : `${stage.rival} wins`),
+            tone: result.won ? 'win' : 'loss', lines,
+            actions: [
+                { label: 'Play gold again', primary: !(result.won && result.goals[0]), onClick: () => launchGold(stage.id) },
+                { label: 'Tour map', onClick: () => { window.PPResults?.hide(); open(); } },
+                { label: 'Main menu', back: true, onClick: () => window.PPResults?.hide() },
+            ],
         };
     }
 
     // Pause menu: who you are playing and how the stage's goals are going.
     function pauseSummary(game) {
         const ctx = game?.getTourContext?.();
-        const stage = ctx ? byId(ctx.stageId) : null;
+        const stage = stageFor(ctx);
         if (!stage) return '';
         const sc = game.scores || {};
-        const live = { playerScore: sc.player || 0, aiScore: sc.ai || 0, rally: game.maxRally || 0, bestStreak: game.tourBestStreak || 0 };
-        const rows = [`<li>First to ${stage.points}${stage.twist === 'winBy2' ? ' (win by 2)' : ''}</li>`]
+        const live = { playerScore: sc.player || 0, aiScore: sc.ai || 0, rally: game.maxRally || 0, bestStreak: game.tourBestStreak || 0, lives: stage.survive ? Math.max(0, Number(game.zombieState?.hearts) || 0) : undefined };
+        const rows = [stage.survive ? `<li>Survive ${stage.survive} waves</li>` : `<li>First to ${stage.points}${stage.twist === 'winBy2' ? ' (win by 2)' : ''}</li>`]
             .concat(stage.goals.map((g) => `<li class="${goalMet(g, live) ? 'done' : ''}">${goalMet(g, live) ? '\u2713' : '\u25CB'} ${esc(g.text)}</li>`));
-        const head = stage.daily ? 'Daily Match' : `Tour \u00B7 stage ${stage.id}`;
+        const head = stage.daily ? 'Daily Match' : `Tour \u00B7 stage ${stage.id}${stage.gold ? ' \u00B7 Gold rematch' : ''}`;
         return `<p class="pause-tour-head">${head} \u00B7 vs ${esc(stage.rival)}</p><ul>${rows.join('')}</ul>`;
     }
 
@@ -691,7 +794,7 @@
 
     window.PPTour = {
         pauseSummary, resetProgress, venueFor, tierCleared, rewardOf, paddleLocked, paddleLockText, equip,
-        STAGES, TIERS, MAX_STARS, byId, lockInfo, isPlayable, totalStars, starsOf,
+        STAGES, TIERS, MAX_STARS, byId, stageFor, goldVariant, launchGold, goldAvailable, goldOf, totalGold, GOLD_STAGES, lockInfo, isPlayable, totalStars, starsOf,
         goalMet, recordResult, lossesOf, resultCard, applyTierLook, syncLook, launch, startStage, clear, open, close, isOpen, updateMenuButton,
         reload: () => { data = null; load(); },
     };

@@ -2383,7 +2383,7 @@ class Game {
         window.PPDeviceControls?.armTutorial?.(this);
         // A Tour stage opens on its own versus screen instead of the cinematic.
         const tourStage = this.getTourContext() && window.PPTourStage?.versus
-            ? window.PPTour?.byId(this.getTourContext().stageId) : null;
+            ? window.PPTour?.stageFor(this.getTourContext()) : null;
         if (tourStage) {
             if (this.introRafId !== null) { cancelAnimationFrame(this.introRafId); this.introRafId = null; }
             this.introHasPlayed = false;
@@ -8397,7 +8397,7 @@ class Game {
                 mode: this.gameMode, won: !!playerWon, rally: this.maxRally,
                 margin: matchStats.playerScore - matchStats.aiScore,
                 zombie: this.gameMode === 'zombie' ? { wave: Number(options.matchStats?.wavesCleared) || matchStats.playerScore, score: this.scores.player } : null,
-                tourStage: recTour && Number.isFinite(Number(recTour.stageId)) ? Number(recTour.stageId) : 0, rival: recTour?.rival,
+                tourStage: recTour && !recTour.gold && Number.isFinite(Number(recTour.stageId)) ? Number(recTour.stageId) : 0, rival: recTour?.rival,
             }) || [];
             this._recordsBroken = (this._recordsBroken || []).concat(extra);
         }
@@ -8408,7 +8408,8 @@ class Game {
         if (tour && window.PPTour) {
             this._tourResult = window.PPTour.recordResult({
                 stageId: tour.stageId, won: !!playerWon,
-                playerScore: matchStats.playerScore, aiScore: matchStats.aiScore, rally: this.maxRally, bestStreak: this.tourBestStreak || 0
+                playerScore: matchStats.playerScore, aiScore: matchStats.aiScore, rally: this.maxRally, bestStreak: this.tourBestStreak || 0,
+                gold: !!tour.gold, lives: this.gameMode === 'zombie' ? Math.max(0, Number(this.zombieState?.hearts) || 0) : undefined
             });
         }
 

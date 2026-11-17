@@ -18,17 +18,18 @@ function loadTour(storage) {
 
 // ── Data ───────────────────────────────────────────────────────────────
 let T = loadTour(makeStorage());
-assert.equal(T.STAGES.length, 8);
-assert.equal(T.MAX_STARS, 24);
+assert.equal(T.STAGES.length, 9);
+assert.equal(T.MAX_STARS, 27);
 T.STAGES.forEach((s, i) => {
     assert.equal(s.id, i + 1);
-    assert.ok(['classic', 'gravity', 'speed', 'obstacle'].includes(s.mode), 'stage modes are points matches');
     assert.ok(s.level >= 0 && s.level <= 4);
+    if (s.survive) { assert.equal(s.mode, 'zombie'); assert.equal(s.survive, 10); assert.equal(s.points, 0); return; }
+    assert.ok(['classic', 'gravity', 'speed', 'obstacle'].includes(s.mode), 'stage modes are points matches');
     assert.ok([5, 7, 11, 15, 21].includes(s.points), 'points to win is one of the setup dialog values');
     assert.ok(['sniper', 'trickster', 'wall', 'bully'].includes(s.style));
     assert.equal(s.goals.length, 2);
 });
-assert.ok(T.STAGES.every((s, i, a) => i === 0 || a[i - 1].level <= s.level), 'skill never drops along the Tour');
+assert.ok(T.STAGES.filter(s => !s.survive).every((s, i, a) => i === 0 || a[i - 1].level <= s.level), 'skill never drops along the Tour');
 
 // ── Unlock rules ───────────────────────────────────────────────────────
 assert.equal(T.lockInfo(T.byId(1)).state, 'open');
@@ -76,9 +77,71 @@ assert.equal(opened.nextPlayable, true);
 // Final stage ends the Tour.
 T = loadTour(makeStorage());
 T.STAGES.forEach(s => { if (s.id < 8) win(s.id, s.points, 0, 99); });
-const fin = win(8, 11, 0, 99);
-assert.equal(fin.tourComplete, true);
+const stage8 = win(8, 11, 0, 99);
+assert.equal(stage8.tourComplete, false, 'stage 8 no longer ends the Tour');
+assert.equal(T.lockInfo(T.byId(9)).state, 'open', 'Survival opens at 16 stars after stage 8');
+assert.equal(T.byId(9).tier, 4);
+const lives9 = (lives, won = true) => T.recordResult({ stageId: 9, won, playerScore: won ? 10 : 4, aiScore: 5 - lives, rally: 3, lives });
+let z = lives9(3);
+assert.equal(z.earned, 2, 'win + 3 lives left');
+assert.deepEqual(Array.from(z.goals), [true, false]);
+assert.equal(z.wave, 10);
+z = lives9(5);
+assert.equal(z.earned, 3);
+assert.equal(z.tourComplete, true);
+assert.equal(T.totalStars(), 27);
+assert.equal(lives9(1, false).earned, 0);
+// A heart pickup cannot hide a lost life: 5 hearts at the end but two breaches taken.
+T = loadTour(makeStorage()); T.STAGES.forEach(s => { if (s.id < 9) win(s.id, s.points, 0, 99); });
+assert.equal(T.recordResult({ stageId: 9, won: true, playerScore: 10, aiScore: 2, rally: 1, lives: 5 }).earned, 2, 'breaches taken: no clean star');
+T = loadTour(makeStorage()); T.STAGES.forEach(s => { if (s.id < 9) win(s.id, s.points, 0, 99); }); lives9(5); lives9(1, false);
+assert.equal(lives9(1, false).wave, 4, 'a loss reports the wave reached');
+assert.equal(T.lossesOf(9), 2);
+// A win with the lives missing never counts a goal.
+T = loadTour(makeStorage());
+T.STAGES.forEach(s => { if (s.id < 9) win(s.id, s.points, 0, 99); });
+assert.equal(T.recordResult({ stageId: 9, won: true, playerScore: 10, aiScore: 0, rally: 1 }).earned, 1, 'no lives info: just the win');
+
+// ── Gold rematch ───────────────────────────────────────────────────────
+T = loadTour(makeStorage());
+assert.equal(T.goldAvailable(T.byId(1)), false, 'needs three stars first');
+win(1, 5, 4, 1);
+assert.equal(T.goldAvailable(T.byId(1)), false);
+const open3 = win(1, 5, 0, 20);
+assert.equal(open3.goldOpened, true);
+assert.equal(T.goldAvailable(T.byId(1)), true);
+assert.equal(T.byId(9).goldGoal, undefined, 'the survival stage has no gold rematch');
+const gv = T.goldVariant(T.byId(1));
+assert.equal(gv.gold, true); assert.equal(gv.level, 1, 'one skill level up'); assert.equal(gv.goals.length, 1);
+assert.equal(T.stageFor({ stageId: 1, gold: true }).gold, true);
+assert.equal(T.stageFor({ stageId: 1 }).gold, undefined);
+const before = T.totalStars(), lossesBefore = T.lossesOf(1);
+let g = T.recordResult({ stageId: 1, won: true, gold: true, playerScore: 5, aiScore: 4, rally: 3 });
+assert.equal(g.gold, true); assert.equal(g.goldEarned, false); assert.equal(T.totalGold(), 0, 'won but no rally: no gold');
+g = T.recordResult({ stageId: 1, won: false, gold: true, playerScore: 1, aiScore: 5, rally: 30 });
+assert.equal(T.totalGold(), 0, 'a loss never earns gold'); assert.equal(T.lossesOf(1), lossesBefore, 'gold losses are not stage losses');
+g = T.recordResult({ stageId: 1, won: true, gold: true, playerScore: 5, aiScore: 4, rally: 10 });
+assert.equal(g.goldEarned, true); assert.equal(T.totalGold(), 1); assert.equal(g.goldTotal, 1);
+assert.equal(T.totalStars(), before, 'gold never changes the normal stars');
+g = T.recordResult({ stageId: 1, won: true, gold: true, playerScore: 5, aiScore: 0, rally: 12 });
+assert.equal(g.goldEarned, false); assert.equal(T.totalGold(), 1);
+const goldCard = T.resultCard(g);
+assert.ok(goldCard.actions.some(a => /Play gold again/.test(a.label)));
+assert.ok(goldCard.actions.some(a => a.back));
+// Reload keeps gold; a forged gold on an unplayed stage is dropped.
+const gStore = makeStorage();
+T = loadTour(gStore); win(1, 5, 0, 20); T.recordResult({ stageId: 1, won: true, gold: true, playerScore: 5, aiScore: 0, rally: 11 });
+T = loadTour(gStore); assert.equal(T.goldOf(1), true);
+T = loadTour(makeStorage({ 'pp-tour-v1': JSON.stringify({ v: 3, stages: {}, gold: { 5: true } }) })); assert.equal(T.totalGold(), 0);
+T = loadTour(makeStorage({ 'pp-tour-v1': JSON.stringify({ v: 3, stages: { 1: { goals: [false, false], stars: 1 } }, gold: { 1: true } }) })); assert.equal(T.totalGold(), 0, 'gold needs three stars');
+
+// ── Old saves ──────────────────────────────────────────────────────────
+// Finished under the old 8 stage rule: stars stay and the Survival stage is open (the Magma Demon
+// keep-rule needs the paddle list, which the browser test covers).
+const oldStages = {}; for (let i = 1; i <= 8; i++) oldStages[i] = { goals: [true, true], stars: 3 };
+T = loadTour(makeStorage({ 'pp-tour-v1': JSON.stringify({ v: 2, stages: oldStages, completed: true }) }));
 assert.equal(T.totalStars(), 24);
+assert.equal(T.lockInfo(T.byId(9)).state, 'open');
 
 // ── Saving ─────────────────────────────────────────────────────────────
 const store = makeStorage();

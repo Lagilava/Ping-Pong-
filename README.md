@@ -199,16 +199,22 @@ preview uses the real in-match ball renderer, in close-up and at match size.
 
 ## The Tour
 
-The **Tour** button under the menu title opens a solo career of eight matches
-against named rivals, in four tiers: Club, Regional, National and World. Each
+The **Tour** button under the menu title opens a solo career of nine stages
+against named rivals, in five tiers: Club, Regional, National, World and Survival. Each
 stage is a normal match with its own mode (Classic, Gravity, Speed or
 Obstacle), computer skill, points to win and a rival with a fixed play style.
 Some stages add a twist (power-ups always on, no power-ups, or win by two).
+The last stage is a survival run: Morrow's Zombie arena, ten waves and the boss.
 
 - **Stars:** a win earns one star, and each of the stage's two goals (win by a
   margin, land a long rally) earns one more, so a stage is worth up to three.
 - **Unlocks:** winning a stage opens the next one. Each tier also needs a total
-  number of stars (4, 8 and 12) before its stages open.
+  number of stars (4, 8, 12 and 16) before its stages open. The Tour is worth 27 stars.
+- **Gold rematch:** a stage with three stars opens a gold rematch (stages 1 to 8): the same
+  rival one skill level up (Titan is already at the top), with one harder goal. Winning it
+  and hitting the goal earns the stage's gold star. Gold never changes the normal stars or tiers.
+- **Survival (stage 9):** win by surviving all ten waves and knocking out the boss. Finish with
+  three or more lives for a second star, and without taking a single breach for the third.
 - **Your settings stay as they are:** a stage uses its own skill and points for
   that match only. Starting a normal match from the menu leaves the Tour.
 - **Venues:** every stage plays in a scene of its own
@@ -219,8 +225,8 @@ Some stages add a twist (power-ups always on, no power-ups, or win by two).
   (World). A title card opens each stage and
   the pause menu shows the rival and live goal progress.
 - **Rewards:** clearing both stages of a tier earns a paddle design (Sunbeam,
-  Voltage, Afterglow, Champion), and beating all eight stages earns the
-  Magma Demon, the Zombie boss's paddle. Equip them in Settings > Paddles. Lasers,
+  Voltage, Afterglow, Champion), and beating the Survival stage earns the
+  Magma Demon (anyone who already earned it keeps it), the Zombie boss's paddle. Equip them in Settings > Paddles. Lasers,
   hit sparks and the Speed shield pick up the colours of paddles that have their
   own (Magma, Sunbeam, Champion, Afterglow, Magma Demon).
 - **Controller:** press **Y** on the menu to open the Tour; the d-pad moves

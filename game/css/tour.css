@@ -513,3 +513,17 @@ body.pp-reduce-motion .ppstage.outro, body.pp-reduce-motion .ppstage.outro * { a
 }
 .ppstage.versus .ppstage-go span { white-space:nowrap; }
 
+
+/* Gold rematch: a second button beside Play, and the stage's gold star. */
+.pptour-gold {
+    min-height: 44px; padding: 8px 12px; border-radius: 10px; cursor: pointer;
+    border: 1px solid #ffd37a; background: rgba(255, 205, 100, .12); color: #ffe3a6;
+    font-size: 14px; font-weight: 700;
+}
+.pptour-gold:hover { background: rgba(255, 205, 100, .22); }
+.pptour-gold.got { background: #ffd37a; color: #2a1c00; text-shadow: none; }
+.pptour-card-foot .pptour-gold { margin-left: auto; }
+.pptour-card-foot .pptour-gold + .pptour-play { margin-left: 0; }
+.ppstage-stars i.on.gold { color: #fff1b0; text-shadow: 0 0 26px #ffcf3a, 0 0 8px #fff; }
+@media (max-width: 640px) { .pptour-gold { min-height: 40px; padding: 6px 10px; font-size: 13px; } }
+.pptour-card-foot { flex-wrap: wrap; }

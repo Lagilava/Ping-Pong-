@@ -52,6 +52,47 @@
 
     function isOpen() { return !!root?.classList.contains('open'); }
 
+    // Gamepad: d-pad or left stick moves between the card's buttons, A (on release) presses,
+    // B runs the card's back action (none on online results, as with Esc). Polled only while
+    // the card is open and a pad is connected.
+    let padRaf = 0, padPrev = null, padDir = '', padRepeat = 0;
+    function padMove(dir) {
+        const items = [...root.querySelectorAll('.ppres-btn:not(:disabled)')];
+        if (!items.length) return;
+        const i = items.indexOf(document.activeElement);
+        if (i < 0) { items[0].focus(); return; }
+        const step = (dir === 'down' || dir === 'right') ? 1 : -1;
+        items[Math.max(0, Math.min(items.length - 1, i + step))].focus();
+    }
+    function padPoll() {
+        padRaf = 0;
+        if (!isOpen()) return;
+        const pad = [...(navigator.getGamepads?.() || [])].find((g) => g && g.connected);
+        if (!pad) return;
+        padRaf = requestAnimationFrame(padPoll);
+        const b = (n) => !!pad.buttons[n]?.pressed;
+        const x = pad.axes[0] || 0, y = pad.axes[1] || 0;
+        const dir = (b(14) || x < -0.55) ? 'left' : (b(15) || x > 0.55) ? 'right' : (b(12) || y < -0.55) ? 'up' : (b(13) || y > 0.55) ? 'down' : '';
+        const now = performance.now();
+        if (dir && (dir !== padDir || now >= padRepeat)) { padMove(dir); padRepeat = now + (dir !== padDir ? 360 : 170); }
+        padDir = dir;
+        const cur = { a: b(0), b: b(1) };
+        if (!padPrev) { padPrev = cur; return; } // the first frame only records what is already held
+        const f = document.activeElement;
+        if (padPrev.a && !cur.a && f && root.contains(f) && f.tagName === 'BUTTON') f.click();
+        if (padPrev.b && !cur.b) {
+            const back = (root.__actions || []).find((a) => a.back);
+            if (back?.onClick) back.onClick(null, null);
+        }
+        padPrev = cur;
+    }
+    function startPad() {
+        if (padRaf || !isOpen()) return;
+        padPrev = null; padDir = '';
+        padRaf = requestAnimationFrame(padPoll);
+    }
+    window.addEventListener('gamepadconnected', () => { if (isOpen()) startPad(); });
+
     // opts: { kicker, title, tone ('win'|'loss'|'neutral'), left: {label, score},
     //         right: {label, score}, lines: [text], actions: [{label, primary, back, data, onClick}], status }
     function show(opts = {}) {
@@ -94,6 +135,7 @@
         root.classList.add('open');
         root.setAttribute('aria-hidden', 'false');
         document.body.classList.add('pp-results-open');
+        startPad();
         requestAnimationFrame(() => root.querySelector('.ppres-btn.primary, .ppres-btn')?.focus({ preventScroll: true }));
         return root.querySelector('.ppres-box');
     }

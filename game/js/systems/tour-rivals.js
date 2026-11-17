@@ -1,4 +1,4 @@
-// The Tour's cast: eight rivals with a face, a voice and a reason to beat them.
+// The Tour's cast: nine rivals with a face, a voice and a reason to beat them.
 // Data only, plus the portrait painter. tour.js reads window.PPRivals for the
 // versus screen, the Tour map, result reactions and the in-match chatter
 // (ai-opponent.js uses their own pools instead of generic AI lines).
@@ -138,6 +138,19 @@ ${eyes(70, 9, 3.6)}
 <path d="M40 62 L52 67 M80 62 L68 67" stroke="#ffb020" stroke-width="2.6" stroke-linecap="round"/><circle cx="46" cy="64" r="8" fill="#ffb020" opacity=".25"/><circle cx="74" cy="64" r="8" fill="#ffb020" opacity=".25"/>
 <path d="M60 70 L60 92" stroke="#7a5a10" stroke-width="2.4"/><path d="M48 90 Q60 96 72 90" stroke="#7a5a10" stroke-width="2" fill="none"/>
 <path d="M36 112 L84 112" stroke="#ffd45c" stroke-width="3"/><path d="M60 112 L60 150" stroke="#ffd45c" stroke-width="2.4"/>`),
+        morrow: () => frame('#7dff6a', '#1d3a22', `
+<path d="M6 150 Q12 112 34 100 L40 150Z" fill="#0f2214"/><path d="M114 150 Q108 112 86 100 L80 150Z" fill="#0f2214"/>
+<rect x="52" y="92" width="16" height="18" rx="5" fill="#6f9a6a"/>
+<path d="M34 62 Q32 34 60 32 Q88 34 86 62 Q86 90 60 98 Q34 90 34 62Z" fill="#9cc79a"/>
+<path d="M30 58 Q28 22 60 18 Q92 22 90 58 Q86 40 60 38 Q34 40 30 58Z" fill="#1a2a1c"/>
+<path d="M46 28 L50 14 M60 24 L60 8 M74 28 L70 14" stroke="#4fae45" stroke-width="3" stroke-linecap="round"/>
+<ellipse cx="48" cy="64" rx="7" ry="5.6" fill="#0b130c"/><ellipse cx="72" cy="64" rx="7" ry="5.6" fill="#0b130c"/>
+<circle cx="48" cy="64" r="3.2" fill="#7dff6a"/><circle cx="72" cy="64" r="3.2" fill="#7dff6a"/>
+<circle cx="48" cy="64" r="9" fill="#7dff6a" opacity=".22"/><circle cx="72" cy="64" r="9" fill="#7dff6a" opacity=".22"/>
+<path d="M58 70 L56 78 L62 78Z" fill="#6f9a6a" stroke="#486a44" stroke-width="1"/>
+<path d="M46 84 Q60 94 74 84" stroke="#0b130c" stroke-width="2.4" fill="none" stroke-linecap="round"/><path d="M50 85 L50 90 M56 88 L56 93 M62 88 L62 93 M68 86 L68 91" stroke="#e8f2e0" stroke-width="2" stroke-linecap="round"/>
+<path d="M40 52 L52 56 M80 52 L68 56" stroke="#1a2a1c" stroke-width="3" stroke-linecap="round"/>
+<path d="M44 112 L60 128 L76 112" stroke="#7dff6a" stroke-width="2" fill="none"/>`),
     };
 
     // Portraits and bios remain here. Dialogue has one source of truth in
@@ -175,6 +188,10 @@ ${eyes(70, 9, 3.6)}
             id: 'titan', name: 'Titan', title: 'The Champion', accent: '#ffd45c', home: 'The Grand Final',
             bio: 'Undefeated, unsmiling and under a gold mask. Wins on points and on principle. Mostly on principle.',
         },
+        morrow: {
+            id: 'morrow', name: 'Morrow', title: 'The Gravekeeper', accent: '#7dff6a', home: 'Hollow Hill Cemetery',
+            bio: 'Keeps the hill after dark. Has never invited anyone in, and nobody who wandered in has asked to leave early.',
+        },
     };
     const linePool = (id, key) => window.PPTourDialogue?.pool(id, key) || [];
     for (const rival of Object.values(R)) {
@@ -197,6 +214,7 @@ ${eyes(70, 9, 3.6)}
         'The regional league. Stations and shipyards send their best, and the venues get stranger.',
         'The national finals. Everything is faster, brighter and a little less honest.',
         'The world final. One court, one champion, and a crowd that remembers every point.',
+        'After the final the lights go out. The gates of Hollow Hill open, and the horde does not care who won.',
     ];
 
     window.PPRivals = {

@@ -11,7 +11,7 @@ vm.runInContext(load('game/js/ai/ai-opponent.js'), ctx);
 const D = ctx.window.PPTourDialogue;
 const keys = ['intro','ai_point','player_point','match_point_ai','match_point_player','rally_long','lead_big','trail_big','end_win','end_loss'];
 test('every rival has distinct openings, rematches and appropriate outcomes', () => {
-  assert.equal(D.ids.length, 8);
+  assert.equal(D.ids.length, 9);
   const events = ['intro','rematch','afterLoss','end_win','end_loss'];
   for (const id of D.ids) {
     for (const key of events) {
