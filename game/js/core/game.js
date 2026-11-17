@@ -5882,6 +5882,8 @@ class Game {
     getConfiguredMaxScore() {
         const tourPoints = this.getTourContext()?.points;
         if (Number.isFinite(tourPoints) && tourPoints >= 1) return tourPoints;
+        // Quick match plays to a fixed score, whatever either player has in Settings.
+        if (this.net?.quick) return this.net.pointsToWin();
         const n = Number(window.PPSettings?.get('pointsToWin'));
         return Number.isFinite(n) && n >= 1 ? n : 11;
     }

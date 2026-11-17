@@ -135,6 +135,12 @@
             document.head.appendChild(s);
         });
     }
+    // Quick match is only loaded when someone uses it.
+    let quickPromise = null;
+    function loadQuick() {
+        if (!quickPromise) quickPromise = loadScript('js/net/quickmatch.js', () => !!window.PPQuick).catch((e) => { quickPromise = null; throw e; });
+        return quickPromise;
+    }
     let peerLibPromise = null;
     function loadPeerLib() {
         if (peerLibPromise) return peerLibPromise;
@@ -223,7 +229,7 @@
         } catch (_) { return []; }
     }
 
-    async function peerOptions() {
+    async function peerOptions(forceRelay = false) {
         const cfg = await loadOnlineConfig();
         // Tests point this at a local PeerServer; players use the public one
         // unless the config names another.
@@ -243,7 +249,7 @@
                 iceServers: [DEFAULT_STUN, ...fetched, ...own, ...openRelay],
                 sdpSemantics: 'unified-plan',
             };
-            if (cfg.relayOnly) opts.config.iceTransportPolicy = 'relay';
+            if (cfg.relayOnly || forceRelay) opts.config.iceTransportPolicy = 'relay';
         }
         // Backup matchmaking brokers: tests pass their own (or []), the config
         // can replace the list, otherwise the free public ones.
@@ -273,7 +279,10 @@
             this.partnerToken = '';         // host: the guest that may reconnect
             this.keepCode = !!opts.keepCode;    // host reopening its room after a reload
             this.codeTries = 0;
-            this.localName = cleanName(window.PPSettings?.get('playerName'), role === 'host' ? 'Host' : 'Guest');
+            this.quick = !!opts.quick;          // found through Quick match: random handle, fixed rules, starts by itself
+            this.relayOnly = !!opts.relayOnly;  // Quick match "hide my IP": everything through a TURN relay
+            this.localName = this.quick && window.PPQuick ? window.PPQuick.handle()
+                : cleanName(window.PPSettings?.get('playerName'), role === 'host' ? 'Host' : 'Guest');
             this.remoteName = role === 'host' ? 'Guest' : 'Host';
             this.remoteHidden = false;
             this.mode = 'classic';
@@ -360,7 +369,7 @@
         // RECONNECT_MS; the host keeps the room open and lets the same guest
         // (matched by token) back in, even after a page reload.
         async open(code) {
-            const [Peer, { opts, relays }] = await Promise.all([loadPeerLib(), peerOptions()]);
+            const [Peer, { opts, relays }] = await Promise.all([loadPeerLib(), peerOptions(this.relayOnly)]);
             if (this.closed) return;
             this.code = code;
             this.note(`start ${this.role}`);
@@ -388,6 +397,7 @@
             });
             if (this.role === 'host') {
                 peer.on('open', () => {
+                    this.roomOpen = true;
                     this.note('signalling open');
                     this.codeTries = 0;
                     this.brokerTries = 0;
@@ -494,7 +504,7 @@
             }
             // Mid-session the link (or the redial loop) decides what happens.
             if (this.hadPartner) return;
-            if (type === 'peer-unavailable') { if (!this.resumed) noteJoinFail(); return this.fail('No room with that code. Check the code with your friend.'); }
+            if (type === 'peer-unavailable') { if (!this.resumed && !this.quick) noteJoinFail(); return this.fail('No room with that code. Check the code with your friend.'); }
             if (type === 'network' || type === 'server-error' || type === 'socket-error' || type === 'socket-closed') {
                 if (this.role === 'host' && this.peer?.open) return;
                 return this.fail('Could not reach the online service. Check your internet connection and try again.');
@@ -982,7 +992,7 @@
             this.send({ t: 'mode', mode, pts: this.pointsToWin() });
         }
 
-        pointsToWin() { return clamp(Math.round(num(Number(window.PPSettings?.get('pointsToWin')), 11)), 1, 99); }
+        pointsToWin() { if (this.quick) return 7; return clamp(Math.round(num(Number(window.PPSettings?.get('pointsToWin')), 11)), 1, 99); }
 
         async hostStart() {
             const g = this.game;
@@ -994,6 +1004,7 @@
             this.paddleDesigns = { left: mine, right: cleanDesign(this.remotePaddles?.[this.mode]?.left) };
             await launchMatch(this, this.mode);
             if (g.net !== this) return;
+            if (this.quick) g.maxScore = this.pointsToWin();
             this.send(this.startMessage());
         }
 
@@ -1674,6 +1685,11 @@
                                 <input id="pponName" type="text" maxlength="16" autocomplete="nickname" placeholder="Player">
                             </label>
                             <div class="ppon-choices">
+                                <button type="button" class="ppon-choice wide" data-ppon="quick-view">
+                                    <span class="ppon-choice-icon" aria-hidden="true">&#9889;</span>
+                                    <strong>Quick match</strong>
+                                    <span>Find someone to play right now. Random name, no chat, first to 7.</span>
+                                </button>
                                 <button type="button" class="ppon-choice" data-ppon="create">
                                     <span class="ppon-choice-icon" aria-hidden="true">+</span>
                                     <strong>Create a room</strong>
@@ -1697,6 +1713,19 @@
                             </div>
                             <p class="ppon-status" id="pponHostStatus"><span class="ppon-spin" aria-hidden="true"></span>Opening a room…</p>
                             <div class="ppon-row"><button type="button" class="ppon-btn ghost" data-ppon="cancel">Cancel</button></div>
+                        </section>
+
+                        <section class="ppon-view" data-view="quick" hidden>
+                            <div class="ppon-modes" id="pponQuickModes" role="radiogroup" aria-label="Quick match mode"></div>
+                            <label class="ppon-check"><input type="checkbox" id="pponQuickHide"><span>Hide my IP address (sends the game through a relay, a little more delay)</span></label>
+                            <p class="ppon-note">You will play a stranger. Their browser connects straight to yours, so they can see your public IP address while you play, as in any online game that connects players directly. You get a random name and there is no chat.</p>
+                            <p class="ppon-status" id="pponQuickStatus" role="status"></p>
+                            <div class="ppon-row">
+                                <button type="button" class="ppon-btn ghost" data-ppon="quick-cancel">Back</button>
+                                <button type="button" class="ppon-btn ghost" data-ppon="quick-ai" id="pponQuickAi" hidden>Play the AI instead</button>
+                                <span class="ppon-spacer"></span>
+                                <button type="button" class="ppon-btn primary" data-ppon="quick-go" id="pponQuickGo">Find an opponent</button>
+                            </div>
                         </section>
 
                         <section class="ppon-view" data-view="join" hidden>
@@ -1795,6 +1824,7 @@
         },
 
         cancelAndClose() {
+            this.quickStop();
             if (session && !session.inMatch) session.leave();
             this.close();
         },
@@ -1802,9 +1832,9 @@
         show(view) {
             this.view = view;
             this.root.querySelectorAll('.ppon-view').forEach((v) => { v.hidden = v.dataset.view !== view; });
-            const title = { choose: 'Play online', host: 'Your room', join: 'Join a room', ready: 'Ready to play', error: 'Online play' }[view] || 'Play online';
+            const title = { choose: 'Play online', host: 'Your room', join: 'Join a room', quick: 'Quick match', ready: 'Ready to play', error: 'Online play' }[view] || 'Play online';
             this.root.querySelector('#pponTitle').textContent = title;
-            const focus = { choose: '[data-ppon="create"]', host: '[data-ppon="copy-code"]', join: '#pponJoinCode', ready: '#pponStart', error: '[data-ppon="retry"]' }[view];
+            const focus = { choose: '[data-ppon="create"]', host: '[data-ppon="copy-code"]', quick: '#pponQuickGo', join: '#pponJoinCode', ready: '#pponStart', error: '[data-ppon="retry"]' }[view];
             requestAnimationFrame(() => {
                 const el = this.root.querySelector(focus);
                 if (el && !el.disabled && el.offsetParent) el.focus({ preventScroll: true });
@@ -1847,6 +1877,16 @@
                 case 'join-view':
                     this.saveName();
                     return this.show('join');
+                case 'quick-view': return this.quickView();
+                case 'quick-go': return this.quickBegin();
+                case 'quick-cancel':
+                    this.quickStop();
+                    if (session) session.leave();
+                    return this.show('choose');
+                case 'quick-ai':
+                    this.quickStop();
+                    if (session) session.leave();
+                    return this.close();
                 case 'join': {
                     const input = this.root.querySelector('#pponJoinCode');
                     const code = cleanCode(input.value);
@@ -1928,6 +1968,123 @@
             btn._t = setTimeout(() => { btn.textContent = label; }, 1600);
         },
 
+        // ── Quick match ────────────────────────────────────────────────
+        quickPrefs() {
+            let p = {};
+            try { p = JSON.parse(localStorage.getItem('pp-quick-v1') || '{}') || {}; } catch (_) { /* ignore */ }
+            return { mode: ['classic', 'gravity', 'speed'].includes(p.mode) ? p.mode : 'classic', hideIp: !!p.hideIp };
+        },
+
+        saveQuickPrefs(p) { try { localStorage.setItem('pp-quick-v1', JSON.stringify(p)); } catch (_) { /* ignore */ } },
+
+        quickView() {
+            const p = this.quickPrefs();
+            const modes = this.root.querySelector('#pponQuickModes');
+            modes.innerHTML = ['classic', 'gravity', 'speed'].map((id) => `<button type="button" role="radio" class="ppon-mode${id === p.mode ? ' sel' : ''}" data-qmode="${id}" aria-checked="${id === p.mode}">${modeName(id)}</button>`).join('');
+            modes.onclick = (e) => {
+                const b = e.target.closest('[data-qmode]');
+                if (!b || this.quick) return;
+                modes.querySelectorAll('.ppon-mode').forEach((x) => { x.classList.toggle('sel', x === b); x.setAttribute('aria-checked', String(x === b)); });
+                this.saveQuickPrefs({ ...this.quickPrefs(), mode: b.dataset.qmode });
+            };
+            const hide = this.root.querySelector('#pponQuickHide');
+            hide.checked = p.hideIp;
+            hide.onchange = () => this.saveQuickPrefs({ ...this.quickPrefs(), hideIp: hide.checked });
+            this.setStatus('pponQuickStatus', '');
+            this.root.querySelector('#pponQuickGo').hidden = false;
+            this.root.querySelector('#pponQuickAi').hidden = true;
+            this.show('quick');
+        },
+
+        async quickBegin() {
+            if (this.quick) return;
+            const prefs = this.quickPrefs();
+            window.game?.audio?.enable?.().catch?.(() => {});
+            if (session) session.leave();
+            this.setStatus('pponQuickStatus', 'Starting…', 'busy');
+            this.root.querySelector('#pponQuickGo').hidden = true;
+            this.root.querySelector('#pponQuickModes').querySelectorAll('button').forEach((b) => { b.disabled = true; });
+            this.root.querySelector('#pponQuickHide').disabled = true;
+            try {
+                await Promise.all([loadQuick(), loadPeerLib()]);   // loadPeerLib brings the MQTT client
+                const { relays } = await peerOptions(prefs.hideIp);
+                const q = { prefs, seeker: null, startedAt: performance.now(), last: null };
+                q.seeker = new window.PPQuick.Seeker(prefs.mode, {
+                    relays, protocol: PROTOCOL,
+                    code: () => (session && session.quick && session.role === 'host' && session.roomOpen && !session.connected && !session.closed ? session.code : ''),
+                    join: (code) => this.quickJoin(code),
+                    status: (info) => this.quickStatus(info),
+                });
+                this.quick = q;
+                this.quickHost();
+                if (!q.seeker.start()) throw new Error('Quick match could not start');
+            } catch (e) {
+                this.quickStop();
+                if (session?.quick) session.leave();
+                this.quickView();
+                this.setStatus('pponQuickStatus', 'Quick match could not start. Check your connection and try again.', 'err');
+            }
+        },
+
+        // Our own open room, advertised while we look.
+        quickHost() {
+            const q = this.quick;
+            if (!q) return;
+            if (session) session.leave();
+            const s = new Session('host', this, { quick: true, relayOnly: q.prefs.hideIp });
+            session = s;
+            s.mode = q.prefs.mode;
+            this.lastAttempt = null;
+            s.open(randomCode()).catch((e) => s.fail('Online play could not start: ' + e.message));
+        },
+
+        // Someone else's room is a better place to be: give up ours and dial theirs.
+        async quickJoin(code) {
+            const q = this.quick;
+            if (!q) return;
+            q.joining = code;
+            if (session) session.leave();
+            const s = new Session('guest', this, { quick: true, relayOnly: q.prefs.hideIp });
+            session = s;
+            await s.open(code);
+        },
+
+        quickStatus(info) {
+            const q = this.quick;
+            if (!q || this.view !== 'quick') return;
+            q.last = info;
+            const waited = Math.round((info.waited || 0) / 1000);
+            let text;
+            if (info.state === 'joining') text = 'Found someone. Connecting…';
+            else if (!info.relaysUp) text = 'Looking for the matchmaking service…';
+            else if (info.others > 0) text = `${info.others} other ${info.others === 1 ? 'player' : 'players'} looking. Pairing up…`;
+            else text = waited < 20 ? `Searching ${modeName(q.prefs.mode)}… nobody else yet` : `Still nobody in ${modeName(q.prefs.mode)}. You can keep waiting or play the AI.`;
+            this.setStatus('pponQuickStatus', text, 'busy');
+            this.root.querySelector('#pponQuickAi').hidden = !(waited >= 20 && info.state !== 'joining' && !info.others);
+        },
+
+        // The room we dialled was gone or full: back to looking.
+        quickResume(message) {
+            const q = this.quick;
+            if (!q) return false;
+            const code = q.joining;
+            q.joining = '';
+            setTimeout(() => {
+                if (this.quick !== q) return;
+                this.setStatus('pponQuickStatus', 'That player was already taken. Still looking…', 'busy');
+                this.quickHost();
+                q.seeker.failed(code || '');
+            }, 0);
+            return true;
+        },
+
+        quickStop() {
+            const q = this.quick;
+            if (!q) return;
+            this.quick = null;
+            q.seeker?.stop();
+        },
+
         hostWaiting(code, note = '') {
             if (!this.root) return;
             const el = this.root.querySelector('#pponCode');
@@ -1946,9 +2103,15 @@
 
         connected(s) {
             if (s !== session) return;
+            if (s.quick) this.quickStop();
             if (!this.isOpen() && !s.inMatch) this.open({ mode: s.mode });
             this.show('ready');
             this.renderReady(s);
+            // Quick match starts by itself, once. A rematch or "Change mode" later uses the Start button.
+            if (s.quick && s.role === 'host' && !s.autoStarted) {
+                s.autoStarted = true;
+                setTimeout(() => { if (session === s && !s.closed && s.connected && !s.reconnecting && !s.inMatch) s.hostStart(); }, 1500);
+            }
         },
 
         renderReady(s) {
@@ -1959,9 +2122,10 @@
             this.root.querySelector('#pponRightName').textContent = guestName + (s.role === 'guest' ? ' (you)' : '');
             const modes = this.root.querySelector('#pponModes');
             const isHost = s.role === 'host';
-            modes.innerHTML = ONLINE_MODES.map((m) => `<button type="button" role="radio" class="ppon-mode${m.id === s.mode ? ' sel' : ''}" data-mode="${m.id}" aria-checked="${m.id === s.mode}"${isHost ? '' : ' disabled'}>${m.name}</button>`).join('');
+            const pick = isHost && !s.quick;   // Quick match rules are fixed
+            modes.innerHTML = ONLINE_MODES.map((m) => `<button type="button" role="radio" class="ppon-mode${m.id === s.mode ? ' sel' : ''}" data-mode="${m.id}" aria-checked="${m.id === s.mode}"${pick ? '' : ' disabled'}>${m.name}</button>`).join('');
             modes.querySelectorAll('.ppon-mode').forEach((b) => b.addEventListener('click', () => {
-                if (!isHost) return;
+                if (!pick) return;
                 s.setMode(b.dataset.mode);
                 this.renderReady(s);
             }));
@@ -1976,7 +2140,8 @@
                 customise: `Uses the host's Custom setup and Forge arena.`,
             };
             let note = (notes[s.mode] || '').trim();
-            if (!isHost) note = `${s.remoteName} picks the mode. ` + note;
+            if (s.quick) note = `Quick match${isHost ? ': starting in a moment.' : ': the match starts in a moment.'} ${note}`;
+            else if (!isHost) note = `${s.remoteName} picks the mode. ` + note;
             this.root.querySelector('#pponModeNote').textContent = note;
             const series = this.root.querySelector('#pponSeries');
             const { left, right } = s.series;
@@ -2070,6 +2235,8 @@
         },
 
         showError(message) {
+            // Quick match: a room that vanished or filled up is not an error, just look again.
+            if (this.quick && this.quick.joining && session?.quick && session.role === 'guest' && !session.hadPartner && this.quickResume(message)) return;
             this.build();
             if (!this.isOpen()) this.open();
             this.root.querySelector('#pponError').textContent = message;

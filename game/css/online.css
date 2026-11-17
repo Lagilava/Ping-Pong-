@@ -286,3 +286,7 @@ body.pp-reduce-motion .ppon-spin { animation-duration: 2.4s; }
 .ppon-hudping[data-q="good"] i { background: #9dff5c; color: #9dff5c; }
 .ppon-hudping[data-q="fair"] i { background: #ffd23f; color: #ffd23f; }
 .ppon-hudping[data-q="laggy"] i { background: #ff4fa3; color: #ff4fa3; }
+
+.ppon-choice.wide { grid-column: 1 / -1; }
+.ppon-check { display: flex; align-items: flex-start; gap: 10px; font: 600 15.5px/1.35 'Rajdhani', sans-serif; color: rgba(205, 232, 245, 0.85); cursor: pointer; }
+.ppon-check input { margin-top: 3px; width: 18px; height: 18px; accent-color: #00ffd6; flex: none; }

@@ -1,5 +1,5 @@
 {
- "hash": "4d0a9bfdfce3f45b",
+ "hash": "0fb3b8bd24216145",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -171,6 +171,7 @@
   "js/modes/zombie-sprites.js",
   "js/net/online-config.js",
   "js/net/online.js",
+  "js/net/quickmatch.js",
   "js/net/signal-relays.js",
   "js/physics/background-sim.js",
   "js/physics/background-sim.wasm",
