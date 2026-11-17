@@ -210,6 +210,7 @@
                 <div class="ppset-pf-id">
                     <label class="ppset-pf-name"><span class="ppset-help">Name</span>
                         <input type="text" maxlength="16" value="${esc(st.name)}" placeholder="Player" data-pf-name autocomplete="off" spellcheck="false"></label>
+                    ${window.PPCosmetics?.titleName() ? `<p class="ppset-pf-titletag">${esc(window.PPCosmetics.titleName())}</p>` : ''}
                     <div class="ppset-pf-level"><b>Level ${st.level}</b><span>${st.xp} / ${st.requiredXP} XP</span></div>
                     <div class="ppset-pf-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Progress to next level"><i style="width:${pct}%"></i></div>
                 </div>

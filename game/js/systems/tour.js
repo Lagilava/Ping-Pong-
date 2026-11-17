@@ -459,6 +459,7 @@
         root.querySelector('.pptour-hint').textContent = nextPad ? `${hint} Next paddle: ${nextPad.name}, earned by ${nextPad.tourComplete ? 'beating the whole Tour' : `clearing both ${TIERS[nextPad.tourTier].name} stages`}.` : `${hint} All paddle rewards earned.`;
         root.querySelector('.pptour-grid').innerHTML = stageHtml;
         renderRewards();
+        renderCosmetics();
         // The arena's own artwork (the same scenes as the menu cards) fills the top of each card.
         root.querySelectorAll('.pptour-card').forEach((card) => {
             const mode = card.dataset.mode;
@@ -499,6 +500,65 @@
         rewardPads.clear();
         cancelAnimationFrame(rewardRaf);
         rewardRaf = requestAnimationFrame(drawRewards);
+    }
+    // ── Ball trails and titles (cosmetics.js) ────────────────────────────
+    function renderCosmetics(refocus) {
+        const host = root.querySelector('.pptour-cosmetics');
+        const C = window.PPCosmetics;
+        if (!host || !C) { if (host) host.hidden = true; return; }
+        host.hidden = false;
+        const eqTrail = C.equipped('trail'), eqTitle = C.equipped('title');
+        const trails = C.TRAILS.map((t) => {
+            const got = C.earned('trail', t.id), on = got && eqTrail === t.id;
+            return `<button type="button" class="pptour-trail ${got ? 'got' : 'locked'}${on ? ' selected' : ''}" data-trail="${esc(t.id)}" aria-pressed="${on}"${got ? '' : ' disabled'}>
+                <canvas aria-hidden="true" data-trail-preview="${esc(t.id)}"></canvas>
+                <span class="pptour-rname">${esc(t.name)}</span>
+                <span class="pptour-rstate">${on ? 'Equipped' : got ? 'Equip trail' : esc(t.how)}</span></button>`;
+        }).join('');
+        const titles = C.TITLES.map((t) => {
+            const got = C.earned('title', t.id), on = got && eqTitle === t.id;
+            return `<button type="button" class="pptour-title-chip ${got ? 'got' : 'locked'}${on ? ' selected' : ''}" data-title="${esc(t.id)}" aria-pressed="${on}"${got ? '' : ' disabled'}>
+                <b>${esc(t.name)}</b><span>${on ? 'Equipped' : got ? 'Wear title' : esc(t.how)}</span></button>`;
+        }).join('');
+        const have = C.TRAILS.concat(C.TITLES).filter((t) => C.earned(C.TRAILS.includes(t) ? 'trail' : 'title', t.id)).length;
+        const wasOpen = host.open;
+        host.innerHTML = `<summary>Ball trails and titles <span>${have} of ${C.TRAILS.length + C.TITLES.length} earned</span></summary><h3>Ball trails <button type="button" class="pptour-off" data-trail="">${eqTrail ? 'Turn off' : 'Off'}</button></h3><div class="pptour-trails">${trails}</div>
+            <h3>Titles <button type="button" class="pptour-off" data-title="">${eqTitle ? 'Remove' : 'None'}</button></h3><div class="pptour-titles">${titles}</div>`;
+        host.open = wasOpen;
+        if (wasOpen) drawTrailPreviews(host);
+        if (refocus) host.querySelector(refocus)?.focus({ preventScroll: true });
+    }
+    // After an equip: flip the selected state in place (no rebuild, so no flash and focus stays put).
+    function syncCosmetics() {
+        const C = window.PPCosmetics, host = root.querySelector('.pptour-cosmetics');
+        if (!C || !host) return;
+        const eq = { trail: C.equipped('trail'), title: C.equipped('title') };
+        host.querySelectorAll('[data-trail]:not(.pptour-off), [data-title]:not(.pptour-off)').forEach((el) => {
+            const kind = el.hasAttribute('data-trail') ? 'trail' : 'title';
+            const got = !el.disabled, on = got && eq[kind] === el.dataset[kind];
+            el.classList.toggle('selected', on);
+            el.setAttribute('aria-pressed', String(on));
+            const state = el.querySelector('.pptour-rstate') || el.querySelector('span');
+            if (state && got) state.textContent = on ? 'Equipped' : (kind === 'trail' ? 'Equip trail' : 'Wear title');
+        });
+        const offT = host.querySelector('.pptour-off[data-trail]'), offN = host.querySelector('.pptour-off[data-title]');
+        if (offT) offT.textContent = eq.trail ? 'Turn off' : 'Off';
+        if (offN) offN.textContent = eq.title ? 'Remove' : 'None';
+    }
+    // Static previews: one frame each, no animation loop; drawn when the section is open (it has no size while closed).
+    function drawTrailPreviews(host) {
+        const C = window.PPCosmetics;
+        host.querySelectorAll('canvas[data-trail-preview]').forEach((canvas) => {
+            const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+            const cw = canvas.clientWidth || 110, ch = canvas.clientHeight || 44;
+            canvas.width = Math.round(cw * dpr); canvas.height = Math.round(ch * dpr);
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            const ball = C.previewBall(cw, ch);
+            C.drawTrail(ctx, ball, ball.x, ball.y, canvas.dataset.trailPreview, 400);
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2); ctx.fill();
+        });
     }
     function drawRewards() {
         rewardRaf = 0;
@@ -551,11 +611,18 @@
                     <div class="pptour-total" aria-label="Stars earned"><b>0</b><span>/ ${MAX_STARS}</span><i aria-hidden="true">&#9733;</i></div>
                     <button type="button" class="pptour-close" aria-label="Close the Tour">&times;</button>
                 </header>
-                <div class="pptour-body"><section class="pptour-rewards" aria-label="Paddle rewards"></section><div class="pptour-grid"></div><footer class="pptour-foot"><button type="button" class="pptour-reset">Reset Tour progress</button></footer></div>
+                <div class="pptour-body"><section class="pptour-rewards" aria-label="Paddle rewards"></section><details class="pptour-cosmetics"></details><div class="pptour-grid"></div><footer class="pptour-foot"><button type="button" class="pptour-reset">Reset Tour progress</button></footer></div>
             </div>`;
         document.body.appendChild(root);
+        root.querySelector('.pptour-cosmetics').addEventListener('toggle', (e) => { if (e.target.open) drawTrailPreviews(e.target); });
         root.addEventListener('click', (e) => {
             if (e.target === root || e.target.closest('.pptour-close')) { close(); return; }
+            const cosm = e.target.closest('[data-trail], [data-title]');
+            if (cosm && !cosm.disabled && window.PPCosmetics) {
+                const kind = cosm.hasAttribute('data-trail') ? 'trail' : 'title';
+                if (window.PPCosmetics.equip(kind, cosm.dataset[kind])) syncCosmetics();
+                return;
+            }
             const reward = e.target.closest('.pptour-reward[data-design]');
             if (reward && !reward.disabled) {
                 if (equip(reward.dataset.design)) {
@@ -662,6 +729,8 @@
         root.setAttribute('aria-hidden', 'false');
         document.body.classList.add('pp-tour-open');
         startPad();
+        const cosm = root.querySelector('.pptour-cosmetics');
+        if (cosm?.open) drawTrailPreviews(cosm); // sized now that the overlay is showing
         const target = root.querySelector('.pptour-card.open .pptour-play:not(:disabled), .pptour-card.cleared .pptour-play:not(:disabled), .pptour-play:not(:disabled)')
             || root.querySelector('.pptour-close');
         // Scroll the first stage still to play into view, then focus it.
@@ -780,6 +849,7 @@
     function resetProgress() {
         data = blank();
         save();
+        window.PPCosmetics?.reload();
         updateMenuButton();
         if (root) render();
     }

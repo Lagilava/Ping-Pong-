@@ -8404,6 +8404,7 @@ class Game {
 
         // A Tour stage reports its result so stars, unlocks and the card match.
         this._tourResult = null;
+        this._cosmeticsNew = null; // worked out when the card is built, so only shown rewards are marked as seen
         const tour = progressionEnabled ? this.getTourContext() : null;
         if (tour && window.PPTour) {
             this._tourResult = window.PPTour.recordResult({
@@ -8529,7 +8530,9 @@ class Game {
         if (tourCard && Array.isArray(tourCard.lines)) {
             const at = tourCard.lines.findIndex((l) => /^XP earned/.test(l));
             const extra = (this._recordsBroken || []).map((r) => `New record: ${r.label} ${r.value}`);
-            tourCard.lines.splice(at < 0 ? tourCard.lines.length : at, 0, ...extra);
+            if (!this._cosmeticsNew) this._cosmeticsNew = (window.PPCosmetics?.check() || []).map((o) => window.PPCosmetics.labelOf(o));
+            const fresh = this._cosmeticsNew;
+            tourCard.lines.splice(at < 0 ? tourCard.lines.length : at, 0, ...extra, ...(fresh.length > 3 ? [...fresh.slice(0, 2), `${fresh.length - 2} more rewards unlocked`] : fresh));
         }
         if (tourCard) return Object.assign({ left, right: right && { ...right, label: this._tourResult.stage.rival } }, tourCard);
         return { kicker: `${modeLabel} · match over`, title, tone, left, right, lines, actions };

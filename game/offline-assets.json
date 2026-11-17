@@ -1,5 +1,5 @@
 {
- "hash": "c3df5b577133b85d",
+ "hash": "d86d91b81b36a10b",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -197,6 +197,7 @@
   "js/render/surface-textures.js",
   "js/render/tour-venues.js",
   "js/systems/achievement-icons.js",
+  "js/systems/cosmetics.js",
   "js/systems/daily.js",
   "js/systems/profile.js",
   "js/systems/progression.js",

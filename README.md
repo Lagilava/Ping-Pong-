@@ -242,6 +242,25 @@ The last stage is a survival run: Morrow's Zombie arena, ten waves and the boss.
 - Progress is saved in the browser (`pp-tour-v1`). Stage data lives in
   [`game/js/systems/tour.js`](game/js/systems/tour.js).
 
+### Daily Match, records and cosmetics
+
+- **Daily Match:** the **Daily** button on the menu (or **X** on a controller) opens one match
+  per local date, the same for every player: a mode (Classic, Gravity, Speed or Obstacle),
+  rival, skill (easier early in the week, harder at the weekend), optional twist and a bonus
+  goal, all picked from the date. The score is 1000 plus 100 per point of margin, 20 per rally
+  hit and 300 for the bonus goal. Any finished attempt keeps your streak; a Freeze (earned at
+  7 days) covers one missed day. Best attempt of each day is kept
+  ([`daily.js`](game/js/systems/daily.js), saved as `pp-daily-v1`).
+- **Records:** Settings > Profile lists your top ten longest rallies, biggest wins, Zombie
+  waves and scores, Daily scores and fastest Tour clears, with the date of each. Solo matches
+  only; online and local two-player matches are not counted ([`records.js`](game/js/systems/records.js)).
+- **Ball trails and titles:** six trails (Ember Tail, Comet Dust, Prism Ribbon, Goldleaf,
+  Graveyard Mist, Calendar Spark) and ten titles are earned from the Tour, gold stars and the
+  Daily streak. Wear them from the Tour screen. A trail replaces the standard ball trail in solo play against
+  the computer (Gravity and Speed keep their own ball look); a title shows on the profile and the
+  versus screen. Nothing that existed before is locked behind them
+  ([`cosmetics.js`](game/js/systems/cosmetics.js), saved as `pp-cosmetics-v1`).
+
 ## Power-ups and the Laser Shot
 
 Power-ups float onto the court in Classic, Gravity, Speed and Obstacle (switch

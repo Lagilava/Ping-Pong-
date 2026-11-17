@@ -512,3 +512,4 @@ body.pp-noir #pp-enhanced-hud .ai-side { filter: brightness(1.9); }
 .ppset-rec-foot { margin: 6px 0 0; }
 .ppset-rec-reset { margin: 0; padding: 4px 10px; border: 1px solid rgba(160, 200, 225, 0.3); border-radius: 8px; background: transparent; color: #9fb6c6; font: inherit; cursor: pointer; }
 .ppset-rec-reset:hover, .ppset-rec-reset:focus-visible, .ppset-rec-reset[data-armed] { color: #ffb4b4; border-color: rgba(255, 120, 120, 0.6); }
+.ppset-pf-titletag { margin: 0 0 2px; font: 700 12px/1.2 'Orbitron', system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; color: #8affd2; }

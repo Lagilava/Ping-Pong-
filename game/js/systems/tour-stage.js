@@ -110,7 +110,7 @@
                     <div class="ppstage-split">
                         <section class="ppstage-side you">
                             <div class="ppstage-portrait"><div class="ppstage-you" aria-hidden="true"><i></i></div><span class="ppstage-player-tag">PLAYER 01</span></div>
-                            <div class="ppstage-identity"><span class="ppstage-overline">CHALLENGER</span><h2>You</h2><p>${tally}</p></div>
+                            <div class="ppstage-identity"><span class="ppstage-overline">${esc((window.PPCosmetics?.titleName() || 'CHALLENGER').toUpperCase())}</span><h2>You</h2><p>${tally}</p></div>
                         </section>
                         <div class="ppstage-vs" aria-label="versus"><span>VS</span></div>
                         <section class="ppstage-side rival">

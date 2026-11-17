@@ -416,6 +416,19 @@ class Ball {
         }
     }
 
+    // The player's earned trail (Tour / Daily rewards): it replaces the standard trail, in solo play against
+    // the computer only (the ball is shared in local two-player and online). Gravity's meteor and the
+    // Speed anime ball keep their own signature look. Returns true when it drew.
+    _renderCosmeticTrail(ctx, x, y) {
+        const C = window.PPCosmetics;
+        if (!C || window.game?.isMultiplayer) return false;
+        const now = performance.now();
+        const id = C.activeTrail(now);
+        if (!id || this.trailCount < 3 || this._speed <= 200 || !areParticleEffectsEnabled()) return false;
+        C.drawTrail(ctx, this, x, y, id, now);
+        return true;
+    }
+
     render(ctx, interp) {
         if (window.SpeedAnime?.active()) {
             window.SpeedAnime.ball(ctx, this, interp);
@@ -433,7 +446,9 @@ class Ball {
         const particlesEnabled = areParticleEffectsEnabled();
 
         // Render trail only when meaningful (skip zombie mode - uses motion blur instead)
-        if (particlesEnabled && this.trailCount > 2 && this._speed > 200 && !isZombieMode) {
+        if (this._renderCosmeticTrail(ctx, x, y)) {
+            // an earned trail stands in for the standard one
+        } else if (particlesEnabled && this.trailCount > 2 && this._speed > 200 && !isZombieMode) {
             // Use simplified trail in obstacle mode to unify visuals and reduce glow
             if (window.game?.gameMode === 'obstacle') {
                 // draw the simplified single-stroke trail
