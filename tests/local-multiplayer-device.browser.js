@@ -17,6 +17,7 @@ const root = path.resolve(__dirname, '..', 'game');
    const page=await context.newPage(); const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto('http://pingpong.local/play.html?from_intro=1&nosw',{waitUntil:'domcontentloaded',timeout:90000});await page.waitForFunction(()=>window.game && window.PPDevice && window.PPOnline,null,{timeout:90000});
    assert.equal(await page.evaluate(()=>PPDevice.touch),touch,`${name} classification`);
+   await page.locator('#menuPlay').click({timeout:30000});
    await page.locator('#cardRow .card[data-mode="classic"]').click({timeout:30000});
    const modal=page.locator('#modal'); await modal.waitFor({state:'visible',timeout:10000});
    assert.equal(await page.locator('#modal [data-mp="true"]').isVisible(),!touch,`${name} local option`);
