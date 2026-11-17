@@ -1559,6 +1559,7 @@
             const right = { label: this.role === 'host' ? this.remoteName : this.localName, score: g.scores.ai };
             const lines = [];
             if (g.maxRally > 0) lines.push(`Longest rally: ${g.maxRally}`);
+            for (const r of g._recordsBroken || []) lines.push(`New record: ${r.label} ${r.value}`);
             const series = this.seriesLine();
             if (series) lines.push(series);
             return {

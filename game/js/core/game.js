@@ -8505,7 +8505,11 @@ class Game {
         const tourCard = this._tourResult && window.PPTour
             ? window.PPTour.resultCard(this._tourResult, xp > 0 ? `XP earned: +${xp}` : '')
             : null;
-        if (tourCard && Array.isArray(tourCard.lines)) for (const r of this._recordsBroken || []) tourCard.lines.push(`New record: ${r.label} ${r.value}`);
+        if (tourCard && Array.isArray(tourCard.lines)) {
+            const at = tourCard.lines.findIndex((l) => /^XP earned/.test(l));
+            const extra = (this._recordsBroken || []).map((r) => `New record: ${r.label} ${r.value}`);
+            tourCard.lines.splice(at < 0 ? tourCard.lines.length : at, 0, ...extra);
+        }
         if (tourCard) return Object.assign({ left, right: right && { ...right, label: this._tourResult.stage.rival } }, tourCard);
         return { kicker: `${modeLabel} · match over`, title, tone, left, right, lines, actions };
     }

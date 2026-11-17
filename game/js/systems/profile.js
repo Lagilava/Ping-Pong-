@@ -30,7 +30,11 @@
             Object.assign(data.legacy, stored.legacy || {});
             Object.assign(data.modes, stored.modes || {});
         }
-        MODES.forEach(([id]) => { data.modes[id] = Object.assign(blankMode(), data.modes[id]); });
+        MODES.forEach(([id]) => {
+            const m = Object.assign(blankMode(), data.modes[id]);
+            for (const k of Object.keys(m)) m[k] = Number.isFinite(Number(m[k])) ? Number(m[k]) : 0;   // repair damaged saves
+            data.modes[id] = m;
+        });
     }
 
     function save() {

@@ -26,4 +26,10 @@ const ctx2 = vm.createContext({ window: { addEventListener() {}, dispatchEvent()
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'game/js/systems/profile.js'), 'utf8'), ctx2);
 assert.equal(ctx2.window.PPProfile.getStats().modes[0].bestMargin, 0);
 assert.equal(ctx2.window.PPProfile.getStats().bestRally, 9);
+// damaged values are repaired instead of turning into NaN
+const m3 = new Map([['pp-profile-v1', JSON.stringify({ modes: { classic: { bestMargin: null, bestRally: 'x', played: '4' } } })]]);
+const ctx3 = vm.createContext({ window: { addEventListener() {}, dispatchEvent() {} }, document: {}, localStorage: { getItem: k => m3.get(k) || null, setItem() {} }, Math, Number, JSON, String, Object, Array, Date, CustomEvent: function () {}, setInterval() { return 0; }, clearInterval() {} });
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'game/js/systems/profile.js'), 'utf8'), ctx3);
+const c0 = ctx3.window.PPProfile.getStats().modes[0];
+assert.equal(c0.bestMargin, 0); assert.equal(c0.bestRally, 0); assert.equal(c0.played, 4);
 console.log('profile records ok');
