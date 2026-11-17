@@ -37,7 +37,8 @@
         }
     }
     function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (_) { /* storage blocked */ } }
-    function ensure() { if (!data) load(); return data; }
+    // Read fresh each time so two open tabs do not overwrite each other's games.
+    function ensure() { load(); return data; }
 
     function expected(mine, theirs) { return 1 / (1 + Math.pow(10, (theirs - mine) / 400)); }
 
@@ -63,7 +64,7 @@
         d.recent.push({ won: !!won, opp: theirs, before, after: d.rating, forfeit: !!opts.forfeit, at: Date.now() });
         if (d.recent.length > 20) d.recent.shift();
         save();
-        return { before, after: d.rating, delta: d.rating - before, provisional: d.games <= PROVISIONAL_GAMES };
+        return { before, after: d.rating, delta: d.rating - before, provisional: d.games < PROVISIONAL_GAMES };
     }
 
     // How far apart two players may be to be paired, widening while waiting.
@@ -74,6 +75,7 @@
 
     function get() { const d = ensure(); return { rating: d.rating, games: d.games, wins: d.wins, losses: d.losses, streak: d.streak, best: d.best, provisional: d.games < PROVISIONAL_GAMES }; }
     function reset() { data = blank(); save(); }
+    // (record() works on the fresh copy ensure() just loaded.)
 
     window.PPRating = { get, record, plausible, expected, band, reset, START, MIN_SECONDS };
 })();

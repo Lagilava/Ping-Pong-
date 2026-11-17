@@ -141,6 +141,11 @@
         if (!quickPromise) quickPromise = loadScript('js/net/quickmatch.js', () => !!window.PPQuick).catch((e) => { quickPromise = null; throw e; });
         return quickPromise;
     }
+    let ratingPromise = null;
+    function loadRating() {
+        if (!ratingPromise) ratingPromise = loadScript('js/net/online-rating.js', () => !!window.PPRating).catch((e) => { ratingPromise = null; throw e; });
+        return ratingPromise;
+    }
     let peerLibPromise = null;
     function loadPeerLib() {
         if (peerLibPromise) return peerLibPromise;
@@ -911,13 +916,15 @@
 
         // Quick match only: record the casual rating once per match. See online-rating.js
         // for why it is "casual" (the host reports the score, nobody can check it).
-        rateResult(sc) {
+        rateResult(sc, leftWon) {
             if (!this.quick || !window.PPRating || this.ratedNo === this.matchNo || !Array.isArray(sc)) return;
             this.ratedNo = this.matchNo;
             const left = this.role === 'host';
             const mine = num(left ? sc[0] : sc[1], NaN), theirs = num(left ? sc[1] : sc[0], NaN);
             const secs = (performance.now() - (this.matchStartedAt || 0)) / 1000;
-            if (this.remoteRating == null || !window.PPRating.plausible(mine, theirs, this.game?.maxScore, secs)) { this.lastRating = { unrated: true }; return; }
+            // The winner on the card and the score must agree, or the match is unrated.
+            const cardSaysIWon = (this.role === 'host') === !!leftWon;
+            if (this.remoteRating == null || cardSaysIWon !== (mine > theirs) || !window.PPRating.plausible(mine, theirs, this.game?.maxScore, secs)) { this.lastRating = { unrated: true }; return; }
             this.lastRating = window.PPRating.record(mine > theirs, this.remoteRating);
         }
 
@@ -1064,6 +1071,7 @@
             const mode = ONLINE_MODES.some((m) => m.id === msg.mode) ? msg.mode : 'classic';
             this.mode = mode;
             this.resetMatchFlags();
+            if (Array.isArray(msg.sc)) this.matchStartedAt -= 1e6;   // rejoining a match already under way: it has run long enough
             this.matchNo = Math.round(num(msg.n, this.matchNo + 1));
             this.takeSeries(msg.series);
             this.paddleDesigns = {
@@ -1544,7 +1552,7 @@
             if (this.role !== 'host') return;
             const g = this.game;
             if (leftWon) this.series.left++; else this.series.right++;
-            this.rateResult([g.scores.player, g.scores.ai]);
+            this.rateResult([g.scores.player, g.scores.ai], leftWon);
             this.send({ t: 'end', leftWon: !!leftWon, sc: [g.scores.player, g.scores.ai], series: this.series });
         }
 
@@ -1553,7 +1561,7 @@
             if (!g || g.net !== this) return;
             if (Array.isArray(msg.sc)) { g.scores.player = num(msg.sc[0]); g.scores.ai = num(msg.sc[1]); }
             this.takeSeries(msg.series);
-            this.rateResult(msg.sc);
+            this.rateResult(msg.sc, msg.leftWon);
             g.finishMatch(!!msg.leftWon);
         }
 
@@ -2027,7 +2035,7 @@
             hide.disabled = false;
             hide.onchange = () => this.saveQuickPrefs({ ...this.quickPrefs(), hideIp: hide.checked });
             this.setStatus('pponQuickStatus', '');
-            loadScript('js/net/online-rating.js', () => !!window.PPRating).then(() => {
+            loadRating().then(() => {
                 const r = window.PPRating.get();
                 const el = this.root.querySelector('#pponQuickRating');
                 if (el) el.textContent = `Your casual rating: ${r.rating}${r.games ? ` · ${r.wins} won, ${r.losses} lost` : ' · no rated games yet'}. It only pairs you with similar players; it is not a ranking.`;
@@ -2047,7 +2055,7 @@
             this.root.querySelector('#pponQuickModes').querySelectorAll('button').forEach((b) => { b.disabled = true; });
             this.root.querySelector('#pponQuickHide').disabled = true;
             try {
-                await Promise.all([loadQuick(), loadPeerLib(), loadScript('js/net/online-rating.js', () => !!window.PPRating).catch(() => {})]);   // loadPeerLib brings the MQTT client
+                await Promise.all([loadQuick(), loadPeerLib(), loadRating().catch(() => {})]);   // loadPeerLib brings the MQTT client
                 const { opts, relays } = await peerOptions(prefs.hideIp);
                 if (prefs.hideIp && !(opts.config?.iceServers || []).some((x) => [].concat(x.urls || []).some((u) => /^turns?:/.test(u)))) {
                     throw Object.assign(new Error('relay'), { friendly: 'No relay server is reachable right now, so Hide my IP cannot be used. Turn it off to play, or try again later.' });

@@ -44,5 +44,12 @@ assert.equal(R.plausible(7, 0, 7, 5), false, 'too fast to be real');
 assert.equal(R.plausible(NaN, 1, 7, 60), false);
 // bands widen with waiting
 assert.ok(R.band(0) < R.band(12000) && R.band(12000) < R.band(25000) && R.band(60000) === Infinity);
+// a second tab's games are not overwritten
+const tab2 = load(); tab2.m.set('pp-online-rating-v1', m.get('pp-online-rating-v1'));
+R.record(true, 1000); const afterOne = R.get().games;
+R.record(false, 1000); assert.equal(R.get().games, afterOne + 1);
+// provisional flag agrees between record() and get()
+const fresh = load().R; let last; for (let i = 0; i < 10; i++) last = fresh.record(true, 1000);
+assert.equal(last.provisional, false); assert.equal(fresh.get().provisional, false);
 R.reset(); assert.equal(R.get().rating, 1000);
 console.log('online rating ok');
