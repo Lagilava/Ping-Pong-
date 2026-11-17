@@ -48,7 +48,7 @@
             window.removeEventListener('keydown', onKey, true);
             const el = layer;
             closer = null;
-            if (el) { el.classList.add('leaving'); setTimeout(() => el.remove(), cls === 'versus' ? 220 : (reduce() ? 0 : 220)); if (layer === el) layer = null; }
+            if (el) { el.classList.add('leaving'); setTimeout(() => el.remove(), cls.startsWith('versus') ? 220 : (reduce() ? 0 : 220)); if (layer === el) layer = null; }
             done && done();
         };
         const go = () => { if (performance.now() - openedAt >= minMs) finish(); };
@@ -78,8 +78,10 @@
         const T = window.PPTour, Rv = window.PPRivals;
         const rival = Rv?.get(stage.rival);
         if (!rival) { done(); return; }
-        const lost = T.lossesOf(stage.id) > 0;
-        const played = T.starsOf(stage.id) > 0;
+        const daily = !!stage.daily;
+        const dayRec = daily ? window.PPDaily?.today?.() : null;
+        const lost = daily ? !!dayRec && dayRec.won === 0 : T.lossesOf(stage.id) > 0;
+        const played = daily ? !!dayRec && dayRec.won > 0 : T.starsOf(stage.id) > 0;
         const pool = lost ? rival.afterLoss : played ? rival.rematch : rival.meet;
         // Losses are the player's losses, while stars mean the player won. If
         // both exist, the save does not identify the latest result; stay neutral.
@@ -87,22 +89,28 @@
         const introPool = window.PPTourDialogue?.pool(rival.id, greeting);
         const quote = pickDialogue(rival.id, greeting, introPool?.length ? introPool : (pool && pool.length ? pool : rival.meet));
         const tier = T.TIERS[stage.tier];
-        const firstOfTier = T.STAGES.find((s) => s.tier === stage.tier)?.id === stage.id && !played && !lost;
+        const firstOfTier = !daily && T.STAGES.find((s) => s.tier === stage.tier)?.id === stage.id && !played && !lost;
         const mode = ({ classic: 'Classic', gravity: 'Gravity', speed: 'Speed', obstacle: 'Obstacle' })[stage.mode] || stage.mode;
         const goals = [`Win the match (first to ${stage.points}${stage.twist === 'winBy2' ? ', win by 2' : ''})`].concat(stage.goals.map((g) => g.text));
-        const mood = lost ? 'Rematch' : played ? 'Return match' : 'First meeting';
+        const mood = daily ? (dayRec ? 'Another attempt' : 'Today\u2019s match') : lost ? 'Rematch' : played ? 'Return match' : 'First meeting';
+        const D = window.PPDaily;
+        const streakNow = daily ? D.streak() : 0;
+        const series = daily ? `DAILY MATCH <b> / </b> ${esc(stage.date)}` : `THE TOUR <b> / </b> ${esc(tier.name)}`;
+        const round = daily ? `Streak ${streakNow} day${streakNow === 1 ? '' : 's'}` : `Stage ${stage.id} of ${T.STAGES.length}`;
+        const tally = daily ? `${streakNow} DAY STREAK` : `${T.totalStars()} / ${T.MAX_STARS} STARS`;
+        const goalHead = daily ? `<span>SCORE POINTS</span><span>+${D.SCORE.bonusGoal} BONUS GOAL</span>` : `<span>EARN STARS</span><span>\u2605 &nbsp;3 AVAILABLE</span>`;
         const html = `
             <div class="ppstage-bg"></div>
             <div class="ppstage-match">
                 <header class="ppstage-match-head">
-                    <span class="ppstage-series">THE TOUR <b> / </b> ${esc(tier.name)}</span>
-                    <span class="ppstage-round">Stage ${stage.id} of ${T.STAGES.length}</span>
+                    <span class="ppstage-series">${series}</span>
+                    <span class="ppstage-round">${round}</span>
                 </header>
                 <div class="ppstage-match-body">
                     <div class="ppstage-split">
                         <section class="ppstage-side you">
                             <div class="ppstage-portrait"><div class="ppstage-you" aria-hidden="true"><i></i></div><span class="ppstage-player-tag">PLAYER 01</span></div>
-                            <div class="ppstage-identity"><span class="ppstage-overline">CHALLENGER</span><h2>You</h2><p>${T.totalStars()} / ${T.MAX_STARS} STARS</p></div>
+                            <div class="ppstage-identity"><span class="ppstage-overline">CHALLENGER</span><h2>You</h2><p>${tally}</p></div>
                         </section>
                         <div class="ppstage-vs" aria-label="versus"><span>VS</span></div>
                         <section class="ppstage-side rival">
@@ -115,7 +123,7 @@
                         ${firstOfTier ? `<p class="ppstage-story">${esc(Rv.story(stage.tier))}</p>` : ''}
                         <blockquote class="ppstage-quote"><span>${esc(rival.name)} <i> / </i> SAYS</span>${esc(quote)}</blockquote>
                         <p class="ppstage-meta"><span>VENUE</span> ${esc(rival.home)} <b>•</b> ${esc(mode)}${stage.twist ? ' <b>•</b> ' + (esc({ winBy2: 'Win by 2', noPowerUps: 'No power-ups', powerUps: 'Power-ups on' }[stage.twist] || stage.twist)) : ''}</p>
-                        <div class="ppstage-goal-head"><span>EARN STARS</span><span>★ &nbsp;3 AVAILABLE</span></div>
+                        <div class="ppstage-goal-head">${goalHead}</div>
                         <ul class="ppstage-goals">${goals.map((g) => `<li>${esc(g)}</li>`).join('')}</ul>
                         <button type="button" class="ppstage-go"><span>Start match</span><b aria-hidden="true">→</b></button>
                     </div>
@@ -123,7 +131,7 @@
             </div>
             <div class="ppstage-timer" aria-hidden="true"><i></i></div>`;
         const ms = 8500;
-        open('versus', rival.accent, html, { autoMs: ms, minMs: 900, done });
+        open(daily ? 'versus daily' : 'versus', rival.accent, html, { autoMs: ms, minMs: 900, done });
         const bar = layer && layer.querySelector('.ppstage-timer i');
         if (bar) { bar.style.setProperty('--timer-duration', `${ms}ms`); }
     }
@@ -137,6 +145,7 @@
         const won = !!result.won;
         const resultPool = window.PPTourDialogue?.pool(rival.id, won ? 'end_loss' : 'end_win');
         const quote = pickDialogue(rival.id, won ? 'end_loss' : 'end_win', resultPool?.length ? resultPool : (won ? rival.youWin : rival.youLose));
+        const daily = !!stage.daily;
         const stars = [1, 2, 3].map((i) => `<i class="${won && i <= result.earned ? 'on' : ''}" style="--d:${0.7 + i * 0.35}s">&#9733;</i>`).join('');
         const goals = won ? stage.goals.map((g, i) =>
             `<li class="${result.goals[i] ? 'done' : ''}">${result.goals[i] ? '&#10003;' : '&#10007;'} ${esc(g.text)}</li>`).join('') : '';
@@ -145,10 +154,13 @@
             (result.opened || []).forEach((t) => extra.push(`${t.name} tier unlocked`));
             (result.newPaddles || []).forEach((d) => extra.push(`New paddle: ${d.name}`));
         }
+        if (daily) extra.push(`Daily streak: ${result.streak} day${result.streak === 1 ? '' : 's'}`);
         const title = won
-            ? (result.tourComplete ? 'Tour complete' : 'Stage cleared')
+            ? (daily ? 'Daily match won' : result.tourComplete ? 'Tour complete' : 'Stage cleared')
             : `${rival.name} wins`;
-        const sub = won
+        const sub = daily
+            ? (won ? `${rival.name} is beaten. Score ${Number(result.score).toLocaleString('en-US')}.` : `${rival.name} wins. A score is posted on a win; your streak is safe.`)
+            : won
             ? (result.tourComplete ? 'You beat the Champion. Every rival remembers your name.' : `${rival.name} is beaten.`)
             : `Stars are only earned on a win. ${rival.name} will be here when you are ready.`;
         const html = `
@@ -156,10 +168,11 @@
             <div class="ppstage-outro">
                 <div class="ppstage-face big">${Rv.portrait(rival.id)}</div>
                 <div class="ppstage-otext">
-                    <p class="ppstage-kicker">Stage ${stage.id} &middot; ${esc(rival.name)}</p>
+                    <p class="ppstage-kicker">${daily ? 'Daily Match' : `Stage ${stage.id}`} &middot; ${esc(rival.name)}</p>
                     <h2 class="ppstage-title">${esc(title)}</h2>
                     <p class="ppstage-score"><b>${scores?.player ?? 0}</b> &ndash; <b>${scores?.ai ?? 0}</b></p>
-                    ${won ? `<div class="ppstage-stars" role="img" aria-label="${result.earned} of 3 stars">${stars}</div>` : ''}
+                    ${won && !daily ? `<div class="ppstage-stars" role="img" aria-label="${result.earned} of 3 stars">${stars}</div>` : ''}
+                    ${won && daily ? `<p class="ppstage-dailyscore" aria-label="Score">${Number(result.score).toLocaleString('en-US')}</p>` : ''}
                     <blockquote class="ppstage-quote"><span>${esc(rival.name)}</span>${esc(quote)}</blockquote>
                     <p class="ppstage-sub">${esc(sub)}</p>
                     ${goals ? `<ul class="ppstage-goals">${goals}</ul>` : ''}

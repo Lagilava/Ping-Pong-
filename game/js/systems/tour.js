@@ -68,13 +68,14 @@
     const MAX_STARS = STAGES.length * 3;
 
     const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-    const byId = (id) => STAGES.find((s) => s.id === Number(id)) || null;
+    // 'daily' is today's Daily Match (daily.js builds its stage the same shape as a Tour stage).
+    const byId = (id) => (id === 'daily' ? (window.PPDaily?.stage?.() || null) : (STAGES.find((s) => s.id === Number(id)) || null));
 
     // Mode grade + the tier's look. `look.tint/shadow/highlight` multiply
     // (tint) or add to the base; sat and contrast multiply.
     function applyTierLook(base, stageId) {
         const stage = byId(stageId);
-        const look = stage && TIERS[stage.tier].look;
+        const look = stage && !stage.daily && TIERS[stage.tier].look;
         if (!look || !base) return base;
         const mul3 = (a, b) => [a[0] * b[0], a[1] * b[1], a[2] * b[2]];
         const add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -106,7 +107,7 @@
         document.getElementById('ppTourCard')?.remove();
         const ctx = game?.getTourContext?.();
         const stage = ctx ? byId(ctx.stageId) : null;
-        const spec = stage ? TIERS[stage.tier].veil : null;
+        const spec = stage && !stage.daily ? TIERS[stage.tier].veil : null;
         if (!veil) {
             veil = document.createElement('div');
             veil.id = 'ppTourVeil';
@@ -138,7 +139,7 @@
 
     // "Stage 5 / Dusk finals / vs Juno" for three seconds once the intro is over.
     function scheduleCard(game, stage) {
-        const tier = TIERS[stage.tier];
+        const tier = stage.daily ? { name: 'Daily Match', mood: MODES[stage.mode]?.name || '', accent: '#5ee7ff' } : TIERS[stage.tier];
         let waited = 0;
         cardTimer = window.setInterval(() => {
             waited += 250;
@@ -151,7 +152,7 @@
             card.className = 'pptour-title';
             card.setAttribute('aria-hidden', 'true');
             card.style.setProperty('--tier', tier.accent);
-            card.innerHTML = `<small>Tour &middot; stage ${stage.id}</small><b>vs ${esc(stage.rival)}</b><span>${esc(tier.name)} &middot; ${esc(tier.mood)}</span>`;
+            card.innerHTML = `<small>${stage.daily ? 'Daily Match' : `Tour &middot; stage ${stage.id}`}</small><b>vs ${esc(stage.rival)}</b><span>${esc(tier.name)} &middot; ${esc(tier.mood)}</span>`;
             host.appendChild(card);
             card.addEventListener('animationend', () => card.remove());
             window.setTimeout(() => card.remove(), 5000);
@@ -236,11 +237,13 @@
     function goalMet(goal, info) {
         if (goal.type === 'margin') return info.playerScore - info.aiScore >= goal.n;
         if (goal.type === 'streak') return (info.bestStreak || 0) >= goal.n;
+        if (goal.type === 'rally') return (info.rally || 0) >= goal.n;
         return false;
     }
 
     // info: { stageId, won, playerScore, aiScore, rally }
     function recordResult(info) {
+        if (info?.stageId === 'daily') return window.PPDaily?.recordResult?.(info) || null;
         const stage = byId(info?.stageId);
         if (!stage) return null;
         ensure();
@@ -282,8 +285,15 @@
 
     function launch(id) {
         const stage = byId(id);
+        if (!stage || !isPlayable(stage)) return false;
+        return startStage(stage, isOpen() ? root.querySelector(`[data-play="${stage.id}"]`) : document.getElementById('menuTourBtn'));
+    }
+
+    // Start any stage-shaped match (a Tour stage or the Daily Match). `trigger`
+    // is the element the How to play guide returns focus to.
+    function startStage(stage, trigger) {
         const g = window.game;
-        if (!stage || !g || !isPlayable(stage)) return false;
+        if (!stage || !g) return false;
         g.tourContext = {
             active: true, stageId: stage.id, mode: stage.mode, level: stage.level, points: stage.points,
             styleId: stage.style, rival: stage.rival, twist: stage.twist,
@@ -291,6 +301,7 @@
         window.PPResults?.hide();
         const go = () => {
             close(true);
+            window.PPDaily?.close?.(true);
             window.ppEnterMobilePlay?.();
             const overlay = document.getElementById('overlay');
             if (overlay) { overlay.classList.remove('visible', 'post-match'); overlay.classList.add('hidden'); }
@@ -300,7 +311,6 @@
             g.startIntro?.();
             g.startMatchMusic?.();
         };
-        const trigger = isOpen() ? root.querySelector(`[data-play="${stage.id}"]`) : document.getElementById('menuTourBtn');
         if (window.ModeTutorial?.beforeStart) window.ModeTutorial.beforeStart(stage.mode, go, trigger);
         else go();
         return true;
@@ -618,6 +628,7 @@
     function resultCard(result, baseXpLine) {
         if (!result) return null;
         const { stage } = result;
+        if (stage.daily) return window.PPDaily?.resultCard?.(result, baseXpLine) || null;
         const lines = [];
         const stars = result.won ? `${'★'.repeat(result.earned)}${'☆'.repeat(3 - result.earned)}` : '';
         if (result.won) {
@@ -658,7 +669,8 @@
         const live = { playerScore: sc.player || 0, aiScore: sc.ai || 0, rally: game.maxRally || 0, bestStreak: game.tourBestStreak || 0 };
         const rows = [`<li>First to ${stage.points}${stage.twist === 'winBy2' ? ' (win by 2)' : ''}</li>`]
             .concat(stage.goals.map((g) => `<li class="${goalMet(g, live) ? 'done' : ''}">${goalMet(g, live) ? '\u2713' : '\u25CB'} ${esc(g.text)}</li>`));
-        return `<p class="pause-tour-head">Tour \u00B7 stage ${stage.id} \u00B7 vs ${esc(stage.rival)}</p><ul>${rows.join('')}</ul>`;
+        const head = stage.daily ? 'Daily Match' : `Tour \u00B7 stage ${stage.id}`;
+        return `<p class="pause-tour-head">${head} \u00B7 vs ${esc(stage.rival)}</p><ul>${rows.join('')}</ul>`;
     }
 
     // Start the career again; the paddle rewards lock again with it.
@@ -680,7 +692,7 @@
     window.PPTour = {
         pauseSummary, resetProgress, venueFor, tierCleared, rewardOf, paddleLocked, paddleLockText, equip,
         STAGES, TIERS, MAX_STARS, byId, lockInfo, isPlayable, totalStars, starsOf,
-        recordResult, lossesOf, resultCard, applyTierLook, syncLook, launch, clear, open, close, isOpen, updateMenuButton,
+        goalMet, recordResult, lossesOf, resultCard, applyTierLook, syncLook, launch, startStage, clear, open, close, isOpen, updateMenuButton,
         reload: () => { data = null; load(); },
     };
 })();

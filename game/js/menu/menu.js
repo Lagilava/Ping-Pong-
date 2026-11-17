@@ -2507,7 +2507,7 @@
             const p = list[0];
             const btn = (i) => !!p.buttons[i]?.pressed;
             const x = p.axes[0] || 0;
-            const cur = { a: btn(0), b: btn(1), start: btn(9), y: btn(3) };
+            const cur = { a: btn(0), b: btn(1), start: btn(9), y: btn(3), x: btn(2) };
             const dir = (btn(14) || x < -0.55) ? -1 : (btn(15) || x > 0.55) ? 1 : 0;
             const state = menuNavState();
             if (state) {
@@ -2520,6 +2520,7 @@
                 if (!prev.b && cur.b && state === 'modal') closeModalToCards();
                 else if (!prev.b && cur.b && state === 'cards') document.getElementById('menuHomeBack')?.click();
                 if (!prev.y && cur.y && (state === 'cards' || state === 'home')) window.PPTour?.open();
+                if (!prev.x && cur.x && (state === 'cards' || state === 'home')) window.PPDaily?.open();
             } else if (!prev.b && cur.b && isShown('modeTutorial')) {
                 document.querySelector('#modeTutorial [data-close-tutorial]')?.click();
             } else if (!prev.b && cur.b && document.querySelector('#customiseOverlay.active')

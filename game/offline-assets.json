@@ -1,5 +1,5 @@
 {
- "hash": "speed-anime-20261116-2",
+ "hash": "1c7da7a54dec851d",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -101,6 +101,7 @@
   "css/achievements-list.css",
   "css/art-direction.css",
   "css/backgrounds.css",
+  "css/daily.css",
   "css/fonts.css",
   "css/game.css",
   "css/main-menu.css",
@@ -189,11 +190,12 @@
   "js/render/post-fx.js",
   "js/render/render-resolution.js",
   "js/render/scene-compositor.js",
-  "js/render/speed-art.js",
   "js/render/speed-anime.js",
+  "js/render/speed-art.js",
   "js/render/surface-textures.js",
   "js/render/tour-venues.js",
   "js/systems/achievement-icons.js",
+  "js/systems/daily.js",
   "js/systems/profile.js",
   "js/systems/progression.js",
   "js/systems/settings.js",
