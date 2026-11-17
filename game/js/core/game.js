@@ -2685,6 +2685,7 @@ class Game {
         this.matchEnding = false;
         this.rallyCount = 0;
         this.maxRally = 0;
+        window.PPRecords?.matchStarted(this.gameMode);
         this.tourPointStreak = 0;
         this.tourBestStreak = 0;
         this.maxScore = this.getConfiguredMaxScore();
@@ -6445,6 +6446,7 @@ class Game {
         this.matchEnding = false;
         this.rallyCount = 0;
         this.maxRally = 0;
+        window.PPRecords?.matchStarted(this.gameMode);
         this.tourPointStreak = 0;
         this.tourBestStreak = 0;
         this.maxScore = this.getConfiguredMaxScore();
@@ -7600,6 +7602,11 @@ class Game {
     }
 
     resetRally() {
+        // A rally that beats the mode's best is announced once the point is over.
+        if (this.rallyCount >= 5 && !this.isMultiplayer && !this.matchEnding && window.PPRecords) {
+            const note = window.PPRecords.rallyNote(this.rallyCount);
+            if (note) this.showNotification('Best rally yet', note, '#ffd166');
+        }
         this.rallyCount = 0;
         this.lastRallyMilestone = 0;
         this._setText(this.rallyDisplay, this.rallyCount);
@@ -8380,6 +8387,17 @@ class Game {
                 pointsAgainst: matchStats.aiScore,
                 rally: this.maxRally
             }) || [];
+        }
+        // Personal records: solo matches only (not local two-player, not online).
+        if (!this.isMultiplayer && window.PPRecords) {
+            const recTour = this.getTourContext();
+            const extra = window.PPRecords.recordMatch({
+                mode: this.gameMode, won: !!playerWon, rally: this.maxRally,
+                margin: matchStats.playerScore - matchStats.aiScore,
+                zombie: this.gameMode === 'zombie' ? { wave: Number(options.matchStats?.wavesCleared) || matchStats.playerScore, score: this.scores.player } : null,
+                tourStage: recTour && Number.isFinite(Number(recTour.stageId)) ? Number(recTour.stageId) : 0, rival: recTour?.rival,
+            }) || [];
+            this._recordsBroken = (this._recordsBroken || []).concat(extra);
         }
 
         // A Tour stage reports its result so stars, unlocks and the card match.

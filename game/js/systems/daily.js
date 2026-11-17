@@ -208,6 +208,7 @@
             attempts: prev.attempts + 1, won: prev.won + (info.won ? 1 : 0), best,
             rally: Math.max(prev.rally, info.rally || 0),
         };
+        const rec = sc.total > 0 ? window.PPRecords?.add?.('dailyScore', sc.total, { m: st.mode, n: st.rival }) : null;
         const wasDone = prev.attempts > 0;
         const streakBefore = liveStreak(data, key);
         const adv = advance(data, key);
@@ -217,7 +218,7 @@
         return {
             stage: st, won: !!info.won, earned: 0, goals: [goalHit], daily: true,
             score: sc.total, parts: sc.parts, best, newBest: sc.total > prev.best && sc.total > 0,
-            firstToday: !wasDone, streak: data.streak, streakBefore, bestStreak: data.bestStreak,
+            firstToday: !wasDone, record: !!rec?.record, streak: data.streak, streakBefore, bestStreak: data.bestStreak,
             usedFreeze: adv.usedFreeze, gotFreeze: adv.gotFreeze, freezes: data.freezes,
             opened: [], newPaddles: [],
         };
@@ -252,6 +253,7 @@
             lines.push(`${result.stage.rival} wins this one. A score is posted on a win.`);
             if (result.best > 0) lines.push(`Best today: ${fmt(result.best)}`);
         }
+        if (result.record) lines.push(`New Daily record: ${fmt(result.score)}`);
         lines.push(`Daily streak: ${result.streak} day${result.streak === 1 ? '' : 's'}${result.streak === result.bestStreak && result.streak > 1 ? ' (your best)' : ''}`);
         if (result.usedFreeze) lines.push('A streak freeze covered yesterday.');
         if (result.gotFreeze) lines.push('Seven days in a row: you earned a streak freeze.');
@@ -473,7 +475,7 @@
 
     window.PPDaily = {
         setupFor, stage, todayKey, recordResult, resultCard, scoreOf, advance, liveStreak,
-        streak, doneToday, today, open, close, isOpen, play, reset, updateMenuButton,
+        streak, bestStreak: () => ensure().bestStreak, doneToday, today, open, close, isOpen, play, reset, updateMenuButton,
         SCORE, MODES, dayNum, weekday, dateKey,
         reload: () => { data = null; load(); },
         // Tests only: replace the clock.

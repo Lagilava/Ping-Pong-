@@ -495,3 +495,20 @@ body.pp-noir #pp-enhanced-hud .ai-side { filter: brightness(1.9); }
 .ppset-pcard.locked canvas { filter: grayscale(.9) brightness(.55); }
 .ppset-pcard.locked:hover { transform: none; border-color: rgba(255, 214, 120, .45); }
 .ppset-pcard.locked .ppset-plock { color: rgba(255, 214, 120, .85); }
+
+/* Profile > Records: dated top-10 lists per category. */
+.ppset-recs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.ppset-rec { padding: 10px 12px 8px; border: 1px solid rgba(120, 220, 255, 0.18); border-radius: 12px; background: rgba(10, 18, 32, 0.7); min-width: 0; }
+.ppset-rec h4 { margin: 0 0 6px; font: 600 11px/1.3 'Share Tech Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: rgba(190, 225, 240, 0.7); }
+.ppset-rec-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ppset-rec-list li { display: grid; grid-template-columns: 20px auto minmax(0, 1fr); align-items: baseline; gap: 8px; font: 600 14px/1.25 'Rajdhani', system-ui, sans-serif; color: #e6faff; }
+.ppset-rec-list b { color: #ffd37a; font-weight: 700; white-space: nowrap; }
+.ppset-rec-rank { color: rgba(190, 225, 240, 0.5); font: 600 11px/1 'Share Tech Mono', monospace; text-align: right; }
+.ppset-rec-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: rgba(190, 225, 240, 0.6); text-align: right; }
+.ppset-rec-more summary { cursor: pointer; margin-top: 6px; font-size: 12px; color: #8fe9ff; }
+.ppset-rec-more .ppset-rec-list { margin-top: 6px; }
+.ppset-rec-empty { margin: 0; }
+.ppset-rec-big { margin: 0; font: 700 22px/1.2 'Share Tech Mono', monospace; color: #ffd37a; }
+.ppset-rec-foot { margin: 6px 0 0; }
+.ppset-rec-reset { margin: 0; padding: 4px 10px; border: 1px solid rgba(160, 200, 225, 0.3); border-radius: 8px; background: transparent; color: #9fb6c6; font: inherit; cursor: pointer; }
+.ppset-rec-reset:hover, .ppset-rec-reset:focus-visible, .ppset-rec-reset[data-armed] { color: #ffb4b4; border-color: rgba(255, 120, 120, 0.6); }

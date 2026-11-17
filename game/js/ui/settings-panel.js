@@ -231,7 +231,7 @@
                 <thead><tr><th scope="col">Mode</th><th scope="col">Played</th><th scope="col">Won</th><th scope="col">Win rate</th><th scope="col">Best rally</th><th scope="col">Biggest win</th><th scope="col">Time</th></tr></thead>
                 <tbody>${st.modes.map((m) => `<tr><th scope="row"><span class="pp-mode-thumb" data-mode-thumb="${esc(m.id)}" aria-hidden="true"></span>${esc(m.label)}</th><td>${m.played}</td><td>${m.won}</td><td>${m.played ? Math.round((m.won / m.played) * 100) + '%' : '-'}</td><td>${m.bestRally || '-'}</td><td>${m.bestMargin ? '+' + m.bestMargin : '-'}</td><td>${m.seconds ? fmtTime(m.seconds) : '-'}</td></tr>`).join('')}</tbody>
             </table>
-            <p class="ppset-help ppset-pf-note">Profile since ${esc(since)}. Matches from before profiles existed count in the totals above but not by mode. Local two-player matches are not counted. Stats are stored in this browser.</p>`;
+            <p class="ppset-help ppset-pf-note">Profile since ${esc(since)}. Matches from before profiles existed count in the totals above but not by mode. Local two-player matches are not counted. Stats are stored in this browser.</p>${window.PPRecords?.html() || ''}`;
         window.ModeArt?.thumbs(host);
     }
 
@@ -464,6 +464,14 @@
             if (e.target === root) { close(); return; }
             const tab = e.target.closest('[data-tab]');
             if (tab) { selectTab(tab.dataset.tab); return; }
+            const recReset = e.target.closest('[data-rec-reset]');
+            if (recReset) {
+                // Two taps: the first arms the button.
+                if (recReset.dataset.armed) { window.PPRecords?.reset(); renderProfile(); flashSaved(); return; }
+                recReset.dataset.armed = '1'; recReset.textContent = 'Tap again to erase records';
+                setTimeout(() => { if (recReset.isConnected) { delete recReset.dataset.armed; recReset.textContent = 'Reset records'; } }, 4000);
+                return;
+            }
             const seg = e.target.closest('.ppset-seg button');
             if (seg) { S().set(seg.dataset.key, parseVal(seg.dataset.key, seg.dataset.val)); flashSaved(); return; }
             const sw = e.target.closest('.ppset-switch[data-key]');
