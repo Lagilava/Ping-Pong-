@@ -8371,14 +8371,15 @@ class Game {
         }
 
         // Profile stats cover every match except local two-player ones.
+        this._recordsBroken = [];
         if (!(this.isMultiplayer && !this.net)) {
-            window.PPProfile?.recordMatch({
+            this._recordsBroken = window.PPProfile?.recordMatch({
                 mode: this.gameMode,
                 won: !!playerWon,
                 pointsFor: matchStats.playerScore,
                 pointsAgainst: matchStats.aiScore,
                 rally: this.maxRally
-            });
+            }) || [];
         }
 
         // A Tour stage reports its result so stars, unlocks and the card match.
@@ -8470,6 +8471,7 @@ class Game {
             right = { label: versus ? 'Right' : 'AI', score: this.scores.ai };
             if (this.maxRally > 0) lines.push(`Longest rally: ${this.maxRally}`);
         }
+        for (const r of this._recordsBroken || []) lines.push(`New record: ${r.label} ${r.value}`);
         if (xp > 0) lines.push(`XP earned: +${xp}`);
         const replay = () => {
             window.PPResults?.hide();
@@ -8503,6 +8505,7 @@ class Game {
         const tourCard = this._tourResult && window.PPTour
             ? window.PPTour.resultCard(this._tourResult, xp > 0 ? `XP earned: +${xp}` : '')
             : null;
+        if (tourCard && Array.isArray(tourCard.lines)) for (const r of this._recordsBroken || []) tourCard.lines.push(`New record: ${r.label} ${r.value}`);
         if (tourCard) return Object.assign({ left, right: right && { ...right, label: this._tourResult.stage.rival } }, tourCard);
         return { kicker: `${modeLabel} · match over`, title, tone, left, right, lines, actions };
     }

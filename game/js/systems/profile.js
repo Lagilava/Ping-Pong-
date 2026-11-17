@@ -9,7 +9,7 @@
         ['classic', 'Classic'], ['zombie', 'Zombie'], ['gravity', 'Gravity'],
         ['speed', 'Speed'], ['obstacle', 'Obstacle'], ['customise', 'Custom'],
     ];
-    const blankMode = () => ({ played: 0, won: 0, pointsFor: 0, pointsAgainst: 0, seconds: 0, bestRally: 0 });
+    const blankMode = () => ({ played: 0, won: 0, pointsFor: 0, pointsAgainst: 0, seconds: 0, bestRally: 0, bestMargin: 0 });
 
     let data = null;
     let dirty = false;
@@ -58,15 +58,24 @@
     function recordMatch(info) {
         if (!data) load();
         const m = data.modes[info.mode];
-        if (!m) return;
+        if (!m) return null;
+        const before = { rally: m.bestRally, margin: m.bestMargin };
         m.played += 1;
         if (info.won) m.won += 1;
         m.pointsFor += Math.max(0, info.pointsFor || 0);
         m.pointsAgainst += Math.max(0, info.pointsAgainst || 0);
         m.bestRally = Math.max(m.bestRally, info.rally || 0);
+        // Biggest winning margin counts in points matches only (Zombie has waves, not a score race).
+        const margin = info.won && info.mode !== 'zombie' ? Math.max(0, (info.pointsFor || 0) - (info.pointsAgainst || 0)) : 0;
+        m.bestMargin = Math.max(m.bestMargin, margin);
         const streak = window.game?.progression?.winStreak || 0;
         data.bestStreak = Math.max(data.bestStreak, streak);
         save();
+        // Records broken this match. A first-ever value is not a "new" record.
+        const broken = [];
+        if (before.rally > 0 && m.bestRally > before.rally) broken.push({ id: 'rally', label: 'Longest rally', value: `${m.bestRally} hits`, was: before.rally });
+        if (before.margin > 0 && m.bestMargin > before.margin) broken.push({ id: 'margin', label: 'Biggest win', value: `by ${m.bestMargin} points`, was: before.margin });
+        return broken;
     }
 
     function tick() {
@@ -115,6 +124,7 @@
             zombieWaves: p?.zombieWavesCleared || 0,
             achievements: ach.filter((a) => a.unlocked).length,
             achievementsTotal: ach.length,
+            bestMargin: MODES.reduce((a, [id]) => Math.max(a, data.modes[id].bestMargin), 0),
             modes: MODES.map(([id, label]) => ({ id, label, ...data.modes[id] })),
         };
     }

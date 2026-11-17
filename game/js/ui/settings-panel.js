@@ -221,14 +221,15 @@
                 ${tile('Win streak', st.winStreak, `Best ${st.bestStreak}`)}
                 ${tile('Points scored', st.pointsFor, `${st.pointsAgainst} conceded`)}
                 ${tile('Longest rally', st.bestRally ? `${st.bestRally} hits` : 'None yet')}
+                ${tile('Biggest win', st.bestMargin ? `by ${st.bestMargin}` : 'None yet')}
                 ${tile('Time played', fmtTime(st.seconds))}
                 ${tile('Achievements', `${st.achievements} / ${st.achievementsTotal}`)}
                 ${tile('Zombie best score', st.zombieBest || 'None yet', st.zombieWaves ? `${st.zombieWaves} waves cleared` : '')}
             </div>
             <div class="ppset-label ppset-pf-title">By mode</div>
             <table class="ppset-modes-table">
-                <thead><tr><th scope="col">Mode</th><th scope="col">Played</th><th scope="col">Won</th><th scope="col">Win rate</th><th scope="col">Time</th></tr></thead>
-                <tbody>${st.modes.map((m) => `<tr><th scope="row"><span class="pp-mode-thumb" data-mode-thumb="${esc(m.id)}" aria-hidden="true"></span>${esc(m.label)}</th><td>${m.played}</td><td>${m.won}</td><td>${m.played ? Math.round((m.won / m.played) * 100) + '%' : '-'}</td><td>${m.seconds ? fmtTime(m.seconds) : '-'}</td></tr>`).join('')}</tbody>
+                <thead><tr><th scope="col">Mode</th><th scope="col">Played</th><th scope="col">Won</th><th scope="col">Win rate</th><th scope="col">Best rally</th><th scope="col">Biggest win</th><th scope="col">Time</th></tr></thead>
+                <tbody>${st.modes.map((m) => `<tr><th scope="row"><span class="pp-mode-thumb" data-mode-thumb="${esc(m.id)}" aria-hidden="true"></span>${esc(m.label)}</th><td>${m.played}</td><td>${m.won}</td><td>${m.played ? Math.round((m.won / m.played) * 100) + '%' : '-'}</td><td>${m.bestRally || '-'}</td><td>${m.bestMargin ? '+' + m.bestMargin : '-'}</td><td>${m.seconds ? fmtTime(m.seconds) : '-'}</td></tr>`).join('')}</tbody>
             </table>
             <p class="ppset-help ppset-pf-note">Profile since ${esc(since)}. Matches from before profiles existed count in the totals above but not by mode. Local two-player matches are not counted. Stats are stored in this browser.</p>`;
         window.ModeArt?.thumbs(host);
