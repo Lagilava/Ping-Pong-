@@ -10,7 +10,9 @@ const bytes = (o) => new TextEncoder().encode(typeof o === 'string' ? o : JSON.s
 const ok = { v: 1, p: 3, mode: 'classic', id: 'abcdefghij', code: 'ABCDEFGH' };
 
 // parse
-assert.deepEqual({ ...Q.parseAdvert(bytes(ok), 'classic', 3) }, { id: 'abcdefghij', code: 'ABCDEFGH' });
+assert.deepEqual({ ...Q.parseAdvert(bytes(ok), 'classic', 3) }, { id: 'abcdefghij', code: 'ABCDEFGH', r: 1000 });
+assert.equal(Q.parseAdvert(bytes({ ...ok, r: 99999 }), 'classic', 3).r, 3000);
+assert.equal(Q.parseAdvert(bytes({ ...ok, r: 'x' }), 'classic', 3).r, 1000);
 for (const bad of [{ ...ok, v: 2 }, { ...ok, p: 2 }, { ...ok, mode: 'speed' }, { ...ok, id: 'ABC' }, { ...ok, id: 5 }, { ...ok, code: 'abcdefgh' }, { ...ok, code: 'ABCDEFG' }, { ...ok, code: 'ABCDEFGI' }, { ...ok, code: 'ABCDEFGO' }, null, 'nope', '{bad']) {
     assert.equal(Q.parseAdvert(bytes(bad), 'classic', 3), null, JSON.stringify(bad));
 }
@@ -26,6 +28,11 @@ assert.equal(Q.pickRoom(seen, 'mmmmmmmmmm', bad, T + Q.ADVERT_TTL_MS + 1), null,
 bad.set('BBBBBBBB', T + 5000);
 assert.equal(Q.pickRoom(seen, 'mmmmmmmmmm', bad, T + 1000).id, 'cccccccccc', 'a room that failed is skipped');
 assert.equal(Q.pickRoom(seen, 'mmmmmmmmmm', bad, T + 6000).id, 'bbbbbbbbbb', '... for a while only');
+// rating bands: far-away ratings are skipped until the band widens
+const rs = new Map([['bbbbbbbbbb', { code: 'BBBBBBBB', at: T, r: 1600 }], ['cccccccccc', { code: 'CCCCCCCC', at: T, r: 1050 }]]);
+assert.equal(Q.pickRoom(rs, 'mmmmmmmmmm', new Map(), T, (r) => Math.abs(r - 1000) <= 200).id, 'cccccccccc', 'in-band room beats a lower id out of band');
+assert.equal(Q.pickRoom(new Map([['bbbbbbbbbb', rs.get('bbbbbbbbbb')]]), 'mmmmmmmmmm', new Map(), T, (r) => Math.abs(r - 1000) <= 200), null);
+assert.equal(Q.pickRoom(new Map([['bbbbbbbbbb', rs.get('bbbbbbbbbb')]]), 'mmmmmmmmmm', new Map(), T, () => true).id, 'bbbbbbbbbb');
 // two seekers never both join each other
 const a = 'aaaaaaaaaa', b = 'bbbbbbbbbb';
 const sa = new Map([[b, { code: 'BBBBBBBB', at: T }]]), sb = new Map([[a, { code: 'AAAAAAAA', at: T }]]);

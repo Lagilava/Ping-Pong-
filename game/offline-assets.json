@@ -1,5 +1,5 @@
 {
- "hash": "0fb3b8bd24216145",
+ "hash": "c3df5b577133b85d",
  "files": [
   "assets/fonts/audiowide-400.woff2",
   "assets/fonts/barlow-condensed-400.woff2",
@@ -170,6 +170,7 @@
   "js/modes/zombie-pull.js",
   "js/modes/zombie-sprites.js",
   "js/net/online-config.js",
+  "js/net/online-rating.js",
   "js/net/online.js",
   "js/net/quickmatch.js",
   "js/net/signal-relays.js",

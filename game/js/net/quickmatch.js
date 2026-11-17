@@ -47,11 +47,13 @@
 
     // Pure decision logic, kept apart from the sockets so tests can drive it.
     // `seen` maps seeker id -> { code, at }.
-    function pickRoom(seen, myId, bad, at) {
+    // `fit(rating)` (optional) says whether that rating is close enough to pair with.
+    function pickRoom(seen, myId, bad, at, fit) {
         let best = null;
         for (const [id, a] of seen) {
             if (id >= myId || at - a.at > ADVERT_TTL_MS) continue;
             if ((bad.get(a.code) || 0) > at) continue;
+            if (fit && !fit(a.r)) continue;
             if (!best || id < best.id) best = { id, code: a.code };
         }
         return best;
@@ -62,7 +64,9 @@
         try { m = JSON.parse(dec.decode(bytes)); } catch (_) { return null; }
         if (!m || typeof m !== 'object' || m.v !== VERSION || m.p !== protocol || m.mode !== mode) return null;
         if (typeof m.id !== 'string' || !ID_RE.test(m.id) || typeof m.code !== 'string' || !CODE_RE.test(m.code)) return null;
-        return { id: m.id, code: m.code };
+        // The rating is a hint for pairing similar players; untrusted, so clamped.
+        const r = Number.isFinite(m.r) ? Math.min(3000, Math.max(100, Math.round(m.r))) : 1000;
+        return { id: m.id, code: m.code, r };
     }
 
     class Seeker {
@@ -103,7 +107,7 @@
             if (++this.window.n > MAX_PER_SECOND) return;
             const a = parseAdvert(bytes, this.mode, this.hooks.protocol);
             if (!a || a.id === this.id) return;
-            this.seen.set(a.id, { code: a.code, at: t });
+            this.seen.set(a.id, { code: a.code, at: t, r: a.r });
             if (this.seen.size > MAX_SEEN) {
                 let oldest = null;
                 for (const [id, v] of this.seen) if (!oldest || v.at < oldest.at) oldest = { id, at: v.at };
@@ -116,7 +120,7 @@
             if (!this.running) return;
             const code = this.hooks.code();
             if (code && !this.joining) {
-                const bytes = enc.encode(JSON.stringify({ v: VERSION, p: this.hooks.protocol, mode: this.mode, id: this.id, code }));
+                const bytes = enc.encode(JSON.stringify({ v: VERSION, p: this.hooks.protocol, mode: this.mode, id: this.id, code, r: this.hooks.rating ? this.hooks.rating() : 1000 }));
                 for (const r of this.relays) if (r.ready) r.publish(this.topic, bytes);
             }
             this.evaluate();
@@ -142,7 +146,9 @@
         evaluate() {
             if (!this.running) return;
             if (!this.joining) {
-                const pick = pickRoom(this.seen, this.id, this.bad, now());
+                const mine = this.hooks.rating ? this.hooks.rating() : 1000;
+                const width = this.hooks.band ? this.hooks.band(now() - this.startedAt) : Infinity;
+                const pick = pickRoom(this.seen, this.id, this.bad, now(), (r) => Math.abs((r == null ? 1000 : r) - mine) <= width);
                 if (pick) {
                     this.joining = true;
                     this.seen.delete(pick.id);

@@ -661,6 +661,7 @@
                 t: 'hello', v: PROTOCOL, name: this.localName, token: this.token,
                 paddles: window.PPSettings?.get('paddles') || null,
                 mode: this.mode, series: this.series, pts: this.pointsToWin(),
+                rt: this.quick && window.PPRating ? window.PPRating.get().rating : undefined,
                 state: { inMatch: live, ending: live && !!g.matchEnding, n: this.matchNo },
             };
         }
@@ -701,6 +702,7 @@
             this.loss = 0;
             this.remoteHidden = false;
             this.remoteName = cleanName(hello.name, this.role === 'host' ? 'Guest' : 'Host');
+            this.remoteRating = this.quick && Number.isFinite(Number(hello.rt)) ? Number(hello.rt) : null;
             this.remotePaddles = hello.paddles && typeof hello.paddles === 'object' ? hello.paddles : null;
             if (this.role === 'host') this.partnerToken = String(hello.token || '');
             else {
@@ -907,8 +909,30 @@
             this.close(false);
         }
 
+        // Quick match only: record the casual rating once per match. See online-rating.js
+        // for why it is "casual" (the host reports the score, nobody can check it).
+        rateResult(sc) {
+            if (!this.quick || !window.PPRating || this.ratedNo === this.matchNo || !Array.isArray(sc)) return;
+            this.ratedNo = this.matchNo;
+            const left = this.role === 'host';
+            const mine = num(left ? sc[0] : sc[1], NaN), theirs = num(left ? sc[1] : sc[0], NaN);
+            const secs = (performance.now() - (this.matchStartedAt || 0)) / 1000;
+            if (this.remoteRating == null || !window.PPRating.plausible(mine, theirs, this.game?.maxScore, secs)) { this.lastRating = { unrated: true }; return; }
+            this.lastRating = window.PPRating.record(mine > theirs, this.remoteRating);
+        }
+
+        // Leaving a Quick match in progress is a loss; the player left behind gets the win.
+        rateForfeit(iWon) {
+            if (!this.quick || !window.PPRating || !this.inMatch || this.ratedNo === this.matchNo || this.game?.matchEnding) return;
+            this.ratedNo = this.matchNo;
+            if (this.remoteRating == null) return;
+            if (iWon && (performance.now() - (this.matchStartedAt || 0)) / 1000 < window.PPRating.MIN_SECONDS) return;
+            this.lastRating = window.PPRating.record(!!iWon, this.remoteRating, { forfeit: true });
+        }
+
         leave() {
             if (this.closed) return;
+            this.rateForfeit(false);
             this.send({ t: 'bye' });
             clearRejoin();
             this.close(true);
@@ -952,6 +976,7 @@
                 case 'pong': return this.onPong(msg);
                 case 'hidden': this.remoteHidden = !!msg.on; return;
                 case 'bye': {
+                    this.rateForfeit(true);
                     const name = this.remoteName;
                     if (this.role === 'host') return this.dropPartner(`${name} left the room.`);
                     const inMatch = this.inGame();
@@ -1070,6 +1095,8 @@
 
         resetMatchFlags() {
             this.inMatch = true;
+            this.matchStartedAt = performance.now();
+            this.lastRating = null;
             this.remoteReady = false;
             this.sentReady = false;
             this.gotSnapshot = false;
@@ -1517,6 +1544,7 @@
             if (this.role !== 'host') return;
             const g = this.game;
             if (leftWon) this.series.left++; else this.series.right++;
+            this.rateResult([g.scores.player, g.scores.ai]);
             this.send({ t: 'end', leftWon: !!leftWon, sc: [g.scores.player, g.scores.ai], series: this.series });
         }
 
@@ -1525,6 +1553,7 @@
             if (!g || g.net !== this) return;
             if (Array.isArray(msg.sc)) { g.scores.player = num(msg.sc[0]); g.scores.ai = num(msg.sc[1]); }
             this.takeSeries(msg.series);
+            this.rateResult(msg.sc);
             g.finishMatch(!!msg.leftWon);
         }
 
@@ -1573,6 +1602,9 @@
             const lines = [];
             if (g.maxRally > 0) lines.push(`Longest rally: ${g.maxRally}`);
             for (const r of g._recordsBroken || []) lines.push(`New record: ${r.label} ${r.value}`);
+            const lr = this.quick && this.lastRating;
+            if (lr && lr.unrated) lines.push('Unrated match');
+            else if (lr) lines.push(`Casual rating ${lr.after} (${lr.delta >= 0 ? '+' : ''}${lr.delta})${lr.provisional ? ' · still settling' : ''}`);
             const series = this.seriesLine();
             if (series) lines.push(series);
             return {
@@ -1721,6 +1753,7 @@
                             <div class="ppon-modes" id="pponQuickModes" role="radiogroup" aria-label="Quick match mode"></div>
                             <label class="ppon-check"><input type="checkbox" id="pponQuickHide"><span>Hide my IP address (sends the game through a relay, a little more delay)</span></label>
                             <p class="ppon-note">You will play a stranger. Their browser connects straight to yours, so they can see your public IP address while you play, as in any online game that connects players directly. You get a random name and there is no chat.</p>
+                            <p class="ppon-note" id="pponQuickRating"></p>
                             <p class="ppon-status" id="pponQuickStatus" role="status"></p>
                             <div class="ppon-row">
                                 <button type="button" class="ppon-btn ghost" data-ppon="quick-cancel">Back</button>
@@ -1994,6 +2027,11 @@
             hide.disabled = false;
             hide.onchange = () => this.saveQuickPrefs({ ...this.quickPrefs(), hideIp: hide.checked });
             this.setStatus('pponQuickStatus', '');
+            loadScript('js/net/online-rating.js', () => !!window.PPRating).then(() => {
+                const r = window.PPRating.get();
+                const el = this.root.querySelector('#pponQuickRating');
+                if (el) el.textContent = `Your casual rating: ${r.rating}${r.games ? ` · ${r.wins} won, ${r.losses} lost` : ' · no rated games yet'}. It only pairs you with similar players; it is not a ranking.`;
+            }).catch(() => {});
             this.root.querySelector('#pponQuickGo').hidden = false;
             this.root.querySelector('#pponQuickAi').hidden = true;
             this.show('quick');
@@ -2009,7 +2047,7 @@
             this.root.querySelector('#pponQuickModes').querySelectorAll('button').forEach((b) => { b.disabled = true; });
             this.root.querySelector('#pponQuickHide').disabled = true;
             try {
-                await Promise.all([loadQuick(), loadPeerLib()]);   // loadPeerLib brings the MQTT client
+                await Promise.all([loadQuick(), loadPeerLib(), loadScript('js/net/online-rating.js', () => !!window.PPRating).catch(() => {})]);   // loadPeerLib brings the MQTT client
                 const { opts, relays } = await peerOptions(prefs.hideIp);
                 if (prefs.hideIp && !(opts.config?.iceServers || []).some((x) => [].concat(x.urls || []).some((u) => /^turns?:/.test(u)))) {
                     throw Object.assign(new Error('relay'), { friendly: 'No relay server is reachable right now, so Hide my IP cannot be used. Turn it off to play, or try again later.' });
@@ -2018,6 +2056,8 @@
                 q.seeker = new window.PPQuick.Seeker(prefs.mode, {
                     relays, protocol: PROTOCOL,
                     code: () => (session && session.quick && session.role === 'host' && session.roomOpen && !session.connected && !session.closed ? session.code : ''),
+                    rating: () => window.PPRating?.get().rating || 1000,
+                    band: (ms) => window.PPRating?.band(ms) ?? Infinity,
                     join: (code) => this.quickJoin(code),
                     status: (info) => this.quickStatus(info),
                 });
