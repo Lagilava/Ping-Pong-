@@ -288,6 +288,7 @@
             this.loss = 0;                  // share of fast messages lost lately, 0..1
             this.lastHeard = 0;
             this.timers = [];
+            if (ui) ui.lastReport = '';
             this.rep = { t0: performance.now(), at: new Date().toISOString(), log: [], ice: null };   // diagnostics for "Copy online report"
             this.series = { left: 0, right: 0 };   // wins this session, by side
             this.matchNo = 0;
@@ -313,8 +314,10 @@
         // Diagnostics only: kept in memory, copied by the player, never sent anywhere.
         note(text) {
             const log = this.rep.log;
-            if (log.length >= 80) log.splice(1, 1);
-            log.push([Math.round(performance.now() - this.rep.t0), String(text).slice(0, 160)]);
+            if (log.length >= 80) log.splice(10, 1);   // keep the opening events
+            let line = String(text).slice(0, 160);
+            if (this.code) line = line.split(this.code).join('********').split(formatCode(this.code)).join('********');
+            log.push([Math.round(performance.now() - this.rep.t0), line]);
         }
 
         reportText() {
@@ -562,7 +565,8 @@
                 const relayed = local?.candidateType === 'relay' || remote?.candidateType === 'relay';
                 this.route = relayed ? 'relay' : 'direct';
                 this.rep.ice = { local: local?.candidateType || '?', remote: remote?.candidateType || '?', localProto: local?.protocol || '?', remoteProto: remote?.protocol || '?' };
-                this.note(`route ${this.route} (${this.rep.ice.local}/${this.rep.ice.remote})`);
+                const routeKey = `${this.route} (${this.rep.ice.local}/${this.rep.ice.remote})`;
+                if (routeKey !== this.rep.routeKey) { this.rep.routeKey = routeKey; this.note('route ' + routeKey); }
                 this.ui.updatePing(this);
             } catch (_) { /* ignore */ }
         }
@@ -900,7 +904,7 @@
 
         close(silent) {
             if (this.closed) return;
-            this.note('closed');
+            this.note('closing (state below is from the moment of closing)');
             try { this.ui.lastReport = this.reportText(); } catch (_) { /* diagnostics only */ }
             this.closed = true;
             this.stopReconnect();
@@ -1864,7 +1868,11 @@
                     try { await s.open(code); } catch (e) { s.fail('Online play could not start: ' + e.message); }
                     return;
                 }
-                case 'copy-report': return this.copy(session && !session.closed ? session.reportText() : (this.lastReport || ''), btn, 'Report copied');
+                case 'copy-report': {
+                    let text = '';
+                    try { text = session && !session.closed ? session.reportText() : (this.lastReport || ''); } catch (_) { text = this.lastReport || ''; }
+                    return this.copy(text, btn, 'Report copied');
+                }
                 case 'copy-code': return this.copy(session?.code ? formatCode(session.code) : '', btn, 'Copied');
                 case 'copy-link': {
                     if (!session?.code) return;

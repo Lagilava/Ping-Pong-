@@ -383,9 +383,9 @@
             if (key) {
                 if (this.seen.has(key)) return;
                 this.seen.add(key);
-                if (via) this.won[via] = (this.won[via] || 0) + 1;
                 if (this.seen.size > 600) this.seen.delete(this.seen.values().next().value);
             }
+            if (via) this.won[via] = (this.won[via] || 0) + 1;
             if (m.src) this.heard.set(m.src, now());
             this.emit('message', m);
         }
