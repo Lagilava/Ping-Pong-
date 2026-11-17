@@ -87,3 +87,36 @@ local MQTT-over-WebSocket broker, and pass them in with
 `window.PP_PEER_OPTIONS = { host, port, path, secure: false, relays: ['ws://127.0.0.1:9100/mqtt'] }`.
 Point `port` at a closed port to check that matches still start with the
 PeerJS broker down.
+
+## Quick match (find a stranger)
+
+**Play online > Quick match** finds an opponent without a code. Pick Classic,
+Gravity or Speed. Nothing runs on a server of ours.
+
+- Everyone searching a mode opens a normal room and advertises its code every
+  2 s on a public MQTT topic (`ppneon/q1/<mode>`, the same free brokers as the
+  signalling backup). When two searchers see each other, the one with the
+  larger random id joins the other's room. Adverts older than 8 s are ignored,
+  a room that turned out gone or full is skipped for 30 s, and a flood is
+  capped (`js/net/quickmatch.js`).
+- Rules are fixed (first to 7), names are random handles (no chat), and the
+  match starts by itself. After 20 s with nobody else the lobby offers "Play
+  the AI instead".
+- **Privacy:** the opponent's browser sees your public IP address while you play,
+  as with any direct connection. **Hide my IP** sends the game through a TURN
+  relay instead (more delay, uses the shared relay's quota).
+- **Casual rating** (`js/net/online-rating.js`): Elo-style, stored in this
+  browser, used only to pair similar players (the band widens while waiting).
+  The host reports the score and nobody can check it, so it is not a ranking.
+  Quitting a match in progress counts as a loss; a dropped connection does not.
+- **Limits:** the topic is public and unauthenticated, so anyone can publish fake
+  adverts (the worst case is wasted seconds or a denial of matchmaking, not
+  access to a game). If the public brokers prove unreliable, the lobby can move
+  to a small Cloudflare Worker without touching the match code.
+
+## Copy online report
+
+The lobby and its error screen have **Copy online report**: route (direct or
+relay), ping and loss, which signalling service answered first, a timeline and
+errors, as plain text with the room code masked. Nothing is sent anywhere.
+Paste it when something fails on a real network.
