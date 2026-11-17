@@ -674,6 +674,8 @@
                 if (this.role === 'guest') return this.fail('Your friend is on a different version of the game. Both of you reload the page and try again.');
                 return reject('version');
             }
+            // Quick match: the room must be the mode we searched for.
+            if (this.role === 'guest' && this.quick && this.quickMode && msg.mode !== this.quickMode) return this.fail('That room is playing a different mode.');
             // Host: once someone is in, only that same player may come back.
             if (this.role === 'host' && this.hadPartner && !(msg.token && msg.token === this.partnerToken)) { this.noteStray(); return reject('full'); }
             this.adopt(conn, msg);
@@ -1989,6 +1991,7 @@
             };
             const hide = this.root.querySelector('#pponQuickHide');
             hide.checked = p.hideIp;
+            hide.disabled = false;
             hide.onchange = () => this.saveQuickPrefs({ ...this.quickPrefs(), hideIp: hide.checked });
             this.setStatus('pponQuickStatus', '');
             this.root.querySelector('#pponQuickGo').hidden = false;
@@ -2007,7 +2010,10 @@
             this.root.querySelector('#pponQuickHide').disabled = true;
             try {
                 await Promise.all([loadQuick(), loadPeerLib()]);   // loadPeerLib brings the MQTT client
-                const { relays } = await peerOptions(prefs.hideIp);
+                const { opts, relays } = await peerOptions(prefs.hideIp);
+                if (prefs.hideIp && !(opts.config?.iceServers || []).some((x) => [].concat(x.urls || []).some((u) => /^turns?:/.test(u)))) {
+                    throw Object.assign(new Error('relay'), { friendly: 'No relay server is reachable right now, so Hide my IP cannot be used. Turn it off to play, or try again later.' });
+                }
                 const q = { prefs, seeker: null, startedAt: performance.now(), last: null };
                 q.seeker = new window.PPQuick.Seeker(prefs.mode, {
                     relays, protocol: PROTOCOL,
@@ -2022,7 +2028,7 @@
                 this.quickStop();
                 if (session?.quick) session.leave();
                 this.quickView();
-                this.setStatus('pponQuickStatus', 'Quick match could not start. Check your connection and try again.', 'err');
+                this.setStatus('pponQuickStatus', e.friendly || 'Quick match could not start. Check your connection and try again.', 'err');
             }
         },
 
@@ -2045,8 +2051,9 @@
             q.joining = code;
             if (session) session.leave();
             const s = new Session('guest', this, { quick: true, relayOnly: q.prefs.hideIp });
+            s.quickMode = q.prefs.mode;
             session = s;
-            await s.open(code);
+            try { await s.open(code); } catch (_) { this.quickResume(); }
         },
 
         quickStatus(info) {
@@ -2237,6 +2244,7 @@
         showError(message) {
             // Quick match: a room that vanished or filled up is not an error, just look again.
             if (this.quick && this.quick.joining && session?.quick && session.role === 'guest' && !session.hadPartner && this.quickResume(message)) return;
+            if (this.quick) this.quickStop();   // our own room failed: stop searching behind the error
             this.build();
             if (!this.isOpen()) this.open();
             this.root.querySelector('#pponError').textContent = message;
