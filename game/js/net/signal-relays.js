@@ -233,6 +233,7 @@
             this.listeners = {};
             this.running = false;
             this.seen = new Set();
+            this.won = {};                            // service -> handshake messages it delivered first (diagnostics)
             this.heard = new Map();                   // peer id -> last time a message came from it
             this.offered = new Map();                 // peer id -> when we first sent it an offer
             this.chain = Promise.resolve();
@@ -247,6 +248,7 @@
             return {
                 broker: this.brokerUp,
                 relays: this.relays.map((r) => ({ url: r.url, up: r.ready })),
+                won: { ...this.won },
             };
         }
 
@@ -271,7 +273,7 @@
                 topicFor(id).then((topic) => {
                     if (!this.running || this.id !== id) return;
                     this.topic = topic;
-                    for (const r of this.relays) r.start(topic, (bytes) => this.fromRelay(bytes), () => this.relayState());
+                    for (const r of this.relays) r.start(topic, (bytes) => this.fromRelay(bytes, r.url), () => this.relayState());
                 });
             }
             this.timers = [
@@ -362,25 +364,26 @@
                     return;
                 }
                 default:
-                    this.deliver(m);
+                    this.deliver(m, 'peerjs');
             }
         }
 
-        fromRelay(bytes) {
+        fromRelay(bytes, via) {
             const id = this.id;
             this.chain = this.chain.then(async () => {
                 const m = await open(id, bytes);
                 if (!m || !this.running || this.id !== id || m.dst !== id || typeof m.type !== 'string' || typeof m.src !== 'string') return;
                 if (m.type === 'OPEN' || m.type === 'ID-TAKEN' || m.type === 'ERROR' || m.type === 'EXPIRE' || m.type === 'HEARTBEAT') return;
-                this.deliver(m);
+                this.deliver(m, via);
             }).catch(() => {});
         }
 
-        deliver(m) {
+        deliver(m, via) {
             const key = m.payload && m.payload._pm;
             if (key) {
                 if (this.seen.has(key)) return;
                 this.seen.add(key);
+                if (via) this.won[via] = (this.won[via] || 0) + 1;
                 if (this.seen.size > 600) this.seen.delete(this.seen.values().next().value);
             }
             if (m.src) this.heard.set(m.src, now());

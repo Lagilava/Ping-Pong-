@@ -288,6 +288,7 @@
             this.loss = 0;                  // share of fast messages lost lately, 0..1
             this.lastHeard = 0;
             this.timers = [];
+            this.rep = { t0: performance.now(), at: new Date().toISOString(), log: [], ice: null };   // diagnostics for "Copy online report"
             this.series = { left: 0, right: 0 };   // wins this session, by side
             this.matchNo = 0;
             // Match state
@@ -308,6 +309,36 @@
         }
 
         get game() { return window.game; }
+
+        // Diagnostics only: kept in memory, copied by the player, never sent anywhere.
+        note(text) {
+            const log = this.rep.log;
+            if (log.length >= 80) log.splice(1, 1);
+            log.push([Math.round(performance.now() - this.rep.t0), String(text).slice(0, 160)]);
+        }
+
+        reportText() {
+            const r = this.rep, nav = navigator, con = nav.connection || {};
+            const hub = this.peer?.socket;
+            const sig = hub && typeof hub.status === 'function' ? hub.status() : null;
+            const q = this.ui.quality(this);
+            const lines = [
+                `Ping Pong online report · ${r.at}`,
+                `role ${this.role} · protocol ${PROTOCOL} · mode ${this.mode} · room ${this.code ? this.code.slice(0, 2) + '******' : '-'}`,
+                `browser ${nav.userAgent}`,
+                `network ${con.effectiveType || '?'} · downlink ${con.downlink ?? '?'} Mb/s · saveData ${!!con.saveData} · online ${nav.onLine}`,
+                `connected ${this.connected} · reconnecting ${this.reconnecting} · inMatch ${this.inMatch}`,
+                `route ${this.route || 'unknown'}${r.ice ? ` (local ${r.ice.local}/${r.ice.localProto}, remote ${r.ice.remote}/${r.ice.remoteProto})` : ''}`,
+                `quality ${q.label} · rtt ${q.ms} ms · jitter ${q.jit} ms · loss ${q.lossPct}%`,
+            ];
+            if (sig) {
+                lines.push(`signalling: peerjs broker ${sig.broker ? 'up' : 'down'}; ` + sig.relays.map((x) => `${x.url.replace(/^wss?:\/\//, '').replace(/\/mqtt$/, '')} ${x.up ? 'up' : 'down'}`).join('; '));
+                lines.push('handshake messages delivered first by: ' + (Object.keys(sig.won).length ? Object.entries(sig.won).map(([k, v]) => `${k.replace(/^wss?:\/\//, '').replace(/\/mqtt$/, '')} ${v}`).join(', ') : 'none yet'));
+            }
+            lines.push('timeline (ms since start):');
+            for (const [t, text] of r.log) lines.push(`  ${t} ${text}`);
+            return lines.join('\n');
+        }
         get oneWay() { return clamp(this.rtt / 2000, 0, 0.25); }   // seconds
 
         // How long a message stamped with the other side's clock took to get
@@ -329,6 +360,7 @@
             const [Peer, { opts, relays }] = await Promise.all([loadPeerLib(), peerOptions()]);
             if (this.closed) return;
             this.code = code;
+            this.note(`start ${this.role}`);
             this.Peer = window.PPSignal ? window.PPSignal.wrap(Peer, relays) : Peer;
             this.peerOpts = opts;
             this.openPeer();
@@ -353,6 +385,7 @@
             });
             if (this.role === 'host') {
                 peer.on('open', () => {
+                    this.note('signalling open');
                     this.codeTries = 0;
                     this.brokerTries = 0;
                     saveRejoin({ role: 'host', code: this.code });
@@ -378,7 +411,7 @@
                     this.attach(conn);
                 });
             } else {
-                peer.on('open', () => { this.brokerTries = 0; this.dial(); });
+                peer.on('open', () => { this.note('signalling open'); this.brokerTries = 0; this.dial(); });
             }
         }
 
@@ -528,6 +561,8 @@
                 const local = stats.get(pair.localCandidateId), remote = stats.get(pair.remoteCandidateId);
                 const relayed = local?.candidateType === 'relay' || remote?.candidateType === 'relay';
                 this.route = relayed ? 'relay' : 'direct';
+                this.rep.ice = { local: local?.candidateType || '?', remote: remote?.candidateType || '?', localProto: local?.protocol || '?', remoteProto: remote?.protocol || '?' };
+                this.note(`route ${this.route} (${this.rep.ice.local}/${this.rep.ice.remote})`);
                 this.ui.updatePing(this);
             } catch (_) { /* ignore */ }
         }
@@ -632,6 +667,7 @@
 
         adopt(conn, hello) {
             const rejoin = this.hadPartner;
+            this.note(rejoin ? 'partner rejoined' : 'partner connected');
             const old = this.conn;
             this.conn = conn;
             if (this.dialing === conn) this.dialing = null;
@@ -849,6 +885,7 @@
 
         fail(message) {
             if (this.closed) return;
+            this.note('ERROR ' + message);
             clearRejoin();
             this.ui.showError(message);
             this.close(false);
@@ -863,6 +900,8 @@
 
         close(silent) {
             if (this.closed) return;
+            this.note('closed');
+            try { this.ui.lastReport = this.reportText(); } catch (_) { /* diagnostics only */ }
             this.closed = true;
             this.stopReconnect();
             clearTimeout(this.connectTimer);
@@ -1680,6 +1719,7 @@
                             <p class="ppon-note" id="pponModeNote"></p>
                             <div class="ppon-row">
                                 <button type="button" class="ppon-btn ghost" data-ppon="leave">Leave room</button>
+                                <button type="button" class="ppon-btn ghost" data-ppon="copy-report" title="Copies connection details for troubleshooting. Nothing is sent anywhere.">Copy online report</button>
                                 <span class="ppon-spacer"></span>
                                 <button type="button" class="ppon-btn primary" data-ppon="start" id="pponStart">Start match</button>
                             </div>
@@ -1689,6 +1729,7 @@
                             <p class="ppon-error" id="pponError" role="alert"></p>
                             <div class="ppon-row">
                                 <button type="button" class="ppon-btn ghost" data-ppon="close">Close</button>
+                                <button type="button" class="ppon-btn ghost" data-ppon="copy-report" title="Copies connection details for troubleshooting. Nothing is sent anywhere.">Copy online report</button>
                                 <span class="ppon-spacer"></span>
                                 <button type="button" class="ppon-btn primary" data-ppon="retry">Try again</button>
                             </div>
@@ -1823,6 +1864,7 @@
                     try { await s.open(code); } catch (e) { s.fail('Online play could not start: ' + e.message); }
                     return;
                 }
+                case 'copy-report': return this.copy(session && !session.closed ? session.reportText() : (this.lastReport || ''), btn, 'Report copied');
                 case 'copy-code': return this.copy(session?.code ? formatCode(session.code) : '', btn, 'Copied');
                 case 'copy-link': {
                     if (!session?.code) return;
